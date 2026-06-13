@@ -42,18 +42,38 @@ function drawSunMoon(ctx, view, frame) {
   const t = frame.time
   const nf = nightFactor(t)
 
-  // 太陽：朝〜夕方にかけて、空を左から右へ弧を描いて運行する
+  // 太陽：朝〜夕方にかけて空を運行し、暮れ方は大きく赤くなって地平線へ沈む
   if (t < 0.84) {
     const u = t / 0.84
-    const x = (0.12 + 0.78 * u) * w
-    const y = (0.12 + (1 - Math.sin(u * Math.PI)) * 0.4) * h
-    const r = Math.min(w, h) * 0.05
+    const x = (0.14 + 0.72 * u) * w
+    // 暮れ方ほど低く（地平線=約0.42へ）
+    const y = (0.13 + (1 - Math.sin(u * Math.PI)) * 0.34) * h
+    // 夕方の“沈む大きな夕陽”度（t=0.62あたりで最大）
+    const sunset = smoothstep(0.45, 0.62, t) * (1 - smoothstep(0.62, 0.84, t) * 0.4)
+    const r = Math.min(w, h) * (0.045 + 0.05 * sunset)
     const sun = rgbToCss(p.sun)
-    softBlob(ctx, x, y, r * 3.2, sun, 0.35) // ふんわりした光暈
+
+    // 大きな暖かい光暈（夕方ほど広く濃く）
+    softBlob(ctx, x, y, r * (3.2 + 3 * sunset), sun, 0.3 + 0.25 * sunset)
     ctx.fillStyle = sun
     ctx.beginPath()
     ctx.arc(x, y, r, 0, Math.PI * 2)
     ctx.fill()
+
+    // 夕方：地平線にのびる照り返し
+    if (sunset > 0.05) {
+      const hy = h * 0.42
+      const grad = ctx.createLinearGradient(0, hy - h * 0.05, 0, hy + h * 0.04)
+      const warm = sun.replace('rgb', 'rgba')
+      grad.addColorStop(0, warm.replace(')', ',0)'))
+      grad.addColorStop(0.5, warm.replace(')', `,${0.22 * sunset})`))
+      grad.addColorStop(1, warm.replace(')', ',0)'))
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.fillStyle = grad
+      ctx.fillRect(0, hy - h * 0.05, w, h * 0.09)
+      ctx.restore()
+    }
   }
 
   // 月：夜にだけ、ゆっくり昇る

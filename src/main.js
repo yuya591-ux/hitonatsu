@@ -135,11 +135,17 @@ if (dialogueBox) {
   dialogueBox.addEventListener('pointerdown', (e) => e.stopPropagation())
 }
 
+// 採取の瞬間のきらめき
+let catchFx = []
+
 // ── つかまえる／はなしかける ──
 function doInteract() {
   if (!nearby) return
   if (nearby.type === 'bug') {
-    if (catchCreature(nearby.ref)) showToast(`${nearby.ref.name}をつかまえた`)
+    if (catchCreature(nearby.ref)) {
+      showToast(`${nearby.ref.name}をつかまえた`)
+      catchFx.push({ x: nearby.ref.x, y: nearby.ref.y, age: 0 })
+    }
   } else if (nearby.type === 'npc') {
     startDialogue(nearby.ref)
   }
@@ -356,6 +362,33 @@ function onFrame(dt, now) {
   if (sleepPrompt) sleepPrompt.classList.toggle('hidden', !sleepReady)
 
   drawPlayer(player, ctx, view) // 背景の上を歩く主人公
+
+  // 採取の瞬間のきらめき
+  for (const fx of catchFx) {
+    fx.age += dt
+    const pr = fx.age / 500
+    const cx = fx.x * view.w
+    const cy = fx.y * view.h
+    const a = Math.max(0, 1 - pr)
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.strokeStyle = `rgba(255,250,210,${a})`
+    ctx.lineWidth = Math.max(1, view.h * 0.004)
+    ctx.beginPath()
+    ctx.arc(cx, cy, view.h * 0.02 + pr * view.h * 0.05, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.fillStyle = `rgba(255,255,230,${a})`
+    for (let i = 0; i < 5; i++) {
+      const ang = (i / 5) * Math.PI * 2 + pr * 2
+      const d = view.h * 0.03 * (0.5 + pr)
+      ctx.beginPath()
+      ctx.arc(cx + Math.cos(ang) * d, cy + Math.sin(ang) * d, view.h * 0.005 * a + 1, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.restore()
+  }
+  catchFx = catchFx.filter((f) => f.age < 500)
+
   drawParticles(ctx, view, frame) // 光に舞う埃・夜の蛍
   applyPost(ctx, view, frame) // 一枚絵としての仕上げ（霞・色味・減光・紙の質感）
   drawHud(ctx, view, frame, getCurrentPhase(time))
