@@ -20,11 +20,9 @@ const STARS = Array.from({ length: 70 }, (_, i) => ({
 }))
 
 // 「どれくらい夜か」を 0..1 で返す（星・月の出方に使う）。
+// 一日は朝(t=0)から始まるので、夜は終盤(0.82〜1.0)だけ。t=0は朝＝夜ではない。
 function nightFactor(t) {
-  // 夕方の後半(0.80)から夜にかけて立ち上がり、翌朝の手前(0.04)で消える
-  if (t >= 0.8) return smoothstep(0.8, 0.9, t)
-  if (t <= 0.05) return 1 - smoothstep(0.0, 0.05, t)
-  return 0
+  return t >= 0.82 ? smoothstep(0.82, 0.92, t) : 0
 }
 
 // やわらかい光の円（ぼかし）を1つ描く

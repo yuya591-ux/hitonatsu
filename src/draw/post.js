@@ -23,18 +23,41 @@ export function applyHaze(ctx, view, frame) {
   ctx.restore()
 }
 
-// 時間帯に応じた色味を全体に薄くかける（夕は暖色、夜は寒色に寄せる）
+// 時間帯に応じた色味を全体に薄くかける。
+// これは置いた水彩画像の上にも乗るので、静止画でも一日の移ろいを感じられる。
 export function applyColorGrade(ctx, view, frame) {
   const { w, h } = view
   const t = frame.time
   ctx.save()
-  // 夕方の黄金色をやわらかく足す
-  if (t > 0.55 && t < 0.85) {
+
+  // 夕方：黄金色をやわらかく足す（最も色が乗る時間）
+  if (t > 0.5 && t < 0.85) {
+    const k = Math.sin(Math.min(Math.max((t - 0.5) / 0.35, 0), 1) * Math.PI)
     ctx.globalCompositeOperation = 'soft-light'
-    ctx.globalAlpha = 0.35
+    ctx.globalAlpha = 0.4 * k
     ctx.fillStyle = rgbToCss(frame.palette.sun)
     ctx.fillRect(0, 0, w, h)
+    ctx.globalAlpha = 1
   }
+
+  // 夜：藍をかぶせて沈ませる（静止画も夜らしく）。夜は終盤だけ＝t=0は朝。
+  const night = t >= 0.82 ? Math.min((t - 0.82) / 0.1, 1) : 0
+  if (night > 0) {
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.globalAlpha = 0.32 * night
+    ctx.fillStyle = '#3a4a72'
+    ctx.fillRect(0, 0, w, h)
+    ctx.globalAlpha = 1
+  }
+
+  // 朝：ごく淡い暖かみ
+  if (t < 0.18) {
+    ctx.globalCompositeOperation = 'soft-light'
+    ctx.globalAlpha = 0.16
+    ctx.fillStyle = '#ffe9c4'
+    ctx.fillRect(0, 0, w, h)
+  }
+
   ctx.restore()
 }
 

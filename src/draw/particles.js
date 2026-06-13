@@ -20,10 +20,9 @@ const FLIES = Array.from({ length: 16 }, (_, i) => ({
   seed: (i * 131) % 1000,
 }))
 
+// 一日は朝(t=0)から始まる。夜は終盤(0.82〜1.0)だけ。t=0は完全に朝＝夜ではない。
 function nightFactor(t) {
-  if (t >= 0.8) return smoothstep(0.8, 0.9, t)
-  if (t <= 0.05) return 1 - smoothstep(0.0, 0.05, t)
-  return 0
+  return t >= 0.82 ? smoothstep(0.82, 0.92, t) : 0
 }
 
 function softDot(ctx, x, y, r, css, alpha) {
