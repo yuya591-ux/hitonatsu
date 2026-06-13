@@ -5,6 +5,9 @@ import { createSceneManager } from './engine/sceneManager.js'
 import { buildScenes } from './scenes/scenes.js'
 import { getBlendedPalette, getCurrentPhase } from './data/phases.js'
 import { drawHud } from './draw/hud.js'
+import { createAudioManager } from './audio/audioManager.js'
+import { loadAudioUrls } from './data/audioAssets.js'
+import { activeSounds } from './data/soundscape.js'
 
 // ── P2: 残り4場面＋場面の行き来 ──
 // 縁側・原っぱ・神社・田んぼ道・川辺を、隣接にそって crossfade で行き来する。
@@ -30,6 +33,8 @@ const nav = {
   up: document.getElementById('nav-up'),
   down: document.getElementById('nav-down'),
 }
+const muteButton = document.getElementById('mute-button')
+const volumeInput = document.getElementById('volume')
 
 const view = { w: 0, h: 0 }
 
@@ -49,6 +54,9 @@ const clock = createClock({ startTime, speed, paused: true })
 const scenes = createSceneManager()
 for (const scene of buildScenes()) scenes.register(scene)
 if (startScene) scenes.setStart(startScene)
+
+// 環境音（素材が無ければ無音で安全に動く）
+const audio = createAudioManager(loadAudioUrls())
 
 // 場所名を控えめに表示し、移動できる方向の矢印だけ出す
 function refreshUi(scene) {
@@ -82,16 +90,35 @@ function onFrame(dt, now) {
   const frame = { time, now, palette: getBlendedPalette(time) }
   scenes.draw(ctx, view, frame)
   drawHud(ctx, view, frame, getCurrentPhase(time))
+  // いまの時間帯・場面に合う環境音へなめらかに切り替える
+  if (audio.started) {
+    audio.setActive(activeSounds(time, scenes.currentId))
+    audio.update(dt)
+  }
 }
 
 const loop = createLoop(onFrame)
 loop.start()
 
-// 「はじめる」で一日が動き出す（音はこの操作の後に立ち上げる設計＝iOS対策。音はP3で実装）
+// 音量・ミュートUI
+if (volumeInput) {
+  audio.setVolume(Number(volumeInput.value) / 100)
+  volumeInput.addEventListener('input', () => audio.setVolume(Number(volumeInput.value) / 100))
+}
+if (muteButton) {
+  muteButton.addEventListener('click', () => {
+    const muted = audio.toggleMute()
+    muteButton.textContent = muted ? '🔇' : '🔊'
+    muteButton.setAttribute('aria-label', muted ? '音を出す' : '音を消す')
+  })
+}
+
+// 「はじめる」で一日が動き出す（このユーザー操作の後に音を立ち上げる＝iOS自動再生制限への先回り）
 function beginDay() {
   if (startScreen) startScreen.classList.add('hidden')
   if (!paused) clock.start()
   refreshUi(scenes.current)
+  audio.start()
 }
 if (startButton) startButton.addEventListener('click', beginDay)
 if (autostart) beginDay()

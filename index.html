@@ -20,6 +20,12 @@
     <!-- いま居る場所の名前（場面が変わるとふわっと出る） -->
     <div id="place-label"></div>
 
+    <!-- 音量・ミュート（控えめに右上） -->
+    <div id="audio-controls">
+      <button id="mute-button" aria-label="音を消す">🔊</button>
+      <input id="volume" type="range" min="0" max="100" value="80" aria-label="音量" />
+    </div>
+
     <!-- 隣の場面へ移動する方向ボタン（行ける方向だけ表示） -->
     <button id="nav-left" class="nav nav-left hidden" aria-label="左へ">‹</button>
     <button id="nav-right" class="nav nav-right hidden" aria-label="右へ">›</button>

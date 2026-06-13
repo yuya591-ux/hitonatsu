@@ -94,6 +94,33 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── 音量・ミュート（右上に控えめ） ── */
+#audio-controls {
+  position: fixed;
+  top: 3%;
+  right: 3%;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.3em 0.6em;
+  background: rgba(255, 250, 240, 0.6);
+  border-radius: 999px;
+}
+#mute-button {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  font-size: clamp(16px, 2.6vw, 22px);
+  line-height: 1;
+  padding: 0.1em;
+}
+#volume {
+  width: clamp(60px, 12vw, 110px);
+  accent-color: #b58a5a;
+  cursor: pointer;
+}
+
 /* ── 移動の方向ボタン ── */
 .nav {
   position: fixed;
