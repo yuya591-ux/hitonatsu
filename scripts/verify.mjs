@@ -88,6 +88,8 @@ try {
     await new Promise((r) => setTimeout(r, 700))
     await page.screenshot({ path: join(outDir, 'title.png') })
     console.log('撮影: title.png')
+    const glActive = await page.evaluate(() => window.__hitonatsu?.glActive)
+    console.log(`WebGL仕上げ: ${glActive ? '有効' : '無効（Canvas2Dフォールバック）'}`)
     await page.close()
   }
 

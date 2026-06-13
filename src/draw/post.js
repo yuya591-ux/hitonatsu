@@ -210,7 +210,7 @@ export function applyPost(ctx, view, frame) {
   applyWeather(ctx, view, frame)
   applyForegroundFrame(ctx, view, frame)
   applyMorningMist(ctx, view, frame)
-  applyHeatHaze(ctx, view, frame)
+  if (!frame.gl) applyHeatHaze(ctx, view, frame) // WebGL有効時は陽炎をシェーダー側で出す
   applyHaze(ctx, view, frame)
   applyColorGrade(ctx, view, frame)
   applyVignette(ctx, view)

@@ -7,6 +7,7 @@ import { getBlendedPalette, getCurrentPhase } from './data/phases.js'
 import { smoothstep } from './util/color.js'
 import { drawHud } from './draw/hud.js'
 import { applyPost } from './draw/post.js'
+import { createGLPost } from './draw/glPost.js'
 import { drawParticles } from './draw/particles.js'
 import { createFireworks } from './draw/fireworks.js'
 import { createRain } from './draw/rain.js'
@@ -38,7 +39,21 @@ const autostart = params.get('autostart') === '1' || params.has('t') || params.h
 const startScene = params.get('scene')
 
 const canvas = document.getElementById('scene')
-const ctx = canvas.getContext('2d')
+// WebGL仕上げ層（best-of-both）。使えれば #scene は WebGL にし、絵は裏の2Dバッファに描く。
+// 使えなければ #scene を従来どおり 2D にして、Canvas2Dだけで仕上げる。
+const glPost = createGLPost(canvas)
+let buffer = null
+let ctx
+if (glPost.available) {
+  buffer = document.createElement('canvas')
+  ctx = buffer.getContext('2d')
+  console.log('WebGL仕上げ: 有効（ブルーム＋陽炎をGPUで）')
+} else {
+  ctx = canvas.getContext('2d')
+  console.log('WebGL仕上げ: 無効（Canvas2Dにフォールバック）')
+}
+// 絵日記の取り込み元（WebGL時は裏バッファ、2D時は本体）
+const captureSource = () => (glPost.available && buffer ? buffer : canvas)
 const startScreen = document.getElementById('start-screen')
 const startButton = document.getElementById('start-button')
 const placeLabel = document.getElementById('place-label')
@@ -79,8 +94,14 @@ function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
   view.w = window.innerWidth
   view.h = window.innerHeight
-  canvas.width = Math.floor(view.w * dpr)
-  canvas.height = Math.floor(view.h * dpr)
+  const pw = Math.floor(view.w * dpr)
+  const ph = Math.floor(view.h * dpr)
+  canvas.width = pw
+  canvas.height = ph
+  if (buffer) {
+    buffer.width = pw
+    buffer.height = ph
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 }
 window.addEventListener('resize', resize)
@@ -211,7 +232,7 @@ function openDiary() {
   if (diaryPicture) {
     diaryPicture.innerHTML = ''
     const img = new Image()
-    img.src = canvas.toDataURL('image/png')
+    img.src = captureSource().toDataURL('image/png')
     diaryPicture.appendChild(img)
   }
   const bugs = caughtEntries().map((e) => e.name)
@@ -522,7 +543,7 @@ function onFrame(dt, now) {
   clock.update(dt)
   scenes.update(dt)
   const time = clock.time
-  const frame = { time, now, palette: getBlendedPalette(time) }
+  const frame = { time, now, palette: getBlendedPalette(time), gl: glPost.available }
   // 日替わり天気（ゆうだちは昼前後に通り雨）
   frame.weather = calendar.weather
   frame.rain =
@@ -672,6 +693,8 @@ function onFrame(dt, now) {
   rain.draw(ctx, view, frame, frame.rain) // 夕立の雨
   applyPost(ctx, view, frame) // 一枚絵としての仕上げ（霞・色味・減光・紙の質感）
   drawHud(ctx, view, frame, getCurrentPhase(time))
+  // WebGLが使えるなら、ここまで2Dで描いた一枚をGPUで仕上げて画面へ（ブルーム＋陽炎）
+  if (glPost.available) glPost.render(buffer, frame)
   // いまの時間帯・場面に合う環境音へなめらかに切り替える
   if (audio.started) {
     audio.setActive(activeSounds(time, scenes.currentId))
@@ -705,7 +728,7 @@ const loop = createLoop(onFrame)
 loop.start()
 
 // 自己検証用の最小ハンドル（本番の挙動には影響しない）
-window.__hitonatsu = { audio, scenes, clock, player, caughtCount, doInteract, openDiary }
+window.__hitonatsu = { audio, scenes, clock, player, caughtCount, doInteract, openDiary, glActive: glPost.available }
 
 // 音量・ミュートUI
 if (volumeInput) {
