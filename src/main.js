@@ -113,6 +113,7 @@ let diaryOpen = false
 let recordOpen = false
 let sleepReady = false
 let lastMusicPhase = null
+const dayEvents = { radio: false, dinner: false } // その日の日課の合図（1回だけ）
 
 function showToast(msg) {
   if (!toast) return
@@ -374,6 +375,8 @@ function closeDiary() {
   // 翌日へ。時計を朝へ戻し、天気を引き直し、その日ぶんの記録を新しくする。
   calendar.nextDay()
   newDay()
+  dayEvents.radio = false
+  dayEvents.dinner = false
   clock.setTime(0)
   lastMusicPhase = null // 音楽を朝へ戻す
   if (!paused) clock.start()
@@ -620,6 +623,18 @@ function onFrame(dt, now) {
     audio.update(dt)
     audio.setRain(frame.rain) // 夕立の雨音
     audio.setFestival(frame.festival && time >= 0.8) // おまつりの夜は遠音の太鼓
+
+    // 日課の合図（1日1回）
+    if (!paused) {
+      if (!dayEvents.radio && time > 0.006 && time < 0.07) {
+        dayEvents.radio = true
+        showToast('ラジオ体操の じかんだ。')
+      }
+      if (!dayEvents.dinner && time > 0.69 && time < 0.74) {
+        dayEvents.dinner = true
+        showToast('「ごはんよー」と よばれた。')
+      }
+    }
     // 音楽の雰囲気も時間帯に合わせる（日記/記録中はそのまま）
     if (!diaryOpen && !recordOpen) {
       const pk = getCurrentPhase(time).key
