@@ -588,37 +588,49 @@ export function foreKawabe(ctx, view, frame) {
   const top = h * 0.56
   const bottom = h * 0.9
 
-  // 対岸の土手（草地）
+  // 対岸の土手（草地）。水際まで少し下げて、川との境に隙間が出ないように。
+  const bankTop = y + (top - y) * 0.4
   ctx.fillStyle = rgbToCss(frame.palette.groundShade)
-  ctx.fillRect(0, y + (top - y) * 0.4, w, top - (y + (top - y) * 0.4))
-  grassField(ctx, view, frame, y + (top - y) * 0.4, top, 619, 0.5)
+  ctx.fillRect(0, bankTop, w, top + h * 0.025 - bankTop)
+  grassField(ctx, view, frame, bankTop, top, 619, 0.5)
   // 対岸の木立
   drawTree(ctx, view, frame, w * 0.72, top - h * 0.0, 0.13)
   drawTree(ctx, view, frame, w * 0.88, top + h * 0.005, 0.1)
 
-  // 水面（空と対岸の色を映す）
-  const water = ctx.createLinearGradient(0, top, 0, bottom)
-  water.addColorStop(0, rgbToCss(lerpColor(frame.palette.skyMid, frame.palette.groundShade, 0.3), 0.85))
-  water.addColorStop(0.5, rgbToCss(frame.palette.skyMid, 0.7))
-  water.addColorStop(1, rgbToCss(frame.palette.skyBottom, 0.9))
-  ctx.fillStyle = water
-  ctx.fillRect(0, top, w, bottom - top)
+  // ── 川の水（青緑・うねる水際・流れる曲がったさざ波）──
+  const riverBase = lerpColor({ r: 70, g: 124, b: 142 }, frame.palette.skyMid, 0.3)
+  const riverDeep = lerpColor(riverBase, { r: 24, g: 56, b: 66 }, 0.55)
+  const waveTop = (x) => top + (0.5 + 0.5 * Math.sin((x / w) * 9)) * h * 0.02
+  const waveBot = (x) => bottom + Math.sin((x / w) * 7 + 1.5) * h * 0.012
 
-  // 照り返し（ゆっくり揺れる横の光の筋・手前ほど太く）
+  const grad = ctx.createLinearGradient(0, top, 0, bottom)
+  grad.addColorStop(0, rgbToCss(lerpColor(riverBase, frame.palette.skyMid, 0.25)))
+  grad.addColorStop(0.5, rgbToCss(riverBase))
+  grad.addColorStop(1, rgbToCss(riverDeep))
+  ctx.fillStyle = grad
+  ctx.beginPath()
+  ctx.moveTo(0, waveTop(0))
+  for (let x = 0; x <= w; x += w / 24) ctx.lineTo(x, waveTop(x))
+  for (let x = w; x >= 0; x -= w / 24) ctx.lineTo(x, waveBot(x))
+  ctx.closePath()
+  ctx.fill()
+
+  // 流れるさざ波（下流へ流れる、曲がった短い波筋）
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
-  for (let i = 0; i < 9; i++) {
-    const f = i / 8
-    const yy = top + (bottom - top) * f
-    const phase = frame.now / 1400 + i
-    ctx.strokeStyle = rgbToCss(frame.palette.light, 0.12 + f * 0.22)
-    ctx.lineWidth = Math.max(1, h * 0.0025 * (0.5 + f))
+  const rw = rng(917)
+  for (let i = 0; i < 24; i++) {
+    const f = rw()
+    const yy = top + (bottom - top) * (0.08 + f * 0.88)
+    const depth = (yy - top) / (bottom - top)
+    const drift = (frame.now / 1000) * (0.02 + depth * 0.05)
+    const baseX = (((rw() + drift) % 1.1) - 0.05) * w
+    const wlen = (0.04 + rw() * 0.07) * w * (0.6 + depth)
+    ctx.strokeStyle = rgbToCss(frame.palette.light, 0.1 + depth * 0.22)
+    ctx.lineWidth = Math.max(1, h * 0.0022 * (0.5 + depth))
     ctx.beginPath()
-    for (let x = 0; x <= w; x += w / 24) {
-      const off = Math.sin(phase + (x / w) * 8) * h * 0.005 * (0.4 + f)
-      if (x === 0) ctx.moveTo(x, yy + off)
-      else ctx.lineTo(x, yy + off)
-    }
+    ctx.moveTo(baseX - wlen / 2, yy)
+    ctx.quadraticCurveTo(baseX, yy + h * 0.006 * (0.5 + depth), baseX + wlen / 2, yy)
     ctx.stroke()
   }
   ctx.restore()
@@ -629,7 +641,15 @@ export function foreKawabe(ctx, view, frame) {
     const sx = r() * w
     const sy = top + (0.1 + r() * 0.7) * (bottom - top)
     const sr = (0.01 + r() * 0.015) * h
-    ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 120, g: 115, b: 105 }, 0.5), 0.9)
+    // 石まわりの波紋（水に当たって広がる輪）
+    const ripple = (frame.now / 1000 + i) % 2
+    ctx.strokeStyle = `rgba(235,245,245,${Math.max(0, 0.25 - ripple * 0.12)})`
+    ctx.lineWidth = Math.max(1, h * 0.0015)
+    ctx.beginPath()
+    ctx.ellipse(sx, sy + sr * 0.6, sr * (1.6 + ripple * 1.5), sr * (0.6 + ripple * 0.5), 0, 0, Math.PI * 2)
+    ctx.stroke()
+    // 石
+    ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 120, g: 115, b: 105 }, 0.5), 0.95)
     ctx.beginPath()
     ctx.ellipse(sx, sy, sr * 1.4, sr, 0, 0, Math.PI * 2)
     ctx.fill()
