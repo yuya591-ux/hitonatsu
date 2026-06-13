@@ -12,12 +12,26 @@ export function isCaught(id) {
   return caught.has(id)
 }
 
-// 採取を記録する。初めてなら true。
-export function catchCreature(c) {
+// 採取を記録する。初めてなら true。場所と日も残す（図鑑用）。
+export function catchCreature(c, place, day) {
   if (caught.has(c.id)) return false
   caught.add(c.id)
-  entries.push({ id: c.id, name: c.name, kind: c.kind })
+  entries.push({ id: c.id, name: c.name, kind: c.kind, place: place || '', day: day || 1 })
   return true
+}
+
+// 指定の種類の虫を採ったことがあるか（虫相撲の条件など）
+export function hasKind(kind) {
+  return entries.some((e) => e.kind === kind)
+}
+
+// 虫相撲の勝数
+let sumoWins = 0
+export function addSumoWin() {
+  sumoWins += 1
+}
+export function getSumoWins() {
+  return sumoWins
 }
 
 export function caughtEntries() {

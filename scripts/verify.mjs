@@ -225,6 +225,37 @@ try {
     await page.close()
   }
 
+  // 虫相撲の機能テスト：カブトムシを採って近所の子に話すと相撲が始まり、連打で決着する
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[sumo] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=harappa&t=0.3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 400))
+    await page.evaluate(async () => {
+      const H = window.__hitonatsu
+      H.player.x = 0.8
+      H.player.y = 0.66 // カブトムシの近く
+      await new Promise((r) => setTimeout(r, 150))
+      H.doInteract() // 採る
+      H.player.x = 0.55
+      H.player.y = 0.8 // 近所の子の近く
+      await new Promise((r) => setTimeout(r, 150))
+      H.doInteract() // 話す→虫相撲
+    })
+    await new Promise((r) => setTimeout(r, 200))
+    const started = await page.evaluate(() => !document.querySelector('#sumo').classList.contains('hidden'))
+    // 連打して決着させる
+    for (let i = 0; i < 80; i++) {
+      await page.click('#sumo-push').catch(() => {})
+    }
+    await new Promise((r) => setTimeout(r, 200))
+    const result = await page.evaluate(() => document.querySelector('#sumo-result').textContent)
+    console.log(`虫相撲テスト: 開始=${started} 結果=「${result}」`)
+    if (!started) errors.push('虫相撲が始まらない')
+    await page.close()
+  }
+
   // 環境音が実際に「鳴る」か（再生状態と音量の立ち上がり）
   {
     const page = await browser.newPage()

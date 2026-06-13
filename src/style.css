@@ -173,6 +173,107 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── 虫相撲 ── */
+#sumo {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 34, 50, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 21;
+}
+#sumo.hidden {
+  display: none;
+}
+.sumo-page {
+  width: min(88vw, 560px);
+  padding: 1.4em 1.6em 1.6em;
+  background: #fbf6ea;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+.sumo-page h2 {
+  margin: 0 0 0.2em;
+  font-size: clamp(20px, 4vw, 28px);
+  color: #4a4032;
+  letter-spacing: 0.12em;
+}
+.sumo-hint {
+  margin: 0 0 1em;
+  font-size: clamp(12px, 2.4vw, 16px);
+  color: #8a7a5e;
+}
+.sumo-ring {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0.6em 0 1em;
+}
+.sumo-bug {
+  font-size: clamp(28px, 7vw, 48px);
+}
+.sumo-bug.flip {
+  transform: scaleX(-1);
+}
+.sumo-bar {
+  flex: 1;
+  height: 18px;
+  background: #e3dcc8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+#sumo-fill {
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, #c08a4a, #e0b36a);
+  transition: width 0.05s linear;
+}
+#sumo-push {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.7em 2.6em;
+  font-size: clamp(18px, 4vw, 26px);
+  font-family: inherit;
+  color: #fff;
+  background: #d2784a;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(150, 90, 50, 0.4);
+  user-select: none;
+}
+#sumo-push:active {
+  transform: scale(0.96);
+}
+#sumo-push.hidden,
+#sumo-close.hidden {
+  display: none;
+}
+#sumo-result {
+  min-height: 1.4em;
+  margin: 0.8em 0 0;
+  font-size: clamp(18px, 4vw, 26px);
+  color: #4a4032;
+}
+#sumo-close {
+  margin-top: 0.6em;
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5em 2em;
+  font-size: clamp(14px, 3vw, 20px);
+  font-family: inherit;
+  color: #fdf7ec;
+  background: #7a9a5e;
+  border-radius: 999px;
+}
+#record-body small {
+  color: #8a7e6a;
+  font-size: 0.78em;
+}
+
 /* ── 夏の記録ボタン（左下に控えめ） ── */
 #record-button {
   position: fixed;

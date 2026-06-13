@@ -34,6 +34,22 @@
     <!-- 夏の記録（図鑑）を開くボタン -->
     <button id="record-button" aria-label="夏の記録">🌿 きろく</button>
 
+    <!-- 虫相撲 -->
+    <div id="sumo" class="hidden">
+      <div class="sumo-page">
+        <h2>むしずもう</h2>
+        <p class="sumo-hint">「おす！」を れんだ して 相手を おし出そう</p>
+        <div class="sumo-ring">
+          <span class="sumo-bug">🪲</span>
+          <div class="sumo-bar"><div id="sumo-fill"></div></div>
+          <span class="sumo-bug flip">🪲</span>
+        </div>
+        <button id="sumo-push">おす！</button>
+        <p id="sumo-result"></p>
+        <button id="sumo-close" class="hidden">とじる</button>
+      </div>
+    </div>
+
     <!-- 夏の記録（採った虫・会った人・歩いた場所） -->
     <div id="record" class="hidden">
       <div class="record-page">

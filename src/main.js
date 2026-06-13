@@ -20,6 +20,7 @@ import { drawNpc } from './entities/npc.js'
 import {
   isCaught, catchCreature, caughtCount,
   meetPerson, metEntries, caughtEntries, visitScene, visitedScenes, newDay,
+  hasKind, addSumoWin, getSumoWins,
 } from './engine/record.js'
 
 // ── P2: 残り4場面＋場面の行き来 ──
@@ -63,6 +64,11 @@ const recordButton = document.getElementById('record-button')
 const recordOverlay = document.getElementById('record')
 const recordBody = document.getElementById('record-body')
 const recordClose = document.getElementById('record-close')
+const sumoOverlay = document.getElementById('sumo')
+const sumoFill = document.getElementById('sumo-fill')
+const sumoPush = document.getElementById('sumo-push')
+const sumoResult = document.getElementById('sumo-result')
+const sumoClose = document.getElementById('sumo-close')
 
 const view = { w: 0, h: 0 }
 
@@ -156,14 +162,18 @@ function doInteract() {
   if (!nearby) return
   if (nearby.type === 'bug') {
     player.swing = 320 // 網を振る
-    if (player.x < nearby.x) player.facing = 1
-    else player.facing = -1
-    if (catchCreature(nearby.ref)) {
+    player.facing = player.x < nearby.x ? 1 : -1
+    if (catchCreature(nearby.ref, scenes.current.name, calendar.day)) {
       showToast(`${nearby.ref.name}をつかまえた`)
       catchFx.push({ x: nearby.x, y: nearby.y, age: 0 })
     }
   } else if (nearby.type === 'npc') {
-    startDialogue(nearby.ref)
+    // 近所の子は、カブトムシを持っていたら虫相撲に誘ってくる
+    if (nearby.ref.id === 'harappa-boy' && hasKind('beetle')) {
+      startSumo()
+    } else {
+      startDialogue(nearby.ref)
+    }
   }
   nearby = null
   if (catchPrompt) catchPrompt.classList.add('hidden')
@@ -203,19 +213,27 @@ function openRecord() {
   recordOpen = true
   clock.pause()
   if (recordBody) {
-    // 採った虫を種類ごとにまとめて数える
-    const counts = {}
-    for (const e of caughtEntries()) counts[e.name] = (counts[e.name] || 0) + 1
-    const bugLines = Object.entries(counts).map(([n, c]) => `${n} × ${c}`)
+    // 採った虫を種類ごとにまとめ、数・場所・初採取の日を出す（図鑑）
+    const byName = {}
+    for (const e of caughtEntries()) {
+      if (!byName[e.name]) byName[e.name] = { count: 0, places: new Set(), firstDay: e.day }
+      const b = byName[e.name]
+      b.count += 1
+      if (e.place) b.places.add(e.place)
+      b.firstDay = Math.min(b.firstDay, e.day)
+    }
+    const bugLines = Object.entries(byName).map(
+      ([n, d]) => `${n} ×${d.count}　<small>${[...d.places].join('・')}／${d.firstDay}にちめ〜</small>`,
+    )
     const people = metEntries().map((e) => e.name)
-    const places = visitedScenes()
+    const wins = getSumoWins()
     const section = (title, items) =>
       `<h3>${title}</h3>` +
       (items.length ? items.map((i) => `<div>${i}</div>`).join('') : '<div class="empty">まだ ありません</div>')
     recordBody.innerHTML =
-      section('つかまえた虫', bugLines) +
-      section('はなした人', people) +
-      section('あるいた場所', places)
+      section('むしずかん', bugLines) +
+      section('なかよくなった人', people) +
+      `<h3>むしずもう</h3><div>${wins ? `${wins}しょう` : 'まだ してない'}</div>`
   }
   if (recordOverlay) recordOverlay.classList.remove('hidden')
 }
@@ -229,6 +247,60 @@ if (recordButton) {
   recordButton.addEventListener('pointerdown', (e) => e.stopPropagation())
 }
 if (recordClose) recordClose.addEventListener('click', closeRecord)
+
+// ── 虫相撲（採ったカブトムシで、近所の子と押し合い）──
+let sumoActive = false
+let sumoPos = 50
+let sumoTimer = null
+let sumoOpp = 0.1
+function startSumo() {
+  sumoActive = true
+  sumoPos = 50
+  clock.pause()
+  player.target = null
+  player.dirX = 0
+  player.dirY = 0
+  sumoOpp = 0.08 + Math.random() * 0.08 + getSumoWins() * 0.01 // 相手の押し（強くなる）
+  if (sumoResult) sumoResult.textContent = ''
+  if (sumoClose) sumoClose.classList.add('hidden')
+  if (sumoPush) sumoPush.classList.remove('hidden')
+  if (sumoFill) sumoFill.style.width = '50%'
+  if (sumoOverlay) sumoOverlay.classList.remove('hidden')
+  clearInterval(sumoTimer)
+  sumoTimer = setInterval(() => {
+    if (!sumoActive) return
+    sumoPos -= sumoOpp
+    updateSumo()
+  }, 50)
+}
+function updateSumo() {
+  sumoPos = Math.max(0, Math.min(100, sumoPos))
+  if (sumoFill) sumoFill.style.width = sumoPos + '%'
+  if (sumoPos >= 100) endSumo(true)
+  else if (sumoPos <= 0) endSumo(false)
+}
+function pushSumo() {
+  if (!sumoActive) return
+  sumoPos += 5 + Math.random() * 4
+  updateSumo()
+}
+function endSumo(win) {
+  sumoActive = false
+  clearInterval(sumoTimer)
+  if (sumoPush) sumoPush.classList.add('hidden')
+  if (sumoClose) sumoClose.classList.remove('hidden')
+  if (sumoResult) sumoResult.textContent = win ? 'かった！ つよくなった。' : 'まけた… また こんど。'
+  if (win) addSumoWin()
+}
+function closeSumo() {
+  if (sumoOverlay) sumoOverlay.classList.add('hidden')
+  if (!paused) clock.start()
+}
+if (sumoPush) {
+  sumoPush.addEventListener('click', pushSumo)
+  sumoPush.addEventListener('pointerdown', (e) => e.stopPropagation())
+}
+if (sumoClose) sumoClose.addEventListener('click', closeSumo)
 
 function closeDiary() {
   diaryOpen = false
@@ -249,7 +321,8 @@ if (sleepPrompt) {
 
 window.addEventListener('keydown', (e) => {
   if (e.key !== ' ' && e.key !== 'Enter') return
-  if (diaryOpen) closeDiary()
+  if (sumoActive) pushSumo()
+  else if (diaryOpen) closeDiary()
   else if (dialogue) advanceDialogue()
   else if (sleepReady) openDiary()
   else doInteract()
@@ -284,7 +357,7 @@ scenes.onChange(refreshUi)
 // ── 操作 ──
 // 画面をタップ／クリックした場所へ歩く
 function walkTo(clientX, clientY) {
-  if (dialogue || diaryOpen || recordOpen || scenes.isMoving) return // 会話・日記・記録・移動中は歩かない
+  if (dialogue || diaryOpen || recordOpen || sumoActive || scenes.isMoving) return // 会話・日記・記録・相撲・移動中は歩かない
   const x = clientX / window.innerWidth
   const y = clientY / window.innerHeight
   player.target = {
@@ -342,8 +415,8 @@ function onFrame(dt, now) {
     calendar.weather === 'shower' && time > 0.3 && time < 0.52
       ? Math.sin(((time - 0.3) / 0.22) * Math.PI)
       : 0
-  // 場面遷移中・会話中・日記中・記録中は操作を止める
-  player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen
+  // 場面遷移中・会話中・日記中・記録中・虫相撲中は操作を止める
+  player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive
   updatePlayer(player, dt, onPlayerEdge)
 
   scenes.draw(ctx, view, frame)
