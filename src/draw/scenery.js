@@ -280,8 +280,10 @@ function grassField(ctx, view, frame, yTop, yBot, seed, density = 1) {
     for (let i = 0; i < count; i++) {
       const x = (i / count + (r() - 0.5) / count) * w
       const lean = (r() - 0.5) * len * 0.8
+      // そよ風で穂先がゆっくり揺れる（場所ごとに少しずらす）
+      const wind = Math.sin(frame.now / 900 + x * 0.012 + row) * len * 0.35
       const col = lerpColor(f > 0.5 ? dark : shade, ground, r() * 0.5)
-      grassBlade(ctx, x, yy + r() * len * 0.3, len * (0.7 + r() * 0.6), lean, col, 0.7)
+      grassBlade(ctx, x, yy + r() * len * 0.3, len * (0.7 + r() * 0.6), lean + wind, col, 0.7)
     }
   }
 }

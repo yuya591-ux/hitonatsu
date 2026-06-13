@@ -63,6 +63,42 @@ function drawBirds(ctx, view, frame, day) {
   }
 }
 
+// 夕方の赤とんぼ（ふわふわ漂う群れ・採れない雰囲気要素）
+const REDFLIES = Array.from({ length: 9 }, (_, i) => ({
+  x: ((i * 41) % 100) / 100,
+  y: 0.45 + ((i * 23) % 30) / 100,
+  seed: i * 71,
+}))
+function drawRedDragonflies(ctx, view, frame) {
+  const t = frame.time
+  const amount = t > 0.5 && t < 0.82 ? Math.sin(((t - 0.5) / 0.32) * Math.PI) : 0
+  if (amount <= 0.05) return
+  const { w, h } = view
+  const sec = frame.now / 1000
+  const s = h * 0.012
+  for (const f of REDFLIES) {
+    const x = (f.x + Math.sin(sec * 0.2 + f.seed) * 0.05) * w
+    const y = (f.y + Math.cos(sec * 0.16 + f.seed * 1.2) * 0.03) * h
+    ctx.globalAlpha = amount * 0.85
+    // 体
+    ctx.strokeStyle = '#C24A33'
+    ctx.lineWidth = s * 0.3
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(x - s, y)
+    ctx.lineTo(x + s, y)
+    ctx.stroke()
+    // 翅
+    ctx.strokeStyle = 'rgba(220,220,225,0.6)'
+    ctx.lineWidth = s * 0.18
+    ctx.beginPath()
+    ctx.moveTo(x, y - s * 0.7)
+    ctx.lineTo(x, y + s * 0.7)
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+}
+
 export function drawParticles(ctx, view, frame) {
   const { w, h } = view
   const t = frame.time
@@ -71,6 +107,7 @@ export function drawParticles(ctx, view, frame) {
 
   ctx.save()
   drawBirds(ctx, view, frame, day)
+  drawRedDragonflies(ctx, view, frame)
 
   // 昼：光に舞う埃（加算でほわっと）
   if (day > 0.05) {

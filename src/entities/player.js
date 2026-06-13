@@ -110,7 +110,11 @@ export function drawPlayer(p, ctx, view, frame) {
   const py = p.y * h // 足元
 
   const gait = p.moving ? Math.sin(p.phase * 10) : 0
-  const bob = p.moving ? Math.abs(Math.sin(p.phase * 10)) * H * 0.025 : 0
+  const now = frame ? frame.now : 0
+  // 歩行中はぴょこぴょこ、立ち止まり中はゆっくり呼吸でわずかに上下
+  const bob = p.moving
+    ? Math.abs(Math.sin(p.phase * 10)) * H * 0.025
+    : Math.sin(now / 1100) * H * 0.008
 
   // 足元の影（太陽の方向へ伸びる。朝夕は長い影）
   const sh = sunShadow(frame ? frame.time : 0.3)
