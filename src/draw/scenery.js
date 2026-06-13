@@ -5,8 +5,8 @@
 import { rgbToCss, lerpColor } from '../util/color.js'
 import { forestRidge, bloom, grassBlade, rng } from './watercolor.js'
 
-// 「僕の夏休み」的な“上から覗き込む”高い画角。地平線を上げ、地面（歩く場所）を広く見せる。
-export const HORIZON = 0.42 // 地平線の高さ（画面の上から42%）
+// より“上から覗き込む”高い画角。地平線をさらに上げ、地面（歩く場所）を広く見せる。
+export const HORIZON = 0.37 // 地平線の高さ（画面の上から37%）
 
 // 遠景：緑深い森の山を幾重にも重ね、奥ほど空色に霞ませて深い奥行きを出す（全場面で共通利用）
 export function drawFarHills(ctx, view, frame) {

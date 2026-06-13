@@ -14,8 +14,8 @@ const KINDS = {
 
 // 主人公と同じ奥行きスケール（player.BAND/depthScaleに合わせる）
 function depthScale(y) {
-  const f = Math.min(Math.max((y - 0.46) / (0.95 - 0.46), 0), 1)
-  return 0.4 + 0.95 * f * f
+  const f = Math.min(Math.max((y - 0.42) / (0.95 - 0.42), 0), 1)
+  return 0.32 + 1.12 * f * f
 }
 
 function roundRect(ctx, x, y, w, h, r) {

@@ -7,8 +7,8 @@
 import { clamp01 } from '../util/color.js'
 
 // 歩ける地面の範囲（画面割合）。横はほぼ全幅、縦は地平線〜手前。
-// 高い画角で地面が広いので、縦の歩行範囲も広くとる（奥行きが効く）。
-export const BAND = { top: 0.46, bottom: 0.95, left: 0.05, right: 0.95 }
+// 高い画角で地面が広いので、縦の歩行範囲を広くとる（奥行きが効く）。
+export const BAND = { top: 0.42, bottom: 0.95, left: 0.05, right: 0.95 }
 
 export function createPlayer() {
   return {
@@ -40,7 +40,7 @@ export function sunShadow(time) {
 // 見下ろし感を強めるため、奥と手前で大きく差をつける（遠近を効かせる）。
 function depthScale(y) {
   const f = clamp01((y - BAND.top) / (BAND.bottom - BAND.top))
-  return 0.4 + 0.95 * f * f // 手前で急に大きくなる＝俯瞰の床に立っている感じ
+  return 0.32 + 1.12 * f * f // 手前で急に大きくなる＝俯瞰の床に立っている感じ
 }
 
 // 毎フレーム更新。onEdge(dir) は端に達したとき呼ばれ、隣の場面へ移れたら true を返す。
@@ -109,12 +109,14 @@ export function drawPlayer(p, ctx, view, frame) {
   const px = p.x * w
   const py = p.y * h // 足元
 
-  // 歩調（歩きの速さ）。小さいほどゆっくり＝走りに見えない。
-  const step = p.moving ? p.phase * 5.0 : 0
+  // 走りのサイクル（速い歩調・大きく弾む）
+  const running = p.moving
+  const step = running ? p.phase * 9.0 : 0
+  const amp = running ? 0.9 : 0.06 // 手足の振りの大きさ
   const now = frame ? frame.now : 0
-  // 歩行中はわずかに上下、立ち止まり中はゆっくり呼吸
-  const bob = p.moving
-    ? Math.abs(Math.sin(step)) * H * 0.018
+  // 走行中は弾んで上下、立ち止まり中はゆっくり呼吸
+  const bob = running
+    ? Math.abs(Math.sin(step)) * H * 0.05
     : Math.sin(now / 1100) * H * 0.008
 
   // 足元の影（太陽の方向へ伸びる。朝夕は長い影）
@@ -128,6 +130,7 @@ export function drawPlayer(p, ctx, view, frame) {
   ctx.save()
   ctx.translate(px, py - bob)
   ctx.scale(p.facing, 1)
+  if (running) ctx.rotate(0.16) // 走るときは前傾
 
   const skin = '#E9BB8E'
   const skinShade = '#CE9A6E'
@@ -165,12 +168,12 @@ export function drawPlayer(p, ctx, view, frame) {
   ctx.fill()
   ctx.restore()
 
-  // ── 脚（腿＋脛の関節で左右交互に歩く。膝が曲がって人らしく） ──
+  // ── 脚（腿＋脛の関節で左右交互に。走りは大きく踏み出し膝を上げる） ──
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
   const hipY = -H * 0.33
-  drawLeg(ctx, -H * 0.055, hipY, step + Math.PI, H, skinShade) // 奥の脚（暗め）
-  drawLeg(ctx, H * 0.055, hipY, step, H, skin) // 手前の脚
+  drawLeg(ctx, -H * 0.05, hipY, step + Math.PI, H, skinShade, amp) // 奥の脚（暗め）
+  drawLeg(ctx, H * 0.05, hipY, step, H, skin, amp) // 手前の脚
 
   // ── 半ズボン ──
   ctx.fillStyle = pants
@@ -192,19 +195,18 @@ export function drawPlayer(p, ctx, view, frame) {
   roundRect(ctx, -H * 0.145, -H * 0.66, H * 0.29, H * 0.04, H * 0.02)
   ctx.fill()
 
-  // ── 腕 ── 後ろの腕は歩行で前後に振る／前の腕は網の柄を握る
+  // ── 腕 ── 走りは肘を曲げてしっかり前後に振る。前手は網の柄を握る。
   ctx.lineCap = 'round'
-  ctx.strokeStyle = skinShade
-  ctx.lineWidth = H * 0.048
-  const backHandX = -H * 0.07 - Math.sin(step) * H * 0.07
-  ctx.beginPath()
-  ctx.moveTo(-H * 0.07, -H * 0.61)
-  ctx.lineTo(backHandX, -H * 0.42)
-  ctx.stroke()
+  ctx.lineJoin = 'round'
+  const shY = -H * 0.6
+  // 奥の腕（振る）
+  drawArm(ctx, -H * 0.06, shY, step + Math.PI, H, skinShade, amp)
+  // 手前の腕（網の柄を握る・走りでも少し動く）
   ctx.strokeStyle = skin
-  ctx.lineWidth = H * 0.052
+  ctx.lineWidth = H * 0.05
   ctx.beginPath()
-  ctx.moveTo(H * 0.07, -H * 0.61)
+  ctx.moveTo(H * 0.06, shY)
+  ctx.lineTo(H * 0.07, -H * 0.52)
   ctx.lineTo(H * 0.06, -H * 0.5) // 網の柄へ
   ctx.stroke()
 
@@ -251,12 +253,12 @@ export function drawPlayer(p, ctx, view, frame) {
   ctx.restore()
 }
 
-// 1本の脚（腿＋脛＋足）。ph=歩行位相。膝が遊脚で曲がり、人らしい歩きになる。
-function drawLeg(ctx, hipX, hipY, ph, H, color) {
+// 1本の脚（腿＋脛＋足）。ph=位相, amp=振りの大きさ。膝が遊脚で曲がり、人らしい走り/歩き。
+function drawLeg(ctx, hipX, hipY, ph, H, color, amp = 0.5) {
   const thighLen = H * 0.17
   const shinLen = H * 0.17
-  const thigh = Math.sin(ph) * 0.5 // 腿の前後の振り
-  const bend = Math.max(0, -Math.cos(ph)) * 0.85 + 0.08 // 遊脚で膝を曲げる
+  const thigh = Math.sin(ph) * amp * 0.62 // 腿の前後の振り
+  const bend = Math.max(0, -Math.cos(ph)) * (amp * 1.3) + 0.08 // 遊脚で膝を曲げる
   const kx = hipX + Math.sin(thigh) * thighLen
   const ky = hipY + Math.cos(thigh) * thighLen
   const sa = thigh - bend
@@ -274,6 +276,25 @@ function drawLeg(ctx, hipX, hipY, ph, H, color) {
   ctx.beginPath()
   ctx.moveTo(fx, fy)
   ctx.lineTo(fx + H * 0.05, fy)
+  ctx.stroke()
+}
+
+// 1本の腕（上腕＋前腕）。肘を曲げて前後に振る。
+function drawArm(ctx, shX, shY, ph, H, color, amp) {
+  const swing = Math.sin(ph) * amp * 0.85
+  const ux = shX + Math.sin(swing) * H * 0.1
+  const uy = shY + Math.cos(swing) * H * 0.1
+  const fa = swing - 1.25 // 肘を前に曲げる
+  const hx = ux + Math.sin(fa) * H * 0.09
+  const hy = uy + Math.cos(fa) * H * 0.09
+  ctx.strokeStyle = color
+  ctx.lineWidth = H * 0.048
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  ctx.moveTo(shX, shY)
+  ctx.lineTo(ux, uy)
+  ctx.lineTo(hx, hy)
   ctx.stroke()
 }
 
