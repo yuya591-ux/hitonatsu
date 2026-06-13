@@ -209,15 +209,13 @@ try {
     page.on('pageerror', (err) => errors.push(`[town] pageerror: ${err.message}`))
     await page.goto(`${baseUrl}?scene=shoutengai&t=0.3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
     await new Promise((r) => setTimeout(r, 400))
+    // 右へ押し込み続ける＝商店街→住宅街→団地（逆戻りで詰まらず行き来できること）。
+    // 団地は右隣が無いので、最終的に団地で止まる。
     await page.evaluate(() => { window.__hitonatsu.player.dirX = 1 })
-    await new Promise((r) => setTimeout(r, 4000))
-    const place1 = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
-    console.log(`町移動テスト: 商店街→右→「${place1}」`)
-    if (place1 !== '住宅街') errors.push(`商店街→住宅街に入れていない（逆戻り？ 実際:${place1}）`)
-    await new Promise((r) => setTimeout(r, 4000))
+    await new Promise((r) => setTimeout(r, 8000))
     const place2 = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
-    console.log(`町移動テスト: 住宅街→右→「${place2}」`)
-    if (place2 !== '団地') errors.push(`住宅街→団地に入れていない（実際:${place2}）`)
+    console.log(`町移動テスト: 商店街→右へ押し込み→「${place2}」`)
+    if (place2 !== '団地') errors.push(`商店街→住宅街→団地と行き来できていない（逆戻り？ 実際:${place2}）`)
     // 道の外に立っていないか（住宅街/団地の道幅の内側にいるか）をざっくり確認
     const onRoad = await page.evaluate(() => {
       const H = window.__hitonatsu
@@ -230,6 +228,18 @@ try {
       return H.player.x >= left - 0.02 && H.player.x <= right + 0.02
     })
     if (!onRoad) errors.push('主人公が道の外（建物の上）に立っている')
+    // タップ歩き（矢印を押していない）では勝手に隣へ移動しないこと
+    await page.evaluate(() => {
+      const H = window.__hitonatsu
+      H.player.dirX = 0
+      H.player.dirY = 0
+      H.player.wantExit = null
+      H.player.target = { x: 0, y: H.player.y } // 左端をタップしたつもり
+    })
+    await new Promise((r) => setTimeout(r, 3000))
+    const place3 = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
+    console.log(`町移動テスト: 団地でタップ左歩き→「${place3}」（移動しないのが正解）`)
+    if (place3 !== '団地') errors.push(`タップ歩きで勝手に隣へ移動してしまう（実際:${place3}）`)
     await page.close()
   }
 

@@ -445,6 +445,7 @@ function onPlayerEdge(dir) {
   scenes.goto(id)
   placeAfterMove(player, dir)
   clampIntoWalk(player, scenes.getScene(id)?.walk) // 入った先（遷移先）の道の上へ収める（即・逆戻り防止）
+  player.wantExit = null // 出る意思はここで使い切る
   return true
 }
 
@@ -471,6 +472,7 @@ function walkTo(clientX, clientY) {
   if (dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle' || scenes.isMoving) return // 会話・日記・記録・相撲・釣り・移動中は歩かない
   const x = clientX / window.innerWidth
   const y = clientY / window.innerHeight
+  player.wantExit = null // タップ歩きでは隣へ出ない（道の上で止まる）
   player.target = {
     x: Math.min(Math.max(x, 0), 1),
     // 空をタップしたら地平線側（奥）へ向かう
@@ -490,6 +492,7 @@ for (const dir of ['left', 'right', 'up', 'down']) {
   if (!nav[dir]) continue
   nav[dir].addEventListener('click', () => {
     const e = edgeTarget[dir]
+    player.wantExit = dir // 矢印を押したときだけ、その向きの端で隣へ出る
     player.target = {
       x: typeof e.x === 'function' ? e.x() : e.x,
       y: typeof e.y === 'function' ? e.y() : e.y,

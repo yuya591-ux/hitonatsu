@@ -36,6 +36,7 @@ export function createPlayer() {
     dirY: 0,
     frozen: false, // 場面遷移中など操作を止める
     swing: 0, // 採取時の網振り（ミリ秒・残り）
+    wantExit: null, // 矢印ボタンで「この向きへ出たい」と押したとき（町では勝手に遷移しない）
   }
 }
 
@@ -95,24 +96,29 @@ export function updatePlayer(p, dt, onEdge, walk) {
   let nx = p.x + mvx * step
   let ny = p.y + mvy * step * 0.7 // 奥行き方向はゆっくり
 
-  // 奥(上)・手前(下)の限界。隣があれば移動、なければ道の端で止まる。
+  // 端で隣の場面へ移れるのは「はっきり出ようとしたとき」だけ。
+  // 道(walk)のある町・室内では、タップ歩きで端に触れても勝手に移動しない。
+  //   ・開けた場面(walkなし)＝従来どおり端で遷移
+  //   ・矢印ボタン(p.wantExit)を押した／キーボードでその向きへ押し込んだ ＝遷移
+  const exitOK = (dir, axisInput, axisSign) =>
+    !walk || p.wantExit === dir || axisInput === axisSign
   const topLimit = walk ? walk.top : BAND.top
   if (ny < topLimit) {
-    if (onEdge('up')) return
+    if (exitOK('up', p.dirY, -1) && onEdge('up')) return
     ny = topLimit
   }
   if (ny > BAND.bottom) {
-    if (onEdge('down')) return
+    if (exitOK('down', p.dirY, 1) && onEdge('down')) return
     ny = BAND.bottom
   }
-  // 左右は「道（台形）」の端で判定。端に達したら隣の場面へ、なければ道の上で止まる。
+  // 左右は「道（台形）」の端で判定。
   const e = walkEdges(ny, walk)
   if (nx < e.left) {
-    if (onEdge('left')) return
+    if (exitOK('left', p.dirX, -1) && onEdge('left')) return
     nx = e.left
   }
   if (nx > e.right) {
-    if (onEdge('right')) return
+    if (exitOK('right', p.dirX, 1) && onEdge('right')) return
     nx = e.right
   }
 
@@ -135,9 +141,11 @@ export function placeAfterMove(p, dir) {
 // 道の外（建物側）に置かれると、その瞬間にまた端と判定されて逆戻りしてしまうのを防ぐ。
 export function clampIntoWalk(p, walk) {
   if (!walk) return
-  p.y = Math.min(Math.max(p.y, walk.top + 0.01), BAND.bottom)
+  p.y = Math.min(Math.max(p.y, walk.top + 0.02), BAND.bottom)
   const e = walkEdges(p.y, walk)
-  p.x = Math.min(Math.max(p.x, e.left + 0.01), e.right - 0.01)
+  // 端ちょうどではなく、少し内側へ（建物ぎわに立たない・即遷移しない）
+  const inset = Math.max(0.02, (e.right - e.left) * 0.08)
+  p.x = Math.min(Math.max(p.x, e.left + inset), e.right - inset)
 }
 
 // 主人公を描く（麦わら帽子・半袖シャツ・半ズボン・虫取り網を肩にかけた少年）
