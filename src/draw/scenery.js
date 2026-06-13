@@ -405,9 +405,15 @@ function scatterProps(ctx, view, frame, yTop, yBot, seed, count) {
     const s = h * (0.012 + depth * 0.03)
     const x = it.x * w
     if (it.kind < 0.4) {
-      // 小さな茂み
-      bloom(ctx, x, y, s * 1.5, lerpColor(frame.palette.groundShade, { r: 0, g: 0, b: 0 }, 0.2), 0.5)
-      bloom(ctx, x, y - s * 0.2, s * 1.1, frame.palette.groundShade, 0.55)
+      // 小さな茂み（軽い塗り）
+      ctx.fillStyle = rgbToCss(lerpColor(frame.palette.groundShade, { r: 0, g: 0, b: 0 }, 0.2), 0.85)
+      ctx.beginPath()
+      ctx.ellipse(x, y, s * 1.05, s * 0.65, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = rgbToCss(frame.palette.groundShade, 0.9)
+      ctx.beginPath()
+      ctx.ellipse(x, y - s * 0.2, s * 0.8, s * 0.55, 0, 0, Math.PI * 2)
+      ctx.fill()
     } else if (it.kind < 0.7) {
       // 石
       ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 130, g: 124, b: 112 }, 0.5), 0.9)
