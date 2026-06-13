@@ -116,12 +116,28 @@ if (muteButton) {
   })
 }
 
+// 横画面いっぱいに表示するため、可能ならフルスクリーン＋横向き固定にする
+// （iPhoneのSafariは未対応。その場合は「ホーム画面に追加」で起動するとバーが消える）
+function goFullscreen() {
+  const el = document.documentElement
+  const req = el.requestFullscreen || el.webkitRequestFullscreen
+  if (!req) return
+  Promise.resolve(req.call(el))
+    .then(() => {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {})
+      }
+    })
+    .catch(() => {})
+}
+
 // 「はじめる」で一日が動き出す（このユーザー操作の後に音を立ち上げる＝iOS自動再生制限への先回り）
 function beginDay() {
   if (startScreen) startScreen.classList.add('hidden')
   if (!paused) clock.start()
   refreshUi(scenes.current)
   audio.start()
+  goFullscreen()
 }
 if (startButton) startButton.addEventListener('click', beginDay)
 if (autostart) beginDay()

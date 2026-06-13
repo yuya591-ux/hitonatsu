@@ -31,6 +31,17 @@ export function createAudioManager(soundUrls) {
       // 実際の発音はユーザー操作後に resume されたタイミングで始まる（iOS等の自動再生制限に準拠）。
       ctx.resume().catch(() => {})
 
+      // 保険：何らかの理由で停止(suspended)していたら、次のユーザー操作で必ず鳴らし直す
+      const kick = () => {
+        if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
+      }
+      for (const ev of ['pointerdown', 'touchstart', 'keydown']) {
+        window.addEventListener(ev, kick, { passive: true })
+      }
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') kick()
+      })
+
       // 各音を読み込み、gain=0 でループ再生を開始しておく（あとは音量で出し入れする）
       await Promise.all(
         ids.map(async (id) => {

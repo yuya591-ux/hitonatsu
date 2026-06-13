@@ -6,15 +6,16 @@
 ## 環境音
 
 すべて [Wikimedia Commons](https://commons.wikimedia.org/) から取得。各ファイルの説明ページのライセンスに従います。
+※元は Ogg Vorbis 形式。Safari/iPhone でも再生できるよう **MP3 に形式変換**して同梱しています（音の内容は無加工）。
 
 | ゲーム内の音 | ファイル | 元ファイル | 作者 | ライセンス | 出典ページ |
 |---|---|---|---|---|---|
-| 昼・油蝉 | `src/assets/audio/cicada.ogg` | Cicada_orni.ogg | DavidDelon | パブリックドメイン | https://commons.wikimedia.org/wiki/File:Cicada_orni.ogg |
-| 夕方・ヒグラシ | `src/assets/audio/higurashi.ogg` | Tanna_japonensis_v01.ogg | Σ64 | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Tanna_japonensis_v01.ogg |
-| 夜・カエル（田んぼ） | `src/assets/audio/night.ogg` | Frogs_note02.ogg | Koba-chan | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Frogs_note02.ogg |
-| 朝・ウグイス | `src/assets/audio/morning.ogg` | Japanese_nightingale_note01.ogg | Koba-chan | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Japanese_nightingale_note01.ogg |
-| 縁側・風鈴 | `src/assets/audio/windchime.ogg` | Windchime.ogg | Stephan（pdsounds.org 経由） | パブリックドメイン | https://commons.wikimedia.org/wiki/File:Windchime.ogg |
-| 川辺・せせらぎ | `src/assets/audio/river.ogg` | Hemlock_stream.ogg | Dirtslayer | パブリックドメイン | https://commons.wikimedia.org/wiki/File:Hemlock_stream.ogg |
+| 昼・油蝉 | `src/assets/audio/cicada.mp3` | Cicada_orni.ogg | DavidDelon | パブリックドメイン | https://commons.wikimedia.org/wiki/File:Cicada_orni.ogg |
+| 夕方・ヒグラシ | `src/assets/audio/higurashi.mp3` | Tanna_japonensis_v01.ogg | Σ64 | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Tanna_japonensis_v01.ogg |
+| 夜・カエル（田んぼ） | `src/assets/audio/night.mp3` | Frogs_note02.ogg | Koba-chan | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Frogs_note02.ogg |
+| 朝・ウグイス | `src/assets/audio/morning.mp3` | Japanese_nightingale_note01.ogg | Koba-chan | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Japanese_nightingale_note01.ogg |
+| 縁側・風鈴 | `src/assets/audio/windchime.mp3` | Windchime.ogg | Stephan（pdsounds.org 経由） | パブリックドメイン | https://commons.wikimedia.org/wiki/File:Windchime.ogg |
+| 川辺・せせらぎ | `src/assets/audio/river.mp3` | Hemlock_stream.ogg | Dirtslayer | パブリックドメイン | https://commons.wikimedia.org/wiki/File:Hemlock_stream.ogg |
 
 ### ライセンスについての補足
 - **CC BY 4.0**（ヒグラシ）: 作者クレジットを表示すれば利用可（上表に記載）。<https://creativecommons.org/licenses/by/4.0/>
