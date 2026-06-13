@@ -23,14 +23,22 @@
       #look { left: 50%; bottom: 9%; transform: translateX(-50%); padding: 0.4em 1.1em;
         font-size: clamp(12px,2.2vw,16px); color: #fdf7ec; background: rgba(60,66,98,0.8);
         border-radius: 999px; display: none; }
+      /* ぷにコン（指で動かす仮想スティック） */
+      #stick { position: fixed; width: 132px; height: 132px; margin: -66px 0 0 -66px;
+        border-radius: 50%; background: rgba(255,255,255,0.14);
+        border: 2px solid rgba(255,255,255,0.4); display: none; pointer-events: none; z-index: 5; }
+      #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px;
+        margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,0.55);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
     </style>
   </head>
   <body>
     <canvas id="c"></canvas>
-    <div id="hint" class="hud">タップした所へ歩く ／ 高台のベンチへ</div>
+    <div id="hint" class="hud">指でスライド＝歩く ／ 2本指で視点を回す・つまんで寄る ／ 高台のベンチへ</div>
     <div id="badge" class="hud">3D試作（低ポリ＋トゥーン）</div>
     <button id="act" class="hud">すわる</button>
     <div id="look" class="hud">スワイプで見回す ・ もう一度タップで立つ</div>
+    <div id="stick"><div id="knob"></div></div>
     <script type="module" src="/src/proto3d/main.js"></script>
   </body>
 </html>

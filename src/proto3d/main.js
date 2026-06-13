@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 
 const canvas = document.getElementById('c')
 const actBtn = document.getElementById('act')
@@ -24,13 +25,16 @@ SEAT.y = heightAt(SEAT.x, SEAT.z)
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)) // 発熱対策で控えめ
 renderer.outputColorSpace = THREE.SRGBColorSpace
-renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.02
+// トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
+renderer.toneMapping = THREE.NeutralToneMapping
+renderer.toneMappingExposure = 1.05
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0xdfeaf0, 55, 240) // 空気遠近（霞）。手前は鮮明、奥は淡く
+
+const swayables = [] // 風で揺らす草木（{ obj, ph, amp }）
 
 // ── トゥーン用のグラデ（数段の階調）──
 function toonGradient(steps = 4) {
@@ -57,7 +61,7 @@ const sc = sun.shadow.camera
 sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70
 sun.shadow.bias = -0.0004
 scene.add(sun)
-scene.add(new THREE.HemisphereLight(0xbfe2f2, 0x6f8a4a, 0.9)) // 空色↔草色の柔らかい環境光
+scene.add(new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15)) // 空色↔草色の柔らかい環境光（明るめ）
 
 // ── 空（グラデのドーム。霧は掛けない）──
 const skyMat = new THREE.ShaderMaterial({
@@ -119,8 +123,23 @@ function makeTree(x, z, s = 1) {
   }
   g.position.set(x, heightAt(x, z), z)
   scene.add(g)
+  swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.02 })
 }
 for (const [x, z, s] of [[14, 6, 1.1], [-16, 2, 1.0], [22, -10, 1.2], [-22, -14, 1.1], [9, -22, 0.9], [-10, -24, 0.95], [30, 12, 1.0], [-30, 14, 1.1]]) makeTree(x, z, s)
+
+// ── 小さな草花（赤・白・黄の点。場を生き生きと）──
+{
+  const flowerCols = [0xe06a6a, 0xf2efe6, 0xe8c84a, 0x6e7fd0]
+  for (let i = 0; i < 60; i++) {
+    const x = (Math.random() - 0.5) * 110, z = (Math.random() - 0.5) * 110
+    if (x * x + (z + 28) * (z + 28) < 30) continue
+    const fg = new THREE.Group()
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6, 4), toon(0x5f8b3c)); stem.position.y = 0.3; fg.add(stem)
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), toon(flowerCols[i % flowerCols.length])); head.position.y = 0.62; fg.add(head)
+    fg.position.set(x, heightAt(x, z), z)
+    scene.add(fg)
+  }
+}
 
 // ── 遠くの丘（360度の景色のため、周囲に低い丘をぐるりと）──
 for (let i = 0; i < 10; i++) {
@@ -164,6 +183,7 @@ function makeSunflower(x, z) {
   g.position.set(x, heightAt(x, z), z)
   g.children.forEach((c) => (c.castShadow = true))
   scene.add(g)
+  swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.05 })
 }
 for (const [x, z] of [[6, 8], [7.2, 9], [-5, 7], [4, -4]]) makeSunflower(x, z)
 
@@ -209,15 +229,53 @@ const boy = makeBoy()
 boy.position.set(0, heightAt(0, 6), 6)
 scene.add(boy)
 
-// ── カメラ（斜めの固定アングルで追従）＋ポスト処理 ──
+// ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
+{
+  const N = 140
+  const pos = new Float32Array(N * 3)
+  for (let i = 0; i < N; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * 90
+    pos[i * 3 + 1] = 1 + Math.random() * 14
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 90
+  }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const motes = new THREE.Points(geo, new THREE.PointsMaterial({
+    color: 0xfff6d8, size: 0.16, transparent: true, opacity: 0.5, depthWrite: false, fog: true,
+  }))
+  motes.userData.isMotes = true
+  scene.add(motes)
+  window.__motes = motes
+}
+
+// ── カメラ（既定は斜め見下ろし。視点はユーザーが回せる/寄れる） ──
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
-const CAM_OFFSET = new THREE.Vector3(7, 12, 14) // 斜め見下ろし（角度は一定＝僕夏らしい固定画角）
-camera.position.copy(boy.position).add(CAM_OFFSET)
+// 視点の制御値（球面）。yaw=水平角, pitch=見下ろし角, dist=距離。
+const camCtl = { yaw: 0.32, pitch: 0.62, dist: 19, minDist: 8, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 }
+function camOffset(out) {
+  const cp = Math.cos(camCtl.pitch)
+  out.set(Math.sin(camCtl.yaw) * cp, Math.sin(camCtl.pitch), Math.cos(camCtl.yaw) * cp).multiplyScalar(camCtl.dist)
+  return out
+}
+camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）
 composer.addPass(bloom)
+
+// 仕上げ：夏の暖色グレード＋周辺減光（没入感）
+const gradePass = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.012 }, vig: { value: 0.12 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float warmth; uniform float vig;
+    void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb;
+      c.r += warmth; c.b -= warmth*0.5;                 // ごくわずかな夏の暖かみ
+      float d = distance(vUv, vec2(0.5));
+      c *= 1.0 - vig * smoothstep(0.55, 0.95, d);        // ごく控えめな周辺減光
+      gl_FragColor = vec4(c, 1.0); }`,
+})
+composer.addPass(gradePass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
@@ -231,56 +289,93 @@ resize()
 
 // ── 入力・状態 ──
 let mode = 'walk' // 'walk' | 'sit'
-const target = new THREE.Vector3().copy(boy.position) // タップ移動の目標
 let moving = false
 let phase = 0
 let facing = 0 // 向き(rad)
 const keys = {}
 const seatLook = { yaw: Math.PI, pitch: -0.05 } // 座ったときの視線（初期は外側=-Z）
 
-const raycaster = new THREE.Raycaster()
-const ndc = new THREE.Vector2()
-let downX = 0, downY = 0, lastX = 0, lastY = 0, dragged = false
+// ぷにコン（指でスライドした方向へ歩く・白猫プロジェクト風）
+const stickEl = document.getElementById('stick')
+const knobEl = document.getElementById('knob')
+const STICK_R = 60
+const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1..1
+const pointers = new Map() // 多点タッチ（2本指で視点操作）
+let orbit = null // { mx, my, d }
+let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 
-function groundPick(clientX, clientY) {
-  ndc.x = (clientX / innerWidth) * 2 - 1
-  ndc.y = -(clientY / innerHeight) * 2 + 1
-  raycaster.setFromCamera(ndc, camera)
-  const hit = raycaster.intersectObject(ground, false)[0]
-  return hit ? hit.point : null
+function startPuni(id, x, y) {
+  puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
+  stickEl.style.left = x + 'px'; stickEl.style.top = y + 'px'
+  knobEl.style.left = '50%'; knobEl.style.top = '50%'
+  stickEl.style.display = 'block'
+}
+function endPuni() { puni.active = false; puni.id = -1; puni.vx = 0; puni.vy = 0; stickEl.style.display = 'none' }
+function midDist() {
+  const a = [...pointers.values()]
+  return { mx: (a[0].x + a[1].x) / 2, my: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) }
 }
 
 canvas.addEventListener('pointerdown', (e) => {
-  downX = lastX = e.clientX; downY = lastY = e.clientY; dragged = false
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
   canvas.setPointerCapture(e.pointerId)
+  if (mode === 'sit') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
+  if (pointers.size === 1) startPuni(e.pointerId, e.clientX, e.clientY)
+  else if (pointers.size === 2) { endPuni(); orbit = midDist() }
 })
 canvas.addEventListener('pointermove', (e) => {
-  const dx = e.clientX - lastX, dy = e.clientY - lastY
-  if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) dragged = true
-  if (mode === 'sit' && (e.buttons & 1 || e.pointerType === 'touch')) {
-    seatLook.yaw -= dx * 0.005
-    seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + dy * 0.005, -1.2, 1.1)
+  if (!pointers.has(e.pointerId)) return
+  const prev = pointers.get(e.pointerId)
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (mode === 'sit') {
+    if (sitTap) {
+      seatLook.yaw -= (e.clientX - prev.x) * 0.005
+      seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prev.y) * 0.005, -1.2, 1.1)
+      if (Math.abs(e.clientX - sitTap.x) + Math.abs(e.clientY - sitTap.y) > 8) sitTap.moved = true
+    }
+    return
   }
-  lastX = e.clientX; lastY = e.clientY
-})
-canvas.addEventListener('pointerup', (e) => {
-  if (mode === 'walk') {
-    if (!dragged) { const p = groundPick(e.clientX, e.clientY); if (p) target.copy(p) }
-  } else if (mode === 'sit') {
-    if (!dragged) standUp() // 軽くタップ＝立つ
+  if (pointers.size >= 2 && orbit) {
+    // 2本指：視点を回す・つまんで寄る
+    const m = midDist()
+    camCtl.yaw -= (m.mx - orbit.mx) * 0.006
+    camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (m.my - orbit.my) * 0.005, camCtl.minPitch, camCtl.maxPitch)
+    if (m.d > 0) camCtl.dist = THREE.MathUtils.clamp(camCtl.dist * (orbit.d / m.d), camCtl.minDist, camCtl.maxDist)
+    orbit = m
+  } else if (puni.active && e.pointerId === puni.id) {
+    let dx = e.clientX - puni.ox, dy = e.clientY - puni.oy
+    const len = Math.hypot(dx, dy) || 1
+    const cl = Math.min(len, STICK_R)
+    dx = (dx / len) * cl; dy = (dy / len) * cl
+    knobEl.style.left = `calc(50% + ${dx}px)`; knobEl.style.top = `calc(50% + ${dy}px)`
+    puni.vx = dx / STICK_R; puni.vy = dy / STICK_R
   }
 })
+function onUp(e) {
+  if (!pointers.has(e.pointerId)) return
+  pointers.delete(e.pointerId)
+  if (mode === 'sit') { if (sitTap && !sitTap.moved) standUp(); sitTap = null; return }
+  if (pointers.size < 2) orbit = null
+  if (e.pointerId === puni.id) endPuni()
+  // 2本指→1本に戻ったら、残った指でぷにコン再開
+  if (pointers.size === 1 && !puni.active) {
+    const [id, p] = [...pointers.entries()][0]
+    startPuni(id, p.x, p.y)
+  }
+}
+canvas.addEventListener('pointerup', onUp)
+canvas.addEventListener('pointercancel', onUp)
 addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 
-actBtn.addEventListener('click', () => { if (mode === 'walk') sitDown(); })
+actBtn.addEventListener('click', () => { if (mode === 'walk') sitDown() })
 
 function sitDown() {
   mode = 'sit'
-  boy.position.copy(SEAT); boy.position.y = SEAT.y
+  endPuni()
+  boy.position.copy(SEAT)
   boy.rotation.y = Math.PI // 外側を向く
-  // 脚を曲げて座り姿勢に
-  boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4
+  boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢
   boy.position.y = SEAT.y + 0.55
   moving = false
   actBtn.style.display = 'none'
@@ -290,7 +385,6 @@ function standUp() {
   mode = 'walk'
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
   boy.position.y = heightAt(boy.position.x, boy.position.z)
-  target.copy(boy.position)
   lookHint.style.display = 'none'
 }
 
@@ -301,46 +395,53 @@ const lookTo = new THREE.Vector3()
 const camGoal = new THREE.Vector3()
 const lookGoal = new THREE.Vector3()
 const tmp = new THREE.Vector3()
+const camFwd = new THREE.Vector3()
+const camRight = new THREE.Vector3()
 
 function update(dt) {
+  // 風で草木をゆらす・光の粒を漂わせる（生気）
+  const tsec = clock.elapsedTime
+  for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
+  if (window.__motes) window.__motes.rotation.y = tsec * 0.02
+
   if (mode === 'walk') {
-    // キーボード入力（あれば目標を無視して直接移動）
-    let kx = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0)
-    let kz = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0)
-    let dir
-    if (kx || kz) {
-      dir = tmp.set(kx, 0, kz).normalize()
-      target.copy(boy.position) // キー操作中はタップ目標を解除
-    } else {
-      dir = tmp.copy(target).sub(boy.position); dir.y = 0
-    }
-    const dist = dir.length()
-    moving = dist > 0.15
+    // カメラ基準の前/右（地面上）。指のスライド方向を世界の向きへ変換。
+    camera.getWorldDirection(camFwd); camFwd.y = 0; camFwd.normalize()
+    camRight.set(-camFwd.z, 0, camFwd.x)
+    const kx = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0)
+    const kz = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0)
+    let sx = 0, sy = 0
+    if (puni.active && Math.hypot(puni.vx, puni.vy) > 0.06) { sx = puni.vx; sy = puni.vy }
+    else if (kx || kz) { sx = kx; sy = kz }
+    const mag = Math.min(1, Math.hypot(sx, sy))
+    moving = mag > 0.06
     if (moving) {
-      dir.normalize()
-      const sp = 7 * dt
-      boy.position.x += dir.x * Math.min(sp, dist)
-      boy.position.z += dir.z * Math.min(sp, dist)
+      // 画面：右=+sx, 上=前(=-sy)
+      const wx = camRight.x * sx + camFwd.x * (-sy)
+      const wz = camRight.z * sx + camFwd.z * (-sy)
+      const l = Math.hypot(wx, wz) || 1
+      const sp = 7 * dt * mag
+      boy.position.x += (wx / l) * sp
+      boy.position.z += (wz / l) * sp
       boy.position.y = heightAt(boy.position.x, boy.position.z)
-      facing = Math.atan2(dir.x, dir.z)
-      phase += dt * 9
+      facing = Math.atan2(wx, wz)
+      phase += dt * 9 * Math.max(0.6, mag)
     }
     // 向きをなめらかに
     let d = facing - boy.rotation.y
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2
     boy.rotation.y += d * Math.min(1, dt * 12)
-    // 歩行アニメ（手足を振る）
+    // 歩行アニメ
     const sw = moving ? Math.sin(phase) * 0.6 : 0
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     boy.userData.armL.rotation.x = -sw; boy.userData.armR.rotation.x = sw
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * 0.06 : 0
 
-    // ベンチが近ければ「すわる」を出す
-    const near = boy.position.distanceTo(new THREE.Vector3(SEAT.x, boy.position.y, SEAT.z)) < 3.2
+    const near = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
     actBtn.style.display = near ? 'block' : 'none'
 
-    // カメラ：斜め固定アングルで追従
-    camGoal.copy(boy.position).add(CAM_OFFSET)
+    // カメラ：今の視点（yaw/pitch/dist）で追従
+    camGoal.copy(boy.position).add(camOffset(tmp))
     lookGoal.copy(boy.position); lookGoal.y += 1.4
   } else {
     // 座って360度見回す
