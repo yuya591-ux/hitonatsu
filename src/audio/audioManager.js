@@ -11,6 +11,7 @@ export function createAudioManager(soundUrls) {
   let master = null
   let music = null
   let rainGain = null
+  let festivalTimer = null
   let started = false
   let muted = false
   let volume = 0.8
@@ -163,6 +164,34 @@ export function createAudioManager(soundUrls) {
     setRain(level) {
       if (rainGain && ctx) {
         rainGain.gain.setTargetAtTime(Math.max(0, Math.min(1, level)) * 0.22, ctx.currentTime, 0.5)
+      }
+    },
+    // おまつりの遠音の太鼓（合成）。on のあいだ、ゆっくり「どん…どん」と鳴る。
+    setFestival(on) {
+      if (on && started && ctx && !festivalTimer) {
+        const drum = () => {
+          if (!ctx || !master) return
+          const t = ctx.currentTime
+          const o = ctx.createOscillator()
+          o.type = 'sine'
+          o.frequency.setValueAtTime(95, t)
+          o.frequency.exponentialRampToValueAtTime(52, t + 0.18)
+          const g = ctx.createGain()
+          g.gain.setValueAtTime(0, t)
+          g.gain.linearRampToValueAtTime(0.22, t + 0.005)
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.34)
+          o.connect(g)
+          g.connect(master)
+          o.start(t)
+          o.stop(t + 0.4)
+        }
+        festivalTimer = setInterval(() => {
+          drum()
+          if (Math.random() < 0.5) setTimeout(drum, 380)
+        }, 1600)
+      } else if (!on && festivalTimer) {
+        clearInterval(festivalTimer)
+        festivalTimer = null
       }
     },
     setVolume(v) {

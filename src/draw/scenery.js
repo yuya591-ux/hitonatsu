@@ -568,6 +568,35 @@ export function foreJinja(ctx, view, frame) {
         ctx.restore()
       }
     }
+    // 祭りに来た人たち（浴衣のシルエット）
+    const goers = [
+      [0.34, 0.72, '#9A6A8A'], [0.43, 0.76, '#6A8A9A'],
+      [0.58, 0.74, '#8A7A5A'], [0.67, 0.78, '#7A9A6A'],
+    ]
+    for (const [gx, gy, col] of goers) {
+      const fx = gx * w
+      const fy = gy * h
+      const fs = h * 0.07
+      ctx.fillStyle = 'rgba(30,30,40,0.18)' // 影
+      ctx.beginPath()
+      ctx.ellipse(fx, fy, fs * 0.22, fs * 0.05, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = col // 浴衣
+      ctx.beginPath()
+      ctx.moveTo(fx - fs * 0.18, fy)
+      ctx.lineTo(fx - fs * 0.15, fy - fs * 0.5)
+      ctx.lineTo(fx + fs * 0.15, fy - fs * 0.5)
+      ctx.lineTo(fx + fs * 0.18, fy)
+      ctx.closePath()
+      ctx.fill()
+      ctx.fillStyle = '#E6BD92' // 首
+      ctx.fillRect(fx - fs * 0.04, fy - fs * 0.56, fs * 0.08, fs * 0.08)
+      ctx.fillStyle = '#2A2018' // 頭
+      ctx.beginPath()
+      ctx.arc(fx, fy - fs * 0.62, fs * 0.12, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
     // 提灯の連なり（参道の上にたわませて）
     const n = 8
     const lyBase = y - h * 0.05

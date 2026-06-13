@@ -619,6 +619,7 @@ function onFrame(dt, now) {
     audio.setActive(activeSounds(time, scenes.currentId))
     audio.update(dt)
     audio.setRain(frame.rain) // 夕立の雨音
+    audio.setFestival(frame.festival && time >= 0.8) // おまつりの夜は遠音の太鼓
     // 音楽の雰囲気も時間帯に合わせる（日記/記録中はそのまま）
     if (!diaryOpen && !recordOpen) {
       const pk = getCurrentPhase(time).key
