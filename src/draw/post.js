@@ -126,9 +126,35 @@ function applyMorningMist(ctx, view, frame) {
   ctx.restore()
 }
 
+// 昼の陽炎：日中、地平線のすぐ上がゆらゆらと揺らいで見える（ごく控えめ）
+function applyHeatHaze(ctx, view, frame) {
+  const t = frame.time
+  const amount = smoothstep(0.2, 0.32, t) * (1 - smoothstep(0.45, 0.58, t))
+  if (amount <= 0.02) return
+  const { w, h } = view
+  const y = h * HORIZON
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  for (let i = 0; i < 5; i++) {
+    const yy = y - h * 0.04 + i * h * 0.012
+    const wob = Math.sin(frame.now / 200 + i * 1.7) * h * 0.003
+    ctx.strokeStyle = rgbToCss(frame.palette.skyBottom, 0.06 * amount)
+    ctx.lineWidth = h * 0.01
+    ctx.beginPath()
+    for (let x = 0; x <= w; x += w / 20) {
+      const off = Math.sin(frame.now / 220 + x / w * 10 + i) * h * 0.003 + wob
+      if (x === 0) ctx.moveTo(x, yy + off)
+      else ctx.lineTo(x, yy + off)
+    }
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
 // まとめて仕上げる
 export function applyPost(ctx, view, frame) {
   applyMorningMist(ctx, view, frame)
+  applyHeatHaze(ctx, view, frame)
   applyHaze(ctx, view, frame)
   applyColorGrade(ctx, view, frame)
   applyVignette(ctx, view)

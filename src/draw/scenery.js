@@ -192,6 +192,29 @@ export function foreEngawa(ctx, view, frame) {
   ctx.lineTo(w, top + 1)
   ctx.stroke()
 
+  // すいか（縁側にぽつんと・夏の縁側らしさ）
+  const sx = w * 0.2
+  const sy = h * 0.86
+  const sr = h * 0.05
+  ctx.fillStyle = '#3E7A3A'
+  ctx.beginPath()
+  ctx.ellipse(sx, sy, sr * 1.15, sr, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(30,60,30,0.7)' // しま模様
+  ctx.lineWidth = sr * 0.12
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath()
+    ctx.ellipse(sx + i * sr * 0.4, sy, sr * 0.18 + Math.abs(i) * sr * 0.12, sr, 0, Math.PI * 0.15, Math.PI * 0.85)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.ellipse(sx + i * sr * 0.4, sy, sr * 0.18 + Math.abs(i) * sr * 0.12, sr, 0, Math.PI * 1.15, Math.PI * 1.85)
+    ctx.stroke()
+  }
+  ctx.fillStyle = 'rgba(255,255,250,0.4)' // つや
+  ctx.beginPath()
+  ctx.ellipse(sx - sr * 0.4, sy - sr * 0.5, sr * 0.25, sr * 0.12, -0.5, 0, Math.PI * 2)
+  ctx.fill()
+
   // 軒下から眺める額縁（庇＋吊り風鈴）を最前面に
   drawEaves(ctx, view, frame)
 }
@@ -255,6 +278,49 @@ function scatterFlowers(ctx, view, yTop, yBot, seed, n) {
   }
 }
 
+// ひまわり（夏の象徴）
+function drawSunflower(ctx, view, x, baseY, s, sway) {
+  const { h } = view
+  const stem = '#5E7E3E'
+  // 茎
+  ctx.strokeStyle = stem
+  ctx.lineWidth = s * 0.08
+  ctx.lineCap = 'round'
+  const headX = x + sway
+  const headY = baseY - s
+  ctx.beginPath()
+  ctx.moveTo(x, baseY)
+  ctx.quadraticCurveTo(x + sway * 0.5, baseY - s * 0.5, headX, headY)
+  ctx.stroke()
+  // 葉
+  ctx.fillStyle = stem
+  ctx.beginPath()
+  ctx.ellipse(x + s * 0.18, baseY - s * 0.4, s * 0.22, s * 0.1, -0.5, 0, Math.PI * 2)
+  ctx.fill()
+  // 花びら
+  ctx.fillStyle = '#F2C23E'
+  const petals = 12
+  for (let i = 0; i < petals; i++) {
+    const a = (i / petals) * Math.PI * 2
+    ctx.save()
+    ctx.translate(headX, headY)
+    ctx.rotate(a)
+    ctx.beginPath()
+    ctx.ellipse(s * 0.32, 0, s * 0.18, s * 0.07, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+  // 花の中心
+  ctx.fillStyle = '#6E4A2A'
+  ctx.beginPath()
+  ctx.arc(headX, headY, s * 0.2, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = 'rgba(40,28,16,0.5)'
+  ctx.beginPath()
+  ctx.arc(headX + s * 0.05, headY + s * 0.05, s * 0.12, 0, Math.PI * 2)
+  ctx.fill()
+}
+
 export function foreHarappa(ctx, view, frame) {
   const { w, h } = view
   const y = h * HORIZON
@@ -264,6 +330,11 @@ export function foreHarappa(ctx, view, frame) {
   // 一面の草と野花
   grassField(ctx, view, frame, y, h, 305, 1.1)
   scatterFlowers(ctx, view, y, h, 91, 16)
+  // ひまわり（右手前に数本・そよ風で揺れる）
+  const sway = Math.sin(frame.now / 1500) * h * 0.01
+  drawSunflower(ctx, view, w * 0.9, h * 0.78, h * 0.13, sway)
+  drawSunflower(ctx, view, w * 0.96, h * 0.86, h * 0.16, sway * 1.2)
+  drawSunflower(ctx, view, w * 0.83, h * 0.9, h * 0.18, sway * 0.8)
 }
 
 // 神社：木陰の石段、鳥居、石灯籠。木漏れ日の静けさ。
@@ -428,6 +499,35 @@ export function foreTanbomichi(ctx, view, frame) {
     ctx.stroke()
   }
 
+  // かかし（田んぼに ぽつんと）
+  const kx = w * 0.78
+  const ky = h * 0.58
+  const ks = h * 0.16
+  ctx.strokeStyle = rgbToCss(frame.palette.woodShade)
+  ctx.lineWidth = Math.max(1, ks * 0.05)
+  ctx.beginPath() // 支柱
+  ctx.moveTo(kx, ky)
+  ctx.lineTo(kx, ky + ks)
+  ctx.moveTo(kx - ks * 0.4, ky + ks * 0.25) // 腕
+  ctx.lineTo(kx + ks * 0.4, ky + ks * 0.25)
+  ctx.stroke()
+  ctx.fillStyle = 'rgba(180,150,110,0.9)' // 服
+  ctx.beginPath()
+  ctx.moveTo(kx - ks * 0.28, ky + ks * 0.25)
+  ctx.lineTo(kx + ks * 0.28, ky + ks * 0.25)
+  ctx.lineTo(kx + ks * 0.18, ky + ks * 0.7)
+  ctx.lineTo(kx - ks * 0.18, ky + ks * 0.7)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = 'rgba(230,225,210,0.95)' // 頭
+  ctx.beginPath()
+  ctx.arc(kx, ky + ks * 0.1, ks * 0.13, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = rgbToCss(frame.palette.wood) // 麦わら帽子
+  ctx.beginPath()
+  ctx.ellipse(kx, ky + ks * 0.02, ks * 0.2, ks * 0.06, 0, 0, Math.PI * 2)
+  ctx.fill()
+
   // 道ばたの草
   grassField(ctx, view, frame, h * 0.8, h, 530, 0.5)
 }
@@ -487,6 +587,23 @@ export function foreKawabe(ctx, view, frame) {
     ctx.fillStyle = 'rgba(255,255,250,0.18)'
     ctx.beginPath()
     ctx.ellipse(sx - sr * 0.3, sy - sr * 0.3, sr * 0.6, sr * 0.4, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 小魚（水面下を すいすい泳ぐ影）
+  for (let i = 0; i < 5; i++) {
+    const speed = 0.04 + (i % 3) * 0.02
+    const fx = ((0.1 + i * 0.2 + (frame.now / 1000) * speed) % 1.1) * w
+    const fy = top + (0.3 + ((i * 37) % 50) / 100 * 0.6) * (bottom - top)
+    ctx.fillStyle = 'rgba(40,50,55,0.4)'
+    ctx.beginPath()
+    ctx.ellipse(fx, fy, h * 0.012, h * 0.004, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath() // 尾
+    ctx.moveTo(fx - h * 0.012, fy)
+    ctx.lineTo(fx - h * 0.022, fy - h * 0.004)
+    ctx.lineTo(fx - h * 0.022, fy + h * 0.004)
+    ctx.closePath()
     ctx.fill()
   }
 
