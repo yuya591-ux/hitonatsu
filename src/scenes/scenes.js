@@ -81,6 +81,7 @@ export function buildScenes() {
         { id: 'harappa-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.35, y: 0.62, seed: 5 },
         { id: 'harappa-butterfly', kind: 'butterfly', name: 'チョウ', x: 0.62, y: 0.74, seed: 8 },
         { id: 'harappa-grasshopper', kind: 'grasshopper', name: 'バッタ', x: 0.2, y: 0.86, seed: 11 },
+        { id: 'harappa-ladybug', kind: 'ladybug', name: 'てんとうむし', x: 0.45, y: 0.82, seed: 14 },
       ],
       npcs: [
         {
@@ -103,7 +104,10 @@ export function buildScenes() {
       name: '神社',
       neighbors: { down: 'engawa' },
       drawForeground: foreJinja,
-      creatures: [{ id: 'jinja-cicada', kind: 'cicada', name: 'セミ', x: 0.24, y: 0.5, seed: 2 }],
+      creatures: [
+        { id: 'jinja-cicada', kind: 'cicada', name: 'セミ', x: 0.24, y: 0.5, seed: 2 },
+        { id: 'jinja-mantis', kind: 'mantis', name: 'カマキリ', x: 0.78, y: 0.78, seed: 15 },
+      ],
       npcs: [
         {
           id: 'jinja-ojii',

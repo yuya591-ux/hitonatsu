@@ -155,12 +155,64 @@ function drawFish(ctx, x, y, s, now, seed) {
   ctx.restore()
 }
 
+// てんとう虫
+function drawLadybug(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.08))
+  ctx.fillStyle = '#C0392B'
+  ctx.beginPath()
+  ctx.ellipse(0, 0, s * 0.42, s * 0.36, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#2A1A14'
+  ctx.lineWidth = s * 0.04
+  ctx.beginPath()
+  ctx.moveTo(0, -s * 0.36)
+  ctx.lineTo(0, s * 0.36)
+  ctx.stroke()
+  ctx.fillStyle = '#2A1A14'
+  for (const [dx, dy] of [[-0.18, -0.1], [0.18, -0.1], [-0.15, 0.16], [0.15, 0.16]]) {
+    ctx.beginPath()
+    ctx.arc(dx * s, dy * s, s * 0.06, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.beginPath()
+  ctx.arc(0, -s * 0.42, s * 0.14, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+// カマキリ
+function drawMantis(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.1))
+  ctx.strokeStyle = '#6FA04A'
+  ctx.lineWidth = s * 0.09
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  ctx.moveTo(-s * 0.35, s * 0.22)
+  ctx.lineTo(s * 0.2, -s * 0.12)
+  ctx.stroke()
+  ctx.beginPath() // 鎌
+  ctx.moveTo(s * 0.2, -s * 0.12)
+  ctx.lineTo(s * 0.42, -s * 0.32)
+  ctx.lineTo(s * 0.56, -s * 0.16)
+  ctx.stroke()
+  ctx.fillStyle = '#5E8A3A'
+  ctx.beginPath()
+  ctx.arc(s * 0.26, -s * 0.18, s * 0.11, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
 const DRAWERS = {
   beetle: drawBeetle,
   cicada: drawCicada,
   dragonfly: drawDragonfly,
   butterfly: drawButterfly,
   grasshopper: drawGrasshopper,
+  ladybug: drawLadybug,
+  mantis: drawMantis,
   fish: drawFish,
 }
 
