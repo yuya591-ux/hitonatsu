@@ -28,6 +28,18 @@
     <!-- いま居る場所の名前（場面が変わるとふわっと出る） -->
     <div id="place-label"></div>
 
+    <!-- 夏の記録（図鑑）を開くボタン -->
+    <button id="record-button" aria-label="夏の記録">🌿 きろく</button>
+
+    <!-- 夏の記録（採った虫・会った人・歩いた場所） -->
+    <div id="record" class="hidden">
+      <div class="record-page">
+        <h2>なつのきろく</h2>
+        <div id="record-body"></div>
+        <button id="record-close">とじる</button>
+      </div>
+    </div>
+
     <!-- 近くの虫をつかまえる／人にはなしかける（近づくと出る） -->
     <button id="catch-prompt" class="hidden">つかまえる</button>
 

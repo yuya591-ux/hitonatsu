@@ -76,7 +76,7 @@ let checkedCanvas = false
 const browser = await puppeteer.launch({
   executablePath: EDGE,
   headless: 'new',
-  args: ['--no-sandbox'],
+  args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'],
 })
 
 try {
@@ -211,6 +211,23 @@ try {
     if (!res.talking) errors.push('会話が始まらない')
     if (!res.diaryShown || res.bodyLen < 5) errors.push('絵日記が表示されない/空')
     await page.screenshot({ path: join(outDir, 'diary.png') })
+    await page.close()
+  }
+
+  // 環境音が実際に「鳴る」か（再生状態と音量の立ち上がり）
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[sound] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=engawa&t=0.0&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 2500)) // 立ち上がりを待つ
+    const snd = await page.evaluate(() => {
+      const a = window.__hitonatsu.audio
+      return { state: a.state, peak: a.peakGain(), loaded: a.loadedCount }
+    })
+    console.log(`再生テスト: state=${snd.state} peakGain=${snd.peak.toFixed(2)} loaded=${snd.loaded}`)
+    if (snd.state !== 'running') errors.push(`音が再生状態でない（state=${snd.state}）`)
+    if (snd.peak < 0.3) errors.push(`音量が上がっていない（peakGain=${snd.peak.toFixed(2)}）`)
     await page.close()
   }
 } finally {

@@ -57,6 +57,10 @@ const diaryBody = document.getElementById('diary-body')
 const diaryPicture = document.getElementById('diary-picture')
 const diaryTitle = document.getElementById('diary-title')
 const diaryClose = document.getElementById('diary-close')
+const recordButton = document.getElementById('record-button')
+const recordOverlay = document.getElementById('record')
+const recordBody = document.getElementById('record-body')
+const recordClose = document.getElementById('record-close')
 
 const view = { w: 0, h: 0 }
 
@@ -90,6 +94,7 @@ const fireworks = createFireworks()
 let nearby = null // { type:'bug'|'npc', ref }
 let dialogue = null // { npc, idx }
 let diaryOpen = false
+let recordOpen = false
 let sleepReady = false
 
 function showToast(msg) {
@@ -170,6 +175,38 @@ function openDiary() {
   if (diaryBody) diaryBody.innerHTML = lines.map((l) => `<div class="line">${l}</div>`).join('')
   if (diaryOverlay) diaryOverlay.classList.remove('hidden')
 }
+// ── 夏の記録（図鑑） ──
+function openRecord() {
+  recordOpen = true
+  clock.pause()
+  if (recordBody) {
+    // 採った虫を種類ごとにまとめて数える
+    const counts = {}
+    for (const e of caughtEntries()) counts[e.name] = (counts[e.name] || 0) + 1
+    const bugLines = Object.entries(counts).map(([n, c]) => `${n} × ${c}`)
+    const people = metEntries().map((e) => e.name)
+    const places = visitedScenes()
+    const section = (title, items) =>
+      `<h3>${title}</h3>` +
+      (items.length ? items.map((i) => `<div>${i}</div>`).join('') : '<div class="empty">まだ ありません</div>')
+    recordBody.innerHTML =
+      section('つかまえた虫', bugLines) +
+      section('はなした人', people) +
+      section('あるいた場所', places)
+  }
+  if (recordOverlay) recordOverlay.classList.remove('hidden')
+}
+function closeRecord() {
+  recordOpen = false
+  if (recordOverlay) recordOverlay.classList.add('hidden')
+  if (!paused) clock.start()
+}
+if (recordButton) {
+  recordButton.addEventListener('click', openRecord)
+  recordButton.addEventListener('pointerdown', (e) => e.stopPropagation())
+}
+if (recordClose) recordClose.addEventListener('click', closeRecord)
+
 function closeDiary() {
   diaryOpen = false
   if (diaryOverlay) diaryOverlay.classList.add('hidden')
@@ -220,7 +257,7 @@ scenes.onChange(refreshUi)
 // ── 操作 ──
 // 画面をタップ／クリックした場所へ歩く
 function walkTo(clientX, clientY) {
-  if (dialogue || diaryOpen || scenes.isMoving) return // 会話・日記・移動中は歩かない
+  if (dialogue || diaryOpen || recordOpen || scenes.isMoving) return // 会話・日記・記録・移動中は歩かない
   const x = clientX / window.innerWidth
   const y = clientY / window.innerHeight
   player.target = {
@@ -272,8 +309,8 @@ function onFrame(dt, now) {
   scenes.update(dt)
   const time = clock.time
   const frame = { time, now, palette: getBlendedPalette(time) }
-  // 場面遷移中・会話中・日記中は操作を止める
-  player.frozen = scenes.isMoving || !!dialogue || diaryOpen
+  // 場面遷移中・会話中・日記中・記録中は操作を止める
+  player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen
   updatePlayer(player, dt, onPlayerEdge)
 
   scenes.draw(ctx, view, frame)

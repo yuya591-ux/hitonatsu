@@ -31,6 +31,17 @@ export function createAudioManager(soundUrls) {
       // 実際の発音はユーザー操作後に resume されたタイミングで始まる（iOS等の自動再生制限に準拠）。
       ctx.resume().catch(() => {})
 
+      // iOSのロック解除：ユーザー操作の“その瞬間”に無音バッファを1つ鳴らしておく。
+      // これをしないと、非同期で読み込んだ音が iPhone で鳴らない（操作の瞬間を外すため）。
+      try {
+        const unlock = ctx.createBufferSource()
+        unlock.buffer = ctx.createBuffer(1, 1, 22050)
+        unlock.connect(ctx.destination)
+        unlock.start(0)
+      } catch {
+        /* 無視 */
+      }
+
       // 保険：何らかの理由で停止(suspended)していたら、次のユーザー操作で必ず鳴らし直す
       const kick = () => {
         if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
@@ -76,6 +87,8 @@ export function createAudioManager(soundUrls) {
 
   // 毎フレーム、各音の音量を目標へなめらかに近づける（クロスフェード）
   function update(dt) {
+    // 停止していたら鳴らし直す（ユーザー操作のあとなら効く）
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
     const k = Math.min(1, dt / 1500) // 約1.5秒でなじむ
     for (const id in layers) {
       const L = layers[id]
@@ -94,6 +107,19 @@ export function createAudioManager(soundUrls) {
     // 読み込めた音の数（自己検証用）
     get loadedCount() {
       return Object.keys(layers).length
+    },
+    // 検証用：再生状態と、いちばん大きい音量
+    get state() {
+      return ctx ? ctx.state : 'none'
+    },
+    peakGain() {
+      let m = 0
+      for (const id in layers) m = Math.max(m, layers[id].current)
+      return m
+    },
+    // 手動で再生再開を試みる
+    resume() {
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
     },
     setVolume(v) {
       volume = Math.max(0, Math.min(1, v))

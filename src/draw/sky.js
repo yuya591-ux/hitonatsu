@@ -87,6 +87,35 @@ function drawStars(ctx, view, frame) {
     ctx.fill()
   }
   ctx.globalAlpha = 1
+
+  // 流れ星：一定周期でひとつ、すっと流れる（時刻だけで決まるので状態いらず）
+  const period = 8500
+  const k = Math.floor(frame.now / period)
+  const local = frame.now - k * period
+  const dur = 850
+  if (local < dur && nf > 0.4) {
+    const frac = (n) => {
+      const v = Math.sin((k + 1) * n) * 43758.5453
+      return v - Math.floor(v)
+    }
+    const sx = (0.15 + frac(12.9898) * 0.7) * w
+    const sy = (0.06 + frac(78.233) * 0.22) * h
+    const len = h * 0.12
+    const p = local / dur
+    const cx = sx + p * len * 1.6
+    const cy = sy + p * len
+    const g = ctx.createLinearGradient(cx, cy, cx - len * 0.6, cy - len * 0.4)
+    const fade = Math.sin(p * Math.PI) * nf
+    g.addColorStop(0, `rgba(255,255,245,${0.9 * fade})`)
+    g.addColorStop(1, 'rgba(255,255,245,0)')
+    ctx.strokeStyle = g
+    ctx.lineWidth = Math.max(1, h * 0.0025)
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.lineTo(cx - len * 0.6, cy - len * 0.4)
+    ctx.stroke()
+  }
 }
 
 function drawClouds(ctx, view, frame) {

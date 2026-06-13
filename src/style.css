@@ -141,6 +141,84 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── 夏の記録ボタン（左下に控えめ） ── */
+#record-button {
+  position: fixed;
+  left: 3%;
+  bottom: 6%;
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.45em 1em;
+  font-size: clamp(13px, 2.4vw, 18px);
+  font-family: inherit;
+  color: #4a4032;
+  background: rgba(255, 250, 240, 0.7);
+  border-radius: 999px;
+  box-shadow: 0 3px 10px rgba(120, 100, 70, 0.2);
+}
+
+/* ── 夏の記録（図鑑）── */
+#record {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 34, 50, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 20;
+}
+#record.hidden,
+#record-button.hidden {
+  display: none;
+}
+.record-page {
+  width: min(86vw, 560px);
+  max-height: 86vh;
+  overflow: auto;
+  padding: 1.3em 1.6em 1.6em;
+  background: #fbf6ea;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+.record-page h2 {
+  margin: 0 0 0.8em;
+  font-size: clamp(19px, 4vw, 28px);
+  color: #4a4032;
+  letter-spacing: 0.1em;
+}
+#record-body {
+  text-align: left;
+  font-size: clamp(14px, 2.8vw, 19px);
+  line-height: 1.9;
+  color: #3b3024;
+  max-width: 24em;
+  margin: 0 auto;
+}
+#record-body h3 {
+  margin: 0.7em 0 0.2em;
+  font-size: clamp(14px, 2.6vw, 18px);
+  color: #8a6a3a;
+  border-bottom: 1px solid rgba(150, 130, 90, 0.3);
+}
+#record-body .empty {
+  color: #9a8e7a;
+}
+#record-close {
+  margin-top: 1.2em;
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.55em 2.2em;
+  font-size: clamp(14px, 3vw, 20px);
+  font-family: inherit;
+  color: #fdf7ec;
+  background: #7a9a5e;
+  border-radius: 999px;
+}
+
 /* ── ねるボタン（夜・縁側で出る） ── */
 #sleep-prompt {
   position: fixed;
