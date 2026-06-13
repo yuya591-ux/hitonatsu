@@ -52,6 +52,7 @@ const volumeInput = document.getElementById('volume')
 const catchPrompt = document.getElementById('catch-prompt')
 const toast = document.getElementById('toast')
 const sleepPrompt = document.getElementById('sleep-prompt')
+const fishPrompt = document.getElementById('fish-prompt')
 const dialogueBox = document.getElementById('dialogue')
 const dialogueName = document.getElementById('dialogue-name')
 const dialogueText = document.getElementById('dialogue-text')
@@ -302,6 +303,64 @@ if (sumoPush) {
 }
 if (sumoClose) sumoClose.addEventListener('click', closeSumo)
 
+// ── 釣り（川辺）──
+let fishState = 'idle' // idle | wait | bite
+let fishTimer = null
+const FISH_BOB = { x: 0.6, y: 0.72 }
+const FISH_NAMES = ['フナ', 'メダカ', 'ザリガニ', 'ナマズ', 'おたまじゃくし']
+function startFishing() {
+  fishState = 'wait'
+  player.target = null
+  player.dirX = 0
+  player.dirY = 0
+  if (fishPrompt) fishPrompt.classList.add('hidden')
+  showToast('…あたりを まつ')
+  clearTimeout(fishTimer)
+  fishTimer = setTimeout(() => {
+    fishState = 'bite'
+    if (fishPrompt) {
+      fishPrompt.textContent = 'ひく！'
+      fishPrompt.classList.remove('hidden')
+    }
+    showToast('！ いまだ！')
+    clearTimeout(fishTimer)
+    fishTimer = setTimeout(() => {
+      if (fishState === 'bite') endFishing('にげられた…')
+    }, 1200)
+  }, 1500 + Math.random() * 2500)
+}
+function reelFish() {
+  if (fishState === 'bite') {
+    const name = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]
+    catchCreature(
+      { id: `fish-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, name, kind: 'fish' },
+      scenes.current.name,
+      calendar.day,
+    )
+    showToast(`${name}が つれた！`)
+    catchFx.push({ x: FISH_BOB.x, y: FISH_BOB.y, age: 0 })
+    endFishing()
+  } else if (fishState === 'wait') {
+    endFishing('はやい！ にげられた')
+  }
+}
+function endFishing(msg) {
+  fishState = 'idle'
+  clearTimeout(fishTimer)
+  if (fishPrompt) {
+    fishPrompt.textContent = 'つる'
+    fishPrompt.classList.add('hidden')
+  }
+  if (msg) showToast(msg)
+}
+if (fishPrompt) {
+  fishPrompt.addEventListener('click', () => {
+    if (fishState === 'idle') startFishing()
+    else if (fishState === 'bite') reelFish()
+  })
+  fishPrompt.addEventListener('pointerdown', (e) => e.stopPropagation())
+}
+
 function closeDiary() {
   diaryOpen = false
   if (diaryOverlay) diaryOverlay.classList.add('hidden')
@@ -322,6 +381,7 @@ if (sleepPrompt) {
 window.addEventListener('keydown', (e) => {
   if (e.key !== ' ' && e.key !== 'Enter') return
   if (sumoActive) pushSumo()
+  else if (fishState === 'bite') reelFish()
   else if (diaryOpen) closeDiary()
   else if (dialogue) advanceDialogue()
   else if (sleepReady) openDiary()
@@ -357,7 +417,7 @@ scenes.onChange(refreshUi)
 // ── 操作 ──
 // 画面をタップ／クリックした場所へ歩く
 function walkTo(clientX, clientY) {
-  if (dialogue || diaryOpen || recordOpen || sumoActive || scenes.isMoving) return // 会話・日記・記録・相撲・移動中は歩かない
+  if (dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle' || scenes.isMoving) return // 会話・日記・記録・相撲・釣り・移動中は歩かない
   const x = clientX / window.innerWidth
   const y = clientY / window.innerHeight
   player.target = {
@@ -415,8 +475,8 @@ function onFrame(dt, now) {
     calendar.weather === 'shower' && time > 0.3 && time < 0.52
       ? Math.sin(((time - 0.3) / 0.22) * Math.PI)
       : 0
-  // 場面遷移中・会話中・日記中・記録中・虫相撲中は操作を止める
-  player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive
+  // 場面遷移中・会話中・日記中・記録中・虫相撲中・釣り中は操作を止める
+  player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle'
   updatePlayer(player, dt, onPlayerEdge)
 
   scenes.draw(ctx, view, frame)
@@ -449,7 +509,8 @@ function onFrame(dt, now) {
     }
   }
 
-  const busy = scenes.isMoving || !!dialogue || diaryOpen
+  const busy =
+    scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle'
   // 夜、縁側にいて対象が無ければ「ねる」を出す
   sleepReady = !busy && !nearby && scenes.currentId === 'engawa' && time >= 0.82
   if (catchPrompt) {
@@ -461,12 +522,45 @@ function onFrame(dt, now) {
     }
   }
   if (sleepPrompt) sleepPrompt.classList.toggle('hidden', !sleepReady)
+  // 川辺で、対象が無ければ「つる」（待ち/当たり中はタイマー側で管理）
+  if (fishPrompt && fishState === 'idle') {
+    const canFish = !busy && !nearby && scenes.currentId === 'kawabe'
+    fishPrompt.classList.toggle('hidden', !canFish)
+  }
   // 記録ボタンに採取数を出す（増えたときだけ更新）
   if (recordButton) {
     const n = caughtCount()
     if (n !== recordButton._n) {
       recordButton._n = n
       recordButton.textContent = n ? `🌿 きろく ${n}` : '🌿 きろく'
+    }
+  }
+
+  // 釣りの糸と浮き
+  if (fishState !== 'idle' && scenes.currentId === 'kawabe') {
+    const bx = FISH_BOB.x * view.w
+    const jig = (fishState === 'bite' ? Math.sin(now / 60) * 0.012 : Math.sin(now / 500) * 0.004) * view.h
+    const by = FISH_BOB.y * view.h + jig
+    ctx.strokeStyle = 'rgba(60,60,60,0.5)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(player.x * view.w, (player.y - 0.13) * view.h)
+    ctx.lineTo(bx, by)
+    ctx.stroke()
+    const br = view.h * 0.012
+    ctx.fillStyle = '#E0544A'
+    ctx.beginPath()
+    ctx.arc(bx, by, br, Math.PI, 0)
+    ctx.fill()
+    ctx.fillStyle = '#F4F0E6'
+    ctx.beginPath()
+    ctx.arc(bx, by, br, 0, Math.PI)
+    ctx.fill()
+    if (fishState === 'bite') {
+      ctx.strokeStyle = 'rgba(235,245,245,0.6)'
+      ctx.beginPath()
+      ctx.ellipse(bx, by + br, view.h * 0.03 * (0.5 + 0.5 * Math.sin(now / 120)), view.h * 0.012, 0, 0, Math.PI * 2)
+      ctx.stroke()
     }
   }
 

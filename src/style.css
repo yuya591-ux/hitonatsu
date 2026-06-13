@@ -126,8 +126,9 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
-/* ── つかまえるボタン（虫が近いとき下中央に） ── */
-#catch-prompt {
+/* ── つかまえる/つる ボタン（下中央に） ── */
+#catch-prompt,
+#fish-prompt {
   position: fixed;
   left: 50%;
   bottom: 13%;
@@ -144,7 +145,8 @@ body {
   box-shadow: 0 4px 14px rgba(120, 100, 70, 0.3);
   animation: prompt-pop 0.25s ease;
 }
-#catch-prompt.hidden {
+#catch-prompt.hidden,
+#fish-prompt.hidden {
   display: none;
 }
 @keyframes prompt-pop {

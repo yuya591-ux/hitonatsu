@@ -256,6 +256,27 @@ try {
     await page.close()
   }
 
+  // 釣りの機能テスト：川辺で対象が無いと「つる」が出て、押すと釣りが始まる
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[fish] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=kawabe&t=0.3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 500))
+    await page.evaluate(() => {
+      window.__hitonatsu.player.x = 0.5
+      window.__hitonatsu.player.y = 0.92 // 虫から離れる
+    })
+    await new Promise((r) => setTimeout(r, 200))
+    const shown = await page.evaluate(() => !document.querySelector('#fish-prompt').classList.contains('hidden'))
+    await page.click('#fish-prompt').catch(() => {})
+    await new Promise((r) => setTimeout(r, 200))
+    const startedHidden = await page.evaluate(() => document.querySelector('#fish-prompt').classList.contains('hidden'))
+    console.log(`釣りテスト: つる表示=${shown} 開始=${startedHidden}`)
+    if (!shown) errors.push('川辺で「つる」が出ない')
+    await page.close()
+  }
+
   // 環境音が実際に「鳴る」か（再生状態と音量の立ち上がり）
   {
     const page = await browser.newPage()
