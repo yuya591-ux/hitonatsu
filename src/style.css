@@ -105,12 +105,12 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
-/* ── 場所の名前（控えめにふわっと） ── */
+/* ── 場所の名前（上中央・日付の下にふわっと。下のアクションと重ならない） ── */
 #place-label {
   position: fixed;
   left: 50%;
-  bottom: 6%;
-  transform: translateX(-50%) translateY(6px);
+  top: 14%;
+  transform: translateX(-50%) translateY(-6px);
   padding: 0.35em 1.2em;
   font-size: clamp(15px, 2.6vw, 22px);
   letter-spacing: 0.18em;
@@ -569,7 +569,7 @@ body {
 }
 .nav-down {
   left: 50%;
-  bottom: 14%;
+  bottom: 2.5%;
   transform: translateX(-50%) rotate(-90deg);
 }
 .nav-up:active {
