@@ -45,9 +45,32 @@ export function drawGround(ctx, view, frame) {
   ctx.fillStyle = g
   ctx.fillRect(0, y, w, h - y)
 
+  // 奥へ収束する遠近の筋（見下ろした床が奥へ受けていく感じ＝立体感）
+  ctx.save()
+  ctx.strokeStyle = rgbToCss(shade, 0.16)
+  ctx.lineWidth = Math.max(1, h * 0.0025)
+  const vpx = w * 0.5 // 消失点（地平線の中央）
+  for (let i = -7; i <= 7; i++) {
+    if (i === 0) continue
+    const bottomX = w * 0.5 + i * w * 0.13 // 手前ほど広がる
+    ctx.beginPath()
+    ctx.moveTo(vpx, y)
+    ctx.lineTo(bottomX, h)
+    ctx.stroke()
+  }
+  // 横の畝（手前ほど間隔が広い＝遠近）
+  ctx.strokeStyle = rgbToCss(shade, 0.1)
+  for (let r2 = 1; r2 <= 6; r2++) {
+    const f = r2 / 6
+    const yy = y + (h - y) * f * f
+    ctx.beginPath()
+    ctx.moveTo(0, yy)
+    ctx.lineTo(w, yy)
+    ctx.stroke()
+  }
+
   // 絵具のムラ（明暗のにじみを点々と）＝のっぺり防止
   const r = rng(71)
-  ctx.save()
   for (let i = 0; i < 10; i++) {
     const bx = r() * w
     const by = y + r() * (h - y)
@@ -388,6 +411,30 @@ export function foreJinja(ctx, view, frame) {
   ctx.lineTo(lx, ly - ls * 0.85)
   ctx.closePath()
   ctx.fill()
+
+  // 狛犬（石段の下・左右に一対）
+  const komaColor = rgbToCss(lerpColor(frame.palette.far, { r: 110, g: 105, b: 95 }, 0.5))
+  for (const side of [-1, 1]) {
+    const kx = cx + side * w * 0.16
+    const ky = h * 0.82
+    const ks = h * 0.05
+    ctx.fillStyle = komaColor
+    ctx.fillRect(kx - ks * 0.5, ky, ks, ks * 0.5) // 台座
+    ctx.beginPath() // 体
+    ctx.ellipse(kx, ky - ks * 0.2, ks * 0.4, ks * 0.5, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath() // 頭
+    ctx.arc(kx + side * ks * 0.15, ky - ks * 0.7, ks * 0.3, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 賽銭箱（鳥居の下）
+  ctx.fillStyle = rgbToCss(frame.palette.woodShade)
+  ctx.fillRect(cx - w * 0.04, y - h * 0.01, w * 0.08, h * 0.035)
+  ctx.fillStyle = rgbToCss(frame.palette.wood, 0.5)
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(cx - w * 0.04 + i * w * 0.016, y - h * 0.01, w * 0.004, h * 0.035) // 格子
+  }
 
   // 木陰：上の左右から大きな葉が覆いかぶさる（額縁＋涼しさ）
   const leaf = frame.palette.groundShade

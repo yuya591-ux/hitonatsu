@@ -107,7 +107,10 @@ function showToast(msg) {
 
 // ── 会話 ──
 function startDialogue(npc) {
-  dialogue = { npc, idx: 0 }
+  // 時間帯ごとの台詞があればそれを、なければ通常の台詞を使う
+  const phaseKey = getCurrentPhase(clock.time).key
+  const lines = (npc.linesByPhase && npc.linesByPhase[phaseKey]) || npc.lines
+  dialogue = { npc, lines, idx: 0 }
   meetPerson(npc)
   player.target = null
   player.dirX = 0
@@ -117,13 +120,13 @@ function startDialogue(npc) {
 function renderDialogue() {
   if (!dialogue || !dialogueBox) return
   dialogueName.textContent = dialogue.npc.name
-  dialogueText.textContent = dialogue.npc.lines[dialogue.idx]
+  dialogueText.textContent = dialogue.lines[dialogue.idx]
   dialogueBox.classList.remove('hidden')
 }
 function advanceDialogue() {
   if (!dialogue) return
   dialogue.idx += 1
-  if (dialogue.idx >= dialogue.npc.lines.length) {
+  if (dialogue.idx >= dialogue.lines.length) {
     dialogue = null
     if (dialogueBox) dialogueBox.classList.add('hidden')
   } else {
@@ -142,6 +145,9 @@ let catchFx = []
 function doInteract() {
   if (!nearby) return
   if (nearby.type === 'bug') {
+    player.swing = 320 // 網を振る
+    if (player.x < nearby.x) player.facing = 1
+    else player.facing = -1
     if (catchCreature(nearby.ref)) {
       showToast(`${nearby.ref.name}をつかまえた`)
       catchFx.push({ x: nearby.x, y: nearby.y, age: 0 })

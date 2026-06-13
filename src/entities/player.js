@@ -21,17 +21,22 @@ export function createPlayer() {
     dirX: 0, // キー入力
     dirY: 0,
     frozen: false, // 場面遷移中など操作を止める
+    swing: 0, // 採取時の網振り（ミリ秒・残り）
   }
 }
 
-// 奥行きに応じた拡大率（手前ほど大きい・奥ほど小さい）
+const SWING_MS = 320
+
+// 奥行きに応じた拡大率（手前ほど大きい・奥ほど小さい）。
+// 見下ろし感を強めるため、奥と手前で大きく差をつける（遠近を効かせる）。
 function depthScale(y) {
   const f = clamp01((y - BAND.top) / (BAND.bottom - BAND.top))
-  return 0.5 + 0.5 * f
+  return 0.4 + 0.95 * f * f // 手前で急に大きくなる＝俯瞰の床に立っている感じ
 }
 
 // 毎フレーム更新。onEdge(dir) は端に達したとき呼ばれ、隣の場面へ移れたら true を返す。
 export function updatePlayer(p, dt, onEdge) {
+  if (p.swing > 0) p.swing -= dt // 網振りは凍結中でも進める
   if (p.frozen) {
     p.moving = false
     return
@@ -119,27 +124,30 @@ export function drawPlayer(p, ctx, view) {
   const hatShade = '#B68F4C'
   const pole = '#9A7B4A'
 
-  // ── 虫取り網（体の後ろ・肩にかつぐ） ──
+  // ── 虫取り網（ふだんは肩にかつぎ、採取時は前へ振る） ──
+  const swing = p.swing > 0 ? Math.sin((1 - p.swing / SWING_MS) * Math.PI) : 0
+  ctx.save()
+  ctx.translate(H * 0.06, -H * 0.5) // 手のあたりを支点に
+  ctx.rotate(swing * 2.4) // 採取時に前へ振り抜く
+  const ox = -H * 0.42
+  const oy = -H * 0.52
   ctx.strokeStyle = pole
   ctx.lineWidth = H * 0.022
   ctx.lineCap = 'round'
   ctx.beginPath()
-  ctx.moveTo(H * 0.06, -H * 0.5) // 手のあたり
-  ctx.lineTo(-H * 0.34, -H * 1.02) // 後ろ上へ
+  ctx.moveTo(0, 0)
+  ctx.lineTo(ox, oy)
   ctx.stroke()
-  // 網の輪
-  const hoopX = -H * 0.36
-  const hoopY = -H * 1.06
   ctx.strokeStyle = '#8A6B3A'
   ctx.lineWidth = H * 0.018
   ctx.beginPath()
-  ctx.arc(hoopX, hoopY, H * 0.15, 0, Math.PI * 2)
+  ctx.arc(ox, oy, H * 0.15, 0, Math.PI * 2)
   ctx.stroke()
-  // 網（半透明）
   ctx.fillStyle = 'rgba(245,245,238,0.35)'
   ctx.beginPath()
-  ctx.arc(hoopX, hoopY, H * 0.14, 0, Math.PI * 2)
+  ctx.arc(ox, oy, H * 0.14, 0, Math.PI * 2)
   ctx.fill()
+  ctx.restore()
 
   // ── 脚（前後に振る） ──
   ctx.lineCap = 'round'

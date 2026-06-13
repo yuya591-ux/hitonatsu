@@ -11,10 +11,10 @@ const KINDS = {
   boy: { skin: '#E8B98C', cloth: '#88B0C0', clothShade: '#6A93A4', hair: '#2E2620' },
 }
 
-// 主人公と同じ奥行きスケール（player.BANDに合わせる）
+// 主人公と同じ奥行きスケール（player.BAND/depthScaleに合わせる）
 function depthScale(y) {
   const f = Math.min(Math.max((y - 0.46) / (0.95 - 0.46), 0), 1)
-  return 0.5 + 0.5 * f
+  return 0.4 + 0.95 * f * f
 }
 
 function roundRect(ctx, x, y, w, h, r) {
