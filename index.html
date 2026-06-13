@@ -17,6 +17,15 @@
     <!-- 一枚絵の風景を描く土台キャンバス -->
     <canvas id="scene"></canvas>
 
+    <!-- いま居る場所の名前（場面が変わるとふわっと出る） -->
+    <div id="place-label"></div>
+
+    <!-- 隣の場面へ移動する方向ボタン（行ける方向だけ表示） -->
+    <button id="nav-left" class="nav nav-left hidden" aria-label="左へ">‹</button>
+    <button id="nav-right" class="nav nav-right hidden" aria-label="右へ">›</button>
+    <button id="nav-up" class="nav nav-up hidden" aria-label="上へ">‹</button>
+    <button id="nav-down" class="nav nav-down hidden" aria-label="下へ">‹</button>
+
     <!-- スタート画面：「はじめる」を押すと一日が動き出す（音もこの後に立ち上げる） -->
     <div id="start-screen">
       <div class="start-inner">

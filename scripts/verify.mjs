@@ -62,6 +62,8 @@ const VIEWPORTS = [
   { name: 'pc', width: 1280, height: 720 },
   { name: 'phone', width: 740, height: 360 },
 ]
+// 全場面（昼で見え方を確認）
+const SCENES = ['engawa', 'harappa', 'jinja', 'tanbomichi', 'kawabe']
 
 const errors = []
 let checkedCanvas = false
@@ -117,6 +119,39 @@ try {
       console.log(`撮影: ${file}`)
       await page.close()
     }
+  }
+
+  // 全場面を昼で確認（PC横）
+  for (const scene of SCENES) {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('console', (msg) => {
+      if (msg.type() === 'error' && !msg.text().includes('favicon')) {
+        errors.push(`[scene/${scene}] console: ${msg.text()}`)
+      }
+    })
+    page.on('pageerror', (err) => errors.push(`[scene/${scene}] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=${scene}&t=0.3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 500))
+    const file = join(outDir, `scene-${scene}.png`)
+    await page.screenshot({ path: file })
+    console.log(`撮影: ${file}`)
+    await page.close()
+  }
+
+  // 移動の機能テスト：縁側から右へ動くと「田んぼ道」に変わること
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[move] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=engawa&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 300))
+    await page.click('#nav-right')
+    await new Promise((r) => setTimeout(r, 1000)) // crossfade(600ms)を待つ
+    const place = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
+    console.log(`移動テスト: 縁側→右→「${place}」`)
+    if (place !== '田んぼ道') errors.push(`移動が機能していない（期待:田んぼ道 / 実際:${place}）`)
+    await page.close()
   }
 } finally {
   await browser.close()

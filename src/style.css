@@ -73,6 +73,84 @@ body {
   color: #6b5d49;
 }
 
+/* ── 場所の名前（控えめにふわっと） ── */
+#place-label {
+  position: fixed;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%) translateY(6px);
+  padding: 0.35em 1.2em;
+  font-size: clamp(15px, 2.6vw, 22px);
+  letter-spacing: 0.18em;
+  color: #4a4032;
+  background: rgba(255, 250, 240, 0.72);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+#place-label.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── 移動の方向ボタン ── */
+.nav {
+  position: fixed;
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(44px, 7vw, 64px);
+  height: clamp(44px, 7vw, 64px);
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1;
+  color: #4a4032;
+  background: rgba(255, 250, 240, 0.6);
+  border-radius: 50%;
+  box-shadow: 0 3px 10px rgba(120, 100, 70, 0.2);
+  transition: opacity 0.3s ease, background 0.2s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav:hover {
+  background: rgba(255, 250, 240, 0.85);
+}
+.nav:active {
+  transform: scale(0.94);
+}
+.nav.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-left {
+  left: 3%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.nav-right {
+  right: 3%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.nav-up {
+  left: 50%;
+  top: 4%;
+  transform: translateX(-50%) rotate(90deg);
+}
+.nav-down {
+  left: 50%;
+  bottom: 14%;
+  transform: translateX(-50%) rotate(-90deg);
+}
+.nav-up:active {
+  transform: translateX(-50%) rotate(90deg) scale(0.94);
+}
+.nav-down:active {
+  transform: translateX(-50%) rotate(-90deg) scale(0.94);
+}
+
 /* ── 縦持ちの案内（横画面では隠す） ── */
 #rotate-notice {
   position: fixed;
