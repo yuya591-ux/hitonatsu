@@ -1,0 +1,15 @@
+{
+  "name": "hitonatsu",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "「ひと夏の一日」— 夏の田舎で過ごす朝から夜までの一日を味わう、固定カメラの一枚絵的なゲーム",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5"
+  }
+}

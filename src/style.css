@@ -1,0 +1,14 @@
+/* 画面いっぱいに横長の風景を主役にするための土台スタイル */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #1b1d24; /* 描画前の暗い下地。空の色は今後キャンバスに描く */
+  overflow: hidden;
+}
+
+#scene {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
