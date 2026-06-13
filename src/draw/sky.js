@@ -96,22 +96,34 @@ function drawClouds(ctx, view, frame) {
   const dayAmount = 1 - nightFactor(frame.time) * 0.7
   const margin = w * 0.3
 
+  const cloud = rgbToCss(p.cloud)
+  const shade = rgbToCss(p.cloudShade)
+
   for (const c of CLOUDS) {
     // 時間とともに右へゆっくり流す
     const drift = (frame.now / 1000) * c.speed
     let x = (c.baseX * w + drift) % (w + 2 * margin)
     x -= margin
     const y = c.y * h
-    const r = Math.min(w, h) * 0.09 * c.scale
+    const r = Math.min(w, h) * 0.085 * c.scale
     const a = c.alpha * dayAmount
+    const baseY = y + r * 0.55 // 雲底（積雲は底が平ら）
 
-    // やわらかい白の楕円を複数重ねて雲のかたまりに
-    const cloud = rgbToCss(p.cloud)
-    const shade = rgbToCss(p.cloudShade)
-    softBlob(ctx, x, y + r * 0.25, r * 1.3, shade, a * 0.5) // 下側の陰
-    softBlob(ctx, x - r * 0.8, y, r * 0.9, cloud, a)
-    softBlob(ctx, x, y - r * 0.25, r * 1.15, cloud, a)
-    softBlob(ctx, x + r * 0.9, y, r * 0.85, cloud, a)
+    // もくもくした積雲：下側の陰 → こんもりした上側 のかたまりで作る
+    // 1) 陰（雲底の少し下に広く）
+    softBlob(ctx, x, baseY + r * 0.15, r * 2.0, shade, a * 0.45)
+    softBlob(ctx, x - r * 1.1, baseY, r * 1.0, shade, a * 0.35)
+    softBlob(ctx, x + r * 1.2, baseY, r * 0.9, shade, a * 0.3)
+    // 2) こんもりした白いかたまり（複数の山で入道雲らしく）
+    const puffs = [
+      [-1.4, 0.1, 0.85], [-0.7, -0.35, 1.05], [0.0, -0.6, 1.25],
+      [0.7, -0.3, 1.1], [1.45, 0.05, 0.9], [0.0, -0.05, 1.4],
+    ]
+    for (const [dx, dy, rr] of puffs) {
+      softBlob(ctx, x + dx * r, y + dy * r, r * rr, cloud, a)
+    }
+    // 3) 上面のハイライト（太陽側を少し明るく）
+    softBlob(ctx, x - r * 0.3, y - r * 0.7, r * 0.7, rgbToCss(p.light), a * 0.5)
   }
 }
 
