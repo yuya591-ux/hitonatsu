@@ -17,6 +17,7 @@ import { activeSounds } from './data/soundscape.js'
 import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, BAND } from './entities/player.js'
 import { drawCreature, creaturePos, creatureThumb } from './entities/creatures.js'
 import { drawNpc } from './entities/npc.js'
+import { createCat, updateCat, drawCat } from './entities/cat.js'
 import {
   isCaught, catchCreature, caughtCount,
   meetPerson, metEntries, caughtEntries, visitScene, visitedScenes, newDay,
@@ -99,6 +100,9 @@ const player = createPlayer()
 
 // 夏の夜の花火
 const fireworks = createFireworks()
+
+// うろつく猫（家のまわりを気ままに）
+const cat = createCat()
 
 // カレンダー（複数日・日替わり天気）と雨
 const calendar = createCalendar()
@@ -184,6 +188,10 @@ function doInteract() {
   } else if (nearby.type === 'examine') {
     const lines = nearby.ref.lines
     showToast(lines[Math.floor(Math.random() * lines.length)])
+  } else if (nearby.type === 'cat') {
+    showToast('ねこは ごろごろ いっている。')
+    cat.rest = Math.max(cat.rest, 2500) // 撫でられて少し落ち着く
+    player.facing = player.x <= cat.x ? 1 : -1
   }
   nearby = null
   if (catchPrompt) catchPrompt.classList.add('hidden')
@@ -518,6 +526,8 @@ function onFrame(dt, now) {
       : 0
   // 村のおまつり（3日目以降）。神社の夜に提灯が灯る。デバッグで上書き可。
   frame.festival = debugForceFestival !== null ? debugForceFestival : calendar.day >= 3
+  // 町・室内では手前の草むら（緑の前景）を出さない
+  frame.noGroundFrame = ['shoutengai', 'juutakugai', 'danchi', 'ie'].includes(scenes.currentId)
   // 場面遷移中・会話中・日記中・記録中・虫相撲中・釣り中は操作を止める
   player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle'
   updatePlayer(player, dt, onPlayerEdge)
@@ -551,6 +561,16 @@ function onFrame(dt, now) {
       nearby = { type: 'npc', ref: npc, x: npc.x, y: npc.y }
     }
   }
+  // うろつく猫（この場面にいれば描画＆撫でられる）
+  updateCat(cat, dt)
+  if (cat.scene === scene.id) {
+    drawCat(cat, ctx, view)
+    const d = Math.hypot((player.x - cat.x) * view.w, (player.y - cat.y) * view.h)
+    if (d < view.h * 0.2 && d < best) {
+      best = d
+      nearby = { type: 'cat', ref: cat, x: cat.x, y: cat.y }
+    }
+  }
   // 調べられる物（虫・人がいなければ）
   for (const ex of scene.examinables || []) {
     const d = Math.hypot((player.x - ex.x) * view.w, (player.y - ex.y) * view.h)
@@ -566,8 +586,7 @@ function onFrame(dt, now) {
   sleepReady = !busy && !nearby && scenes.currentId === 'engawa' && time >= 0.82
   if (catchPrompt) {
     if (nearby && !busy) {
-      catchPrompt.textContent =
-        nearby.type === 'bug' ? 'つかまえる' : nearby.type === 'npc' ? 'はなしかける' : 'しらべる'
+      catchPrompt.textContent = { bug: 'つかまえる', npc: 'はなしかける', cat: 'なでる', examine: 'しらべる' }[nearby.type]
       catchPrompt.classList.remove('hidden')
     } else {
       catchPrompt.classList.add('hidden')

@@ -8,6 +8,41 @@ import { forestRidge, bloom, grassBlade, rng } from './watercolor.js'
 // より“上から覗き込む”高い画角。地平線をさらに上げ、地面（歩く場所）を広く見せる。
 export const HORIZON = 0.37 // 地平線の高さ（画面の上から37%）
 
+// 立体的な箱（前面＋屋根の上面＋中央側の側面）を消失点 vp に向かって描く＝疑似3D。
+// frontRgb は {r,g,b}。side<0 で左の建物（右側面が見える）、side>0 で右の建物。
+function box3d(ctx, x, baseY, bw, bh, side, frontRgb, vp, depth = 0.12) {
+  const back = (px, py) => [px + (vp.x - px) * depth, py + (vp.y - py) * depth]
+  const tlx = x - bw / 2
+  const trx = x + bw / 2
+  const topY = baseY - bh
+  // 屋根（上面・明るめ）
+  const [btlx, btly] = back(tlx, topY)
+  const [btrx, btry] = back(trx, topY)
+  ctx.fillStyle = rgbToCss(lerpColor(frontRgb, { r: 255, g: 255, b: 255 }, 0.18))
+  ctx.beginPath()
+  ctx.moveTo(tlx, topY)
+  ctx.lineTo(trx, topY)
+  ctx.lineTo(btrx, btry)
+  ctx.lineTo(btlx, btly)
+  ctx.closePath()
+  ctx.fill()
+  // 側面（中央側・暗め）
+  const inX = side < 0 ? trx : tlx
+  const [bInxT, bInyT] = back(inX, topY)
+  const [bInxB, bInyB] = back(inX, baseY)
+  ctx.fillStyle = rgbToCss(lerpColor(frontRgb, { r: 0, g: 0, b: 0 }, 0.28))
+  ctx.beginPath()
+  ctx.moveTo(inX, topY)
+  ctx.lineTo(inX, baseY)
+  ctx.lineTo(bInxB, bInyB)
+  ctx.lineTo(bInxT, bInyT)
+  ctx.closePath()
+  ctx.fill()
+  // 前面
+  ctx.fillStyle = rgbToCss(frontRgb)
+  ctx.fillRect(tlx, topY, bw, bh)
+}
+
 // 遠景：緑深い森の山を幾重にも重ね、奥ほど空色に霞ませて深い奥行きを出す（全場面で共通利用）
 export function drawFarHills(ctx, view, frame) {
   const { h } = view
@@ -888,18 +923,37 @@ export function foreShoutengai(ctx, view, frame) {
   const y = h * HORIZON
   const grey = (v) => `rgb(${v | 0},${v | 0},${(v + 4) | 0})`
 
-  // 道（アスファルト・手前へ広がる）
-  const road = ctx.createLinearGradient(0, y, 0, h)
-  road.addColorStop(0, grey(150))
-  road.addColorStop(1, grey(118))
-  ctx.fillStyle = road
+  // 歩道（タイル舗装・中央線なし＝大通りに見せない。手前ほど少し広い狭い小路）
+  const vp = { x: w * 0.5, y }
+  const fl = 0.46
+  const fr = 0.54
+  const bl = 0.2
+  const br = 0.8
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 198, g: 190, b: 172 }, 0.55))
   ctx.beginPath()
-  ctx.moveTo(w * 0.42, y)
-  ctx.lineTo(w * 0.58, y)
-  ctx.lineTo(w * 0.96, h)
-  ctx.lineTo(w * 0.04, h)
+  ctx.moveTo(fl * w, y)
+  ctx.lineTo(fr * w, y)
+  ctx.lineTo(br * w, h)
+  ctx.lineTo(bl * w, h)
   ctx.closePath()
   ctx.fill()
+  ctx.strokeStyle = 'rgba(120,112,96,0.22)'
+  ctx.lineWidth = 1
+  for (let r2 = 1; r2 <= 7; r2++) {
+    const f = (r2 / 7) ** 2
+    const yy = y + (h - y) * f
+    ctx.beginPath()
+    ctx.moveTo((fl + (bl - fl) * f) * w, yy)
+    ctx.lineTo((fr + (br - fr) * f) * w, yy)
+    ctx.stroke()
+  }
+  for (let c = 1; c <= 4; c++) {
+    const tt = c / 5
+    ctx.beginPath()
+    ctx.moveTo((fl + (fr - fl) * tt) * w, y)
+    ctx.lineTo((bl + (br - bl) * tt) * w, h)
+    ctx.stroke()
+  }
 
   const awnings = ['#C0492F', '#3E7A5A', '#3A6A9A', '#C99A3A', '#8A5A8A', '#B5614A']
   // 両脇の店（奥→手前）：壁・店先・暖簾・看板・袖看板・のぼり・八百屋の品
@@ -907,17 +961,14 @@ export function foreShoutengai(ctx, view, frame) {
     for (let i = 0; i < 6; i++) {
       const f = i / 5
       const baseY = y + (h - y) * (f * f)
-      const sc = 0.42 + f * 1.12
-      const bw = w * 0.16 * sc
-      const bh = h * 0.2 * sc
-      const roadEdge = 0.5 + side * (0.07 + f * 0.43)
-      const bx = roadEdge * w + side * bw * 0.5
+      const sc = 0.5 + f * 1.2
+      const bw = w * 0.2 * sc
+      const bh = h * 0.26 * sc
+      const innerEdge = (0.5 + side * (0.04 + f * 0.26)) * w
+      const bx = innerEdge + side * bw * 0.5
       const col = awnings[(i + (side > 0 ? 3 : 0)) % awnings.length]
-      // 壁
-      ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 228, g: 214, b: 190 }, 0.72))
-      ctx.fillRect(bx - bw / 2, baseY - bh, bw, bh)
-      ctx.fillStyle = 'rgba(0,0,0,0.06)'
-      ctx.fillRect(bx + side * bw * 0.22, baseY - bh, bw * 0.28, bh)
+      // 立体の箱（前面＋屋根＋側面）
+      box3d(ctx, bx, baseY, bw, bh, side, lerpColor(frame.palette.far, { r: 230, g: 216, b: 192 }, 0.72), vp, 0.1)
       // 店先（暗い間口）
       ctx.fillStyle = 'rgba(46,40,34,0.85)'
       ctx.fillRect(bx - bw * 0.36, baseY - bh * 0.55, bw * 0.72, bh * 0.55)
@@ -978,6 +1029,57 @@ export function foreShoutengai(ctx, view, frame) {
     ctx.fillStyle = '#2A2018'
     ctx.beginPath()
     ctx.arc(fx, fy - fs * 0.62, fs * 0.12, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // アーケードのアーチ（通りの上に連なる・奥へ小さく）
+  for (const d of [0.18, 0.42, 0.68]) {
+    const hw = (0.08 + (0.72 - d) * 0.5) * w
+    const cxA = w * 0.5
+    const baseYA = (0.2 - d * 0.05) * h
+    ctx.strokeStyle = rgbToCss(lerpColor(frame.palette.far, { r: 184, g: 174, b: 162 }, 0.4))
+    ctx.lineWidth = Math.max(1, h * 0.007 * (1 - d * 0.5))
+    ctx.beginPath()
+    ctx.moveTo(cxA - hw, baseYA)
+    ctx.quadraticCurveTo(cxA, baseYA - hw * 0.5, cxA + hw, baseYA)
+    ctx.stroke()
+    // アーチ下の細い帯
+    ctx.strokeStyle = 'rgba(190,80,60,0.5)'
+    ctx.lineWidth = Math.max(1, h * 0.004 * (1 - d * 0.5))
+    ctx.beginPath()
+    ctx.moveTo(cxA - hw, baseYA + h * 0.008)
+    ctx.quadraticCurveTo(cxA, baseYA - hw * 0.5 + h * 0.008, cxA + hw, baseYA + h * 0.008)
+    ctx.stroke()
+  }
+
+  // アドバルーン（空高くに浮く祝賀バルーン＋垂れ幕）＝盛り上がり感
+  const balloons = [
+    [0.28, 0.1, { r: 210, g: 74, b: 58 }],
+    [0.54, 0.06, { r: 62, g: 122, b: 154 }],
+    [0.74, 0.11, { r: 201, g: 154, b: 58 }],
+  ]
+  for (const [bxf, byf, col] of balloons) {
+    const bx = bxf * w
+    const by = byf * h + Math.sin(frame.now / 2200 + bxf * 10) * h * 0.01
+    const br = h * 0.045
+    ctx.strokeStyle = 'rgba(60,60,60,0.4)' // 紐
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(bx, by + br)
+    ctx.lineTo(bx, by + br + h * 0.14)
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(246,240,224,0.94)' // 垂れ幕
+    ctx.fillRect(bx - br * 0.42, by + br, br * 0.84, h * 0.14)
+    ctx.fillStyle = rgbToCss(col)
+    ctx.fillRect(bx - br * 0.42, by + br, br * 0.84, h * 0.022)
+    ctx.fillRect(bx - br * 0.42, by + br + h * 0.06, br * 0.84, h * 0.012)
+    ctx.fillStyle = rgbToCss(col) // バルーン
+    ctx.beginPath()
+    ctx.ellipse(bx, by, br * 0.92, br, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'
+    ctx.beginPath()
+    ctx.ellipse(bx - br * 0.3, by - br * 0.3, br * 0.3, br * 0.42, 0, 0, Math.PI * 2)
     ctx.fill()
   }
 
@@ -1069,6 +1171,34 @@ export function foreShoutengai(ctx, view, frame) {
   ctx.moveTo(cx, cy - cr * 0.8)
   ctx.lineTo(cx + cr * 0.3, cy - cr * 1.1) // ハンドル
   ctx.stroke()
+
+  // 手前の大きなゲート（額縁＝この下をくぐる入口）
+  const fgTop = h * 0.05
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 150, g: 60, b: 50 }, 0.45))
+  ctx.fillRect(w * 0.04, fgTop, w * 0.032, h) // 左柱
+  ctx.fillRect(w * 0.928, fgTop, w * 0.032, h) // 右柱
+  // アーチの飾り帯
+  ctx.fillStyle = '#B83A2C'
+  ctx.beginPath()
+  ctx.moveTo(w * 0.03, fgTop + h * 0.02)
+  ctx.quadraticCurveTo(w * 0.5, fgTop - h * 0.06, w * 0.97, fgTop + h * 0.02)
+  ctx.lineTo(w * 0.97, fgTop + h * 0.085)
+  ctx.quadraticCurveTo(w * 0.5, fgTop + h * 0.005, w * 0.03, fgTop + h * 0.085)
+  ctx.closePath()
+  ctx.fill()
+  // 飾りの帯（白ライン）
+  ctx.fillStyle = 'rgba(245,235,210,0.85)'
+  ctx.fillRect(w * 0.04, fgTop + h * 0.05, w * 0.92, h * 0.012)
+  // 飾り電球
+  ctx.fillStyle = 'rgba(252,228,150,0.95)'
+  for (let k = 0; k <= 13; k++) {
+    const t2 = k / 13
+    const ex = (0.05 + t2 * 0.9) * w
+    const ey = fgTop + h * 0.055 - Math.sin(t2 * Math.PI) * h * 0.055
+    ctx.beginPath()
+    ctx.arc(ex, ey, h * 0.006, 0, Math.PI * 2)
+    ctx.fill()
+  }
 }
 
 // 住宅街（昭和後期〜平成初期）。細い道、ブロック塀と瓦屋根の家、電柱。
@@ -1163,16 +1293,15 @@ export function foreDanchi(ctx, view, frame) {
   ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 170, g: 165, b: 150 }, 0.55))
   ctx.fillRect(0, y, w, h - y)
 
-  // 団地の棟（3棟）
-  for (const [bxf, bwf, floors] of [[0.2, 0.22, 4], [0.52, 0.26, 5], [0.82, 0.2, 4]]) {
+  // 団地の棟（3棟・立体の箱）
+  const vp = { x: w * 0.5, y }
+  for (const [bxf, bwf, floors] of [[0.18, 0.22, 4], [0.5, 0.26, 5], [0.82, 0.22, 4]]) {
     const bx = bxf * w
     const bw = bwf * w
     const bh = h * (0.16 + floors * 0.035)
     const top = y - bh
-    ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 216, g: 208, b: 192 }, 0.6))
-    ctx.fillRect(bx - bw / 2, top, bw, bh)
-    ctx.fillStyle = 'rgba(0,0,0,0.07)'
-    ctx.fillRect(bx + bw * 0.22, top, bw * 0.28, bh)
+    const side = bxf < 0.5 ? -1 : 1
+    box3d(ctx, bx, y, bw, bh, side, lerpColor(frame.palette.far, { r: 218, g: 210, b: 194 }, 0.6), vp, 0.06)
     const cols = Math.max(3, Math.round(bw / (w * 0.032)))
     const rowH = bh / floors
     for (let fl = 0; fl < floors; fl++) {
@@ -1188,57 +1317,323 @@ export function foreDanchi(ctx, view, frame) {
     }
   }
 
-  // 手前の公園：すべり台・ブランコ・砂場・ベンチ
-  // すべり台
-  const slx = w * 0.22
-  const sly = h * 0.92
-  const sls = h * 0.16
+  // ── 手前の公園 ──
+  // すべり台（はしご＋踊り場＋すべり面＋手すり）
+  const lx = w * 0.16
+  const gnd = h * 0.95
+  const slH = h * 0.2
   ctx.strokeStyle = '#C0654A'
-  ctx.lineWidth = Math.max(2, sls * 0.06)
-  ctx.beginPath() // はしご
-  ctx.moveTo(slx, sly)
-  ctx.lineTo(slx, sly - sls)
+  ctx.lineCap = 'round'
+  ctx.lineWidth = Math.max(2, slH * 0.05)
+  ctx.beginPath() // はしごの縦2本
+  ctx.moveTo(lx - w * 0.012, gnd)
+  ctx.lineTo(lx - w * 0.012, gnd - slH)
+  ctx.moveTo(lx + w * 0.012, gnd)
+  ctx.lineTo(lx + w * 0.012, gnd - slH)
   ctx.stroke()
-  ctx.fillStyle = '#5A9AC0' // すべり面
-  ctx.beginPath()
-  ctx.moveTo(slx, sly - sls)
-  ctx.lineTo(slx + sls * 0.9, sly)
-  ctx.lineTo(slx + sls * 1.0, sly)
-  ctx.lineTo(slx + sls * 0.1, sly - sls)
-  ctx.closePath()
-  ctx.fill()
-  // ブランコ
-  const swx = w * 0.74
-  const swy = h * 0.78
-  const sws = h * 0.18
-  ctx.strokeStyle = '#9A9A8A'
-  ctx.lineWidth = Math.max(2, sws * 0.04)
-  ctx.beginPath() // 枠
-  ctx.moveTo(swx - sws * 0.5, swy + sws)
-  ctx.lineTo(swx - sws * 0.3, swy)
-  ctx.lineTo(swx + sws * 0.3, swy)
-  ctx.lineTo(swx + sws * 0.5, swy + sws)
-  ctx.moveTo(swx - sws * 0.3, swy)
-  ctx.lineTo(swx + sws * 0.3, swy)
-  ctx.stroke()
-  ctx.lineWidth = Math.max(1, sws * 0.02)
-  const sway = Math.sin(frame.now / 1400) * sws * 0.12
-  for (const sgx of [-0.12, 0.12]) {
+  ctx.lineWidth = Math.max(1, slH * 0.03)
+  for (let r2 = 0; r2 < 5; r2++) {
+    const ry = gnd - (slH * (r2 + 0.5)) / 5
     ctx.beginPath()
-    ctx.moveTo(swx + sgx * sws, swy)
-    ctx.lineTo(swx + sgx * sws + sway, swy + sws * 0.7)
+    ctx.moveTo(lx - w * 0.012, ry)
+    ctx.lineTo(lx + w * 0.012, ry)
     ctx.stroke()
   }
-  ctx.fillStyle = '#6A4A2A' // 座板
-  ctx.fillRect(swx - sws * 0.16 + sway, swy + sws * 0.66, sws * 0.32, sws * 0.06)
-  // 砂場
-  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.wood, { r: 220, g: 200, b: 150 }, 0.5), 0.9)
+  ctx.fillStyle = '#A8B0B8' // 踊り場
+  ctx.fillRect(lx - w * 0.018, gnd - slH - h * 0.012, w * 0.06, h * 0.012)
+  ctx.fillStyle = '#5A9AC0' // すべり面
   ctx.beginPath()
-  ctx.ellipse(w * 0.48, h * 0.95, w * 0.1, h * 0.03, 0, 0, Math.PI * 2)
+  ctx.moveTo(lx + w * 0.03, gnd - slH)
+  ctx.lineTo(lx + w * 0.16, gnd)
+  ctx.lineTo(lx + w * 0.19, gnd)
+  ctx.lineTo(lx + w * 0.05, gnd - slH)
+  ctx.closePath()
   ctx.fill()
+  ctx.strokeStyle = '#C0654A' // 手すり
+  ctx.lineWidth = Math.max(1, slH * 0.025)
+  ctx.beginPath()
+  ctx.moveTo(lx + w * 0.03, gnd - slH * 0.9)
+  ctx.lineTo(lx + w * 0.16, gnd - h * 0.02)
+  ctx.stroke()
+
+  // ブランコ（A型フレーム＋2つの座板・1つ揺れる）
+  const swx = w * 0.72
+  const swTop = h * 0.74
+  const swH = h * 0.2
+  ctx.strokeStyle = '#9AA0A0'
+  ctx.lineWidth = Math.max(2, swH * 0.035)
+  ctx.beginPath() // 上の横棒
+  ctx.moveTo(swx - swH * 0.7, swTop)
+  ctx.lineTo(swx + swH * 0.7, swTop)
+  for (const ax of [-0.7, 0.7]) {
+    // A型脚
+    ctx.moveTo(swx + ax * swH, swTop)
+    ctx.lineTo(swx + ax * swH - swH * 0.25, gnd)
+    ctx.moveTo(swx + ax * swH, swTop)
+    ctx.lineTo(swx + ax * swH + swH * 0.25, gnd)
+  }
+  ctx.stroke()
+  ctx.lineWidth = Math.max(1, swH * 0.02)
+  const sway = Math.sin(frame.now / 1300) * swH * 0.18
+  let si = 0
+  for (const sgx of [-0.3, 0.3]) {
+    const sw2 = si === 0 ? sway : 0 // 片方だけ揺れる
+    ctx.strokeStyle = 'rgba(60,60,60,0.7)'
+    ctx.beginPath()
+    ctx.moveTo(swx + sgx * swH - swH * 0.06, swTop)
+    ctx.lineTo(swx + sgx * swH - swH * 0.06 + sw2, swTop + swH * 0.62)
+    ctx.moveTo(swx + sgx * swH + swH * 0.06, swTop)
+    ctx.lineTo(swx + sgx * swH + swH * 0.06 + sw2, swTop + swH * 0.62)
+    ctx.stroke()
+    ctx.fillStyle = '#6A4A2A'
+    ctx.fillRect(swx + sgx * swH - swH * 0.1 + sw2, swTop + swH * 0.6, swH * 0.2, swH * 0.04)
+    si++
+  }
+
+  // ジャングルジム（立方体の格子）
+  const jx = w * 0.5
+  const jy = gnd
+  const js = h * 0.13
+  ctx.strokeStyle = '#5A8AB0'
+  ctx.lineWidth = Math.max(1, js * 0.04)
+  for (let gi = 0; gi <= 3; gi++) {
+    const gg = (gi / 3) * js
+    ctx.beginPath() // 縦
+    ctx.moveTo(jx - js / 2 + gg, jy)
+    ctx.lineTo(jx - js / 2 + gg, jy - js)
+    ctx.moveTo(jx - js / 2 + gg + js * 0.2, jy - js * 0.15)
+    ctx.lineTo(jx - js / 2 + gg + js * 0.2, jy - js * 1.15)
+    ctx.stroke()
+    ctx.beginPath() // 横
+    ctx.moveTo(jx - js / 2, jy - gg)
+    ctx.lineTo(jx + js / 2, jy - gg)
+    ctx.moveTo(jx - js / 2 + js * 0.2, jy - gg - js * 0.15)
+    ctx.lineTo(jx + js / 2 + js * 0.2, jy - gg - js * 0.15)
+    ctx.stroke()
+  }
+
+  // 砂場（木枠＋砂）
+  const sbx = w * 0.34
+  const sby = h * 0.96
+  ctx.fillStyle = rgbToCss(frame.palette.woodShade)
+  ctx.fillRect(sbx - w * 0.08, sby - h * 0.005, w * 0.16, h * 0.018)
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.wood, { r: 224, g: 204, b: 152 }, 0.55), 0.95)
+  ctx.beginPath()
+  ctx.ellipse(sbx, sby - h * 0.004, w * 0.075, h * 0.014, 0, 0, Math.PI * 2)
+  ctx.fill()
+
   // ベンチ
   ctx.fillStyle = rgbToCss(frame.palette.woodShade)
-  ctx.fillRect(w * 0.5, h * 0.8, w * 0.09, h * 0.012)
-  ctx.fillRect(w * 0.5, h * 0.81, w * 0.012, h * 0.03)
-  ctx.fillRect(w * 0.578, h * 0.81, w * 0.012, h * 0.03)
+  ctx.fillRect(w * 0.86, h * 0.86, w * 0.09, h * 0.012)
+  ctx.fillRect(w * 0.86, h * 0.872, w * 0.012, h * 0.03)
+  ctx.fillRect(w * 0.938, h * 0.872, w * 0.012, h * 0.03)
+}
+
+// おじいちゃんち（昭和の和室）。畳・障子の窓・ちゃぶ台・ブラウン管テレビ・時計・カレンダー。
+export function foreIe(ctx, view, frame) {
+  const { w, h } = view
+  const wallY = h * 0.42 // 壁と畳の境
+  const ceilY = h * 0.07 // 天井の梁の下
+  const sideW = w * 0.08 // 左右の壁（部屋を囲って狭く見せる）
+  const innerL = sideW
+  const innerR = w - sideW
+  const tw2 = innerR - innerL
+
+  // 天井の梁
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.woodShade, { r: 124, g: 98, b: 70 }, 0.4))
+  ctx.fillRect(0, 0, w, ceilY)
+  // 左右の壁
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.wood, { r: 216, g: 200, b: 170 }, 0.5))
+  ctx.fillRect(0, 0, sideW, h)
+  ctx.fillRect(innerR, 0, sideW, h)
+  ctx.fillStyle = 'rgba(0,0,0,0.08)'
+  ctx.fillRect(innerL - w * 0.005, 0, w * 0.005, h)
+  ctx.fillRect(innerR, 0, w * 0.005, h)
+  // 柱
+  ctx.fillStyle = rgbToCss(frame.palette.woodShade)
+  ctx.fillRect(innerL - w * 0.012, 0, w * 0.012, wallY)
+  ctx.fillRect(innerR, 0, w * 0.012, wallY)
+
+  // 背の壁（漆喰）
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.wood, { r: 234, g: 218, b: 188 }, 0.55))
+  ctx.fillRect(innerL, ceilY, tw2, wallY - ceilY)
+  // 障子の窓
+  const winX = innerL + w * 0.03
+  const winW = w * 0.24
+  const winY = ceilY + h * 0.02
+  const winH = wallY - ceilY - h * 0.04
+  ctx.fillStyle = 'rgba(250,246,228,0.92)'
+  ctx.fillRect(winX, winY, winW, winH)
+  ctx.strokeStyle = rgbToCss(frame.palette.woodShade)
+  ctx.lineWidth = Math.max(1, h * 0.004)
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath()
+    ctx.moveTo(winX + (i * winW) / 4, winY)
+    ctx.lineTo(winX + (i * winW) / 4, winY + winH)
+    ctx.stroke()
+  }
+  for (let j = 1; j < 3; j++) {
+    ctx.beginPath()
+    ctx.moveTo(winX, winY + (j * winH) / 3)
+    ctx.lineTo(winX + winW, winY + (j * winH) / 3)
+    ctx.stroke()
+  }
+  ctx.strokeRect(winX, winY, winW, winH)
+  // 壁掛け時計
+  ctx.fillStyle = '#3A2E22'
+  ctx.beginPath()
+  ctx.arc(w * 0.62, ceilY + h * 0.07, h * 0.032, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#EAE2CC'
+  ctx.beginPath()
+  ctx.arc(w * 0.62, ceilY + h * 0.07, h * 0.025, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#3A2E22'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(w * 0.62, ceilY + h * 0.07)
+  ctx.lineTo(w * 0.62, ceilY + h * 0.05)
+  ctx.moveTo(w * 0.62, ceilY + h * 0.07)
+  ctx.lineTo(w * 0.636, ceilY + h * 0.07)
+  ctx.stroke()
+  // カレンダー
+  ctx.fillStyle = '#F4F0E6'
+  ctx.fillRect(w * 0.78, ceilY + h * 0.02, w * 0.1, h * 0.15)
+  ctx.fillStyle = '#C0392B'
+  ctx.fillRect(w * 0.78, ceilY + h * 0.02, w * 0.1, h * 0.04)
+
+  // 畳（はっきり・縁つき・互い違い・手前ほど広い）
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.ground, { r: 208, g: 196, b: 142 }, 0.6))
+  ctx.fillRect(innerL, wallY, tw2, h - wallY)
+  const rowsY = [0, 0.32, 0.62, 1].map((t) => wallY + (h - wallY) * t)
+  for (let r = 0; r < 3; r++) {
+    const offset = r % 2 === 0 ? 0 : 0.5
+    for (let c = -1; c < 3; c++) {
+      const x0 = innerL + tw2 * Math.max(0, (c + offset) / 3)
+      const x1 = innerL + tw2 * Math.min(1, (c + 1 + offset) / 3)
+      if (x1 <= x0) continue
+      if ((c + r) % 2 === 0) {
+        ctx.fillStyle = 'rgba(188,180,126,0.3)'
+        ctx.fillRect(x0, rowsY[r], x1 - x0, rowsY[r + 1] - rowsY[r])
+      }
+    }
+  }
+  ctx.strokeStyle = '#4E6E3A' // 畳縁
+  ctx.lineWidth = Math.max(2, h * 0.005)
+  for (const ry of rowsY) {
+    ctx.beginPath()
+    ctx.moveTo(innerL, ry)
+    ctx.lineTo(innerR, ry)
+    ctx.stroke()
+  }
+  for (let r = 0; r < 3; r++) {
+    const offset = r % 2 === 0 ? 0 : 0.5
+    for (let c = 0; c <= 3; c++) {
+      const xf = (c + offset) / 3
+      if (xf < 0 || xf > 1) continue
+      const x = innerL + tw2 * xf
+      ctx.beginPath()
+      ctx.moveTo(x, rowsY[r])
+      ctx.lineTo(x, rowsY[r + 1])
+      ctx.stroke()
+    }
+  }
+
+  // ちゃぶ台（低い丸テーブル）＋急須
+  const tx = w * 0.46
+  const ty = h * 0.84
+  const tr = w * 0.12
+  ctx.fillStyle = rgbToCss(frame.palette.woodShade)
+  ctx.fillRect(tx - tr * 0.5, ty, tr, tr * 0.3)
+  ctx.fillStyle = rgbToCss(frame.palette.wood)
+  ctx.beginPath()
+  ctx.ellipse(tx, ty, tr, tr * 0.4, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#6A7A5A'
+  ctx.beginPath()
+  ctx.arc(tx + tr * 0.2, ty - tr * 0.1, tr * 0.16, 0, Math.PI * 2)
+  ctx.fill()
+
+  // ブラウン管テレビ（右手前）
+  const vx2 = w * 0.82
+  const vy2 = h * 0.9
+  const vw2 = w * 0.14
+  const vh2 = h * 0.14
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.woodShade, { r: 96, g: 84, b: 72 }, 0.4))
+  ctx.fillRect(vx2 - vw2 / 2, vy2 - vh2, vw2, vh2)
+  ctx.fillStyle = '#3A4A52'
+  ctx.fillRect(vx2 - vw2 * 0.4, vy2 - vh2 * 0.88, vw2 * 0.62, vh2 * 0.62)
+  ctx.fillStyle = 'rgba(185,205,215,0.3)'
+  ctx.fillRect(vx2 - vw2 * 0.36, vy2 - vh2 * 0.82, vw2 * 0.26, vh2 * 0.5)
+  ctx.fillStyle = '#2A2018' // つまみ
+  ctx.beginPath()
+  ctx.arc(vx2 + vw2 * 0.36, vy2 - vh2 * 0.7, vw2 * 0.04, 0, Math.PI * 2)
+  ctx.fill()
+
+  // 座布団（ちゃぶ台のまわり）
+  for (const [zx, zy] of [[tx - tr * 1.25, ty + tr * 0.12], [tx + tr * 1.15, ty + tr * 0.06]]) {
+    ctx.fillStyle = '#9A6A5A'
+    ctx.beginPath()
+    ctx.ellipse(zx, zy, tr * 0.5, tr * 0.22, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(0,0,0,0.12)'
+    ctx.beginPath()
+    ctx.ellipse(zx, zy + tr * 0.05, tr * 0.5, tr * 0.16, 0, 0, Math.PI)
+    ctx.fill()
+  }
+
+  // 茶箪笥（背の壁ぎわ）
+  const cabx = w * 0.58
+  const caby = wallY
+  const cabw = w * 0.17
+  const cabh = h * 0.15
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.woodShade, { r: 122, g: 92, b: 62 }, 0.4))
+  ctx.fillRect(cabx - cabw / 2, caby - cabh, cabw, cabh)
+  ctx.fillStyle = 'rgba(0,0,0,0.22)' // ガラス引き戸
+  ctx.fillRect(cabx - cabw * 0.42, caby - cabh * 0.62, cabw * 0.84, cabh * 0.42)
+  ctx.strokeStyle = rgbToCss(frame.palette.wood)
+  ctx.lineWidth = Math.max(1, cabw * 0.02)
+  ctx.beginPath()
+  ctx.moveTo(cabx, caby - cabh * 0.62)
+  ctx.lineTo(cabx, caby - cabh * 0.2)
+  ctx.stroke()
+
+  // 扇風機（左手前・羽根が回る）
+  const fnx = w * 0.15
+  const fny = h * 0.9
+  const fns = h * 0.13
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 150, g: 162, b: 152 }, 0.5))
+  ctx.fillRect(fnx - fns * 0.04, fny - fns, fns * 0.08, fns)
+  ctx.fillRect(fnx - fns * 0.18, fny, fns * 0.36, fns * 0.05)
+  ctx.strokeStyle = '#8AA0A0'
+  ctx.lineWidth = fns * 0.04
+  ctx.beginPath()
+  ctx.arc(fnx, fny - fns * 1.05, fns * 0.3, 0, Math.PI * 2)
+  ctx.stroke()
+  const fa = frame.now / 120
+  ctx.fillStyle = 'rgba(222,228,228,0.7)'
+  for (let b = 0; b < 3; b++) {
+    ctx.save()
+    ctx.translate(fnx, fny - fns * 1.05)
+    ctx.rotate(fa + (b * Math.PI * 2) / 3)
+    ctx.beginPath()
+    ctx.ellipse(fns * 0.13, 0, fns * 0.17, fns * 0.07, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  // 蚊取り線香（畳に・細い煙）
+  const kx = w * 0.34
+  const ky = h * 0.94
+  ctx.strokeStyle = '#5E8A4A'
+  ctx.lineWidth = Math.max(1, h * 0.004)
+  ctx.beginPath()
+  ctx.arc(kx, ky, h * 0.016, 0, Math.PI * 1.8)
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(200,200,200,0.4)'
+  ctx.lineWidth = Math.max(1, h * 0.003)
+  ctx.beginPath()
+  ctx.moveTo(kx, ky - h * 0.016)
+  ctx.quadraticCurveTo(kx + Math.sin(frame.now / 700) * w * 0.02, ky - h * 0.1, kx + Math.sin(frame.now / 500) * w * 0.01, ky - h * 0.2)
+  ctx.stroke()
 }

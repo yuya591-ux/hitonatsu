@@ -154,6 +154,7 @@ function applyHeatHaze(ctx, view, frame) {
 // 手前のぼけた近景（草むら）を下の両隅に重ねて、奥行き（額縁）を出す。
 // カメラのすぐ手前にある＝大きく・暗く・ぼけて見える。
 function applyForegroundFrame(ctx, view, frame) {
+  if (frame.noGroundFrame) return // 町・室内では手前の草むらを出さない
   const { w, h } = view
   const g = frame.palette.groundShade
   const dark = { r: g.r * 0.55, g: g.g * 0.6, b: g.b * 0.55 }

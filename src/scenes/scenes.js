@@ -18,6 +18,7 @@ import {
   foreShoutengai,
   foreJuutakugai,
   foreDanchi,
+  foreIe,
 } from '../draw/scenery.js'
 
 // 1場面ぶんのレイヤーを組み立てるファクトリ。
@@ -49,7 +50,7 @@ export function buildScenes() {
     createScene({
       id: 'engawa',
       name: '縁側',
-      neighbors: { left: 'harappa', right: 'tanbomichi', up: 'jinja' },
+      neighbors: { left: 'harappa', right: 'tanbomichi', up: 'jinja', down: 'ie' },
       drawForeground: foreEngawa,
       npcs: [
         {
@@ -241,6 +242,32 @@ export function buildScenes() {
       examinables: [
         { id: 'danchi-suberidai', x: 0.24, y: 0.92, lines: ['すべり台。すこし さびてる。'] },
         { id: 'danchi-suna', x: 0.48, y: 0.95, lines: ['砂場。だれかの お城の あと。'] },
+      ],
+    }),
+    createScene({
+      id: 'ie',
+      name: 'おじいちゃんち',
+      neighbors: { up: 'engawa' },
+      drawForeground: foreIe,
+      npcs: [
+        {
+          id: 'ie-ojii',
+          name: 'おじいちゃん',
+          kind: 'grandpa',
+          x: 0.66,
+          y: 0.82,
+          face: 'left',
+          lines: ['おう、入ってきたか。', 'お茶でも 飲んでいきなさい。'],
+          linesByPhase: {
+            evening: ['もうすぐ 夕飯だな。', 'テレビでも 見るか。'],
+            night: ['夜ふかしは いかんぞ。', 'ふとんは 敷いてあるからな。'],
+          },
+        },
+      ],
+      examinables: [
+        { id: 'ie-tv', x: 0.82, y: 0.9, lines: ['ブラウン管テレビ。砂あらしが 映っている。'] },
+        { id: 'ie-chabudai', x: 0.46, y: 0.86, lines: ['ちゃぶ台。お茶が 入れてある。'] },
+        { id: 'ie-calendar', x: 0.83, y: 0.45, lines: ['カレンダー。きょうに 丸が してある。'] },
       ],
     }),
   ]
