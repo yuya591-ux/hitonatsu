@@ -102,6 +102,7 @@ const fireworks = createFireworks()
 
 // カレンダー（複数日・日替わり天気）と雨
 const calendar = createCalendar()
+if (params.has('day')) calendar.setDay(parseInt(params.get('day'), 10)) // 確認用
 const rain = createRain()
 const dateLabel = document.getElementById('date-label')
 
@@ -481,6 +482,8 @@ function onFrame(dt, now) {
     calendar.weather === 'shower' && time > 0.3 && time < 0.52
       ? Math.sin(((time - 0.3) / 0.22) * Math.PI)
       : 0
+  // 村のおまつり（3日目以降）。神社の夜に提灯が灯る。
+  frame.festival = calendar.day >= 3
   // 場面遷移中・会話中・日記中・記録中・虫相撲中・釣り中は操作を止める
   player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle'
   updatePlayer(player, dt, onPlayerEdge)

@@ -137,6 +137,17 @@ try {
     }
   }
 
+  // おまつり（3日目の夜の神社）を確認
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    await page.goto(`${baseUrl}?scene=jinja&t=0.9&day=3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 500))
+    await page.screenshot({ path: join(outDir, 'festival.png') })
+    console.log('撮影: festival.png')
+    await page.close()
+  }
+
   // 全場面を昼で確認（PC横）
   for (const scene of SCENES) {
     const page = await browser.newPage()

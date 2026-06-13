@@ -545,6 +545,59 @@ export function foreJinja(ctx, view, frame) {
     bloom(ctx, (0.4 + r() * 0.2) * w, (0.5 + r() * 0.4) * h, h * 0.03, frame.palette.light, 0.12)
   }
   ctx.restore()
+
+  // 村のおまつり（3日目以降）：両脇に屋台、参道に提灯
+  if (frame.festival) {
+    const night = frame.time >= 0.78 ? Math.min((frame.time - 0.78) / 0.12, 1) : 0
+    // 屋台（赤白の庇の小屋）
+    for (const sxf of [0.12, 0.88]) {
+      const stx = sxf * w
+      const sty = h * 0.6
+      const sw = w * 0.13
+      const shh = h * 0.12
+      ctx.fillStyle = rgbToCss(frame.palette.woodShade)
+      ctx.fillRect(stx - sw / 2, sty, sw, shh)
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = i % 2 ? '#D24A3A' : '#F2EDE0'
+        ctx.fillRect(stx - sw / 2 + (i * sw) / 6, sty - h * 0.022, sw / 6, h * 0.022)
+      }
+      if (night > 0) {
+        ctx.save()
+        ctx.globalCompositeOperation = 'lighter'
+        bloom(ctx, stx, sty + shh * 0.3, sw * 0.7, { r: 255, g: 220, b: 150 }, 0.25 * night)
+        ctx.restore()
+      }
+    }
+    // 提灯の連なり（参道の上にたわませて）
+    const n = 8
+    const lyBase = y - h * 0.05
+    ctx.strokeStyle = 'rgba(60,50,40,0.6)'
+    ctx.lineWidth = Math.max(1, h * 0.002)
+    ctx.beginPath()
+    ctx.moveTo(w * 0.14, lyBase - h * 0.02)
+    ctx.quadraticCurveTo(w * 0.5, lyBase + h * 0.02, w * 0.86, lyBase - h * 0.02)
+    ctx.stroke()
+    for (let i = 0; i < n; i++) {
+      const t2 = i / (n - 1)
+      const lx = (0.14 + t2 * 0.72) * w
+      const sag = Math.sin(t2 * Math.PI) * h * 0.03
+      const lly = lyBase - h * 0.02 + sag + Math.sin(frame.now / 1500 + i) * h * 0.003
+      const lr = h * 0.018
+      if (night > 0) {
+        ctx.save()
+        ctx.globalCompositeOperation = 'lighter'
+        bloom(ctx, lx, lly, lr * 3.2, { r: 255, g: 180, b: 110 }, 0.32 * night)
+        ctx.restore()
+      }
+      ctx.fillStyle = '#D2503C' // 提灯（赤）
+      ctx.beginPath()
+      ctx.ellipse(lx, lly, lr * 0.8, lr, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#E8DCC0' // 上下の口
+      ctx.fillRect(lx - lr * 0.5, lly - lr, lr, lr * 0.18)
+      ctx.fillRect(lx - lr * 0.5, lly + lr * 0.82, lr, lr * 0.18)
+    }
+  }
 }
 
 // 田んぼ道：奥へ続く一本道、青い稲田、電柱と電線。夕暮れが映える郷愁の道。

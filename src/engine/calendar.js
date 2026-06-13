@@ -26,5 +26,8 @@ export function createCalendar() {
       day += 1
       roll()
     },
+    setDay(n) {
+      day = Math.max(1, n | 0)
+    },
   }
 }
