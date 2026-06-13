@@ -15,6 +15,7 @@ import {
   foreJinja,
   foreTanbomichi,
   foreKawabe,
+  foreShoutengai,
 } from '../draw/scenery.js'
 
 // 1場面ぶんのレイヤーを組み立てるファクトリ。
@@ -154,7 +155,7 @@ export function buildScenes() {
     createScene({
       id: 'kawabe',
       name: '川辺',
-      neighbors: { left: 'tanbomichi' },
+      neighbors: { left: 'tanbomichi', right: 'shoutengai' },
       drawForeground: foreKawabe,
       creatures: [{ id: 'kawabe-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.5, y: 0.55, seed: 4 }],
       npcs: [
@@ -171,6 +172,31 @@ export function buildScenes() {
       examinables: [
         { id: 'kawabe-ishi', x: 0.4, y: 0.85, lines: ['川の石。つるつるして いる。'] },
         { id: 'kawabe-ashi', x: 0.7, y: 0.92, lines: ['葦が さらさら 揺れている。'] },
+      ],
+    }),
+    createScene({
+      id: 'shoutengai',
+      name: '商店街',
+      neighbors: { left: 'kawabe', right: 'juutakugai' },
+      drawForeground: foreShoutengai,
+      npcs: [
+        {
+          id: 'shoutengai-obasan',
+          name: '店のおばさん',
+          kind: 'grandma',
+          x: 0.32,
+          y: 0.82,
+          face: 'right',
+          lines: ['いらっしゃい。今日は 暑いねえ。', 'ラムネ、冷えてるよ。'],
+          linesByPhase: {
+            evening: ['そろそろ 店じまいだよ。', 'おまけ しとくね。'],
+            night: ['もう 遅いよ。気をつけて お帰り。'],
+          },
+        },
+      ],
+      examinables: [
+        { id: 'shoutengai-jihanki', x: 0.16, y: 0.9, lines: ['自動販売機。ジュースが ならんでる。'] },
+        { id: 'shoutengai-dagashi', x: 0.7, y: 0.84, lines: ['駄菓子屋。なにを 買おうか まよう。'] },
       ],
     }),
   ]
