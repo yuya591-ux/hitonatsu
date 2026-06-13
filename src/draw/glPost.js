@@ -59,6 +59,23 @@ void main(){
   vec3 add = bloom * 0.55 * bright;
   col += min(add, vec3(0.10)); // 上限0.10：harshに白飛びさせない
 
+  // ── 空気遠近＆奥のやわらかさ（2.5Dの奥行き） ──
+  // 固定カメラの一枚絵なので、奥行きは“空気”で出す：地平線の帯だけ、奥ほど
+  // ほんの少しぼかして淡くする。最上部(HUD)には掛からないよう帯で限定。
+  float depthBand = exp(-pow((uv.y - (u_horizon + 0.04)) / 0.11, 2.0));
+  if (depthBand > 0.01) {
+    vec2 e = aspect * 0.0045;
+    vec3 blur = col
+      + texture2D(u_tex, uv + vec2(e.x, 0.0)).rgb
+      + texture2D(u_tex, uv - vec2(e.x, 0.0)).rgb
+      + texture2D(u_tex, uv + vec2(0.0, e.y)).rgb
+      + texture2D(u_tex, uv - vec2(0.0, e.y)).rgb;
+    blur *= 0.2;
+    col = mix(col, blur, depthBand * 0.40);                 // 奥をやわらかく
+    vec3 haze = mix(col, vec3(0.85, 0.88, 0.91), 0.5);
+    col = mix(col, haze, depthBand * 0.16);                 // 淡い霞
+  }
+
   gl_FragColor = vec4(col, 1.0);
 }`
 
