@@ -150,12 +150,13 @@ try {
     await page.setViewport({ width: 1280, height: 720 })
     page.on('pageerror', (err) => errors.push(`[move] pageerror: ${err.message}`))
     await page.goto(`${baseUrl}?scene=engawa&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
-    await new Promise((r) => setTimeout(r, 300))
-    await page.click('#nav-right')
-    await new Promise((r) => setTimeout(r, 1200)) // crossfade(600ms)＋音の読み込みを待つ
+    await new Promise((r) => setTimeout(r, 400))
+    // 主人公を右へ歩かせ、右端で隣（田んぼ道）へ移ることを確認
+    await page.evaluate(() => { window.__hitonatsu.player.dirX = 1 })
+    await new Promise((r) => setTimeout(r, 4000)) // 右端まで歩く＋crossfade
     const place = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
-    console.log(`移動テスト: 縁側→右→「${place}」`)
-    if (place !== '田んぼ道') errors.push(`移動が機能していない（期待:田んぼ道 / 実際:${place}）`)
+    console.log(`移動テスト: 縁側→右へ歩く→「${place}」`)
+    if (place !== '田んぼ道') errors.push(`歩いて移動できていない（期待:田んぼ道 / 実際:${place}）`)
 
     // 環境音が実際にデコード・読み込みできたか（素材の破損チェック）
     const loaded = await page.evaluate(() => window.__hitonatsu?.audio?.loadedCount ?? -1)

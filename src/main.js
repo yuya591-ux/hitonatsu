@@ -10,6 +10,7 @@ import { drawParticles } from './draw/particles.js'
 import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
+import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, BAND } from './entities/player.js'
 
 // ── P2: 残り4場面＋場面の行き来 ──
 // 縁側・原っぱ・神社・田んぼ道・川辺を、隣接にそって crossfade で行き来する。
@@ -60,6 +61,19 @@ if (startScene) scenes.setStart(startScene)
 // 環境音（素材が無ければ無音で安全に動く）
 const audio = createAudioManager(loadAudioUrls())
 
+// 操作する主人公
+const player = createPlayer()
+
+// 端に達したとき：隣の場面があれば歩いて移れる
+function onPlayerEdge(dir) {
+  if (scenes.isMoving) return false
+  const id = scenes.neighbor(dir)
+  if (!id) return false
+  scenes.goto(id)
+  placeAfterMove(player, dir)
+  return true
+}
+
 // 場所名を控えめに表示し、移動できる方向の矢印だけ出す
 function refreshUi(scene) {
   if (placeLabel) {
@@ -75,14 +89,53 @@ function refreshUi(scene) {
 }
 scenes.onChange(refreshUi)
 
-// 方向ボタン
-for (const dir of ['left', 'right', 'up', 'down']) {
-  if (nav[dir]) nav[dir].addEventListener('click', () => scenes.move(dir))
+// ── 操作 ──
+// 画面をタップ／クリックした場所へ歩く
+function walkTo(clientX, clientY) {
+  const x = clientX / window.innerWidth
+  const y = clientY / window.innerHeight
+  player.target = {
+    x: Math.min(Math.max(x, 0), 1),
+    // 空をタップしたら地平線側（奥）へ向かう
+    y: Math.min(Math.max(y, BAND.top - 0.06), BAND.bottom + 0.04),
+  }
 }
-// キーボードでも移動できる（PC向け）
+canvas.addEventListener('pointerdown', (e) => walkTo(e.clientX, e.clientY))
+
+// 方向ボタン：その端まで歩いて、隣の場面へ
+const edgeTarget = {
+  left: { x: 0, y: () => player.y },
+  right: { x: 1, y: () => player.y },
+  up: { x: () => player.x, y: BAND.top - 0.06 },
+  down: { x: () => player.x, y: BAND.bottom + 0.04 },
+}
+for (const dir of ['left', 'right', 'up', 'down']) {
+  if (!nav[dir]) continue
+  nav[dir].addEventListener('click', () => {
+    const e = edgeTarget[dir]
+    player.target = {
+      x: typeof e.x === 'function' ? e.x() : e.x,
+      y: typeof e.y === 'function' ? e.y() : e.y,
+    }
+  })
+}
+
+// キーボードでも歩ける（PC向け）。押している間その向きへ。
+const keyDir = {
+  ArrowLeft: ['dirX', -1], ArrowRight: ['dirX', 1],
+  ArrowUp: ['dirY', -1], ArrowDown: ['dirY', 1],
+  a: ['dirX', -1], d: ['dirX', 1], w: ['dirY', -1], s: ['dirY', 1],
+}
 window.addEventListener('keydown', (e) => {
-  const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }
-  if (map[e.key]) scenes.move(map[e.key])
+  const k = keyDir[e.key]
+  if (k) {
+    player[k[0]] = k[1]
+    player.target = null
+  }
+})
+window.addEventListener('keyup', (e) => {
+  const k = keyDir[e.key]
+  if (k && player[k[0]] === k[1]) player[k[0]] = 0
 })
 
 function onFrame(dt, now) {
@@ -90,7 +143,12 @@ function onFrame(dt, now) {
   scenes.update(dt)
   const time = clock.time
   const frame = { time, now, palette: getBlendedPalette(time) }
+  // 場面遷移(crossfade)中は操作を止める
+  player.frozen = scenes.isMoving
+  updatePlayer(player, dt, onPlayerEdge)
+
   scenes.draw(ctx, view, frame)
+  drawPlayer(player, ctx, view) // 背景の上を歩く主人公
   drawParticles(ctx, view, frame) // 光に舞う埃・夜の蛍
   applyPost(ctx, view, frame) // 一枚絵としての仕上げ（霞・色味・減光・紙の質感）
   drawHud(ctx, view, frame, getCurrentPhase(time))
@@ -105,7 +163,7 @@ const loop = createLoop(onFrame)
 loop.start()
 
 // 自己検証用の最小ハンドル（本番の挙動には影響しない）
-window.__hitonatsu = { audio, scenes, clock }
+window.__hitonatsu = { audio, scenes, clock, player }
 
 // 音量・ミュートUI
 if (volumeInput) {
