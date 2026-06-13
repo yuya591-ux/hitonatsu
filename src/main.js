@@ -123,9 +123,12 @@ function showToast(msg) {
 
 // ── 会話 ──
 function startDialogue(npc) {
-  // 時間帯ごとの台詞があればそれを、なければ通常の台詞を使う
+  // その日の台詞 → 時間帯の台詞 → 通常の台詞、の順で選ぶ（連日で少し進む）
   const phaseKey = getCurrentPhase(clock.time).key
-  const lines = (npc.linesByPhase && npc.linesByPhase[phaseKey]) || npc.lines
+  const lines =
+    (npc.linesByDay && npc.linesByDay[calendar.day]) ||
+    (npc.linesByPhase && npc.linesByPhase[phaseKey]) ||
+    npc.lines
   dialogue = { npc, lines, idx: 0 }
   meetPerson(npc)
   player.target = null
@@ -175,6 +178,9 @@ function doInteract() {
     } else {
       startDialogue(nearby.ref)
     }
+  } else if (nearby.type === 'examine') {
+    const lines = nearby.ref.lines
+    showToast(lines[Math.floor(Math.random() * lines.length)])
   }
   nearby = null
   if (catchPrompt) catchPrompt.classList.add('hidden')
@@ -508,6 +514,14 @@ function onFrame(dt, now) {
       nearby = { type: 'npc', ref: npc, x: npc.x, y: npc.y }
     }
   }
+  // 調べられる物（虫・人がいなければ）
+  for (const ex of scene.examinables || []) {
+    const d = Math.hypot((player.x - ex.x) * view.w, (player.y - ex.y) * view.h)
+    if (d < view.h * 0.18 && d < best) {
+      best = d
+      nearby = { type: 'examine', ref: ex, x: ex.x, y: ex.y }
+    }
+  }
 
   const busy =
     scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle'
@@ -515,7 +529,8 @@ function onFrame(dt, now) {
   sleepReady = !busy && !nearby && scenes.currentId === 'engawa' && time >= 0.82
   if (catchPrompt) {
     if (nearby && !busy) {
-      catchPrompt.textContent = nearby.type === 'bug' ? 'つかまえる' : 'はなしかける'
+      catchPrompt.textContent =
+        nearby.type === 'bug' ? 'つかまえる' : nearby.type === 'npc' ? 'はなしかける' : 'しらべる'
       catchPrompt.classList.remove('hidden')
     } else {
       catchPrompt.classList.add('hidden')

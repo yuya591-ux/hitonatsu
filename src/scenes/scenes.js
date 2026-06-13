@@ -18,13 +18,14 @@ import {
 } from '../draw/scenery.js'
 
 // 1場面ぶんのレイヤーを組み立てるファクトリ。
-function createScene({ id, name, neighbors, drawForeground, creatures = [], npcs = [] }) {
+function createScene({ id, name, neighbors, drawForeground, creatures = [], npcs = [], examinables = [] }) {
   return {
     id,
     name,
     neighbors,
     creatures,
     npcs,
+    examinables,
     layers: [
       // 空（シグネチャ・全場面共通）。差し替えは想定せずコード描画固定。
       createLayer({ id: 'sky', drawCode: drawSky }),
@@ -64,6 +65,11 @@ export function buildScenes() {
           },
         },
       ],
+      examinables: [
+        { id: 'engawa-suika', x: 0.17, y: 0.9, lines: ['よく冷えてる。あとで 食べよう。'] },
+        { id: 'engawa-oke', x: 0.44, y: 0.93, lines: ['つめたい 井戸水だ。'] },
+        { id: 'engawa-furin', x: 0.82, y: 0.16, lines: ['ちりん、と 鳴った。'] },
+      ],
     }),
     createScene({
       id: 'harappa',
@@ -87,6 +93,10 @@ export function buildScenes() {
           lines: ['あっちの木に でっかいカブトムシが いたよ。', 'いっしょに 虫とり しようよ！'],
         },
       ],
+      examinables: [
+        { id: 'harappa-himawari', x: 0.9, y: 0.8, lines: ['せいくらべ。ぼくより 大きい。'] },
+        { id: 'harappa-tree', x: 0.84, y: 0.6, lines: ['みきに せみの ぬけがらが ついてる。'] },
+      ],
     }),
     createScene({
       id: 'jinja',
@@ -109,7 +119,18 @@ export function buildScenes() {
             evening: ['ヒグラシが 鳴き始めたな。', '日が暮れる前に 帰るんじゃぞ。'],
             night: ['夜の宮は 静かじゃろう。', '星が きれいな 晩じゃ。'],
           },
+          // 連日で少しずつ進む話（村のおまつり）
+          linesByDay: {
+            1: ['もうすぐ 村の おまつりが あるんじゃ。', 'たのしみに しておきなさい。'],
+            2: ['おまつりは あさってかのう。', '提灯の 飾りつけが 始まったよ。'],
+            3: ['おまつりは こんやじゃ！', '宮の あかりが きれいじゃろう。'],
+          },
         },
+      ],
+      examinables: [
+        { id: 'jinja-saisen', x: 0.5, y: 0.46, lines: ['そっと 手を合わせた。'] },
+        { id: 'jinja-toro', x: 0.2, y: 0.8, lines: ['石灯籠。苔が むしている。'] },
+        { id: 'jinja-koma', x: 0.66, y: 0.82, lines: ['狛犬。ちょっと こわい顔。'] },
       ],
     }),
     createScene({
@@ -120,6 +141,10 @@ export function buildScenes() {
       creatures: [
         { id: 'tanbo-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.7, y: 0.62, seed: 3 },
         { id: 'tanbo-grasshopper', kind: 'grasshopper', name: 'バッタ', x: 0.3, y: 0.88, seed: 12 },
+      ],
+      examinables: [
+        { id: 'tanbo-kakashi', x: 0.78, y: 0.62, lines: ['かかし。ぼうしを かぶってる。'] },
+        { id: 'tanbo-jizo', x: 0.28, y: 0.82, lines: ['お地蔵さん。赤い前掛けが あたらしい。'] },
       ],
     }),
     createScene({
@@ -138,6 +163,10 @@ export function buildScenes() {
           face: 'right',
           lines: ['川の水、つめたくて 気持ちいいよ。', 'むこう岸に きれいな石が あるんだ。', 'すべるから 気をつけてね。'],
         },
+      ],
+      examinables: [
+        { id: 'kawabe-ishi', x: 0.4, y: 0.85, lines: ['川の石。つるつるして いる。'] },
+        { id: 'kawabe-ashi', x: 0.7, y: 0.92, lines: ['葦が さらさら 揺れている。'] },
       ],
     }),
   ]
