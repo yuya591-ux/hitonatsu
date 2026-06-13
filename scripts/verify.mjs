@@ -28,6 +28,11 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
   '.ico': 'image/x-icon',
+  '.ogg': 'audio/ogg',
+  '.oga': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
 }
 
 // dist/ を BASE 配下で配信する素朴な静的サーバ
@@ -147,10 +152,15 @@ try {
     await page.goto(`${baseUrl}?scene=engawa&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
     await new Promise((r) => setTimeout(r, 300))
     await page.click('#nav-right')
-    await new Promise((r) => setTimeout(r, 1000)) // crossfade(600ms)を待つ
+    await new Promise((r) => setTimeout(r, 1200)) // crossfade(600ms)＋音の読み込みを待つ
     const place = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
     console.log(`移動テスト: 縁側→右→「${place}」`)
     if (place !== '田んぼ道') errors.push(`移動が機能していない（期待:田んぼ道 / 実際:${place}）`)
+
+    // 環境音が実際にデコード・読み込みできたか（素材の破損チェック）
+    const loaded = await page.evaluate(() => window.__hitonatsu?.audio?.loadedCount ?? -1)
+    console.log(`音の読み込み: ${loaded} / 6`)
+    if (loaded < 6) errors.push(`環境音の読み込みが不足（読み込めた数: ${loaded} / 6）`)
     await page.close()
   }
 } finally {

@@ -23,10 +23,13 @@ export function createAudioManager(soundUrls) {
       const AC = window.AudioContext || window.webkitAudioContext
       if (!AC) return
       ctx = new AC()
-      await ctx.resume()
       master = ctx.createGain()
       applyMaster()
       master.connect(ctx.destination)
+
+      // 再生の開始(resume)は待たない。音の読み込み(decode)は再生状態に依存しないので先に進める。
+      // 実際の発音はユーザー操作後に resume されたタイミングで始まる（iOS等の自動再生制限に準拠）。
+      ctx.resume().catch(() => {})
 
       // 各音を読み込み、gain=0 でループ再生を開始しておく（あとは音量で出し入れする）
       await Promise.all(
@@ -76,6 +79,10 @@ export function createAudioManager(soundUrls) {
     update,
     get started() {
       return started
+    },
+    // 読み込めた音の数（自己検証用）
+    get loadedCount() {
+      return Object.keys(layers).length
     },
     setVolume(v) {
       volume = Math.max(0, Math.min(1, v))

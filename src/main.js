@@ -100,6 +100,9 @@ function onFrame(dt, now) {
 const loop = createLoop(onFrame)
 loop.start()
 
+// 自己検証用の最小ハンドル（本番の挙動には影響しない）
+window.__hitonatsu = { audio, scenes, clock }
+
 // 音量・ミュートUI
 if (volumeInput) {
   audio.setVolume(Number(volumeInput.value) / 100)
