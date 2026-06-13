@@ -215,28 +215,50 @@ export function foreEngawa(ctx, view, frame) {
   ctx.lineTo(w, top + 1)
   ctx.stroke()
 
-  // すいか（縁側にぽつんと・夏の縁側らしさ）
-  const sx = w * 0.2
-  const sy = h * 0.86
-  const sr = h * 0.05
-  ctx.fillStyle = '#3E7A3A'
+  // すいか（縁側に・夏らしさ）。丸ごと＋切った一切れで「すいか」と一目で分かるように。
+  const mx = w * 0.17
+  const my = h * 0.9
+  const mr = h * 0.06
+  // 丸ごとすいか（緑の玉＋濃い縦じま）
+  ctx.fillStyle = '#3E8B3A'
   ctx.beginPath()
-  ctx.ellipse(sx, sy, sr * 1.15, sr, 0, 0, Math.PI * 2)
+  ctx.arc(mx, my, mr, 0, Math.PI * 2)
   ctx.fill()
-  ctx.strokeStyle = 'rgba(30,60,30,0.7)' // しま模様
-  ctx.lineWidth = sr * 0.12
+  ctx.strokeStyle = '#1E5A24'
+  ctx.lineWidth = mr * 0.13
+  ctx.lineCap = 'round'
   for (let i = -2; i <= 2; i++) {
+    const rx = mr * (0.22 + Math.abs(i) * 0.22)
     ctx.beginPath()
-    ctx.ellipse(sx + i * sr * 0.4, sy, sr * 0.18 + Math.abs(i) * sr * 0.12, sr, 0, Math.PI * 0.15, Math.PI * 0.85)
+    ctx.ellipse(mx, my, rx, mr * 0.98, 0, Math.PI * 1.12, Math.PI * 1.88)
     ctx.stroke()
     ctx.beginPath()
-    ctx.ellipse(sx + i * sr * 0.4, sy, sr * 0.18 + Math.abs(i) * sr * 0.12, sr, 0, Math.PI * 1.15, Math.PI * 1.85)
+    ctx.ellipse(mx, my, rx, mr * 0.98, 0, Math.PI * 0.12, Math.PI * 0.88)
     ctx.stroke()
   }
-  ctx.fillStyle = 'rgba(255,255,250,0.4)' // つや
+  ctx.fillStyle = 'rgba(255,255,255,0.35)' // つや
   ctx.beginPath()
-  ctx.ellipse(sx - sr * 0.4, sy - sr * 0.5, sr * 0.25, sr * 0.12, -0.5, 0, Math.PI * 2)
+  ctx.ellipse(mx - mr * 0.35, my - mr * 0.4, mr * 0.22, mr * 0.12, -0.5, 0, Math.PI * 2)
   ctx.fill()
+
+  // 切った一切れ（赤い果肉＋白い部分＋緑の皮＋種）
+  ctx.save()
+  ctx.translate(mx + mr * 1.5, my + mr * 0.28)
+  ctx.rotate(-0.35)
+  const ws = mr * 0.92
+  ctx.fillStyle = '#3E8B3A' // 緑の皮
+  ctx.beginPath(); ctx.arc(0, 0, ws, Math.PI, 0); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#EAF3DE' // 白い部分
+  ctx.beginPath(); ctx.arc(0, 0, ws * 0.85, Math.PI, 0); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#E25750' // 赤い果肉
+  ctx.beginPath(); ctx.arc(0, 0, ws * 0.74, Math.PI, 0); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#2A1A12' // 種
+  for (const [sxx, syy] of [[-0.42, -0.28], [0.05, -0.42], [0.42, -0.22], [-0.12, -0.52], [0.28, -0.12], [-0.58, -0.08]]) {
+    ctx.beginPath()
+    ctx.ellipse(sxx * ws, syy * ws, ws * 0.05, ws * 0.085, 0.3, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
 
   // 軒下から眺める額縁（庇＋吊り風鈴）を最前面に
   drawEaves(ctx, view, frame)
