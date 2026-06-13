@@ -109,11 +109,12 @@ export function drawPlayer(p, ctx, view, frame) {
   const px = p.x * w
   const py = p.y * h // 足元
 
-  const gait = p.moving ? Math.sin(p.phase * 10) : 0
+  // 歩調（歩きの速さ）。小さいほどゆっくり＝走りに見えない。
+  const step = p.moving ? p.phase * 5.0 : 0
   const now = frame ? frame.now : 0
-  // 歩行中はぴょこぴょこ、立ち止まり中はゆっくり呼吸でわずかに上下
+  // 歩行中はわずかに上下、立ち止まり中はゆっくり呼吸
   const bob = p.moving
-    ? Math.abs(Math.sin(p.phase * 10)) * H * 0.025
+    ? Math.abs(Math.sin(step)) * H * 0.018
     : Math.sin(now / 1100) * H * 0.008
 
   // 足元の影（太陽の方向へ伸びる。朝夕は長い影）
@@ -164,20 +165,12 @@ export function drawPlayer(p, ctx, view, frame) {
   ctx.fill()
   ctx.restore()
 
-  // ── 脚（前後に振る） ──
+  // ── 脚（腿＋脛の関節で左右交互に歩く。膝が曲がって人らしく） ──
   ctx.lineCap = 'round'
-  ctx.strokeStyle = skin
-  ctx.lineWidth = H * 0.062
-  const hipY = -H * 0.32
-  ctx.beginPath()
-  ctx.moveTo(-H * 0.05, hipY)
-  ctx.lineTo(-H * 0.05 + gait * H * 0.11, 0)
-  ctx.stroke()
-  ctx.strokeStyle = skinShade
-  ctx.beginPath()
-  ctx.moveTo(H * 0.05, hipY)
-  ctx.lineTo(H * 0.05 - gait * H * 0.11, 0)
-  ctx.stroke()
+  ctx.lineJoin = 'round'
+  const hipY = -H * 0.33
+  drawLeg(ctx, -H * 0.055, hipY, step + Math.PI, H, skinShade) // 奥の脚（暗め）
+  drawLeg(ctx, H * 0.055, hipY, step, H, skin) // 手前の脚
 
   // ── 半ズボン ──
   ctx.fillStyle = pants
@@ -199,11 +192,19 @@ export function drawPlayer(p, ctx, view, frame) {
   roundRect(ctx, -H * 0.145, -H * 0.66, H * 0.29, H * 0.04, H * 0.02)
   ctx.fill()
 
-  // ── 腕（前・歩行で振る／網を握る手） ──
+  // ── 腕 ── 後ろの腕は歩行で前後に振る／前の腕は網の柄を握る
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = skinShade
+  ctx.lineWidth = H * 0.048
+  const backHandX = -H * 0.07 - Math.sin(step) * H * 0.07
+  ctx.beginPath()
+  ctx.moveTo(-H * 0.07, -H * 0.61)
+  ctx.lineTo(backHandX, -H * 0.42)
+  ctx.stroke()
   ctx.strokeStyle = skin
   ctx.lineWidth = H * 0.052
   ctx.beginPath()
-  ctx.moveTo(H * 0.06, -H * 0.62)
+  ctx.moveTo(H * 0.07, -H * 0.61)
   ctx.lineTo(H * 0.06, -H * 0.5) // 網の柄へ
   ctx.stroke()
 
@@ -248,6 +249,32 @@ export function drawPlayer(p, ctx, view, frame) {
   ctx.stroke()
 
   ctx.restore()
+}
+
+// 1本の脚（腿＋脛＋足）。ph=歩行位相。膝が遊脚で曲がり、人らしい歩きになる。
+function drawLeg(ctx, hipX, hipY, ph, H, color) {
+  const thighLen = H * 0.17
+  const shinLen = H * 0.17
+  const thigh = Math.sin(ph) * 0.5 // 腿の前後の振り
+  const bend = Math.max(0, -Math.cos(ph)) * 0.85 + 0.08 // 遊脚で膝を曲げる
+  const kx = hipX + Math.sin(thigh) * thighLen
+  const ky = hipY + Math.cos(thigh) * thighLen
+  const sa = thigh - bend
+  const fx = kx + Math.sin(sa) * shinLen
+  const fy = ky + Math.cos(sa) * shinLen
+  ctx.strokeStyle = color
+  ctx.lineWidth = H * 0.058
+  ctx.beginPath()
+  ctx.moveTo(hipX, hipY)
+  ctx.lineTo(kx, ky)
+  ctx.lineTo(fx, fy)
+  ctx.stroke()
+  // 足（つま先を前へ）
+  ctx.lineWidth = H * 0.04
+  ctx.beginPath()
+  ctx.moveTo(fx, fy)
+  ctx.lineTo(fx + H * 0.05, fy)
+  ctx.stroke()
 }
 
 function roundRect(ctx, x, y, w, h, r) {
