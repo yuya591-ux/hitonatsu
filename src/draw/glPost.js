@@ -36,26 +36,28 @@ void main(){
 
   vec3 col = texture2D(u_tex, uv).rgb;
 
-  // ── ブルーム：明るい部分を周囲からにじませて加算（夏の光のにじみ） ──
-  vec2 px = 1.0 / u_res;
+  // ── ブルーム：ごく淡い“夏の空気のにじみ” ──
+  // ・半径は画面サイズに対する割合（=どの端末・解像度でも同じやわらかさ。実機でも鋭い輪郭にならない）
+  // ・本当に明るい所(空・水面・陽の反射)だけ。白い服や窓の灯りは“にじませない/光らせない”
+  // ・足す量は上限つき（キャラがホラーに光らない）
+  vec2 aspect = vec2(u_res.y / u_res.x, 1.0); // 円形に広げるための縦横補正
   vec3 bloom = vec3(0.0);
   const int DIRS = 8;
   for (int i = 0; i < DIRS; i++) {
     float a = (float(i) / float(DIRS)) * 6.2831853;
-    vec2 dir = vec2(cos(a), sin(a));
+    vec2 dir = vec2(cos(a), sin(a)) * aspect;
     for (int r = 1; r <= 2; r++) {
-      vec2 off = dir * px * float(r) * 5.0;
+      vec2 off = dir * 0.006 * float(r); // 画面高の0.6〜1.2%のやわらかい半径
       vec3 s = texture2D(u_tex, uv + off).rgb;
-      // 本当に明るい所(ハイライト)だけ。パステルの中間色はにじませない。
       float lum = max(s.r, max(s.g, s.b));
-      float b = smoothstep(0.80, 0.96, lum);
+      float b = smoothstep(0.90, 1.0, lum); // ほぼ白い部分だけ
       bloom += s * b;
     }
   }
   bloom /= float(DIRS * 2);
-  // 昼ほど強く、夜は控えめに（夏の陽射しのにじみ）
-  float bright = 0.8 + 0.5 * (1.0 - smoothstep(0.62, 0.86, u_time));
-  col += bloom * 1.5 * bright;
+  float bright = 0.7 + 0.3 * (1.0 - smoothstep(0.62, 0.86, u_time)); // 昼に少しだけ強く
+  vec3 add = bloom * 0.55 * bright;
+  col += min(add, vec3(0.10)); // 上限0.10：harshに白飛びさせない
 
   gl_FragColor = vec4(col, 1.0);
 }`

@@ -167,7 +167,8 @@ try {
   // 全場面を昼で確認（PC横）
   for (const scene of SCENES) {
     const page = await browser.newPage()
-    await page.setViewport({ width: 1280, height: 720 })
+    // スマホ実機に近い見え方で検品するため、高精細(DPR2)で撮る
+    await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 })
     page.on('console', (msg) => {
       if (msg.type() === 'error' && !msg.text().includes('favicon')) {
         errors.push(`[scene/${scene}] console: ${msg.text()}`)
@@ -179,6 +180,20 @@ try {
     const file = join(outDir, `scene-${scene}.png`)
     await page.screenshot({ path: file })
     console.log(`撮影: ${file}`)
+    await page.close()
+  }
+
+  // ブルーム検品：キャラが光りすぎないか・明るい所が白飛びしないかを
+  // 一番強く出る時間帯（朝）と、灯りの増える夕方で、実機相当(DPR2)で撮って確認する。
+  for (const [scene, t, tag] of [['engawa', '0.02', 'asa'], ['engawa', '0.7', 'yu'], ['danchi', '0.8', 'yu']]) {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 })
+    page.on('pageerror', (err) => errors.push(`[bloom/${scene}] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=${scene}&t=${t}&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 500))
+    const file = join(outDir, `bloom-${scene}-${tag}.png`)
+    await page.screenshot({ path: file })
+    console.log(`撮影(ブルーム検品): ${file}`)
     await page.close()
   }
 
