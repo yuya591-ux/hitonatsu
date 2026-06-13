@@ -35,6 +35,34 @@ function softDot(ctx, x, y, r, css, alpha) {
   ctx.fill()
 }
 
+// 遠くを横切る数羽の鳥（V字・昼）
+const BIRDS = Array.from({ length: 5 }, (_, i) => ({
+  baseX: (i * 0.23) % 1,
+  y: 0.12 + ((i * 31) % 12) / 100,
+  speed: 6 + (i % 3) * 2,
+  seed: i * 53,
+}))
+
+function drawBirds(ctx, view, frame, day) {
+  if (day < 0.2) return
+  const { w, h } = view
+  const sec = frame.now / 1000
+  ctx.strokeStyle = `rgba(70,70,75,${0.4 * day})`
+  ctx.lineWidth = Math.max(1, h * 0.0025)
+  ctx.lineCap = 'round'
+  const s = h * 0.012
+  for (const b of BIRDS) {
+    let x = (b.baseX * w + sec * b.speed) % (w + 100) - 50
+    const y = b.y * h + Math.sin(sec * 0.4 + b.seed) * h * 0.01
+    const flap = Math.sin(sec * 4 + b.seed) * 0.4 + 0.8 // 羽ばたき
+    ctx.beginPath()
+    ctx.moveTo(x - s, y + s * flap)
+    ctx.lineTo(x, y)
+    ctx.lineTo(x + s, y + s * flap)
+    ctx.stroke()
+  }
+}
+
 export function drawParticles(ctx, view, frame) {
   const { w, h } = view
   const t = frame.time
@@ -42,6 +70,7 @@ export function drawParticles(ctx, view, frame) {
   const day = 1 - night
 
   ctx.save()
+  drawBirds(ctx, view, frame, day)
 
   // 昼：光に舞う埃（加算でほわっと）
   if (day > 0.05) {

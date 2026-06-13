@@ -131,24 +131,48 @@ function drawEaves(ctx, view, frame) {
   ctx.fillRect(cx - h * 0.006, top + h * 0.05, h * 0.012, h * 0.06)
 }
 
-// 縁側：手前の木の縁側
+// 縁側：庭（草・飛び石・植え込み）＋手前の木の縁側＋軒の額縁。家の拠点らしい安らぎ。
 export function foreEngawa(ctx, view, frame) {
   const { w, h } = view
   const wood = frame.palette.wood
   const woodShade = frame.palette.woodShade
-  const top = h * 0.74
+  const y = h * HORIZON
+  const top = h * 0.76 // 縁側の床の上端
 
-  const shadeGrad = ctx.createLinearGradient(0, top - h * 0.08, 0, top)
+  // 庭の草
+  grassField(ctx, view, frame, y, top, 211, 0.7)
+  // 植え込み（庭木の茂み・左右）
+  drawTree(ctx, view, frame, w * 0.1, y + h * 0.06, 0.1)
+  bloom(ctx, w * 0.9, top - h * 0.04, h * 0.07, frame.palette.groundShade, 0.55)
+  bloom(ctx, w * 0.83, top - h * 0.02, h * 0.05, frame.palette.groundShade, 0.5)
+
+  // 飛び石（庭を横切る）
+  const r = rng(150)
+  for (let i = 0; i < 5; i++) {
+    const sx = (0.2 + i * 0.13) * w + (r() - 0.5) * w * 0.03
+    const sy = y + (0.4 + i * 0.1) * (top - y)
+    const sr = (0.012 + i * 0.003) * h
+    ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 130, g: 125, b: 115 }, 0.5), 0.9)
+    ctx.beginPath()
+    ctx.ellipse(sx, sy, sr * 1.5, sr, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 縁側の床（庇の陰 → 板 → 板の継ぎ目）
+  const shadeGrad = ctx.createLinearGradient(0, top - h * 0.06, 0, top)
   shadeGrad.addColorStop(0, rgbToCss(woodShade, 0))
   shadeGrad.addColorStop(1, rgbToCss(woodShade, 0.25))
   ctx.fillStyle = shadeGrad
-  ctx.fillRect(0, top - h * 0.08, w, h * 0.08)
+  ctx.fillRect(0, top - h * 0.06, w, h * 0.06)
 
   const floor = ctx.createLinearGradient(0, top, 0, h)
   floor.addColorStop(0, rgbToCss(wood))
   floor.addColorStop(1, rgbToCss(woodShade))
   ctx.fillStyle = floor
   ctx.fillRect(0, top, w, h - top)
+  // 木目のムラ（水彩）
+  bloom(ctx, w * 0.3, h * 0.92, w * 0.18, woodShade, 0.16)
+  bloom(ctx, w * 0.75, h * 0.88, w * 0.16, wood, 0.16)
 
   ctx.strokeStyle = rgbToCss(woodShade, 0.5)
   ctx.lineWidth = Math.max(1, h * 0.003)
@@ -193,37 +217,36 @@ function drawTree(ctx, view, frame, tx, baseY, scale) {
   bloom(ctx, tx - s * 0.3, baseY - s * 1.5, s * 0.5, leafLight, 0.4)
 }
 
-export function foreHarappa(ctx, view, frame) {
-  const { w, h } = view
-  const y = h * HORIZON
+// 一面の草を水彩の一筆で敷き詰める（奥→手前で密度・大きさ・濃さを上げる）。
+// yTop〜yBot（px）の帯に描く。density で量を調整。
+function grassField(ctx, view, frame, yTop, yBot, seed, density = 1) {
+  const { w } = view
   const ground = frame.palette.ground
   const shade = frame.palette.groundShade
-  const bladeDark = lerpColor(shade, { r: 0, g: 0, b: 0 }, 0.15)
-
-  // 奥に木立（霞ませて）
-  drawTree(ctx, view, frame, w * 0.16, y + h * 0.04, 0.12)
-  drawTree(ctx, view, frame, w * 0.84, y + h * 0.05, 0.16)
-
-  // 一面の草（奥→手前で密度・大きさを上げ、色も変えて水彩らしく）
-  const r = rng(305)
-  const rows = 11
+  const dark = lerpColor(shade, { r: 0, g: 0, b: 0 }, 0.15)
+  const r = rng(seed)
+  const rows = 10
   for (let row = 0; row < rows; row++) {
     const f = row / (rows - 1)
-    const yy = y + (h - y) * (0.05 + f * 0.95)
-    const count = Math.round(18 + f * 40)
-    const len = (0.015 + f * 0.05) * h
+    const yy = yTop + (yBot - yTop) * (0.05 + f * 0.95)
+    const count = Math.round((16 + f * 36) * density)
+    const len = (0.012 + f * 0.045) * view.h
     for (let i = 0; i < count; i++) {
       const x = (i / count + (r() - 0.5) / count) * w
       const lean = (r() - 0.5) * len * 0.8
-      const col = lerpColor(f > 0.5 ? bladeDark : shade, ground, r() * 0.5)
+      const col = lerpColor(f > 0.5 ? dark : shade, ground, r() * 0.5)
       grassBlade(ctx, x, yy + r() * len * 0.3, len * (0.7 + r() * 0.6), lean, col, 0.7)
     }
   }
+}
 
-  // 野の花を点々と（白・淡黄）
-  for (let i = 0; i < 14; i++) {
+// 小さな野の花を散らす
+function scatterFlowers(ctx, view, yTop, yBot, seed, n) {
+  const { w, h } = view
+  const r = rng(seed)
+  for (let i = 0; i < n; i++) {
     const fx = r() * w
-    const fy = y + (0.3 + r() * 0.65) * (h - y)
+    const fy = yTop + (0.2 + r() * 0.78) * (yBot - yTop)
     const fr = (0.004 + r() * 0.004) * h
     ctx.fillStyle = r() > 0.5 ? 'rgba(250,248,240,0.85)' : 'rgba(248,232,150,0.85)'
     ctx.beginPath()
@@ -232,97 +255,249 @@ export function foreHarappa(ctx, view, frame) {
   }
 }
 
-// 神社：石段と鳥居のシルエット、木陰
+export function foreHarappa(ctx, view, frame) {
+  const { w, h } = view
+  const y = h * HORIZON
+  // 奥に木立（霞ませて）
+  drawTree(ctx, view, frame, w * 0.16, y + h * 0.04, 0.12)
+  drawTree(ctx, view, frame, w * 0.84, y + h * 0.05, 0.16)
+  // 一面の草と野花
+  grassField(ctx, view, frame, y, h, 305, 1.1)
+  scatterFlowers(ctx, view, y, h, 91, 16)
+}
+
+// 神社：木陰の石段、鳥居、石灯籠。木漏れ日の静けさ。
 export function foreJinja(ctx, view, frame) {
   const { w, h } = view
   const y = h * HORIZON
-  const stone = rgbToCss(frame.palette.far, 0.9)
-  const stoneShade = rgbToCss(frame.palette.groundShade)
+  const cx = w / 2
 
-  // 中央へ続く石段（手前ほど広い台形）
-  const steps = 6
+  // 下草（石段のまわり）
+  grassField(ctx, view, frame, y, h, 412, 0.7)
+
+  // 鳥居（朱・奥の地平線あたり）
+  const tw = w * 0.15
+  const th = h * 0.17
+  const top = y - th
+  const torii = 'rgba(150,58,44,0.92)'
+  const toriiShade = 'rgba(110,40,32,0.92)'
+  ctx.fillStyle = torii
+  ctx.fillRect(cx - tw / 2, top, w * 0.014, th) // 左柱
+  ctx.fillRect(cx + tw / 2 - w * 0.014, top, w * 0.014, th) // 右柱
+  ctx.fillStyle = toriiShade
+  ctx.fillRect(cx - tw / 2 - w * 0.022, top - h * 0.004, tw + w * 0.044, h * 0.02) // 笠木
+  ctx.fillStyle = torii
+  ctx.fillRect(cx - tw / 2, top + h * 0.052, tw, h * 0.013) // 貫
+
+  // 中央へ続く石段（手前ほど広い台形・水彩のムラ）
+  const steps = 8
   for (let i = 0; i < steps; i++) {
     const f = i / steps
-    const sw = (0.12 + f * 0.28) * w
+    const sw = (0.1 + f * 0.32) * w
     const sy = y + (h - y) * (f * f)
-    const sh = (h - y) * 0.06
-    ctx.fillStyle = i % 2 === 0 ? stone : stoneShade
-    ctx.fillRect(w / 2 - sw / 2, sy, sw, sh)
+    const sh = (h - y) * 0.055
+    const tone = lerpColor(frame.palette.far, i % 2 ? frame.palette.groundShade : { r: 255, g: 255, b: 255 }, 0.18)
+    ctx.fillStyle = rgbToCss(tone, 0.95)
+    ctx.fillRect(cx - sw / 2, sy, sw, sh)
+    // 段の影
+    ctx.fillStyle = 'rgba(30,40,30,0.18)'
+    ctx.fillRect(cx - sw / 2, sy + sh - h * 0.008, sw, h * 0.008)
   }
 
-  // 鳥居のシルエット（奥・地平線あたり）
-  const tw = w * 0.16
-  const th = h * 0.16
-  const cx = w / 2
-  const top = y - th
-  ctx.fillStyle = 'rgba(120,40,30,0.55)'
-  // 二本の柱
-  ctx.fillRect(cx - tw / 2, top, w * 0.012, th)
-  ctx.fillRect(cx + tw / 2 - w * 0.012, top, w * 0.012, th)
-  // 笠木と貫
-  ctx.fillRect(cx - tw / 2 - w * 0.02, top, tw + w * 0.04, h * 0.018)
-  ctx.fillRect(cx - tw / 2, top + h * 0.05, tw, h * 0.012)
+  // 石灯籠（左手前）
+  const lx = w * 0.2
+  const ly = h * 0.78
+  const ls = h * 0.05
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 80, g: 80, b: 70 }, 0.4))
+  ctx.fillRect(lx - ls * 0.18, ly, ls * 0.36, ls * 0.6) // 竿
+  ctx.fillRect(lx - ls * 0.4, ly - ls * 0.5, ls * 0.8, ls * 0.5) // 火袋
+  ctx.beginPath() // 笠
+  ctx.moveTo(lx - ls * 0.55, ly - ls * 0.5)
+  ctx.lineTo(lx + ls * 0.55, ly - ls * 0.5)
+  ctx.lineTo(lx, ly - ls * 0.85)
+  ctx.closePath()
+  ctx.fill()
 
-  // 左から木陰
-  drawShade(ctx, view, frame, 'left')
+  // 木陰：上の左右から大きな葉が覆いかぶさる（額縁＋涼しさ）
+  const leaf = frame.palette.groundShade
+  const leafDark = lerpColor(leaf, { r: 0, g: 0, b: 0 }, 0.35)
+  for (const [bx, by, br] of [[0.0, -0.02, 0.34], [0.16, 0.05, 0.26], [1.0, -0.02, 0.36], [0.86, 0.06, 0.26]]) {
+    bloom(ctx, bx * w, by * h, br * h, leafDark, 0.55)
+    bloom(ctx, bx * w, by * h, br * h * 0.85, leaf, 0.5)
+  }
+
+  // 木漏れ日（石段に落ちる淡い光の点）
+  const r = rng(77)
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  for (let i = 0; i < 8; i++) {
+    bloom(ctx, (0.4 + r() * 0.2) * w, (0.5 + r() * 0.4) * h, h * 0.03, frame.palette.light, 0.12)
+  }
+  ctx.restore()
 }
 
-// 田んぼ道：奥へ続く一本道と、両脇の田んぼ（空を映す水面）
+// 田んぼ道：奥へ続く一本道、青い稲田、電柱と電線。夕暮れが映える郷愁の道。
 export function foreTanbomichi(ctx, view, frame) {
   const { w, h } = view
   const y = h * HORIZON
+  const ground = frame.palette.ground
+  const shade = frame.palette.groundShade
 
-  // 田んぼ（地平線近くは空の色をうっすら映す水面）
-  const water = ctx.createLinearGradient(0, y, 0, h)
-  water.addColorStop(0, rgbToCss(frame.palette.skyBottom, 0.5))
-  water.addColorStop(0.5, rgbToCss(frame.palette.ground, 0.2))
-  water.addColorStop(1, rgbToCss(frame.palette.groundShade, 0))
-  ctx.fillStyle = water
-  ctx.fillRect(0, y, w, (h - y) * 0.7)
+  // 稲田（手前へ広がる緑。水面が空を映す）
+  const paddy = ctx.createLinearGradient(0, y, 0, h)
+  paddy.addColorStop(0, rgbToCss(lerpColor(frame.palette.skyBottom, ground, 0.4)))
+  paddy.addColorStop(0.4, rgbToCss(ground))
+  paddy.addColorStop(1, rgbToCss(shade))
+  ctx.fillStyle = paddy
+  ctx.fillRect(0, y, w, h - y)
 
-  // あぜ道（中央から手前へ広がる土の道）
-  ctx.fillStyle = rgbToCss(frame.palette.wood)
+  // 稲の畝（奥へ収束する縦の筋）と、あぜの横線
+  ctx.strokeStyle = rgbToCss(shade, 0.5)
+  ctx.lineWidth = Math.max(1, h * 0.003)
+  for (let i = -6; i <= 6; i++) {
+    const fx = 0.5 + i * 0.08
+    ctx.beginPath()
+    ctx.moveTo(w * (0.5 + i * 0.012), y)
+    ctx.lineTo(w * fx, h)
+    ctx.stroke()
+  }
+  ctx.strokeStyle = rgbToCss(lerpColor(shade, { r: 255, g: 255, b: 240 }, 0.2), 0.4)
+  for (let r2 = 1; r2 <= 5; r2++) {
+    const f = r2 / 5
+    const yy = y + (h - y) * (f * f)
+    ctx.beginPath()
+    ctx.moveTo(0, yy)
+    ctx.lineTo(w, yy)
+    ctx.stroke()
+  }
+
+  // 遠くの農家（地平線にぽつんと）
+  ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, frame.palette.woodShade, 0.5), 0.85)
+  ctx.fillRect(w * 0.12, y - h * 0.045, w * 0.07, h * 0.045)
   ctx.beginPath()
-  ctx.moveTo(w * 0.47, y)
-  ctx.lineTo(w * 0.53, y)
-  ctx.lineTo(w * 0.72, h)
-  ctx.lineTo(w * 0.28, h)
+  ctx.moveTo(w * 0.11, y - h * 0.045)
+  ctx.lineTo(w * 0.195, y - h * 0.045)
+  ctx.lineTo(w * 0.155, y - h * 0.075)
   ctx.closePath()
   ctx.fill()
-  ctx.strokeStyle = rgbToCss(frame.palette.woodShade, 0.6)
-  ctx.lineWidth = Math.max(1, h * 0.004)
-  ctx.stroke()
+
+  // あぜ道（中央から手前へ広がる土の道・水彩のムラ）
+  ctx.fillStyle = rgbToCss(frame.palette.wood)
+  ctx.beginPath()
+  ctx.moveTo(w * 0.475, y)
+  ctx.lineTo(w * 0.525, y)
+  ctx.lineTo(w * 0.74, h)
+  ctx.lineTo(w * 0.26, h)
+  ctx.closePath()
+  ctx.fill()
+  bloom(ctx, w * 0.5, h * 0.85, w * 0.12, frame.palette.woodShade, 0.18)
+
+  // 電柱が道沿いに奥へ並び、電線でつながる（郷愁の決め手）
+  const poles = [
+    { x: 0.6, top: 0.34, ph: 0.1 },
+    { x: 0.645, top: 0.26, ph: 0.16 },
+    { x: 0.71, top: 0.16, ph: 0.24 },
+  ]
+  ctx.strokeStyle = rgbToCss(frame.palette.woodShade, 0.85)
+  const polePts = []
+  for (const p of poles) {
+    const px = p.x * w
+    const pTop = (y - h * p.ph)
+    ctx.lineWidth = Math.max(1, h * 0.006 * (p.ph + 0.4))
+    ctx.beginPath()
+    ctx.moveTo(px, pTop)
+    ctx.lineTo(px, y + (h - y) * 0.1)
+    ctx.stroke()
+    // 腕木
+    ctx.lineWidth = Math.max(1, h * 0.004)
+    ctx.beginPath()
+    ctx.moveTo(px - h * 0.018, pTop + h * 0.012)
+    ctx.lineTo(px + h * 0.018, pTop + h * 0.012)
+    ctx.stroke()
+    polePts.push({ x: px, y: pTop + h * 0.012 })
+  }
+  // 電線（たわませてつなぐ）
+  ctx.strokeStyle = 'rgba(40,40,40,0.5)'
+  ctx.lineWidth = 1
+  for (let i = 0; i < polePts.length - 1; i++) {
+    const a = polePts[i]
+    const b = polePts[i + 1]
+    ctx.beginPath()
+    ctx.moveTo(a.x, a.y)
+    ctx.quadraticCurveTo((a.x + b.x) / 2, (a.y + b.y) / 2 + h * 0.02, b.x, b.y)
+    ctx.stroke()
+  }
+
+  // 道ばたの草
+  grassField(ctx, view, frame, h * 0.8, h, 530, 0.5)
 }
 
-// 川辺：横に流れる川と、せせらぎの照り返し
+// 川辺：澄んだ川のせせらぎ、対岸の木立、葦と石。水の照り返しがきらめく。
 export function foreKawabe(ctx, view, frame) {
   const { w, h } = view
-  const top = h * 0.6
-  const bottom = h * 0.92
+  const y = h * HORIZON
+  const top = h * 0.56
+  const bottom = h * 0.9
 
-  // 水面（空の色を映す）
+  // 対岸の土手（草地）
+  ctx.fillStyle = rgbToCss(frame.palette.groundShade)
+  ctx.fillRect(0, y + (top - y) * 0.4, w, top - (y + (top - y) * 0.4))
+  grassField(ctx, view, frame, y + (top - y) * 0.4, top, 619, 0.5)
+  // 対岸の木立
+  drawTree(ctx, view, frame, w * 0.72, top - h * 0.0, 0.13)
+  drawTree(ctx, view, frame, w * 0.88, top + h * 0.005, 0.1)
+
+  // 水面（空と対岸の色を映す）
   const water = ctx.createLinearGradient(0, top, 0, bottom)
-  water.addColorStop(0, rgbToCss(frame.palette.skyMid, 0.7))
-  water.addColorStop(1, rgbToCss(frame.palette.skyBottom, 0.85))
+  water.addColorStop(0, rgbToCss(lerpColor(frame.palette.skyMid, frame.palette.groundShade, 0.3), 0.85))
+  water.addColorStop(0.5, rgbToCss(frame.palette.skyMid, 0.7))
+  water.addColorStop(1, rgbToCss(frame.palette.skyBottom, 0.9))
   ctx.fillStyle = water
   ctx.fillRect(0, top, w, bottom - top)
 
-  // 照り返し（ゆっくり揺れる横線）
-  ctx.strokeStyle = rgbToCss(frame.palette.light, 0.35)
-  ctx.lineWidth = Math.max(1, h * 0.004)
-  for (let i = 0; i < 6; i++) {
-    const yy = top + ((bottom - top) * (i + 0.5)) / 6
+  // 照り返し（ゆっくり揺れる横の光の筋・手前ほど太く）
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  for (let i = 0; i < 9; i++) {
+    const f = i / 8
+    const yy = top + (bottom - top) * f
     const phase = frame.now / 1400 + i
+    ctx.strokeStyle = rgbToCss(frame.palette.light, 0.12 + f * 0.22)
+    ctx.lineWidth = Math.max(1, h * 0.0025 * (0.5 + f))
     ctx.beginPath()
-    for (let x = 0; x <= w; x += w / 16) {
-      const off = Math.sin(phase + x / w * 6) * h * 0.004
+    for (let x = 0; x <= w; x += w / 24) {
+      const off = Math.sin(phase + (x / w) * 8) * h * 0.005 * (0.4 + f)
       if (x === 0) ctx.moveTo(x, yy + off)
       else ctx.lineTo(x, yy + off)
     }
     ctx.stroke()
   }
+  ctx.restore()
 
-  // 手前の岸（草地）
+  // 川の石（水際にいくつか）
+  const r = rng(840)
+  for (let i = 0; i < 7; i++) {
+    const sx = r() * w
+    const sy = top + (0.1 + r() * 0.7) * (bottom - top)
+    const sr = (0.01 + r() * 0.015) * h
+    ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 120, g: 115, b: 105 }, 0.5), 0.9)
+    ctx.beginPath()
+    ctx.ellipse(sx, sy, sr * 1.4, sr, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,250,0.18)'
+    ctx.beginPath()
+    ctx.ellipse(sx - sr * 0.3, sy - sr * 0.3, sr * 0.6, sr * 0.4, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 手前の岸と葦
   ctx.fillStyle = rgbToCss(frame.palette.groundShade)
   ctx.fillRect(0, bottom, w, h - bottom)
+  grassField(ctx, view, frame, bottom, h, 711, 0.8)
+  // 葦（細長い草）を水際に
+  const leaf = frame.palette.groundShade
+  for (let i = 0; i < 16; i++) {
+    const rx = r() * w
+    grassBlade(ctx, rx, bottom + r() * h * 0.02, h * (0.06 + r() * 0.06), (r() - 0.5) * h * 0.03, lerpColor(leaf, { r: 0, g: 0, b: 0 }, 0.2), 0.7)
+  }
 }
