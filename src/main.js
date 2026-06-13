@@ -115,6 +115,7 @@ function startDialogue(npc) {
   player.target = null
   player.dirX = 0
   player.dirY = 0
+  player.facing = player.x <= npc.x ? 1 : -1 // 住人の方を向く
   renderDialogue()
 }
 function renderDialogue() {
@@ -367,6 +368,14 @@ function onFrame(dt, now) {
     }
   }
   if (sleepPrompt) sleepPrompt.classList.toggle('hidden', !sleepReady)
+  // 記録ボタンに採取数を出す（増えたときだけ更新）
+  if (recordButton) {
+    const n = caughtCount()
+    if (n !== recordButton._n) {
+      recordButton._n = n
+      recordButton.textContent = n ? `🌿 きろく ${n}` : '🌿 きろく'
+    }
+  }
 
   drawPlayer(player, ctx, view, frame) // 背景の上を歩く主人公
 
