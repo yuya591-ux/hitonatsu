@@ -14,7 +14,7 @@ import { createCalendar } from './engine/calendar.js'
 import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
-import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, BAND } from './entities/player.js'
+import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, clampIntoWalk, BAND } from './entities/player.js'
 import { drawCreature, creaturePos, creatureThumb } from './entities/creatures.js'
 import { drawNpc } from './entities/npc.js'
 import { createCat, updateCat, drawCat } from './entities/cat.js'
@@ -444,6 +444,7 @@ function onPlayerEdge(dir) {
   if (!id) return false
   scenes.goto(id)
   placeAfterMove(player, dir)
+  clampIntoWalk(player, scenes.getScene(id)?.walk) // 入った先（遷移先）の道の上へ収める（即・逆戻り防止）
   return true
 }
 
@@ -459,6 +460,7 @@ function refreshUi(scene) {
   for (const dir of ['left', 'right', 'up', 'down']) {
     if (nav[dir]) nav[dir].classList.toggle('hidden', !scene.neighbors[dir])
   }
+  clampIntoWalk(player, scene.walk) // 確定した場面の道の上へ収める（建物の中に立たない）
   visitScene(scene) // 訪れた場所を記録（夜の日記に出る）
 }
 scenes.onChange(refreshUi)
@@ -530,7 +532,7 @@ function onFrame(dt, now) {
   frame.noGroundFrame = ['shoutengai', 'juutakugai', 'danchi', 'ie'].includes(scenes.currentId)
   // 場面遷移中・会話中・日記中・記録中・虫相撲中・釣り中は操作を止める
   player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle'
-  updatePlayer(player, dt, onPlayerEdge)
+  updatePlayer(player, dt, onPlayerEdge, scenes.current.walk)
 
   scenes.draw(ctx, view, frame)
 

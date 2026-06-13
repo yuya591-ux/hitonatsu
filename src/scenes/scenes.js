@@ -22,7 +22,7 @@ import {
 } from '../draw/scenery.js'
 
 // 1場面ぶんのレイヤーを組み立てるファクトリ。
-function createScene({ id, name, neighbors, drawForeground, creatures = [], npcs = [], examinables = [] }) {
+function createScene({ id, name, neighbors, drawForeground, creatures = [], npcs = [], examinables = [], walk = null }) {
   return {
     id,
     name,
@@ -30,6 +30,8 @@ function createScene({ id, name, neighbors, drawForeground, creatures = [], npcs
     creatures,
     npcs,
     examinables,
+    walk, // 歩ける道（台形）。町・室内は道に限定し、建物の上に乗れないようにする
+
     layers: [
       // 空（シグネチャ・全場面共通）。差し替えは想定せずコード描画固定。
       createLayer({ id: 'sky', drawCode: drawSky }),
@@ -182,6 +184,8 @@ export function buildScenes() {
       name: '商店街',
       neighbors: { left: 'kawabe', right: 'juutakugai' },
       drawForeground: foreShoutengai,
+      // 歩けるのは中央の歩道だけ。両脇の店には入れない。
+      walk: { top: 0.5, farL: 0.43, farR: 0.57, nearL: 0.18, nearR: 0.82 },
       npcs: [
         {
           id: 'shoutengai-obasan',
@@ -207,6 +211,8 @@ export function buildScenes() {
       name: '住宅街',
       neighbors: { left: 'shoutengai', right: 'danchi' },
       drawForeground: foreJuutakugai,
+      // 細い路地だけを歩ける。家やマンションには入れない。
+      walk: { top: 0.52, farL: 0.45, farR: 0.55, nearL: 0.2, nearR: 0.8 },
       npcs: [
         {
           id: 'juutaku-boy',
@@ -228,6 +234,8 @@ export function buildScenes() {
       name: '団地',
       neighbors: { left: 'juutakugai' },
       drawForeground: foreDanchi,
+      // 手前の公園を歩ける。奥の棟には乗れない。
+      walk: { top: 0.5, farL: 0.18, farR: 0.82, nearL: 0.06, nearR: 0.94 },
       npcs: [
         {
           id: 'danchi-girl',
@@ -249,6 +257,8 @@ export function buildScenes() {
       name: 'おじいちゃんち',
       neighbors: { up: 'engawa' },
       drawForeground: foreIe,
+      // 畳の上だけを歩ける（壁や家具の奥には行かない）。
+      walk: { top: 0.52, farL: 0.12, farR: 0.88, nearL: 0.1, nearR: 0.9 },
       npcs: [
         {
           id: 'ie-ojii',

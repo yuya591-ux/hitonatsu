@@ -994,101 +994,189 @@ export function foreShoutengai(ctx, view, frame) {
     ctx.stroke()
   }
 
-  const awnings = ['#C0492F', '#3E7A5A', '#3A6A9A', '#C99A3A', '#8A5A8A', '#B5614A']
-  // 両脇の店（奥→手前）：壁・店先・暖簾・看板・袖看板・のぼり・八百屋の品
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 6; i++) {
-      const f = i / 5
-      const baseY = y + (h - y) * (f * f)
-      const sc = 0.5 + f * 1.2
-      const bw = w * 0.2 * sc
-      const bh = h * 0.26 * sc
-      const innerEdge = (0.5 + side * (0.04 + f * 0.26)) * w
-      const bx = innerEdge + side * bw * 0.5
-      const col = awnings[(i + (side > 0 ? 3 : 0)) % awnings.length]
-      // 立体の箱（前面＋屋根＋側面）
-      box3d(ctx, bx, baseY, bw, bh, side, lerpColor(frame.palette.far, { r: 230, g: 216, b: 192 }, 0.72), vp, 0.1)
-      // 店先（暗い間口）
-      ctx.fillStyle = 'rgba(46,40,34,0.85)'
-      ctx.fillRect(bx - bw * 0.36, baseY - bh * 0.55, bw * 0.72, bh * 0.55)
-      // 暖簾（のれん・切れ目つき）
-      ctx.fillStyle = col
-      ctx.fillRect(bx - bw * 0.4, baseY - bh * 0.62, bw * 0.8, bh * 0.13)
-      ctx.fillStyle = 'rgba(0,0,0,0.14)'
-      for (let s = -2; s <= 2; s++) ctx.fillRect(bx + s * bw * 0.16, baseY - bh * 0.55, bw * 0.012, bh * 0.06)
-      // 壁上の看板（無地の色板＝ホーロー看板風）
-      ctx.fillStyle = rgbToCss(lerpColor(col, { r: 255, g: 255, b: 255 }, 0.42))
-      ctx.fillRect(bx - bw * 0.34, baseY - bh * 0.92, bw * 0.68, bh * 0.14)
-      ctx.fillStyle = 'rgba(70,55,40,0.5)'
-      for (let k = 0; k < 3; k++) ctx.fillRect(bx - bw * 0.24 + k * bw * 0.2, baseY - bh * 0.88, bw * 0.1, bh * 0.06)
-      // 袖看板（道側へ突き出す縦看板）
-      ctx.fillStyle = awnings[(i + 1) % awnings.length]
-      const ssx = bx - side * bw * 0.5 - (side < 0 ? bw * 0.06 : 0)
-      ctx.fillRect(ssx, baseY - bh * 0.86, bw * 0.06, bh * 0.42)
-      // のぼり（店先の旗・そよぐ）
-      if (f > 0.35) {
-        ctx.fillStyle = ['#D24A3A', '#E8E0C8', '#3E7A5A'][i % 3]
-        const fx = bx - side * bw * 0.44
-        const wav = Math.sin(frame.now / 600 + i) * bw * 0.04
+  // ── 両脇の店：一軒ずつ作り分ける ──
+  // 肉屋・魚屋・八百屋・米屋・電器屋・パン屋・酒屋・床屋・喫茶店・駄菓子屋。
+  // 等間隔のクローンにしない。種類・大きさ・間隔をばらして“生活している通り”に。
+  // ※特定の店名やブランドは使わない（屋号は抽象の筆文字で表現）。
+  const now = frame.now
+  const SIGN = {
+    niku: '#C23A2C', sakana: '#2F6FA0', yaoya: '#3E8A4A', kome: '#9A6B3A',
+    denki: '#2A60B0', pan: '#C98A4A', sake: '#2E3A6A', tokoya: '#B03A3A',
+    kissa: '#7A4A2E', dagashi: '#C0508A',
+  }
+  const AWN = {
+    niku: '#C0492F', sakana: '#3A6A9A', yaoya: '#3E7A5A', kome: '#C99A3A',
+    denki: '#4A7AB0', pan: '#D8A85A', sake: '#2E3A6A', tokoya: '#EDEDED',
+    kissa: '#7A4A2E', dagashi: '#C85A95',
+  }
+  const shops = [
+    { side: -1, kind: 'yaoya', f: 0.98 },
+    { side: 1, kind: 'sakana', f: 0.9 },
+    { side: -1, kind: 'niku', f: 0.66 },
+    { side: 1, kind: 'denki', f: 0.6 },
+    { side: -1, kind: 'tokoya', f: 0.45 },
+    { side: 1, kind: 'pan', f: 0.4 },
+    { side: -1, kind: 'sake', f: 0.29 },
+    { side: 1, kind: 'kome', f: 0.26 },
+    { side: -1, kind: 'kissa', f: 0.17 },
+    { side: 1, kind: 'dagashi', f: 0.14 },
+  ].sort((a, b) => a.f - b.f) // 奥から手前へ重ねる
+
+  for (const sp of shops) {
+    const { side, kind, f } = sp
+    const baseY = y + (h - y) * Math.pow(f, 1.5)
+    const sc = 0.5 + f * 1.2
+    const bw = w * (kind === 'denki' ? 0.21 : 0.19) * sc
+    const bh = h * 0.26 * sc
+    const innerEdge = (0.5 + side * (0.05 + f * 0.3)) * w
+    const bx = innerEdge + side * bw * 0.5
+    // 壁（立体の箱）
+    box3d(ctx, bx, baseY, bw, bh, side, lerpColor(frame.palette.far, { r: 232, g: 220, b: 198 }, 0.72), vp, 0.1)
+    // 店先（暗い間口）
+    ctx.fillStyle = 'rgba(46,40,34,0.82)'
+    ctx.fillRect(bx - bw * 0.36, baseY - bh * 0.5, bw * 0.72, bh * 0.5)
+    // 看板（店の色・抽象の屋号）
+    ctx.fillStyle = SIGN[kind]
+    ctx.fillRect(bx - bw * 0.4, baseY - bh * 0.94, bw * 0.8, bh * 0.16)
+    ctx.fillStyle = 'rgba(250,248,240,0.9)'
+    for (let k = 0; k < 3; k++) ctx.fillRect(bx - bw * 0.26 + k * bw * 0.22, baseY - bh * 0.91, bw * 0.07, bh * 0.1)
+    // 縞テント（床屋は赤白、他は白縞）
+    {
+      const tx0 = bx - bw * 0.44
+      const tw3 = bw * 0.88
+      const tyTop = baseY - bh * 0.5
+      const tDrop = bh * 0.12
+      const tOut = side * bw * 0.05
+      ctx.fillStyle = AWN[kind]
+      ctx.beginPath()
+      ctx.moveTo(tx0, tyTop)
+      ctx.lineTo(tx0 + tw3, tyTop)
+      ctx.lineTo(tx0 + tw3 + tOut, tyTop + tDrop)
+      ctx.lineTo(tx0 + tOut, tyTop + tDrop)
+      ctx.closePath()
+      ctx.fill()
+      ctx.fillStyle = kind === 'tokoya' ? '#C23A2C' : 'rgba(245,242,232,0.85)'
+      const stripes = Math.max(3, Math.round(tw3 / (bw * 0.13)))
+      for (let s = 0; s < stripes; s += 2) {
+        const sx = tx0 + (s * tw3) / stripes
         ctx.beginPath()
-        ctx.moveTo(fx, baseY - bh * 0.5)
-        ctx.lineTo(fx, baseY - bh * 0.08)
-        ctx.lineTo(fx - side * bw * 0.14 + wav, baseY - bh * 0.1)
-        ctx.lineTo(fx - side * bw * 0.14 + wav, baseY - bh * 0.48)
+        ctx.moveTo(sx, tyTop)
+        ctx.lineTo(sx + tw3 / stripes, tyTop)
+        ctx.lineTo(sx + tw3 / stripes + tOut, tyTop + tDrop)
+        ctx.lineTo(sx + tOut, tyTop + tDrop)
         ctx.closePath()
         ctx.fill()
       }
-      // 縞のテント（日よけ・商店街の定番）— 八百屋でない店に
-      if (i % 2 === 1) {
-        const tentCol = awnings[(i + 2) % awnings.length]
-        const tx0 = bx - bw * 0.42
-        const tw3 = bw * 0.84
-        const tyTop = baseY - bh * 0.48
-        const tDrop = bh * 0.12
-        const tOut = side * bw * 0.05
-        ctx.fillStyle = tentCol
+    }
+    // 袖看板（道側へ突き出す縦看板）
+    ctx.fillStyle = SIGN[kind]
+    const ssx = bx - side * bw * 0.5 - (side < 0 ? bw * 0.05 : 0)
+    ctx.fillRect(ssx, baseY - bh * 0.86, bw * 0.05, bh * 0.4)
+
+    // ── 品ぞろえ（店ごと）──
+    if (kind === 'yaoya') {
+      ctx.fillStyle = rgbToCss(frame.palette.wood)
+      ctx.fillRect(bx - bw * 0.34, baseY - bh * 0.16, bw * 0.68, bh * 0.16)
+      const veg = ['#D2542A', '#E0A030', '#5A8A3A', '#C03030', '#E8C040', '#7A4AA0']
+      for (let c = 0; c < 6; c++) {
+        ctx.fillStyle = veg[c]
         ctx.beginPath()
-        ctx.moveTo(tx0, tyTop)
-        ctx.lineTo(tx0 + tw3, tyTop)
-        ctx.lineTo(tx0 + tw3 + tOut, tyTop + tDrop)
-        ctx.lineTo(tx0 + tOut, tyTop + tDrop)
-        ctx.closePath()
+        ctx.arc(bx - bw * 0.26 + c * bw * 0.1, baseY - bh * 0.12, bw * 0.035, 0, Math.PI * 2)
         ctx.fill()
-        // 白い縞
-        ctx.fillStyle = 'rgba(245,242,232,0.85)'
-        const stripes = Math.max(3, Math.round(tw3 / (bw * 0.12)))
-        for (let s = 0; s < stripes; s += 2) {
-          const sx = tx0 + (s * tw3) / stripes
+      }
+    } else if (kind === 'sakana') {
+      ctx.fillStyle = '#EDEFF2' // 発泡スチロールの箱
+      ctx.fillRect(bx - bw * 0.34, baseY - bh * 0.15, bw * 0.68, bh * 0.15)
+      ctx.fillStyle = 'rgba(180,210,225,0.8)' // 氷
+      ctx.fillRect(bx - bw * 0.32, baseY - bh * 0.14, bw * 0.64, bh * 0.05)
+      for (let c = 0; c < 4; c++) {
+        ctx.fillStyle = c % 2 ? '#9AA6B0' : '#C06A6A'
+        ctx.beginPath()
+        ctx.ellipse(bx - bw * 0.22 + c * bw * 0.14, baseY - bh * 0.1, bw * 0.06, bw * 0.022, side * 0.3, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    } else if (kind === 'niku') {
+      ctx.fillStyle = 'rgba(220,230,235,0.55)' // ガラスケース
+      ctx.fillRect(bx - bw * 0.32, baseY - bh * 0.16, bw * 0.64, bh * 0.16)
+      for (let c = 0; c < 4; c++) {
+        ctx.fillStyle = '#C8923E' // コロッケ・メンチ
+        ctx.fillRect(bx - bw * 0.26 + c * bw * 0.13, baseY - bh * 0.1, bw * 0.09, bh * 0.05)
+      }
+    } else if (kind === 'kome') {
+      ctx.fillStyle = rgbToCss(lerpColor(frame.palette.wood, { r: 210, g: 188, b: 140 }, 0.5))
+      for (let r2 = 0; r2 < 2; r2++) {
+        for (let c = 0; c < 3 - r2; c++) {
+          const rx = bx - bw * 0.22 + c * bw * 0.16 + r2 * bw * 0.08
           ctx.beginPath()
-          ctx.moveTo(sx, tyTop)
-          ctx.lineTo(sx + tw3 / stripes, tyTop)
-          ctx.lineTo(sx + tw3 / stripes + tOut, tyTop + tDrop)
-          ctx.lineTo(sx + tOut, tyTop + tDrop)
-          ctx.closePath()
-          ctx.fill()
-        }
-        // すそのギザギザ
-        ctx.fillStyle = tentCol
-        for (let s = 0; s < stripes; s++) {
-          const sx = tx0 + tOut + (s * tw3) / stripes
-          ctx.beginPath()
-          ctx.moveTo(sx, tyTop + tDrop)
-          ctx.lineTo(sx + tw3 / stripes, tyTop + tDrop)
-          ctx.lineTo(sx + tw3 / (stripes * 2), tyTop + tDrop + bh * 0.03)
-          ctx.closePath()
+          ctx.ellipse(rx, baseY - bh * 0.07 - r2 * bh * 0.08, bw * 0.07, bh * 0.045, 0, 0, Math.PI * 2)
           ctx.fill()
         }
       }
-      // 八百屋の店先（木箱＋果物野菜）
-      if (f > 0.45 && i % 2 === 0) {
-        ctx.fillStyle = rgbToCss(frame.palette.wood)
-        ctx.fillRect(bx - bw * 0.3, baseY - bh * 0.12, bw * 0.6, bh * 0.12)
-        for (let c = 0; c < 4; c++) {
-          ctx.fillStyle = ['#D2542A', '#E0A030', '#5A8A3A', '#C03030'][c]
-          ctx.beginPath()
-          ctx.arc(bx - bw * 0.2 + c * bw * 0.14, baseY - bh * 0.1, bw * 0.04, 0, Math.PI * 2)
-          ctx.fill()
-        }
+    } else if (kind === 'denki') {
+      for (let c = 0; c < 3; c++) {
+        ctx.fillStyle = '#2A2A30'
+        ctx.fillRect(bx - bw * 0.3 + c * bw * 0.22, baseY - bh * 0.42, bw * 0.18, bh * 0.16)
+        const flick = (0.55 + 0.45 * Math.abs(Math.sin(now / 300 + c * 2))).toFixed(2)
+        ctx.fillStyle = [`rgba(120,200,230,${flick})`, `rgba(240,210,120,${flick})`, `rgba(200,140,200,${flick})`][c]
+        ctx.fillRect(bx - bw * 0.28 + c * bw * 0.22, baseY - bh * 0.4, bw * 0.14, bh * 0.12)
+      }
+      ctx.strokeStyle = 'rgba(60,60,60,0.7)' // 屋根のアンテナ
+      ctx.lineWidth = Math.max(1, h * 0.003)
+      ctx.beginPath()
+      ctx.moveTo(bx, baseY - bh)
+      ctx.lineTo(bx, baseY - bh * 1.22)
+      for (let a = 0; a < 3; a++) {
+        ctx.moveTo(bx - bw * 0.06, baseY - bh * (1.06 + a * 0.05))
+        ctx.lineTo(bx + bw * 0.06, baseY - bh * (1.06 + a * 0.05))
+      }
+      ctx.stroke()
+    } else if (kind === 'pan') {
+      ctx.fillStyle = 'rgba(235,225,205,0.6)' // ショーウィンドウ
+      ctx.fillRect(bx - bw * 0.3, baseY - bh * 0.4, bw * 0.6, bh * 0.18)
+      for (let c = 0; c < 4; c++) {
+        ctx.fillStyle = ['#D6A45A', '#C98A4A', '#E0B86A', '#B5763A'][c]
+        ctx.beginPath()
+        ctx.ellipse(bx - bw * 0.2 + c * bw * 0.13, baseY - bh * 0.31, bw * 0.05, bw * 0.035, 0, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    } else if (kind === 'sake') {
+      const ball = bx - side * bw * 0.28 // 杉玉
+      ctx.fillStyle = '#8A7A4A'
+      ctx.beginPath()
+      ctx.arc(ball, baseY - bh * 0.62 + Math.sin(now / 1400) * bh * 0.01, bw * 0.07, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#C8B038' // 黄色いケース
+      ctx.fillRect(bx - bw * 0.3, baseY - bh * 0.12, bw * 0.6, bh * 0.12)
+      for (let c = 0; c < 5; c++) {
+        ctx.fillStyle = '#3A6A4A' // 瓶
+        ctx.fillRect(bx - bw * 0.27 + c * bw * 0.11, baseY - bh * 0.18, bw * 0.05, bh * 0.07)
+      }
+    } else if (kind === 'tokoya') {
+      const px = bx - side * bw * 0.34 // サインポール（赤白青・回る）
+      const ph2 = baseY - bh * 0.5
+      ctx.fillStyle = '#EDEDED'
+      ctx.fillRect(px - bw * 0.03, ph2, bw * 0.06, bh * 0.3)
+      const tt = (now / 500) % 1
+      for (let s = 0; s < 7; s++) {
+        ctx.fillStyle = s % 2 ? '#C23A2C' : '#2F6FA0'
+        const yy = ph2 + (((s / 7 + tt) % 1)) * bh * 0.3
+        ctx.fillRect(px - bw * 0.03, yy, bw * 0.06, bh * 0.022)
+      }
+    } else if (kind === 'kissa') {
+      ctx.fillStyle = 'rgba(220,225,225,0.5)' // サンプルケース
+      ctx.fillRect(bx - bw * 0.28, baseY - bh * 0.16, bw * 0.56, bh * 0.16)
+      ctx.fillStyle = '#E8E0D0' // コーヒーカップ
+      ctx.beginPath()
+      ctx.arc(bx, baseY - bh * 0.1, bw * 0.05, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(240,210,150,0.9)' // 吊りランプ
+      ctx.beginPath()
+      ctx.arc(bx + side * bw * 0.22, baseY - bh * 0.54, bw * 0.04, 0, Math.PI)
+      ctx.fill()
+    } else if (kind === 'dagashi') {
+      for (let c = 0; c < 4; c++) {
+        ctx.fillStyle = ['#E05A6A', '#5AA0E0', '#E0C040', '#7AC060'][c] // 駄菓子の瓶
+        ctx.fillRect(bx - bw * 0.28 + c * bw * 0.14, baseY - bh * 0.16, bw * 0.1, bh * 0.14)
       }
     }
   }
@@ -1297,12 +1385,21 @@ export function foreJuutakugai(ctx, view, frame) {
   road.addColorStop(1, grey(120))
   ctx.fillStyle = road
   ctx.beginPath()
-  ctx.moveTo(w * 0.46, y)
-  ctx.lineTo(w * 0.54, y)
-  ctx.lineTo(w * 0.78, h)
-  ctx.lineTo(w * 0.22, h)
+  ctx.moveTo(w * 0.47, y)
+  ctx.lineTo(w * 0.53, y)
+  ctx.lineTo(w * 0.7, h)
+  ctx.lineTo(w * 0.3, h)
   ctx.closePath()
   ctx.fill()
+  // 中央線（白の破線・道らしさ）
+  ctx.strokeStyle = 'rgba(235,232,222,0.5)'
+  ctx.lineWidth = Math.max(1, h * 0.004)
+  ctx.setLineDash([h * 0.03, h * 0.04])
+  ctx.beginPath()
+  ctx.moveTo(w * 0.5, y)
+  ctx.lineTo(w * 0.5, h)
+  ctx.stroke()
+  ctx.setLineDash([])
 
   // 両脇に沿って連続するブロック塀＋生け垣（奥→手前の“通り”をつなげて、隙間の寂しさを消す）
   const hedge = lerpColor(frame.palette.groundShade, { r: 96, g: 134, b: 72 }, 0.5)
@@ -1342,14 +1439,59 @@ export function foreJuutakugai(ctx, view, frame) {
     }
   }
 
-  // 両脇に 家とマンションを交互に（3Dの箱・密に・奥→手前）
+  // 両脇に 家・マンション・スーパーを混在させる（3Dの箱・密に・奥→手前）
+  const roofCols = [
+    { r: 120, g: 88, b: 76 }, { r: 90, g: 110, b: 130 }, { r: 110, g: 96, b: 70 },
+    { r: 80, g: 100, b: 88 }, { r: 140, g: 110, b: 90 }, { r: 96, g: 84, b: 110 },
+  ]
   for (const side of [-1, 1]) {
-    for (let i = 0; i < 8; i++) {
-      const f = i / 7
+    for (let i = 0; i < 9; i++) {
+      const f = i / 8
       const baseY = y + (h - y) * Math.pow(f, 1.55)
       const sc = 0.42 + f * 1.05
       const innerEdge = (0.5 + side * (0.07 + f * 0.46)) * w
-      const isMansion = (i + (side > 0 ? 1 : 0)) % 2 === 0
+      const isSuper = side === -1 && i === 6 // 一軒だけスーパーを切り込ませる
+      const isMansion = !isSuper && (i + (side > 0 ? 1 : 0)) % 2 === 0
+      if (isSuper) {
+        // スーパーマーケット（横長・平屋・カラフルな看板・のぼり・駐車場）
+        const bw = w * 0.28 * sc
+        const bh = h * 0.14 * sc
+        const bx = innerEdge + side * bw * 0.5
+        box3d(ctx, bx, baseY, bw, bh, side, lerpColor(frame.palette.far, { r: 238, g: 232, b: 220 }, 0.7), vp, 0.07)
+        // 看板帯（赤→黄のカラフル）
+        const sgY = baseY - bh
+        ctx.fillStyle = '#D24A3A'
+        ctx.fillRect(bx - bw * 0.5, sgY - bh * 0.22, bw, bh * 0.22)
+        ctx.fillStyle = '#E8B23A'
+        ctx.fillRect(bx - bw * 0.5, sgY - bh * 0.1, bw, bh * 0.1)
+        ctx.fillStyle = 'rgba(250,248,240,0.92)' // 抽象の店名
+        for (let k = 0; k < 5; k++) ctx.fillRect(bx - bw * 0.34 + k * bw * 0.15, sgY - bh * 0.19, bw * 0.08, bh * 0.13)
+        // ガラス張りの入口
+        ctx.fillStyle = 'rgba(150,190,205,0.6)'
+        ctx.fillRect(bx - bw * 0.44, baseY - bh * 0.78, bw * 0.88, bh * 0.6)
+        ctx.strokeStyle = 'rgba(120,140,150,0.6)'
+        ctx.lineWidth = Math.max(1, h * 0.003)
+        for (let k = 1; k < 5; k++) {
+          ctx.beginPath()
+          ctx.moveTo(bx - bw * 0.44 + (k * bw * 0.88) / 5, baseY - bh * 0.78)
+          ctx.lineTo(bx - bw * 0.44 + (k * bw * 0.88) / 5, baseY - bh * 0.18)
+          ctx.stroke()
+        }
+        // のぼり旗（入口わき・そよぐ）
+        for (let k = 0; k < 3; k++) {
+          const fx = bx - bw * 0.5 + k * bw * 0.12
+          const wav = Math.sin(frame.now / 600 + k) * bw * 0.03
+          ctx.fillStyle = ['#D24A3A', '#3E8A4A', '#2A60B0'][k]
+          ctx.beginPath()
+          ctx.moveTo(fx, baseY - bh * 0.5)
+          ctx.lineTo(fx, baseY - bh * 0.02)
+          ctx.lineTo(fx + bw * 0.08 + wav, baseY - bh * 0.06)
+          ctx.lineTo(fx + bw * 0.08 + wav, baseY - bh * 0.46)
+          ctx.closePath()
+          ctx.fill()
+        }
+        continue
+      }
       if (isMansion) {
         // マンション（3〜5階・3Dの箱・窓とベランダ）
         const floors = 3 + (i % 3)
@@ -1377,7 +1519,8 @@ export function foreJuutakugai(ctx, view, frame) {
         const bh = h * 0.13 * sc
         const bx = innerEdge + side * bw * 0.5
         box3d(ctx, bx, baseY, bw, bh, side, lerpColor(frame.palette.far, { r: 236, g: 228, b: 210 }, 0.7), vp, 0.08)
-        ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, { r: 120, g: 88, b: 76 }, 0.5))
+        // 屋根の色は家ごとに変える（クローンに見せない）
+        ctx.fillStyle = rgbToCss(lerpColor(frame.palette.far, roofCols[(i * 2 + (side > 0 ? 1 : 0)) % roofCols.length], 0.5))
         ctx.beginPath()
         ctx.moveTo(bx - bw * 0.56, baseY - bh)
         ctx.lineTo(bx - bw * 0.34, baseY - bh - bh * 0.45)

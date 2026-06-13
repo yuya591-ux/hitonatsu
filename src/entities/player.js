@@ -10,6 +10,20 @@ import { clamp01 } from '../util/color.js'
 // 高い画角で地面が広いので、縦の歩行範囲を広くとる（奥行きが効く）。
 export const BAND = { top: 0.42, bottom: 0.95, left: 0.05, right: 0.95 }
 
+// 場面ごとの「歩ける道」（台形）。指定があれば、その台形の中だけ歩ける＝
+// 建物や壁の上には乗れない。奥(top)ほど狭く、手前ほど広い。未指定なら全幅(BAND)。
+//   { top, farL, farR, nearL, nearR }  …top=一番奥の歩ける高さ
+export function walkEdges(y, walk) {
+  if (!walk) return { left: BAND.left, right: BAND.right, top: BAND.top }
+  const top = walk.top
+  const f = clamp01((y - top) / (BAND.bottom - top))
+  return {
+    left: walk.farL + (walk.nearL - walk.farL) * f,
+    right: walk.farR + (walk.nearR - walk.farR) * f,
+    top,
+  }
+}
+
 export function createPlayer() {
   return {
     x: 0.5,
@@ -44,7 +58,8 @@ function depthScale(y) {
 }
 
 // 毎フレーム更新。onEdge(dir) は端に達したとき呼ばれ、隣の場面へ移れたら true を返す。
-export function updatePlayer(p, dt, onEdge) {
+// walk があれば、その「道（台形）」の中だけを歩ける（建物の上には乗れない）。
+export function updatePlayer(p, dt, onEdge, walk) {
   if (p.swing > 0) p.swing -= dt // 網振りは凍結中でも進める
   if (p.frozen) {
     p.moving = false
@@ -80,14 +95,29 @@ export function updatePlayer(p, dt, onEdge) {
   let nx = p.x + mvx * step
   let ny = p.y + mvy * step * 0.7 // 奥行き方向はゆっくり
 
-  // 端に達したら隣の場面へ。移れたら以降の処理を打ち切る。
-  if (nx < BAND.left && onEdge('left')) return
-  if (nx > BAND.right && onEdge('right')) return
-  if (ny < BAND.top && onEdge('up')) return
-  if (ny > BAND.bottom && onEdge('down')) return
+  // 奥(上)・手前(下)の限界。隣があれば移動、なければ道の端で止まる。
+  const topLimit = walk ? walk.top : BAND.top
+  if (ny < topLimit) {
+    if (onEdge('up')) return
+    ny = topLimit
+  }
+  if (ny > BAND.bottom) {
+    if (onEdge('down')) return
+    ny = BAND.bottom
+  }
+  // 左右は「道（台形）」の端で判定。端に達したら隣の場面へ、なければ道の上で止まる。
+  const e = walkEdges(ny, walk)
+  if (nx < e.left) {
+    if (onEdge('left')) return
+    nx = e.left
+  }
+  if (nx > e.right) {
+    if (onEdge('right')) return
+    nx = e.right
+  }
 
-  p.x = Math.min(Math.max(nx, BAND.left), BAND.right)
-  p.y = Math.min(Math.max(ny, BAND.top), BAND.bottom)
+  p.x = nx
+  p.y = ny
   p.moving = isMoving
   if (isMoving) p.phase += dt / 1000
 }
@@ -99,6 +129,15 @@ export function placeAfterMove(p, dir) {
   else if (dir === 'up') p.y = BAND.bottom - 0.02
   else if (dir === 'down') p.y = BAND.top + 0.02
   p.target = null
+}
+
+// 場面に入った直後、道(walk)の内側へ収める。
+// 道の外（建物側）に置かれると、その瞬間にまた端と判定されて逆戻りしてしまうのを防ぐ。
+export function clampIntoWalk(p, walk) {
+  if (!walk) return
+  p.y = Math.min(Math.max(p.y, walk.top + 0.01), BAND.bottom)
+  const e = walkEdges(p.y, walk)
+  p.x = Math.min(Math.max(p.x, e.left + 0.01), e.right - 0.01)
 }
 
 // 主人公を描く（麦わら帽子・半袖シャツ・半ズボン・虫取り網を肩にかけた少年）

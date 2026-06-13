@@ -201,6 +201,38 @@ try {
     await page.close()
   }
 
+  // 町の当たり判定・行き来テスト：
+  // 商店街→右へ歩く→住宅街（即・逆戻りしない）→さらに右→団地。道の外（建物）に立たないこと。
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[town] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=shoutengai&t=0.3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 400))
+    await page.evaluate(() => { window.__hitonatsu.player.dirX = 1 })
+    await new Promise((r) => setTimeout(r, 4000))
+    const place1 = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
+    console.log(`町移動テスト: 商店街→右→「${place1}」`)
+    if (place1 !== '住宅街') errors.push(`商店街→住宅街に入れていない（逆戻り？ 実際:${place1}）`)
+    await new Promise((r) => setTimeout(r, 4000))
+    const place2 = await page.evaluate(() => document.querySelector('#place-label')?.textContent)
+    console.log(`町移動テスト: 住宅街→右→「${place2}」`)
+    if (place2 !== '団地') errors.push(`住宅街→団地に入れていない（実際:${place2}）`)
+    // 道の外に立っていないか（住宅街/団地の道幅の内側にいるか）をざっくり確認
+    const onRoad = await page.evaluate(() => {
+      const H = window.__hitonatsu
+      const s = H.scenes.current
+      if (!s.walk) return true
+      const w = s.walk
+      const f = Math.max(0, Math.min(1, (H.player.y - w.top) / (0.95 - w.top)))
+      const left = w.farL + (w.nearL - w.farL) * f
+      const right = w.farR + (w.nearR - w.farR) * f
+      return H.player.x >= left - 0.02 && H.player.x <= right + 0.02
+    })
+    if (!onRoad) errors.push('主人公が道の外（建物の上）に立っている')
+    await page.close()
+  }
+
   // 虫採りの機能テスト：原っぱのカブトムシの近くで「つかまえる」と記録が増える
   {
     const page = await browser.newPage()

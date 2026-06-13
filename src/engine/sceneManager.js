@@ -38,6 +38,9 @@ export function createSceneManager() {
     get current() {
       return scenes.get(currentId)
     },
+    getScene(id) {
+      return scenes.get(id)
+    },
     get currentId() {
       return currentId
     },
