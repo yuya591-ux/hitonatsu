@@ -16,6 +16,8 @@ import {
   foreTanbomichi,
   foreKawabe,
   foreShoutengai,
+  foreJuutakugai,
+  foreDanchi,
 } from '../draw/scenery.js'
 
 // 1場面ぶんのレイヤーを組み立てるファクトリ。
@@ -197,6 +199,48 @@ export function buildScenes() {
       examinables: [
         { id: 'shoutengai-jihanki', x: 0.16, y: 0.9, lines: ['自動販売機。ジュースが ならんでる。'] },
         { id: 'shoutengai-dagashi', x: 0.7, y: 0.84, lines: ['駄菓子屋。なにを 買おうか まよう。'] },
+      ],
+    }),
+    createScene({
+      id: 'juutakugai',
+      name: '住宅街',
+      neighbors: { left: 'shoutengai', right: 'danchi' },
+      drawForeground: foreJuutakugai,
+      npcs: [
+        {
+          id: 'juutaku-boy',
+          name: '同級生',
+          kind: 'boy',
+          x: 0.6,
+          y: 0.84,
+          face: 'left',
+          lines: ['この道、まっすぐ行くと 団地だよ。', 'こんど うちに 遊びに きなよ。'],
+        },
+      ],
+      examinables: [
+        { id: 'juutaku-post', x: 0.2, y: 0.86, lines: ['赤い まるい ポスト。'] },
+        { id: 'juutaku-hei', x: 0.78, y: 0.82, lines: ['ブロック塀。だれかの 落書きが ある。'] },
+      ],
+    }),
+    createScene({
+      id: 'danchi',
+      name: '団地',
+      neighbors: { left: 'juutakugai' },
+      drawForeground: foreDanchi,
+      npcs: [
+        {
+          id: 'danchi-girl',
+          name: '団地の子',
+          kind: 'girl',
+          x: 0.4,
+          y: 0.86,
+          face: 'right',
+          lines: ['ブランコ、こいでみる？', '夕方になると いい においが してくるんだ。'],
+        },
+      ],
+      examinables: [
+        { id: 'danchi-suberidai', x: 0.24, y: 0.92, lines: ['すべり台。すこし さびてる。'] },
+        { id: 'danchi-suna', x: 0.48, y: 0.95, lines: ['砂場。だれかの お城の あと。'] },
       ],
     }),
   ]

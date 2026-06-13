@@ -68,7 +68,7 @@ const VIEWPORTS = [
   { name: 'phone', width: 740, height: 360 },
 ]
 // 全場面（昼で見え方を確認）
-const SCENES = ['engawa', 'harappa', 'jinja', 'tanbomichi', 'kawabe', 'shoutengai']
+const SCENES = ['engawa', 'harappa', 'jinja', 'tanbomichi', 'kawabe', 'shoutengai', 'juutakugai', 'danchi']
 
 const errors = []
 let checkedCanvas = false
