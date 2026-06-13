@@ -4,9 +4,11 @@ import { createLoop } from './engine/loop.js'
 import { createSceneManager } from './engine/sceneManager.js'
 import { buildScenes } from './scenes/scenes.js'
 import { getBlendedPalette, getCurrentPhase } from './data/phases.js'
+import { smoothstep } from './util/color.js'
 import { drawHud } from './draw/hud.js'
 import { applyPost } from './draw/post.js'
 import { drawParticles } from './draw/particles.js'
+import { createFireworks } from './draw/fireworks.js'
 import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
@@ -80,6 +82,9 @@ const audio = createAudioManager(loadAudioUrls())
 
 // 操作する主人公
 const player = createPlayer()
+
+// 夏の夜の花火
+const fireworks = createFireworks()
 
 // 近くの対象（虫 or 住人）、会話の状態、絵日記の状態
 let nearby = null // { type:'bug'|'npc', ref }
@@ -272,6 +277,11 @@ function onFrame(dt, now) {
   updatePlayer(player, dt, onPlayerEdge)
 
   scenes.draw(ctx, view, frame)
+
+  // 夏の夜の花火（夜だけ・空に開く）
+  const night = time >= 0.82 ? smoothstep(0.82, 0.92, time) : 0
+  fireworks.update(dt, view, night)
+  fireworks.draw(ctx, view, night)
 
   // 虫・住人を描き、近くの対象（つかまえる/はなしかける）を決める
   nearby = null

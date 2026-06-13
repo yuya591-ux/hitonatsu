@@ -66,7 +66,9 @@ export function buildScenes() {
       drawForeground: foreHarappa,
       creatures: [
         { id: 'harappa-beetle', kind: 'beetle', name: 'カブトムシ', x: 0.8, y: 0.66, seed: 1 },
-        { id: 'harappa-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.35, y: 0.66, seed: 5 },
+        { id: 'harappa-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.35, y: 0.62, seed: 5 },
+        { id: 'harappa-butterfly', kind: 'butterfly', name: 'チョウ', x: 0.62, y: 0.74, seed: 8 },
+        { id: 'harappa-grasshopper', kind: 'grasshopper', name: 'バッタ', x: 0.2, y: 0.86, seed: 11 },
       ],
       npcs: [
         {
@@ -103,7 +105,10 @@ export function buildScenes() {
       name: '田んぼ道',
       neighbors: { left: 'engawa', right: 'kawabe' },
       drawForeground: foreTanbomichi,
-      creatures: [{ id: 'tanbo-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.7, y: 0.62, seed: 3 }],
+      creatures: [
+        { id: 'tanbo-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.7, y: 0.62, seed: 3 },
+        { id: 'tanbo-grasshopper', kind: 'grasshopper', name: 'バッタ', x: 0.3, y: 0.88, seed: 12 },
+      ],
     }),
     createScene({
       id: 'kawabe',

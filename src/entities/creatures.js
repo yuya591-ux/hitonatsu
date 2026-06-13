@@ -88,7 +88,59 @@ function drawDragonfly(ctx, x, y, s, now, seed) {
   ctx.restore()
 }
 
-const DRAWERS = { beetle: drawBeetle, cicada: drawCicada, dragonfly: drawDragonfly }
+// チョウ（ひらひら・翅をゆっくり開閉）
+function drawButterfly(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.4))
+  const open = 0.5 + 0.5 * Math.abs(Math.sin(now / 300 + seed)) // 翅の開き
+  ctx.fillStyle = 'rgba(245,170,90,0.92)'
+  for (const dir of [-1, 1]) {
+    ctx.beginPath()
+    ctx.ellipse(dir * s * 0.22 * open, -s * 0.08, s * 0.26 * open, s * 0.22, dir * 0.3, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(dir * s * 0.2 * open, s * 0.12, s * 0.2 * open, s * 0.16, -dir * 0.3, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.fillStyle = '#4A3A2A'
+  ctx.beginPath()
+  ctx.ellipse(0, 0, s * 0.05, s * 0.26, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+// バッタ（草にとまる・緑の体）
+function drawGrasshopper(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.06))
+  ctx.fillStyle = '#7CA24E'
+  ctx.beginPath()
+  ctx.ellipse(0, 0, s * 0.42, s * 0.16, -0.15, 0, Math.PI * 2)
+  ctx.fill()
+  // 後脚
+  ctx.strokeStyle = '#5E823A'
+  ctx.lineWidth = s * 0.08
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(-s * 0.1, s * 0.05)
+  ctx.lineTo(-s * 0.32, -s * 0.18)
+  ctx.lineTo(-s * 0.42, s * 0.22)
+  ctx.stroke()
+  // 頭
+  ctx.fillStyle = '#6E9646'
+  ctx.beginPath()
+  ctx.arc(s * 0.38, -s * 0.04, s * 0.12, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+const DRAWERS = {
+  beetle: drawBeetle,
+  cicada: drawCicada,
+  dragonfly: drawDragonfly,
+  butterfly: drawButterfly,
+  grasshopper: drawGrasshopper,
+}
 
 // 1匹を描く（c = {kind, x, y, id}）
 export function drawCreature(c, ctx, view, frame) {
