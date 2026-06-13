@@ -7,7 +7,7 @@
 
 import { rgbToCss } from '../util/color.js'
 
-const HORIZON = 0.56
+const HORIZON = 0.42
 
 // 地平線あたりにうっすら霞をかけ、遠くがけむって見えるようにする
 export function applyHaze(ctx, view, frame) {

@@ -4,7 +4,8 @@
 
 import { rgbToCss, lerpColor } from '../util/color.js'
 
-export const HORIZON = 0.56 // 地平線の高さ（画面の上から56%）
+// 「僕の夏休み」的な“上から覗き込む”高い画角。地平線を上げ、地面（歩く場所）を広く見せる。
+export const HORIZON = 0.42 // 地平線の高さ（画面の上から42%）
 
 // 遠景：なだらかな山並みを3枚重ね、奥ほど淡く霞ませて空気遠近を出す（全場面で共通利用）
 export function drawFarHills(ctx, view, frame) {

@@ -7,7 +7,8 @@
 import { clamp01 } from '../util/color.js'
 
 // 歩ける地面の範囲（画面割合）。横はほぼ全幅、縦は地平線〜手前。
-export const BAND = { top: 0.62, bottom: 0.93, left: 0.05, right: 0.95 }
+// 高い画角で地面が広いので、縦の歩行範囲も広くとる（奥行きが効く）。
+export const BAND = { top: 0.46, bottom: 0.95, left: 0.05, right: 0.95 }
 
 export function createPlayer() {
   return {
@@ -23,10 +24,10 @@ export function createPlayer() {
   }
 }
 
-// 奥行きに応じた拡大率（手前ほど大きい）
+// 奥行きに応じた拡大率（手前ほど大きい・奥ほど小さい）
 function depthScale(y) {
   const f = clamp01((y - BAND.top) / (BAND.bottom - BAND.top))
-  return 0.6 + 0.55 * f
+  return 0.5 + 0.5 * f
 }
 
 // 毎フレーム更新。onEdge(dir) は端に達したとき呼ばれ、隣の場面へ移れたら true を返す。
@@ -86,7 +87,7 @@ export function placeAfterMove(p, dir) {
   p.target = null
 }
 
-// 主人公を描く
+// 主人公を描く（麦わら帽子・半袖シャツ・半ズボン・虫取り網を肩にかけた少年）
 export function drawPlayer(p, ctx, view) {
   const { w, h } = view
   const scale = depthScale(p.y)
@@ -94,86 +95,133 @@ export function drawPlayer(p, ctx, view) {
   const px = p.x * w
   const py = p.y * h // 足元
 
-  const swing = p.moving ? Math.sin(p.phase * 11) : 0
-  const bob = p.moving ? Math.abs(Math.sin(p.phase * 11)) * H * 0.03 : 0
+  const gait = p.moving ? Math.sin(p.phase * 10) : 0
+  const bob = p.moving ? Math.abs(Math.sin(p.phase * 10)) * H * 0.025 : 0
 
   // 足元の影
-  ctx.fillStyle = 'rgba(0,0,0,0.16)'
+  ctx.fillStyle = 'rgba(40,35,28,0.18)'
   ctx.beginPath()
-  ctx.ellipse(px, py, H * 0.2, H * 0.05, 0, 0, Math.PI * 2)
+  ctx.ellipse(px, py, H * 0.19, H * 0.045, 0, 0, Math.PI * 2)
   ctx.fill()
 
   ctx.save()
   ctx.translate(px, py - bob)
   ctx.scale(p.facing, 1)
 
-  const skin = '#E7B98E'
-  const shirt = '#F3F0E7'
-  const shirtShade = '#D8D3C4'
+  const skin = '#E9BB8E'
+  const skinShade = '#CE9A6E'
+  const shirt = '#F4F1E8'
+  const shirtShade = '#D5CFBF'
+  const trim = '#7FA6C8'
   const pants = '#3F5A77'
-  const hat = '#DCB76C'
+  const pantsShade = '#314962'
+  const hat = '#E0BC72'
   const hatShade = '#B68F4C'
+  const pole = '#9A7B4A'
 
-  // 脚（2本・歩行で前後に振る）
-  ctx.strokeStyle = skin
-  ctx.lineWidth = H * 0.06
+  // ── 虫取り網（体の後ろ・肩にかつぐ） ──
+  ctx.strokeStyle = pole
+  ctx.lineWidth = H * 0.022
   ctx.lineCap = 'round'
-  const hipY = -H * 0.34
+  ctx.beginPath()
+  ctx.moveTo(H * 0.06, -H * 0.5) // 手のあたり
+  ctx.lineTo(-H * 0.34, -H * 1.02) // 後ろ上へ
+  ctx.stroke()
+  // 網の輪
+  const hoopX = -H * 0.36
+  const hoopY = -H * 1.06
+  ctx.strokeStyle = '#8A6B3A'
+  ctx.lineWidth = H * 0.018
+  ctx.beginPath()
+  ctx.arc(hoopX, hoopY, H * 0.15, 0, Math.PI * 2)
+  ctx.stroke()
+  // 網（半透明）
+  ctx.fillStyle = 'rgba(245,245,238,0.35)'
+  ctx.beginPath()
+  ctx.arc(hoopX, hoopY, H * 0.14, 0, Math.PI * 2)
+  ctx.fill()
+
+  // ── 脚（前後に振る） ──
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = skin
+  ctx.lineWidth = H * 0.062
+  const hipY = -H * 0.32
   ctx.beginPath()
   ctx.moveTo(-H * 0.05, hipY)
-  ctx.lineTo(-H * 0.05 + swing * H * 0.1, 0)
+  ctx.lineTo(-H * 0.05 + gait * H * 0.11, 0)
+  ctx.stroke()
+  ctx.strokeStyle = skinShade
+  ctx.beginPath()
   ctx.moveTo(H * 0.05, hipY)
-  ctx.lineTo(H * 0.05 - swing * H * 0.1, 0)
+  ctx.lineTo(H * 0.05 - gait * H * 0.11, 0)
   ctx.stroke()
 
-  // 半ズボン
+  // ── 半ズボン ──
   ctx.fillStyle = pants
-  roundRect(ctx, -H * 0.13, -H * 0.46, H * 0.26, H * 0.16, H * 0.03)
+  roundRect(ctx, -H * 0.135, -H * 0.46, H * 0.27, H * 0.17, H * 0.03)
+  ctx.fill()
+  ctx.fillStyle = pantsShade // 陰（後ろ側）
+  roundRect(ctx, H * 0.0, -H * 0.46, H * 0.135, H * 0.17, H * 0.03)
   ctx.fill()
 
-  // 胴（シャツ）
+  // ── 胴（半袖シャツ） ──
   ctx.fillStyle = shirt
-  roundRect(ctx, -H * 0.14, -H * 0.66, H * 0.28, H * 0.24, H * 0.05)
+  roundRect(ctx, -H * 0.145, -H * 0.66, H * 0.29, H * 0.24, H * 0.06)
   ctx.fill()
-  // シャツの陰
   ctx.fillStyle = shirtShade
-  roundRect(ctx, H * 0.02, -H * 0.66, H * 0.12, H * 0.24, H * 0.05)
+  roundRect(ctx, H * 0.03, -H * 0.66, H * 0.115, H * 0.24, H * 0.06)
+  ctx.fill()
+  // 襟もとの色
+  ctx.fillStyle = trim
+  roundRect(ctx, -H * 0.145, -H * 0.66, H * 0.29, H * 0.04, H * 0.02)
   ctx.fill()
 
-  // 腕（前側・歩行で振る）
+  // ── 腕（前・歩行で振る／網を握る手） ──
   ctx.strokeStyle = skin
-  ctx.lineWidth = H * 0.055
+  ctx.lineWidth = H * 0.052
   ctx.beginPath()
-  ctx.moveTo(H * 0.08, -H * 0.6)
-  ctx.lineTo(H * 0.12 - swing * H * 0.08, -H * 0.4)
+  ctx.moveTo(H * 0.06, -H * 0.62)
+  ctx.lineTo(H * 0.06, -H * 0.5) // 網の柄へ
   ctx.stroke()
 
-  // 首
-  ctx.strokeStyle = skin
-  ctx.lineWidth = H * 0.06
+  // ── 首・頭 ──
+  ctx.strokeStyle = skinShade
+  ctx.lineWidth = H * 0.07
   ctx.beginPath()
-  ctx.moveTo(0, -H * 0.66)
-  ctx.lineTo(0, -H * 0.72)
+  ctx.moveTo(0, -H * 0.65)
+  ctx.lineTo(0, -H * 0.71)
   ctx.stroke()
 
-  // 頭
   ctx.fillStyle = skin
   ctx.beginPath()
-  ctx.arc(0, -H * 0.8, H * 0.12, 0, Math.PI * 2)
+  ctx.arc(0, -H * 0.81, H * 0.125, 0, Math.PI * 2)
+  ctx.fill()
+  // 頬の陰
+  ctx.fillStyle = skinShade
+  ctx.beginPath()
+  ctx.arc(H * 0.06, -H * 0.79, H * 0.06, 0, Math.PI * 2)
+  ctx.fill()
+  // 目（進行方向側に小さく）
+  ctx.fillStyle = '#3A2E22'
+  ctx.beginPath()
+  ctx.arc(-H * 0.045, -H * 0.81, H * 0.016, 0, Math.PI * 2)
   ctx.fill()
 
-  // 麦わら帽子
+  // ── 麦わら帽子 ──
   ctx.fillStyle = hat
   ctx.beginPath()
-  ctx.ellipse(0, -H * 0.86, H * 0.2, H * 0.06, 0, 0, Math.PI * 2) // つば
+  ctx.ellipse(0, -H * 0.88, H * 0.21, H * 0.06, 0, 0, Math.PI * 2) // つば
   ctx.fill()
   ctx.beginPath()
-  ctx.ellipse(0, -H * 0.9, H * 0.1, H * 0.08, 0, Math.PI, Math.PI * 2) // 山
+  ctx.ellipse(0, -H * 0.92, H * 0.11, H * 0.085, 0, Math.PI, Math.PI * 2) // 山
+  ctx.fill()
+  ctx.fillStyle = hatShade // 帽子のリボン
+  roundRect(ctx, -H * 0.11, -H * 0.9, H * 0.22, H * 0.022, H * 0.01)
   ctx.fill()
   ctx.strokeStyle = hatShade
-  ctx.lineWidth = H * 0.015
+  ctx.lineWidth = H * 0.012
   ctx.beginPath()
-  ctx.ellipse(0, -H * 0.86, H * 0.2, H * 0.06, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, -H * 0.88, H * 0.21, H * 0.06, 0, 0, Math.PI * 2)
   ctx.stroke()
 
   ctx.restore()
