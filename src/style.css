@@ -84,6 +84,27 @@ body {
   color: #6b5d49;
 }
 
+/* ── 日付と天気（朝にふわっと出る） ── */
+#date-label {
+  position: fixed;
+  left: 50%;
+  top: 8%;
+  transform: translateX(-50%) translateY(-6px);
+  padding: 0.3em 1.2em;
+  font-size: clamp(14px, 2.6vw, 20px);
+  letter-spacing: 0.14em;
+  color: #4a4032;
+  background: rgba(255, 250, 240, 0.72);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+#date-label.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* ── 場所の名前（控えめにふわっと） ── */
 #place-label {
   position: fixed;

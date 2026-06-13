@@ -10,6 +10,7 @@ export function createAudioManager(soundUrls) {
   let ctx = null
   let master = null
   let music = null
+  let rainGain = null
   let started = false
   let muted = false
   let volume = 0.8
@@ -36,6 +37,28 @@ export function createAudioManager(soundUrls) {
         music.start()
       } catch {
         /* 音楽なしでも続行 */
+      }
+
+      // 雨の音（ホワイトノイズを低音側に寄せた合成。夕立のときだけ音量を上げる）
+      try {
+        const len = 2 * ctx.sampleRate
+        const noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate)
+        const data = noiseBuf.getChannelData(0)
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
+        const noise = ctx.createBufferSource()
+        noise.buffer = noiseBuf
+        noise.loop = true
+        const lp = ctx.createBiquadFilter()
+        lp.type = 'lowpass'
+        lp.frequency.value = 2400
+        rainGain = ctx.createGain()
+        rainGain.gain.value = 0
+        noise.connect(lp)
+        lp.connect(rainGain)
+        rainGain.connect(master)
+        noise.start()
+      } catch {
+        /* 雨音なしでも続行 */
       }
 
       // 再生の開始(resume)は待たない。音の読み込み(decode)は再生状態に依存しないので先に進める。
@@ -135,6 +158,12 @@ export function createAudioManager(soundUrls) {
     // 時間帯に合わせて音楽の雰囲気を切り替える
     setMusicPhase(key) {
       if (music) music.setPhase(key)
+    },
+    // 雨音の強さ（0..1）
+    setRain(level) {
+      if (rainGain && ctx) {
+        rainGain.gain.setTargetAtTime(Math.max(0, Math.min(1, level)) * 0.22, ctx.currentTime, 0.5)
+      }
     },
     setVolume(v) {
       volume = Math.max(0, Math.min(1, v))

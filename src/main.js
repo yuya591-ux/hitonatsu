@@ -9,6 +9,8 @@ import { drawHud } from './draw/hud.js'
 import { applyPost } from './draw/post.js'
 import { drawParticles } from './draw/particles.js'
 import { createFireworks } from './draw/fireworks.js'
+import { createRain } from './draw/rain.js'
+import { createCalendar } from './engine/calendar.js'
 import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
@@ -17,7 +19,7 @@ import { drawCreature, creaturePos } from './entities/creatures.js'
 import { drawNpc } from './entities/npc.js'
 import {
   isCaught, catchCreature, caughtCount,
-  meetPerson, metEntries, caughtEntries, visitScene, visitedScenes,
+  meetPerson, metEntries, caughtEntries, visitScene, visitedScenes, newDay,
 } from './engine/record.js'
 
 // ── P2: 残り4場面＋場面の行き来 ──
@@ -90,6 +92,11 @@ const player = createPlayer()
 
 // 夏の夜の花火
 const fireworks = createFireworks()
+
+// カレンダー（複数日・日替わり天気）と雨
+const calendar = createCalendar()
+const rain = createRain()
+const dateLabel = document.getElementById('date-label')
 
 // 近くの対象（虫 or 住人）、会話の状態、絵日記の状態
 let nearby = null // { type:'bug'|'npc', ref }
@@ -171,7 +178,7 @@ function openDiary() {
   diaryOpen = true
   clock.pause()
   audio.setMusicPhase('diary') // 静かな曲に
-  if (diaryTitle) diaryTitle.textContent = 'ひと夏の一日 ― きょうのえにっき'
+  if (diaryTitle) diaryTitle.textContent = `なつやすみ ${calendar.day}にちめ ― えにっき`
   // いまの画面を「描いた絵」として取り込む
   if (diaryPicture) {
     diaryPicture.innerHTML = ''
@@ -184,9 +191,9 @@ function openDiary() {
   const places = visitedScenes()
   const lines = []
   if (places.length) lines.push(`きょうは ${places.join('・')} を あるいた。`)
-  if (bugs.length) lines.push(`むしを ${bugs.length}ひき つかまえた（${bugs.join('・')}）。`)
-  else lines.push('むしは つかまえられなかった。また あした。')
-  if (people.length) lines.push(`${people.join('・')} と はなした。`)
+  if (bugs.length) lines.push(`いままでに むしを ${bugs.length}ひき つかまえた（${bugs.join('・')}）。`)
+  else lines.push('まだ むしは つかまえていない。あした こそ。')
+  if (people.length) lines.push(`なかよくなった人: ${people.join('・')}。`)
   lines.push('たのしい いちにちだった。')
   if (diaryBody) diaryBody.innerHTML = lines.map((l) => `<div class="line">${l}</div>`).join('')
   if (diaryOverlay) diaryOverlay.classList.remove('hidden')
@@ -226,10 +233,13 @@ if (recordClose) recordClose.addEventListener('click', closeRecord)
 function closeDiary() {
   diaryOpen = false
   if (diaryOverlay) diaryOverlay.classList.add('hidden')
-  // 1日完結なので、また朝から（時計を朝へ戻して再開）
+  // 翌日へ。時計を朝へ戻し、天気を引き直し、その日ぶんの記録を新しくする。
+  calendar.nextDay()
+  newDay()
   clock.setTime(0)
   lastMusicPhase = null // 音楽を朝へ戻す
   if (!paused) clock.start()
+  showDate()
 }
 if (diaryClose) diaryClose.addEventListener('click', closeDiary)
 if (sleepPrompt) {
@@ -326,6 +336,12 @@ function onFrame(dt, now) {
   scenes.update(dt)
   const time = clock.time
   const frame = { time, now, palette: getBlendedPalette(time) }
+  // 日替わり天気（ゆうだちは昼前後に通り雨）
+  frame.weather = calendar.weather
+  frame.rain =
+    calendar.weather === 'shower' && time > 0.3 && time < 0.52
+      ? Math.sin(((time - 0.3) / 0.22) * Math.PI)
+      : 0
   // 場面遷移中・会話中・日記中・記録中は操作を止める
   player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen
   updatePlayer(player, dt, onPlayerEdge)
@@ -410,12 +426,14 @@ function onFrame(dt, now) {
   catchFx = catchFx.filter((f) => f.age < 500)
 
   drawParticles(ctx, view, frame) // 光に舞う埃・夜の蛍
+  rain.draw(ctx, view, frame, frame.rain) // 夕立の雨
   applyPost(ctx, view, frame) // 一枚絵としての仕上げ（霞・色味・減光・紙の質感）
   drawHud(ctx, view, frame, getCurrentPhase(time))
   // いまの時間帯・場面に合う環境音へなめらかに切り替える
   if (audio.started) {
     audio.setActive(activeSounds(time, scenes.currentId))
     audio.update(dt)
+    audio.setRain(frame.rain) // 夕立の雨音
     // 音楽の雰囲気も時間帯に合わせる（日記/記録中はそのまま）
     if (!diaryOpen && !recordOpen) {
       const pk = getCurrentPhase(time).key
@@ -461,6 +479,17 @@ function goFullscreen() {
     .catch(() => {})
 }
 
+// 日付と天気をふわっと出す
+function showDate() {
+  if (!dateLabel) return
+  dateLabel.textContent = `なつやすみ ${calendar.day}にちめ ・ ${calendar.weatherLabel}`
+  dateLabel.classList.remove('show')
+  void dateLabel.offsetWidth
+  dateLabel.classList.add('show')
+  clearTimeout(dateLabel._t)
+  dateLabel._t = setTimeout(() => dateLabel.classList.remove('show'), 4500)
+}
+
 // 「はじめる」で一日が動き出す（このユーザー操作の後に音を立ち上げる＝iOS自動再生制限への先回り）
 function beginDay() {
   if (startScreen) startScreen.classList.add('hidden')
@@ -468,6 +497,7 @@ function beginDay() {
   refreshUi(scenes.current)
   audio.start()
   goFullscreen()
+  showDate()
 }
 if (startButton) startButton.addEventListener('click', beginDay)
 if (autostart) beginDay()

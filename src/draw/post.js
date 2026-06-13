@@ -183,8 +183,30 @@ function applyForegroundFrame(ctx, view, frame) {
   ctx.restore()
 }
 
+// 天気の色味：くもりは灰色をかぶせ、雨は青灰色で暗くする
+function applyWeather(ctx, view, frame) {
+  const { w, h } = view
+  if (frame.weather === 'cloudy') {
+    ctx.save()
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.globalAlpha = 0.18
+    ctx.fillStyle = '#9aa0a8'
+    ctx.fillRect(0, 0, w, h)
+    ctx.restore()
+  }
+  if (frame.rain > 0.02) {
+    ctx.save()
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.globalAlpha = 0.3 * frame.rain
+    ctx.fillStyle = '#4a5870'
+    ctx.fillRect(0, 0, w, h)
+    ctx.restore()
+  }
+}
+
 // まとめて仕上げる
 export function applyPost(ctx, view, frame) {
+  applyWeather(ctx, view, frame)
   applyForegroundFrame(ctx, view, frame)
   applyMorningMist(ctx, view, frame)
   applyHeatHaze(ctx, view, frame)

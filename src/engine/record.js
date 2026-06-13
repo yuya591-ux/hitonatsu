@@ -50,3 +50,9 @@ export function visitScene(scene) {
 export function visitedScenes() {
   return visitedList.slice()
 }
+
+// 翌日へ：その日ぶんの「歩いた場所」をリセット（虫・人は通算で残す）
+export function newDay() {
+  visited.clear()
+  visitedList.length = 0
+}
