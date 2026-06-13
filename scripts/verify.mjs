@@ -236,6 +236,29 @@ try {
     await page.close()
   }
 
+  // 図鑑（標本画つき）の確認：虫を採って「きろく」を開く
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[zukan] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=harappa&t=0.3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 400))
+    await page.evaluate(async () => {
+      const H = window.__hitonatsu
+      for (const [x, y] of [[0.8, 0.66], [0.62, 0.74], [0.2, 0.86]]) {
+        H.player.x = x
+        H.player.y = y
+        await new Promise((r) => setTimeout(r, 150))
+        H.doInteract()
+      }
+    })
+    await page.click('#record-button').catch(() => {})
+    await new Promise((r) => setTimeout(r, 300))
+    await page.screenshot({ path: join(outDir, 'zukan.png') })
+    console.log('撮影: zukan.png')
+    await page.close()
+  }
+
   // 虫相撲の機能テスト：カブトムシを採って近所の子に話すと相撲が始まり、連打で決着する
   {
     const page = await browser.newPage()

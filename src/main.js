@@ -15,7 +15,7 @@ import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
 import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, BAND } from './entities/player.js'
-import { drawCreature, creaturePos } from './entities/creatures.js'
+import { drawCreature, creaturePos, creatureThumb } from './entities/creatures.js'
 import { drawNpc } from './entities/npc.js'
 import {
   isCaught, catchCreature, caughtCount,
@@ -222,27 +222,57 @@ function openRecord() {
   recordOpen = true
   clock.pause()
   if (recordBody) {
-    // 採った虫を種類ごとにまとめ、数・場所・初採取の日を出す（図鑑）
+    // 採った虫・魚を種類ごとにまとめ、数・場所・初採取の日を出す（標本画つき図鑑）
     const byName = {}
     for (const e of caughtEntries()) {
-      if (!byName[e.name]) byName[e.name] = { count: 0, places: new Set(), firstDay: e.day }
+      if (!byName[e.name]) byName[e.name] = { count: 0, places: new Set(), firstDay: e.day, kind: e.kind }
       const b = byName[e.name]
       b.count += 1
       if (e.place) b.places.add(e.place)
       b.firstDay = Math.min(b.firstDay, e.day)
     }
-    const bugLines = Object.entries(byName).map(
-      ([n, d]) => `${n} ×${d.count}　<small>${[...d.places].join('・')}／${d.firstDay}にちめ〜</small>`,
-    )
+    recordBody.innerHTML = ''
+    const heading = (t) => {
+      const el = document.createElement('h3')
+      el.textContent = t
+      recordBody.appendChild(el)
+    }
+    const empty = (t) => {
+      const el = document.createElement('div')
+      el.className = 'empty'
+      el.textContent = t
+      recordBody.appendChild(el)
+    }
+    // むしずかん（標本画つき）
+    heading(`むしずかん（${Object.keys(byName).length}しゅるい）`)
+    const entries = Object.entries(byName)
+    if (!entries.length) empty('まだ ありません')
+    for (const [n, d] of entries) {
+      const row = document.createElement('div')
+      row.className = 'zukan-row'
+      const thumb = creatureThumb(d.kind, 38)
+      thumb.className = 'zukan-thumb'
+      row.appendChild(thumb)
+      const txt = document.createElement('span')
+      txt.innerHTML = `${n} ×${d.count}　<small>${[...d.places].join('・')}／${d.firstDay}にちめ〜</small>`
+      row.appendChild(txt)
+      recordBody.appendChild(row)
+    }
+    // なかよくなった人
+    heading('なかよくなった人')
     const people = metEntries().map((e) => e.name)
+    if (!people.length) empty('まだ ありません')
+    for (const p of people) {
+      const el = document.createElement('div')
+      el.textContent = p
+      recordBody.appendChild(el)
+    }
+    // むしずもう
+    heading('むしずもう')
     const wins = getSumoWins()
-    const section = (title, items) =>
-      `<h3>${title}</h3>` +
-      (items.length ? items.map((i) => `<div>${i}</div>`).join('') : '<div class="empty">まだ ありません</div>')
-    recordBody.innerHTML =
-      section('むしずかん', bugLines) +
-      section('なかよくなった人', people) +
-      `<h3>むしずもう</h3><div>${wins ? `${wins}しょう` : 'まだ してない'}</div>`
+    const el = document.createElement('div')
+    el.textContent = wins ? `${wins}しょう` : 'まだ してない'
+    recordBody.appendChild(el)
   }
   if (recordOverlay) recordOverlay.classList.remove('hidden')
 }

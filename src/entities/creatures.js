@@ -134,12 +134,45 @@ function drawGrasshopper(ctx, x, y, s, now, seed) {
   ctx.restore()
 }
 
+// 魚（図鑑用の簡単な魚）
+function drawFish(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.1))
+  ctx.fillStyle = '#7E8A6A'
+  ctx.beginPath()
+  ctx.ellipse(0, 0, s * 0.5, s * 0.26, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath() // 尾
+  ctx.moveTo(-s * 0.45, 0)
+  ctx.lineTo(-s * 0.72, -s * 0.22)
+  ctx.lineTo(-s * 0.72, s * 0.22)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = '#2A2018' // 目
+  ctx.beginPath()
+  ctx.arc(s * 0.28, -s * 0.04, s * 0.05, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
 const DRAWERS = {
   beetle: drawBeetle,
   cicada: drawCicada,
   dragonfly: drawDragonfly,
   butterfly: drawButterfly,
   grasshopper: drawGrasshopper,
+  fish: drawFish,
+}
+
+// 図鑑用の小さな標本画（canvas を返す）
+export function creatureThumb(kind, px) {
+  const c = document.createElement('canvas')
+  c.width = px
+  c.height = px
+  const x = c.getContext('2d')
+  const drawer = DRAWERS[kind] || DRAWERS.beetle
+  drawer(x, px / 2, px * 0.55, px * 0.34, 0, 1)
+  return c
 }
 
 // いまの位置（飛ぶ虫はゆっくり漂う）。描画と「つかまえ判定」で同じ位置を使う。

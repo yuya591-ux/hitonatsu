@@ -275,6 +275,19 @@ body {
   color: #8a7e6a;
   font-size: 0.78em;
 }
+.zukan-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.15em 0;
+}
+.zukan-thumb {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  background: rgba(120, 100, 70, 0.08);
+  border-radius: 8px;
+}
 
 /* ── 夏の記録ボタン（左下に控えめ） ── */
 #record-button {
