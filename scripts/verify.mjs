@@ -178,11 +178,39 @@ try {
       H.player.y = 0.7 // カブトムシ(0.8,0.66)の近くへ
       await new Promise((r) => setTimeout(r, 200))
       const before = H.caughtCount()
-      H.doCatch()
+      H.doInteract()
       return { before, after: H.caughtCount() }
     })
     console.log(`虫採りテスト: ${result.before} → ${result.after}`)
     if (result.after !== result.before + 1) errors.push(`虫採りが機能していない（${result.before}→${result.after}）`)
+    await page.close()
+  }
+
+  // 会話＋夜の絵日記の機能テスト
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[diary] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=engawa&t=0.9&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 500))
+    const res = await page.evaluate(async () => {
+      const H = window.__hitonatsu
+      // おばあさん(0.3,0.84)の近くで はなしかける
+      H.player.x = 0.3
+      H.player.y = 0.84
+      await new Promise((r) => setTimeout(r, 200))
+      H.doInteract()
+      const talking = !document.querySelector('#dialogue').classList.contains('hidden')
+      // 絵日記を開く
+      H.openDiary()
+      const diaryShown = !document.querySelector('#diary').classList.contains('hidden')
+      const bodyLen = document.querySelector('#diary-body').textContent.length
+      return { talking, diaryShown, bodyLen }
+    })
+    console.log(`会話/日記テスト: 会話=${res.talking} 日記=${res.diaryShown} 本文長=${res.bodyLen}`)
+    if (!res.talking) errors.push('会話が始まらない')
+    if (!res.diaryShown || res.bodyLen < 5) errors.push('絵日記が表示されない/空')
+    await page.screenshot({ path: join(outDir, 'diary.png') })
     await page.close()
   }
 } finally {

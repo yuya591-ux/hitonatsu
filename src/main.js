@@ -12,7 +12,11 @@ import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
 import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, BAND } from './entities/player.js'
 import { drawCreature } from './entities/creatures.js'
-import { isCaught, catchCreature, caughtCount } from './engine/record.js'
+import { drawNpc } from './entities/npc.js'
+import {
+  isCaught, catchCreature, caughtCount,
+  meetPerson, metEntries, caughtEntries, visitScene, visitedScenes,
+} from './engine/record.js'
 
 // ── P2: 残り4場面＋場面の行き来 ──
 // 縁側・原っぱ・神社・田んぼ道・川辺を、隣接にそって crossfade で行き来する。
@@ -42,6 +46,15 @@ const muteButton = document.getElementById('mute-button')
 const volumeInput = document.getElementById('volume')
 const catchPrompt = document.getElementById('catch-prompt')
 const toast = document.getElementById('toast')
+const sleepPrompt = document.getElementById('sleep-prompt')
+const dialogueBox = document.getElementById('dialogue')
+const dialogueName = document.getElementById('dialogue-name')
+const dialogueText = document.getElementById('dialogue-text')
+const diaryOverlay = document.getElementById('diary')
+const diaryBody = document.getElementById('diary-body')
+const diaryPicture = document.getElementById('diary-picture')
+const diaryTitle = document.getElementById('diary-title')
+const diaryClose = document.getElementById('diary-close')
 
 const view = { w: 0, h: 0 }
 
@@ -68,8 +81,11 @@ const audio = createAudioManager(loadAudioUrls())
 // 操作する主人公
 const player = createPlayer()
 
-// いま「つかまえられる」虫（近くにいる未捕獲の1匹）
-let catchable = null
+// 近くの対象（虫 or 住人）、会話の状態、絵日記の状態
+let nearby = null // { type:'bug'|'npc', ref }
+let dialogue = null // { npc, idx }
+let diaryOpen = false
+let sleepReady = false
 
 function showToast(msg) {
   if (!toast) return
@@ -79,20 +95,95 @@ function showToast(msg) {
   toast._t = setTimeout(() => toast.classList.remove('show'), 1800)
 }
 
-function doCatch() {
-  if (!catchable) return
-  if (catchCreature(catchable)) {
-    showToast(`${catchable.name}をつかまえた`)
-    catchable = null
-    if (catchPrompt) catchPrompt.classList.add('hidden')
+// ── 会話 ──
+function startDialogue(npc) {
+  dialogue = { npc, idx: 0 }
+  meetPerson(npc)
+  player.target = null
+  player.dirX = 0
+  player.dirY = 0
+  renderDialogue()
+}
+function renderDialogue() {
+  if (!dialogue || !dialogueBox) return
+  dialogueName.textContent = dialogue.npc.name
+  dialogueText.textContent = dialogue.npc.lines[dialogue.idx]
+  dialogueBox.classList.remove('hidden')
+}
+function advanceDialogue() {
+  if (!dialogue) return
+  dialogue.idx += 1
+  if (dialogue.idx >= dialogue.npc.lines.length) {
+    dialogue = null
+    if (dialogueBox) dialogueBox.classList.add('hidden')
+  } else {
+    renderDialogue()
   }
 }
+if (dialogueBox) {
+  dialogueBox.addEventListener('click', advanceDialogue)
+  dialogueBox.addEventListener('pointerdown', (e) => e.stopPropagation())
+}
+
+// ── つかまえる／はなしかける ──
+function doInteract() {
+  if (!nearby) return
+  if (nearby.type === 'bug') {
+    if (catchCreature(nearby.ref)) showToast(`${nearby.ref.name}をつかまえた`)
+  } else if (nearby.type === 'npc') {
+    startDialogue(nearby.ref)
+  }
+  nearby = null
+  if (catchPrompt) catchPrompt.classList.add('hidden')
+}
 if (catchPrompt) {
-  catchPrompt.addEventListener('click', doCatch)
+  catchPrompt.addEventListener('click', doInteract)
   catchPrompt.addEventListener('pointerdown', (e) => e.stopPropagation())
 }
+
+// ── 夜の絵日記 ──
+function openDiary() {
+  diaryOpen = true
+  clock.pause()
+  if (diaryTitle) diaryTitle.textContent = 'ひと夏の一日 ― きょうのえにっき'
+  // いまの画面を「描いた絵」として取り込む
+  if (diaryPicture) {
+    diaryPicture.innerHTML = ''
+    const img = new Image()
+    img.src = canvas.toDataURL('image/png')
+    diaryPicture.appendChild(img)
+  }
+  const bugs = caughtEntries().map((e) => e.name)
+  const people = metEntries().map((e) => e.name)
+  const places = visitedScenes()
+  const lines = []
+  if (places.length) lines.push(`きょうは ${places.join('・')} を あるいた。`)
+  if (bugs.length) lines.push(`むしを ${bugs.length}ひき つかまえた（${bugs.join('・')}）。`)
+  else lines.push('むしは つかまえられなかった。また あした。')
+  if (people.length) lines.push(`${people.join('・')} と はなした。`)
+  lines.push('たのしい いちにちだった。')
+  if (diaryBody) diaryBody.innerHTML = lines.map((l) => `<div class="line">${l}</div>`).join('')
+  if (diaryOverlay) diaryOverlay.classList.remove('hidden')
+}
+function closeDiary() {
+  diaryOpen = false
+  if (diaryOverlay) diaryOverlay.classList.add('hidden')
+  // 1日完結なので、また朝から（時計を朝へ戻して再開）
+  clock.setTime(0)
+  if (!paused) clock.start()
+}
+if (diaryClose) diaryClose.addEventListener('click', closeDiary)
+if (sleepPrompt) {
+  sleepPrompt.addEventListener('click', openDiary)
+  sleepPrompt.addEventListener('pointerdown', (e) => e.stopPropagation())
+}
+
 window.addEventListener('keydown', (e) => {
-  if (e.key === ' ' || e.key === 'Enter') doCatch()
+  if (e.key !== ' ' && e.key !== 'Enter') return
+  if (diaryOpen) closeDiary()
+  else if (dialogue) advanceDialogue()
+  else if (sleepReady) openDiary()
+  else doInteract()
 })
 
 // 端に達したとき：隣の場面があれば歩いて移れる
@@ -117,12 +208,14 @@ function refreshUi(scene) {
   for (const dir of ['left', 'right', 'up', 'down']) {
     if (nav[dir]) nav[dir].classList.toggle('hidden', !scene.neighbors[dir])
   }
+  visitScene(scene) // 訪れた場所を記録（夜の日記に出る）
 }
 scenes.onChange(refreshUi)
 
 // ── 操作 ──
 // 画面をタップ／クリックした場所へ歩く
 function walkTo(clientX, clientY) {
+  if (dialogue || diaryOpen || scenes.isMoving) return // 会話・日記・移動中は歩かない
   const x = clientX / window.innerWidth
   const y = clientY / window.innerHeight
   player.target = {
@@ -174,28 +267,46 @@ function onFrame(dt, now) {
   scenes.update(dt)
   const time = clock.time
   const frame = { time, now, palette: getBlendedPalette(time) }
-  // 場面遷移(crossfade)中は操作を止める
-  player.frozen = scenes.isMoving
+  // 場面遷移中・会話中・日記中は操作を止める
+  player.frozen = scenes.isMoving || !!dialogue || diaryOpen
   updatePlayer(player, dt, onPlayerEdge)
 
   scenes.draw(ctx, view, frame)
 
-  // 虫を描き、近くの未捕獲を「つかまえられる」状態にする
-  catchable = null
+  // 虫・住人を描き、近くの対象（つかまえる/はなしかける）を決める
+  nearby = null
   let best = Infinity
   const scene = scenes.current
   for (const c of scene.creatures || []) {
     if (isCaught(c.id)) continue
     drawCreature(c, ctx, view, frame)
-    const dx = (player.x - c.x) * view.w
-    const dy = (player.y - c.y) * view.h
-    const d = Math.hypot(dx, dy)
+    const d = Math.hypot((player.x - c.x) * view.w, (player.y - c.y) * view.h)
     if (d < view.h * 0.24 && d < best) {
       best = d
-      catchable = c
+      nearby = { type: 'bug', ref: c }
     }
   }
-  if (catchPrompt) catchPrompt.classList.toggle('hidden', !catchable || scenes.isMoving)
+  for (const npc of scene.npcs || []) {
+    drawNpc(npc, ctx, view)
+    const d = Math.hypot((player.x - npc.x) * view.w, (player.y - npc.y) * view.h)
+    if (d < view.h * 0.26 && d < best) {
+      best = d
+      nearby = { type: 'npc', ref: npc }
+    }
+  }
+
+  const busy = scenes.isMoving || !!dialogue || diaryOpen
+  // 夜、縁側にいて対象が無ければ「ねる」を出す
+  sleepReady = !busy && !nearby && scenes.currentId === 'engawa' && time >= 0.82
+  if (catchPrompt) {
+    if (nearby && !busy) {
+      catchPrompt.textContent = nearby.type === 'bug' ? 'つかまえる' : 'はなしかける'
+      catchPrompt.classList.remove('hidden')
+    } else {
+      catchPrompt.classList.add('hidden')
+    }
+  }
+  if (sleepPrompt) sleepPrompt.classList.toggle('hidden', !sleepReady)
 
   drawPlayer(player, ctx, view) // 背景の上を歩く主人公
   drawParticles(ctx, view, frame) // 光に舞う埃・夜の蛍
@@ -212,7 +323,7 @@ const loop = createLoop(onFrame)
 loop.start()
 
 // 自己検証用の最小ハンドル（本番の挙動には影響しない）
-window.__hitonatsu = { audio, scenes, clock, player, caughtCount, doCatch }
+window.__hitonatsu = { audio, scenes, clock, player, caughtCount, doInteract, openDiary }
 
 // 音量・ミュートUI
 if (volumeInput) {

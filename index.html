@@ -28,11 +28,31 @@
     <!-- いま居る場所の名前（場面が変わるとふわっと出る） -->
     <div id="place-label"></div>
 
-    <!-- 近くの虫をつかまえる（近づくと出る） -->
+    <!-- 近くの虫をつかまえる／人にはなしかける（近づくと出る） -->
     <button id="catch-prompt" class="hidden">つかまえる</button>
+
+    <!-- 夜、縁側で「ねる」と絵日記へ -->
+    <button id="sleep-prompt" class="hidden">ねる</button>
 
     <!-- 小さなお知らせ（虫をつかまえた 等） -->
     <div id="toast"></div>
+
+    <!-- 会話ウィンドウ -->
+    <div id="dialogue" class="hidden">
+      <span id="dialogue-name"></span>
+      <p id="dialogue-text"></p>
+      <span id="dialogue-next">▶</span>
+    </div>
+
+    <!-- 夜の絵日記 -->
+    <div id="diary" class="hidden">
+      <div class="diary-page">
+        <h2 id="diary-title">きょうの絵日記</h2>
+        <div id="diary-picture"></div>
+        <div id="diary-body"></div>
+        <button id="diary-close">おやすみ</button>
+      </div>
+    </div>
 
     <!-- 音量・ミュート（控えめに右上） -->
     <div id="audio-controls">
