@@ -151,8 +151,41 @@ function applyHeatHaze(ctx, view, frame) {
   ctx.restore()
 }
 
+// 手前のぼけた近景（草むら）を下の両隅に重ねて、奥行き（額縁）を出す。
+// カメラのすぐ手前にある＝大きく・暗く・ぼけて見える。
+function applyForegroundFrame(ctx, view, frame) {
+  const { w, h } = view
+  const g = frame.palette.groundShade
+  const dark = { r: g.r * 0.55, g: g.g * 0.6, b: g.b * 0.55 }
+  ctx.save()
+  for (const side of [0, 1]) {
+    const cx = side === 0 ? -w * 0.04 : w * 1.04
+    // ぼけた塊
+    const grad = ctx.createRadialGradient(cx, h * 1.02, 0, cx, h * 1.02, h * 0.5)
+    grad.addColorStop(0, rgbToCss(dark, 0.5))
+    grad.addColorStop(0.6, rgbToCss(dark, 0.28))
+    grad.addColorStop(1, rgbToCss(dark, 0))
+    ctx.fillStyle = grad
+    ctx.fillRect(side === 0 ? 0 : w * 0.6, h * 0.7, w * 0.4, h * 0.3)
+    // ぼけた草の穂（数本）
+    ctx.strokeStyle = rgbToCss(dark, 0.4)
+    ctx.lineWidth = h * 0.012
+    ctx.lineCap = 'round'
+    const baseX = side === 0 ? w * 0.04 : w * 0.96
+    for (let i = -2; i <= 2; i++) {
+      const x = baseX + i * w * 0.025
+      ctx.beginPath()
+      ctx.moveTo(x, h)
+      ctx.quadraticCurveTo(x + i * w * 0.01, h * 0.86, x + (side === 0 ? 1 : -1) * w * 0.02, h * 0.82)
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
+}
+
 // まとめて仕上げる
 export function applyPost(ctx, view, frame) {
+  applyForegroundFrame(ctx, view, frame)
   applyMorningMist(ctx, view, frame)
   applyHeatHaze(ctx, view, frame)
   applyHaze(ctx, view, frame)

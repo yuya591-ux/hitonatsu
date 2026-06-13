@@ -27,6 +27,15 @@ export function createPlayer() {
 
 const SWING_MS = 320
 
+// 太陽の方向から、影の向き(dx)と長さ(length)を出す。朝夕は低い太陽で影が長く伸びる。
+export function sunShadow(time) {
+  if (time >= 0.82) return { dx: 0, length: 0.15 } // 夜は短く方向なし
+  const u = Math.min(time, 0.84) / 0.84
+  const height = Math.sin(u * Math.PI) // 0(地平線)〜1(天頂)
+  const sunX = 0.14 + 0.72 * u // 太陽の横位置（朝=左, 夕=右）
+  return { dx: -(sunX - 0.5) * 2, length: 1 - height }
+}
+
 // 奥行きに応じた拡大率（手前ほど大きい・奥ほど小さい）。
 // 見下ろし感を強めるため、奥と手前で大きく差をつける（遠近を効かせる）。
 function depthScale(y) {
@@ -93,7 +102,7 @@ export function placeAfterMove(p, dir) {
 }
 
 // 主人公を描く（麦わら帽子・半袖シャツ・半ズボン・虫取り網を肩にかけた少年）
-export function drawPlayer(p, ctx, view) {
+export function drawPlayer(p, ctx, view, frame) {
   const { w, h } = view
   const scale = depthScale(p.y)
   const H = h * 0.2 * scale // 全身の高さ
@@ -103,10 +112,12 @@ export function drawPlayer(p, ctx, view) {
   const gait = p.moving ? Math.sin(p.phase * 10) : 0
   const bob = p.moving ? Math.abs(Math.sin(p.phase * 10)) * H * 0.025 : 0
 
-  // 足元の影
-  ctx.fillStyle = 'rgba(40,35,28,0.18)'
+  // 足元の影（太陽の方向へ伸びる。朝夕は長い影）
+  const sh = sunShadow(frame ? frame.time : 0.3)
+  const offX = sh.dx * H * (0.2 + sh.length * 1.7)
+  ctx.fillStyle = 'rgba(40,35,28,0.16)'
   ctx.beginPath()
-  ctx.ellipse(px, py, H * 0.19, H * 0.045, 0, 0, Math.PI * 2)
+  ctx.ellipse(px + offX * 0.5, py, H * 0.16 + Math.abs(offX) * 0.5, H * 0.05, 0, 0, Math.PI * 2)
   ctx.fill()
 
   ctx.save()

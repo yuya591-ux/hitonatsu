@@ -2,6 +2,7 @@
 // 主人公と同じく平面のコード描画。種類ごとに少し見た目を変える。
 
 import { rgbToCss } from '../util/color.js'
+import { sunShadow } from './player.js'
 
 // 種類ごとの色など
 const KINDS = {
@@ -27,7 +28,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
-export function drawNpc(npc, ctx, view) {
+export function drawNpc(npc, ctx, view, frame) {
   const { w, h } = view
   const k = KINDS[npc.kind] || KINDS.grandpa
   const scale = depthScale(npc.y)
@@ -35,10 +36,12 @@ export function drawNpc(npc, ctx, view) {
   const px = npc.x * w
   const py = npc.y * h
 
-  // 影
+  // 影（太陽の方向へ伸びる）
+  const sh = sunShadow(frame ? frame.time : 0.3)
+  const offX = sh.dx * H * (0.2 + sh.length * 1.7)
   ctx.fillStyle = 'rgba(40,35,28,0.16)'
   ctx.beginPath()
-  ctx.ellipse(px, py, H * 0.18, H * 0.045, 0, 0, Math.PI * 2)
+  ctx.ellipse(px + offX * 0.5, py, H * 0.16 + Math.abs(offX) * 0.5, H * 0.045, 0, 0, Math.PI * 2)
   ctx.fill()
 
   ctx.save()

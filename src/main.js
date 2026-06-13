@@ -347,7 +347,7 @@ function onFrame(dt, now) {
     }
   }
   for (const npc of scene.npcs || []) {
-    drawNpc(npc, ctx, view)
+    drawNpc(npc, ctx, view, frame)
     const d = Math.hypot((player.x - npc.x) * view.w, (player.y - npc.y) * view.h)
     if (d < view.h * 0.26 && d < best) {
       best = d
@@ -368,7 +368,7 @@ function onFrame(dt, now) {
   }
   if (sleepPrompt) sleepPrompt.classList.toggle('hidden', !sleepReady)
 
-  drawPlayer(player, ctx, view) // 背景の上を歩く主人公
+  drawPlayer(player, ctx, view, frame) // 背景の上を歩く主人公
 
   // 採取の瞬間のきらめき
   for (const fx of catchFx) {
