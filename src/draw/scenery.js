@@ -2,26 +2,40 @@
 // 空はシグネチャ(drawSky)を全場面で共通利用し、ここでは遠景・地面・場面ごとの前景を描く。
 // すべて将来 image 差し替え可能なように、場面ファクトリ側で createLayer に渡す。
 
-import { rgbToCss } from '../util/color.js'
+import { rgbToCss, lerpColor } from '../util/color.js'
 
 export const HORIZON = 0.56 // 地平線の高さ（画面の上から56%）
 
-// 遠景：なだらかな山並みを2枚重ねて奥行きを出す（全場面で共通利用）
+// 遠景：なだらかな山並みを3枚重ね、奥ほど淡く霞ませて空気遠近を出す（全場面で共通利用）
 export function drawFarHills(ctx, view, frame) {
   const { w, h } = view
   const far = frame.palette.far
+  const sky = frame.palette.skyBottom
   const y = h * HORIZON
 
-  ctx.fillStyle = rgbToCss(far, 0.55)
+  // 一番奥のうっすらした稜線（空の色に近づけて霞ませる）
+  const farthest = lerpColor(far, sky, 0.55)
+  ctx.fillStyle = rgbToCss(farthest, 0.6)
   ctx.beginPath()
   ctx.moveTo(0, y)
-  ctx.quadraticCurveTo(w * 0.25, y - h * 0.12, w * 0.5, y - h * 0.04)
-  ctx.quadraticCurveTo(w * 0.78, y - h * 0.16, w, y - h * 0.05)
+  ctx.quadraticCurveTo(w * 0.2, y - h * 0.18, w * 0.46, y - h * 0.1)
+  ctx.quadraticCurveTo(w * 0.72, y - h * 0.2, w, y - h * 0.12)
   ctx.lineTo(w, y)
   ctx.closePath()
   ctx.fill()
 
-  ctx.fillStyle = rgbToCss(far, 0.85)
+  // 中景の山
+  ctx.fillStyle = rgbToCss(lerpColor(far, sky, 0.25), 0.7)
+  ctx.beginPath()
+  ctx.moveTo(0, y)
+  ctx.quadraticCurveTo(w * 0.25, y - h * 0.11, w * 0.5, y - h * 0.04)
+  ctx.quadraticCurveTo(w * 0.78, y - h * 0.15, w, y - h * 0.05)
+  ctx.lineTo(w, y)
+  ctx.closePath()
+  ctx.fill()
+
+  // 手前の山（濃いめ）
+  ctx.fillStyle = rgbToCss(far, 0.9)
   ctx.beginPath()
   ctx.moveTo(0, y)
   ctx.quadraticCurveTo(w * 0.35, y - h * 0.07, w * 0.62, y - h * 0.02)
@@ -69,6 +83,52 @@ function grassTuft(ctx, x, baseY, size, css) {
 
 // ── 前景：場面ごと ──
 
+// 縁側の庇（ひさし）と吊り風鈴を、手前の額縁として上部に描く。
+// 「軒下から外を眺める」構図になり、奥行きと“その場所”の感じが出る。
+function drawEaves(ctx, view, frame) {
+  const { w, h } = view
+  const eaveColor = rgbToCss(frame.palette.woodShade)
+  // 上辺から垂れる庇（ゆるい曲線で軒先を表現）
+  ctx.fillStyle = eaveColor
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(w, 0)
+  ctx.lineTo(w, h * 0.1)
+  ctx.quadraticCurveTo(w * 0.5, h * 0.155, 0, h * 0.1)
+  ctx.closePath()
+  ctx.fill()
+  // 軒先の細い影
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'
+  ctx.beginPath()
+  ctx.moveTo(0, h * 0.1)
+  ctx.quadraticCurveTo(w * 0.5, h * 0.155, w, h * 0.1)
+  ctx.lineTo(w, h * 0.118)
+  ctx.quadraticCurveTo(w * 0.5, h * 0.173, 0, h * 0.118)
+  ctx.closePath()
+  ctx.fill()
+
+  // 右寄りに吊り風鈴のシルエット（そよ風でわずかに揺れる）
+  const sway = Math.sin(frame.now / 1100) * w * 0.004
+  const cx = w * 0.82 + sway
+  const top = h * 0.12
+  ctx.strokeStyle = eaveColor
+  ctx.lineWidth = Math.max(1, h * 0.004)
+  ctx.beginPath()
+  ctx.moveTo(w * 0.82, h * 0.1)
+  ctx.lineTo(cx, top)
+  ctx.stroke()
+  // 釣鐘（ベル）
+  ctx.fillStyle = eaveColor
+  ctx.beginPath()
+  ctx.arc(cx, top + h * 0.03, h * 0.03, Math.PI, 0)
+  ctx.lineTo(cx + h * 0.03, top + h * 0.035)
+  ctx.quadraticCurveTo(cx, top + h * 0.05, cx - h * 0.03, top + h * 0.035)
+  ctx.closePath()
+  ctx.fill()
+  // 短冊
+  ctx.fillRect(cx - h * 0.006, top + h * 0.05, h * 0.012, h * 0.06)
+}
+
 // 縁側：手前の木の縁側
 export function foreEngawa(ctx, view, frame) {
   const { w, h } = view
@@ -105,6 +165,9 @@ export function foreEngawa(ctx, view, frame) {
   ctx.moveTo(0, top + 1)
   ctx.lineTo(w, top + 1)
   ctx.stroke()
+
+  // 軒下から眺める額縁（庇＋吊り風鈴）を最前面に
+  drawEaves(ctx, view, frame)
 }
 
 // 原っぱ：草の生い茂る野原と、片隅の木

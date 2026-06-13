@@ -5,6 +5,8 @@ import { createSceneManager } from './engine/sceneManager.js'
 import { buildScenes } from './scenes/scenes.js'
 import { getBlendedPalette, getCurrentPhase } from './data/phases.js'
 import { drawHud } from './draw/hud.js'
+import { applyPost } from './draw/post.js'
+import { drawParticles } from './draw/particles.js'
 import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
@@ -89,6 +91,8 @@ function onFrame(dt, now) {
   const time = clock.time
   const frame = { time, now, palette: getBlendedPalette(time) }
   scenes.draw(ctx, view, frame)
+  drawParticles(ctx, view, frame) // 光に舞う埃・夜の蛍
+  applyPost(ctx, view, frame) // 一枚絵としての仕上げ（霞・色味・減光・紙の質感）
   drawHud(ctx, view, frame, getCurrentPhase(time))
   // いまの時間帯・場面に合う環境音へなめらかに切り替える
   if (audio.started) {

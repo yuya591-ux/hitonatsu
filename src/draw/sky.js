@@ -117,27 +117,35 @@ function drawClouds(ctx, view, frame) {
   }
 }
 
+// 太陽の位置に合わせた、やわらかい光のにじみ（硬い帯ではなく、ふわっとした輝き）
 function drawLightShaft(ctx, view, frame) {
   const { w, h } = view
-  // 日中ほど強く、夕方後半で弱め、夜は出さない
-  const dayAmount = 1 - smoothstep(0.7, 0.86, frame.time)
+  const dayAmount = 1 - smoothstep(0.66, 0.86, frame.time)
   if (dayAmount <= 0.02) return
 
+  // 太陽のだいたいの位置（drawSunMoon と揃える）
+  const t = frame.time
+  const u = Math.min(t, 0.84) / 0.84
+  const sx = (0.12 + 0.78 * u) * w
+  const sy = (0.12 + (1 - Math.sin(u * Math.PI)) * 0.4) * h
   const light = rgbToCss(frame.palette.light)
+
   ctx.save()
-  ctx.globalCompositeOperation = 'lighter' // 光は加算して淡く輝かせる
-  const grad = ctx.createLinearGradient(w * 0.6, 0, w * 0.1, h * 0.9)
-  grad.addColorStop(0, light.replace('rgb', 'rgba').replace(')', `,${0.18 * dayAmount})`))
-  grad.addColorStop(1, light.replace('rgb', 'rgba').replace(')', ',0)'))
-  ctx.fillStyle = grad
-  // 斜めに差し込む光の帯（台形）
-  ctx.beginPath()
-  ctx.moveTo(w * 0.45, 0)
-  ctx.lineTo(w * 0.95, 0)
-  ctx.lineTo(w * 0.55, h)
-  ctx.lineTo(w * 0.0, h)
-  ctx.closePath()
-  ctx.fill()
+  ctx.globalCompositeOperation = 'lighter'
+
+  // 太陽まわりの、二段のやわらかいにじみだけ（光条は描かない＝自然に見せる）
+  const inner = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.min(w, h) * 0.22)
+  inner.addColorStop(0, light.replace('rgb', 'rgba').replace(')', `,${0.30 * dayAmount})`))
+  inner.addColorStop(1, light.replace('rgb', 'rgba').replace(')', ',0)'))
+  ctx.fillStyle = inner
+  ctx.fillRect(0, 0, w, h)
+
+  const outer = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(w, h) * 0.6)
+  outer.addColorStop(0, light.replace('rgb', 'rgba').replace(')', `,${0.10 * dayAmount})`))
+  outer.addColorStop(0.5, light.replace('rgb', 'rgba').replace(')', `,${0.04 * dayAmount})`))
+  outer.addColorStop(1, light.replace('rgb', 'rgba').replace(')', ',0)'))
+  ctx.fillStyle = outer
+  ctx.fillRect(0, 0, w, h)
   ctx.restore()
 }
 

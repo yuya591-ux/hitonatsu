@@ -7,34 +7,35 @@ import { lerpColor } from '../util/color.js'
 export const DAY_LENGTH_SEC = 900 // ゲーム内の1日 = 15分
 
 // 時間帯ごとの色パレット（アートトークン）。すべて同じキーを持たせ、補間できるようにする。
+// 郷愁寄りに少しくすませた色。鮮やかすぎないのが「あの夏」のコツ。
 const PALETTES = {
   morning: {
-    skyTop: '#BFE3F0', skyMid: '#DCEBE4', skyBottom: '#FCEFD2',
-    light: '#FFF3D6', cloud: '#FFFFFF', cloudShade: '#E5ECEC',
-    sun: '#FFF6E0', moon: '#F4EFD0', star: '#FFFFFF',
-    far: '#8FA9B8', ground: '#9FB873', groundShade: '#6E8A57',
-    wood: '#C9A86E', woodShade: '#9A7B49',
+    skyTop: '#A9CFE0', skyMid: '#CFE0DA', skyBottom: '#F3E6CC',
+    light: '#FFF1D5', cloud: '#FBF6EC', cloudShade: '#D8DCD6',
+    sun: '#FFEFC4', moon: '#F4EFD0', star: '#FFFFFF',
+    far: '#93A6AC', ground: '#93AC73', groundShade: '#6C875A',
+    wood: '#C2A06A', woodShade: '#90704A',
   },
   noon: {
-    skyTop: '#6FB1E4', skyMid: '#A9D2EE', skyBottom: '#DCEFF7',
-    light: '#FFFFFF', cloud: '#FFFFFF', cloudShade: '#D7E2E8',
-    sun: '#FFFFFF', moon: '#F4EFD0', star: '#FFFFFF',
-    far: '#7E9BB0', ground: '#8FB95E', groundShade: '#5E8246',
-    wood: '#CBA463', woodShade: '#94703F',
+    skyTop: '#7FAFD2', skyMid: '#AEC9D8', skyBottom: '#DDE5DC',
+    light: '#FBFBF2', cloud: '#FCFAF3', cloudShade: '#C9D4D2',
+    sun: '#FCF6E6', moon: '#F4EFD0', star: '#FFFFFF',
+    far: '#8AA0A6', ground: '#86A65C', groundShade: '#5C7C46',
+    wood: '#C09C5E', woodShade: '#8C6A3E',
   },
   evening: {
-    skyTop: '#4A4374', skyMid: '#E8915B', skyBottom: '#F6C76A',
-    light: '#FFD9A0', cloud: '#E8A87C', cloudShade: '#B5675A',
-    sun: '#FF8A4C', moon: '#F4EFD0', star: '#FFF6D0',
-    far: '#6A5A6E', ground: '#7A7A4E', groundShade: '#4A3F3A',
-    wood: '#A6794A', woodShade: '#6E4F33',
+    skyTop: '#5E5680', skyMid: '#D98C63', skyBottom: '#F0BE78',
+    light: '#F6CE9A', cloud: '#C98A6E', cloudShade: '#8E5E58',
+    sun: '#EE7E4C', moon: '#F4EFD0', star: '#FFF1CC',
+    far: '#76697A', ground: '#7C7650', groundShade: '#4C423C',
+    wood: '#9E784C', woodShade: '#684A34',
   },
   night: {
-    skyTop: '#0E1430', skyMid: '#1A2142', skyBottom: '#2A2F50',
-    light: '#6A6F9A', cloud: '#2C3358', cloudShade: '#1B2140',
-    sun: '#FFF6E0', moon: '#F4EFD0', star: '#FFFFFF',
-    far: '#1E2740', ground: '#2E3A3A', groundShade: '#161E22',
-    wood: '#4A4030', woodShade: '#2A2418',
+    skyTop: '#121A33', skyMid: '#1E2846', skyBottom: '#39415E',
+    light: '#5A6088', cloud: '#2A3252', cloudShade: '#191F37',
+    sun: '#FFF6E0', moon: '#F2EACE', star: '#F4F2E2',
+    far: '#222C44', ground: '#2A3636', groundShade: '#171F22',
+    wood: '#463E30', woodShade: '#28221A',
   },
 }
 
