@@ -65,7 +65,8 @@ const recordClose = document.getElementById('record-close')
 const view = { w: 0, h: 0 }
 
 function resize() {
-  const dpr = window.devicePixelRatio || 1
+  // 高精細スマホ(DPR3等)での描画負荷を抑える。水彩のやわらかい絵なので2で十分。
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
   view.w = window.innerWidth
   view.h = window.innerHeight
   canvas.width = Math.floor(view.w * dpr)
