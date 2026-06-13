@@ -579,6 +579,59 @@ body {
   transform: translateX(-50%) rotate(-90deg) scale(0.94);
 }
 
+/* ── デバッグ（管理者）パネル ── */
+#debug {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 30;
+  width: min(320px, 70vw);
+  padding: 10px 12px;
+  background: rgba(28, 30, 40, 0.88);
+  color: #ede6d6;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+#debug.hidden {
+  display: none;
+}
+.dbg-title {
+  font-weight: bold;
+  margin-bottom: 6px;
+  color: #ffe9a8;
+}
+.dbg-title small {
+  color: #9a9383;
+  font-weight: normal;
+}
+.dbg-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+.dbg-row input[type='range'] {
+  flex: 1;
+  min-width: 90px;
+}
+#debug button {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #2a2a2a;
+  background: #cbd2c0;
+  border-radius: 6px;
+}
+#debug button:active {
+  transform: scale(0.95);
+}
+
 /* ── 縦持ちの案内（横画面では隠す） ── */
 #rotate-notice {
   position: fixed;

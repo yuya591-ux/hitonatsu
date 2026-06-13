@@ -6,6 +6,7 @@ import { DAY_LENGTH_SEC } from '../data/phases.js'
 export function createClock({ startTime = 0, speed = 1, paused = false } = {}) {
   let t = ((startTime % 1) + 1) % 1
   let running = !paused
+  let spd = speed
 
   return {
     get time() {
@@ -13,6 +14,12 @@ export function createClock({ startTime = 0, speed = 1, paused = false } = {}) {
     },
     setTime(v) {
       t = ((v % 1) + 1) % 1
+    },
+    get speed() {
+      return spd
+    },
+    setSpeed(v) {
+      spd = v
     },
     get running() {
       return running
@@ -26,7 +33,7 @@ export function createClock({ startTime = 0, speed = 1, paused = false } = {}) {
     // 経過ミリ秒ぶんだけ時刻を進める
     update(dtMs) {
       if (!running) return
-      t = (t + (dtMs / 1000 / DAY_LENGTH_SEC) * speed) % 1
+      t = (t + (dtMs / 1000 / DAY_LENGTH_SEC) * spd) % 1
     },
   }
 }

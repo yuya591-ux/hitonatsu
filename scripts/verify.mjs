@@ -137,6 +137,20 @@ try {
     }
   }
 
+  // デバッグパネルを確認
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[debug] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?t=0.3&debug=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 500))
+    const shown = await page.evaluate(() => !document.querySelector('#debug').classList.contains('hidden'))
+    await page.screenshot({ path: join(outDir, 'debug.png') })
+    console.log(`デバッグパネル: 表示=${shown}`)
+    if (!shown) errors.push('デバッグパネルが ?debug=1 で出ない')
+    await page.close()
+  }
+
   // おまつり（3日目の夜の神社）を確認
   {
     const page = await browser.newPage()

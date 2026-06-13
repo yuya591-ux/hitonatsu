@@ -29,5 +29,8 @@ export function createCalendar() {
     setDay(n) {
       day = Math.max(1, n | 0)
     },
+    setWeather(w) {
+      if (LABELS[w]) weather = w
+    },
   }
 }

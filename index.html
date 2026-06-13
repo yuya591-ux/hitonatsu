@@ -110,6 +110,18 @@
       </div>
     </div>
 
+    <!-- デバッグ（管理者）パネル：D キー、または ?debug=1 で開く -->
+    <div id="debug" class="hidden">
+      <div class="dbg-title">デバッグ <small>(D で開閉)</small></div>
+      <div class="dbg-row">時刻 <input id="dbg-time" type="range" min="0" max="100" value="0" /><span id="dbg-time-v">朝</span></div>
+      <div class="dbg-row">日 <button id="dbg-day-dn">−</button><span id="dbg-day">1</span><button id="dbg-day-up">＋</button></div>
+      <div class="dbg-row">天気 <button data-w="sunny">晴</button><button data-w="cloudy">曇</button><button data-w="shower">夕立</button></div>
+      <div class="dbg-row">祭り <button id="dbg-fes">切替</button><span id="dbg-fes-v">自動</span></div>
+      <div class="dbg-row">速さ <button data-sp="1">1x</button><button data-sp="30">30x</button><button data-sp="120">120x</button></div>
+      <div class="dbg-row">場所 <button data-sc="engawa">縁側</button><button data-sc="harappa">原</button><button data-sc="jinja">社</button><button data-sc="tanbomichi">田</button><button data-sc="kawabe">川</button></div>
+      <div class="dbg-row"><button id="dbg-pause">停止/再開</button></div>
+    </div>
+
     <!-- スマホを縦に持ったときの案内（横画面では隠れる） -->
     <div id="rotate-notice">
       <p>横にしてください</p>

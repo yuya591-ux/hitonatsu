@@ -114,6 +114,7 @@ let recordOpen = false
 let sleepReady = false
 let lastMusicPhase = null
 const dayEvents = { radio: false, dinner: false } // その日の日課の合図（1回だけ）
+let debugForceFestival = null // null=自動 / true / false（デバッグ用）
 
 function showToast(msg) {
   if (!toast) return
@@ -515,8 +516,8 @@ function onFrame(dt, now) {
     calendar.weather === 'shower' && time > 0.3 && time < 0.52
       ? Math.sin(((time - 0.3) / 0.22) * Math.PI)
       : 0
-  // 村のおまつり（3日目以降）。神社の夜に提灯が灯る。
-  frame.festival = calendar.day >= 3
+  // 村のおまつり（3日目以降）。神社の夜に提灯が灯る。デバッグで上書き可。
+  frame.festival = debugForceFestival !== null ? debugForceFestival : calendar.day >= 3
   // 場面遷移中・会話中・日記中・記録中・虫相撲中・釣り中は操作を止める
   player.frozen = scenes.isMoving || !!dialogue || diaryOpen || recordOpen || sumoActive || fishState !== 'idle'
   updatePlayer(player, dt, onPlayerEdge)
@@ -732,3 +733,61 @@ function beginDay() {
 }
 if (startButton) startButton.addEventListener('click', beginDay)
 if (autostart) beginDay()
+
+// ── デバッグ（管理者）パネル：D キー、または ?debug=1 ──
+const debugPanel = document.getElementById('debug')
+const dbgTime = document.getElementById('dbg-time')
+const dbgTimeV = document.getElementById('dbg-time-v')
+const dbgDay = document.getElementById('dbg-day')
+const dbgFesV = document.getElementById('dbg-fes-v')
+function updateDbg() {
+  if (!debugPanel || debugPanel.classList.contains('hidden')) return
+  if (dbgDay) dbgDay.textContent = calendar.day
+  if (dbgFesV) dbgFesV.textContent = debugForceFestival === null ? '自動' : debugForceFestival ? 'ON' : 'OFF'
+  if (dbgTime && document.activeElement !== dbgTime) dbgTime.value = Math.round(clock.time * 100)
+  if (dbgTimeV) dbgTimeV.textContent = getCurrentPhase(clock.time).label
+}
+function toggleDebug() {
+  if (!debugPanel) return
+  debugPanel.classList.toggle('hidden')
+  updateDbg()
+}
+if (debugPanel) debugPanel.addEventListener('pointerdown', (e) => e.stopPropagation())
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'd' || e.key === 'D') toggleDebug()
+})
+if (params.get('debug') === '1') toggleDebug()
+if (dbgTime) {
+  dbgTime.addEventListener('input', () => {
+    clock.setTime(Number(dbgTime.value) / 100)
+    updateDbg()
+  })
+}
+document.getElementById('dbg-day-up')?.addEventListener('click', () => {
+  calendar.setDay(calendar.day + 1)
+  dayEvents.radio = false
+  dayEvents.dinner = false
+  updateDbg()
+})
+document.getElementById('dbg-day-dn')?.addEventListener('click', () => {
+  calendar.setDay(calendar.day - 1)
+  updateDbg()
+})
+for (const b of document.querySelectorAll('#debug [data-w]')) {
+  b.addEventListener('click', () => calendar.setWeather(b.dataset.w))
+}
+document.getElementById('dbg-fes')?.addEventListener('click', () => {
+  debugForceFestival = debugForceFestival === null ? true : debugForceFestival ? false : null
+  updateDbg()
+})
+for (const b of document.querySelectorAll('#debug [data-sp]')) {
+  b.addEventListener('click', () => clock.setSpeed(Number(b.dataset.sp)))
+}
+for (const b of document.querySelectorAll('#debug [data-sc]')) {
+  b.addEventListener('click', () => scenes.goto(b.dataset.sc))
+}
+document.getElementById('dbg-pause')?.addEventListener('click', () => {
+  if (clock.running) clock.pause()
+  else clock.start()
+})
+setInterval(updateDbg, 500)
