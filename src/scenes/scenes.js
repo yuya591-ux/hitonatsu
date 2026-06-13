@@ -18,11 +18,12 @@ import {
 } from '../draw/scenery.js'
 
 // 1場面ぶんのレイヤーを組み立てるファクトリ。
-function createScene({ id, name, neighbors, drawForeground }) {
+function createScene({ id, name, neighbors, drawForeground, creatures = [] }) {
   return {
     id,
     name,
     neighbors,
+    creatures,
     layers: [
       // 空（シグネチャ・全場面共通）。差し替えは想定せずコード描画固定。
       createLayer({ id: 'sky', drawCode: drawSky }),
@@ -51,24 +52,31 @@ export function buildScenes() {
       name: '原っぱ',
       neighbors: { right: 'engawa' },
       drawForeground: foreHarappa,
+      creatures: [
+        { id: 'harappa-beetle', kind: 'beetle', name: 'カブトムシ', x: 0.8, y: 0.66, seed: 1 },
+        { id: 'harappa-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.35, y: 0.66, seed: 5 },
+      ],
     }),
     createScene({
       id: 'jinja',
       name: '神社',
       neighbors: { down: 'engawa' },
       drawForeground: foreJinja,
+      creatures: [{ id: 'jinja-cicada', kind: 'cicada', name: 'セミ', x: 0.24, y: 0.5, seed: 2 }],
     }),
     createScene({
       id: 'tanbomichi',
       name: '田んぼ道',
       neighbors: { left: 'engawa', right: 'kawabe' },
       drawForeground: foreTanbomichi,
+      creatures: [{ id: 'tanbo-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.7, y: 0.62, seed: 3 }],
     }),
     createScene({
       id: 'kawabe',
       name: '川辺',
       neighbors: { left: 'tanbomichi' },
       drawForeground: foreKawabe,
+      creatures: [{ id: 'kawabe-dragonfly', kind: 'dragonfly', name: 'トンボ', x: 0.5, y: 0.55, seed: 4 }],
     }),
   ]
 }

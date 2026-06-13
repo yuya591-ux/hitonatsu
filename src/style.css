@@ -94,6 +94,53 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── つかまえるボタン（虫が近いとき下中央に） ── */
+#catch-prompt {
+  position: fixed;
+  left: 50%;
+  bottom: 13%;
+  transform: translateX(-50%);
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.6em 1.8em;
+  font-size: clamp(15px, 3vw, 22px);
+  font-family: inherit;
+  color: #4a4032;
+  background: rgba(255, 250, 240, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(120, 100, 70, 0.3);
+  animation: prompt-pop 0.25s ease;
+}
+#catch-prompt.hidden {
+  display: none;
+}
+@keyframes prompt-pop {
+  from { transform: translateX(-50%) scale(0.8); opacity: 0; }
+  to { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+/* ── 小さなお知らせ（トースト） ── */
+#toast {
+  position: fixed;
+  left: 50%;
+  top: 12%;
+  transform: translateX(-50%) translateY(-8px);
+  padding: 0.5em 1.4em;
+  font-size: clamp(15px, 2.8vw, 22px);
+  letter-spacing: 0.08em;
+  color: #fdf7ec;
+  background: rgba(74, 64, 50, 0.82);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* ── 音量・ミュート（右上に控えめ） ── */
 #audio-controls {
   position: fixed;

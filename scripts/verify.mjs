@@ -164,6 +164,27 @@ try {
     if (loaded < 6) errors.push(`環境音の読み込みが不足（読み込めた数: ${loaded} / 6）`)
     await page.close()
   }
+
+  // 虫採りの機能テスト：原っぱのカブトムシの近くで「つかまえる」と記録が増える
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    page.on('pageerror', (err) => errors.push(`[catch] pageerror: ${err.message}`))
+    await page.goto(`${baseUrl}?scene=harappa&t=0.3&paused=1`, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 500))
+    const result = await page.evaluate(async () => {
+      const H = window.__hitonatsu
+      H.player.x = 0.8
+      H.player.y = 0.7 // カブトムシ(0.8,0.66)の近くへ
+      await new Promise((r) => setTimeout(r, 200))
+      const before = H.caughtCount()
+      H.doCatch()
+      return { before, after: H.caughtCount() }
+    })
+    console.log(`虫採りテスト: ${result.before} → ${result.after}`)
+    if (result.after !== result.before + 1) errors.push(`虫採りが機能していない（${result.before}→${result.after}）`)
+    await page.close()
+  }
 } finally {
   await browser.close()
   server.close()

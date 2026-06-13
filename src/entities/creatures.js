@@ -1,0 +1,98 @@
+// 虫（オリジナル表現）。場面に置かれ、近づいて「つかまえる」と夏の記録に残る。
+// 種類ごとに簡単な形で描き、ふわっと小さく揺れる。
+
+// 虫のだいたいの大きさ（画面高さに対する割合）
+const SIZE = 0.05
+
+function bob(now, seed, amp) {
+  return Math.sin(now / 600 + seed) * amp
+}
+
+// カブトムシ（黒い甲虫＋角）
+function drawBeetle(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.15))
+  ctx.fillStyle = '#3A2A1E'
+  ctx.beginPath()
+  ctx.ellipse(0, 0, s * 0.5, s * 0.34, 0, 0, Math.PI * 2)
+  ctx.fill()
+  // 前胸
+  ctx.beginPath()
+  ctx.ellipse(0, -s * 0.28, s * 0.26, s * 0.2, 0, 0, Math.PI * 2)
+  ctx.fill()
+  // 角
+  ctx.strokeStyle = '#2A1E14'
+  ctx.lineWidth = s * 0.08
+  ctx.beginPath()
+  ctx.moveTo(0, -s * 0.4)
+  ctx.lineTo(0, -s * 0.7)
+  ctx.stroke()
+  // 背の継ぎ目
+  ctx.strokeStyle = '#1E140E'
+  ctx.lineWidth = s * 0.04
+  ctx.beginPath()
+  ctx.moveTo(0, -s * 0.1)
+  ctx.lineTo(0, s * 0.3)
+  ctx.stroke()
+  ctx.restore()
+}
+
+// セミ（木にとまる・透明な翅）
+function drawCicada(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.08))
+  // 翅
+  ctx.fillStyle = 'rgba(210,220,210,0.45)'
+  ctx.beginPath()
+  ctx.ellipse(s * 0.18, 0, s * 0.5, s * 0.2, 0.3, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.ellipse(-s * 0.18, 0, s * 0.5, s * 0.2, -0.3, 0, Math.PI * 2)
+  ctx.fill()
+  // 体
+  ctx.fillStyle = '#4A4030'
+  ctx.beginPath()
+  ctx.ellipse(0, 0, s * 0.16, s * 0.42, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+// トンボ（細い体＋4枚の翅・空中でホバリング）
+function drawDragonfly(ctx, x, y, s, now, seed) {
+  ctx.save()
+  ctx.translate(x, y + bob(now, seed, s * 0.3))
+  // 体
+  ctx.strokeStyle = '#6E7E4A'
+  ctx.lineWidth = s * 0.08
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(-s * 0.1, 0)
+  ctx.lineTo(s * 0.6, 0)
+  ctx.stroke()
+  // 頭
+  ctx.fillStyle = '#5A6A3A'
+  ctx.beginPath()
+  ctx.arc(-s * 0.14, 0, s * 0.1, 0, Math.PI * 2)
+  ctx.fill()
+  // 翅（小刻みに震える）
+  const flap = Math.sin(now / 80 + seed) * s * 0.04
+  ctx.fillStyle = 'rgba(220,230,235,0.5)'
+  for (const sx of [s * 0.06, s * 0.22]) {
+    ctx.beginPath()
+    ctx.ellipse(sx, -s * 0.05 - flap, s * 0.28, s * 0.07, -0.2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(sx, s * 0.05 + flap, s * 0.28, s * 0.07, 0.2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+const DRAWERS = { beetle: drawBeetle, cicada: drawCicada, dragonfly: drawDragonfly }
+
+// 1匹を描く（c = {kind, x, y, id}）
+export function drawCreature(c, ctx, view, frame) {
+  const s = view.h * SIZE
+  const drawer = DRAWERS[c.kind]
+  if (drawer) drawer(ctx, c.x * view.w, c.y * view.h, s, frame.now, c.seed || 0)
+}

@@ -11,6 +11,8 @@ import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
 import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, BAND } from './entities/player.js'
+import { drawCreature } from './entities/creatures.js'
+import { isCaught, catchCreature, caughtCount } from './engine/record.js'
 
 // ── P2: 残り4場面＋場面の行き来 ──
 // 縁側・原っぱ・神社・田んぼ道・川辺を、隣接にそって crossfade で行き来する。
@@ -38,6 +40,8 @@ const nav = {
 }
 const muteButton = document.getElementById('mute-button')
 const volumeInput = document.getElementById('volume')
+const catchPrompt = document.getElementById('catch-prompt')
+const toast = document.getElementById('toast')
 
 const view = { w: 0, h: 0 }
 
@@ -63,6 +67,33 @@ const audio = createAudioManager(loadAudioUrls())
 
 // 操作する主人公
 const player = createPlayer()
+
+// いま「つかまえられる」虫（近くにいる未捕獲の1匹）
+let catchable = null
+
+function showToast(msg) {
+  if (!toast) return
+  toast.textContent = msg
+  toast.classList.add('show')
+  clearTimeout(toast._t)
+  toast._t = setTimeout(() => toast.classList.remove('show'), 1800)
+}
+
+function doCatch() {
+  if (!catchable) return
+  if (catchCreature(catchable)) {
+    showToast(`${catchable.name}をつかまえた`)
+    catchable = null
+    if (catchPrompt) catchPrompt.classList.add('hidden')
+  }
+}
+if (catchPrompt) {
+  catchPrompt.addEventListener('click', doCatch)
+  catchPrompt.addEventListener('pointerdown', (e) => e.stopPropagation())
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === ' ' || e.key === 'Enter') doCatch()
+})
 
 // 端に達したとき：隣の場面があれば歩いて移れる
 function onPlayerEdge(dir) {
@@ -148,6 +179,24 @@ function onFrame(dt, now) {
   updatePlayer(player, dt, onPlayerEdge)
 
   scenes.draw(ctx, view, frame)
+
+  // 虫を描き、近くの未捕獲を「つかまえられる」状態にする
+  catchable = null
+  let best = Infinity
+  const scene = scenes.current
+  for (const c of scene.creatures || []) {
+    if (isCaught(c.id)) continue
+    drawCreature(c, ctx, view, frame)
+    const dx = (player.x - c.x) * view.w
+    const dy = (player.y - c.y) * view.h
+    const d = Math.hypot(dx, dy)
+    if (d < view.h * 0.24 && d < best) {
+      best = d
+      catchable = c
+    }
+  }
+  if (catchPrompt) catchPrompt.classList.toggle('hidden', !catchable || scenes.isMoving)
+
   drawPlayer(player, ctx, view) // 背景の上を歩く主人公
   drawParticles(ctx, view, frame) // 光に舞う埃・夜の蛍
   applyPost(ctx, view, frame) // 一枚絵としての仕上げ（霞・色味・減光・紙の質感）
@@ -163,7 +212,7 @@ const loop = createLoop(onFrame)
 loop.start()
 
 // 自己検証用の最小ハンドル（本番の挙動には影響しない）
-window.__hitonatsu = { audio, scenes, clock, player }
+window.__hitonatsu = { audio, scenes, clock, player, caughtCount, doCatch }
 
 // 音量・ミュートUI
 if (volumeInput) {
