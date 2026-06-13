@@ -23,6 +23,33 @@ import {
 
 // 1場面ぶんのレイヤーを組み立てるファクトリ。
 function createScene({ id, name, neighbors, drawForeground, creatures = [], npcs = [], examinables = [], walk = null }) {
+  // 場面まるごと一枚の絵（scene.png 等）があれば、far/ground/fore のコード描画を置き換える。
+  // 無ければ従来どおり層ごとのコード描画（層ごとの個別差し替えも可）。
+  const sceneImg = sceneImage(id, 'scene')
+  const layers = sceneImg
+    ? [
+        // 空：sky 画像があればそれ、無ければコードのシグネチャ空
+        createLayer({ id: 'sky', drawCode: drawSky, image: sceneImage(id, 'sky') }),
+        // 一枚絵（読めなければコードの far+ground+fore に丸ごとフォールバック）
+        createLayer({
+          id: 'scene',
+          image: sceneImg,
+          drawCode: (ctx, view, frame) => {
+            drawFarHills(ctx, view, frame)
+            drawGround(ctx, view, frame)
+            drawForeground(ctx, view, frame)
+          },
+        }),
+      ]
+    : [
+        // 空（シグネチャ・全場面共通）。差し替えは想定せずコード描画固定。
+        createLayer({ id: 'sky', drawCode: drawSky, image: sceneImage(id, 'sky') }),
+        // 以下は src/assets/scenes/<id>/<layer>.png を置けば自動で画像版に切り替わる
+        createLayer({ id: 'far', drawCode: drawFarHills, image: sceneImage(id, 'far') }),
+        createLayer({ id: 'ground', drawCode: drawGround, image: sceneImage(id, 'ground') }),
+        createLayer({ id: 'fore', drawCode: drawForeground, image: sceneImage(id, 'fore') }),
+      ]
+
   return {
     id,
     name,
@@ -31,15 +58,7 @@ function createScene({ id, name, neighbors, drawForeground, creatures = [], npcs
     npcs,
     examinables,
     walk, // 歩ける道（台形）。町・室内は道に限定し、建物の上に乗れないようにする
-
-    layers: [
-      // 空（シグネチャ・全場面共通）。差し替えは想定せずコード描画固定。
-      createLayer({ id: 'sky', drawCode: drawSky }),
-      // 以下は src/assets/scenes/<id>/<layer>.png を置けば自動で画像版に切り替わる
-      createLayer({ id: 'far', drawCode: drawFarHills, image: sceneImage(id, 'far') }),
-      createLayer({ id: 'ground', drawCode: drawGround, image: sceneImage(id, 'ground') }),
-      createLayer({ id: 'fore', drawCode: drawForeground, image: sceneImage(id, 'fore') }),
-    ],
+    layers,
   }
 }
 

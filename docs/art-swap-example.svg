@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <!-- 差し替えパイプラインの実証用デモ（水彩風）。本物の絵に置き換えてください。 -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bfe2f2"/>
+      <stop offset="0.55" stop-color="#d7eef4"/>
+      <stop offset="1" stop-color="#eaf3e2"/>
+    </linearGradient>
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9cc06a"/>
+      <stop offset="1" stop-color="#6f9c45"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff4cf"/>
+      <stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="paper">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0"/>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+
+  <!-- 空 -->
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <circle cx="430" cy="240" r="240" fill="url(#sun)"/>
+  <!-- 雲（やわらかい白） -->
+  <g fill="#fdfdfb" opacity="0.9">
+    <ellipse cx="760" cy="200" rx="170" ry="56"/>
+    <ellipse cx="900" cy="180" rx="130" ry="64"/>
+    <ellipse cx="1380" cy="250" rx="150" ry="50"/>
+  </g>
+  <!-- 遠い丘 -->
+  <path d="M0,470 Q480,380 980,455 T1920,440 L1920,560 L0,560 Z" fill="#a9c98c"/>
+  <path d="M0,500 Q560,440 1100,495 T1920,485 L1920,620 L0,620 Z" fill="#93b974"/>
+  <!-- 原っぱ -->
+  <rect y="560" width="1920" height="520" fill="url(#grass)"/>
+  <!-- 草の筆あと -->
+  <g stroke="#5f8b3c" stroke-width="3" stroke-linecap="round" opacity="0.5">
+    <path d="M120,1000 q-8,-60 6,-110"/>
+    <path d="M300,1030 q-6,-70 8,-120"/>
+    <path d="M520,990 q-10,-60 4,-108"/>
+    <path d="M820,1040 q-6,-66 8,-118"/>
+    <path d="M1180,1010 q-8,-62 6,-112"/>
+    <path d="M1500,1035 q-6,-70 8,-120"/>
+    <path d="M1720,1000 q-10,-60 4,-108"/>
+  </g>
+  <!-- 木 -->
+  <g>
+    <rect x="1610" y="520" width="22" height="150" fill="#7a5a3a"/>
+    <ellipse cx="1621" cy="470" rx="120" ry="96" fill="#79a44e"/>
+    <ellipse cx="1560" cy="500" rx="70" ry="58" fill="#6f9a47"/>
+  </g>
+  <!-- ひまわり（数本） -->
+  <g>
+    <g transform="translate(250,720)">
+      <rect x="-5" y="0" width="10" height="200" fill="#5f8b3c"/>
+      <circle cx="0" cy="0" r="34" fill="#e8b23a"/>
+      <circle cx="0" cy="0" r="16" fill="#7a4a22"/>
+    </g>
+    <g transform="translate(330,760)">
+      <rect x="-5" y="0" width="10" height="180" fill="#5f8b3c"/>
+      <circle cx="0" cy="0" r="30" fill="#e8b23a"/>
+      <circle cx="0" cy="0" r="14" fill="#7a4a22"/>
+    </g>
+  </g>
+
+  <!-- 紙の質感を全体にうっすら -->
+  <rect width="1920" height="1080" filter="url(#paper)" fill="none"/>
+</svg>
