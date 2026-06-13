@@ -5,7 +5,7 @@
 // ・紙のグレイン（水彩紙の質感）
 // どれも“うっすら”が肝心。やりすぎない。
 
-import { rgbToCss } from '../util/color.js'
+import { rgbToCss, smoothstep } from '../util/color.js'
 
 const HORIZON = 0.42
 
@@ -105,8 +105,30 @@ export function applyGrain(ctx, view) {
   ctx.restore()
 }
 
+// 朝もや：朝のあいだ、地平線あたりに低くたなびく白い霞
+function applyMorningMist(ctx, view, frame) {
+  const t = frame.time
+  const amount = t < 0.22 ? 1 - smoothstep(0.08, 0.22, t) : 0
+  if (amount <= 0.02) return
+  const { w, h } = view
+  const y = h * HORIZON
+  ctx.save()
+  for (let i = 0; i < 3; i++) {
+    const yy = y - h * 0.02 + i * h * 0.035
+    const g = ctx.createLinearGradient(0, yy - h * 0.03, 0, yy + h * 0.03)
+    g.addColorStop(0, 'rgba(250,250,245,0)')
+    g.addColorStop(0.5, `rgba(250,250,245,${0.28 * amount})`)
+    g.addColorStop(1, 'rgba(250,250,245,0)')
+    ctx.fillStyle = g
+    const drift = Math.sin(frame.now / 4000 + i) * w * 0.02
+    ctx.fillRect(drift, yy - h * 0.03, w, h * 0.06)
+  }
+  ctx.restore()
+}
+
 // まとめて仕上げる
 export function applyPost(ctx, view, frame) {
+  applyMorningMist(ctx, view, frame)
   applyHaze(ctx, view, frame)
   applyColorGrade(ctx, view, frame)
   applyVignette(ctx, view)

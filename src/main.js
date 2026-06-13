@@ -13,7 +13,7 @@ import { createAudioManager } from './audio/audioManager.js'
 import { loadAudioUrls } from './data/audioAssets.js'
 import { activeSounds } from './data/soundscape.js'
 import { createPlayer, updatePlayer, drawPlayer, placeAfterMove, BAND } from './entities/player.js'
-import { drawCreature } from './entities/creatures.js'
+import { drawCreature, creaturePos } from './entities/creatures.js'
 import { drawNpc } from './entities/npc.js'
 import {
   isCaught, catchCreature, caughtCount,
@@ -144,7 +144,7 @@ function doInteract() {
   if (nearby.type === 'bug') {
     if (catchCreature(nearby.ref)) {
       showToast(`${nearby.ref.name}をつかまえた`)
-      catchFx.push({ x: nearby.ref.x, y: nearby.ref.y, age: 0 })
+      catchFx.push({ x: nearby.x, y: nearby.y, age: 0 })
     }
   } else if (nearby.type === 'npc') {
     startDialogue(nearby.ref)
@@ -333,10 +333,11 @@ function onFrame(dt, now) {
   for (const c of scene.creatures || []) {
     if (isCaught(c.id)) continue
     drawCreature(c, ctx, view, frame)
-    const d = Math.hypot((player.x - c.x) * view.w, (player.y - c.y) * view.h)
+    const pos = creaturePos(c, now)
+    const d = Math.hypot((player.x - pos.x) * view.w, (player.y - pos.y) * view.h)
     if (d < view.h * 0.24 && d < best) {
       best = d
-      nearby = { type: 'bug', ref: c }
+      nearby = { type: 'bug', ref: c, x: pos.x, y: pos.y }
     }
   }
   for (const npc of scene.npcs || []) {
@@ -344,7 +345,7 @@ function onFrame(dt, now) {
     const d = Math.hypot((player.x - npc.x) * view.w, (player.y - npc.y) * view.h)
     if (d < view.h * 0.26 && d < best) {
       best = d
-      nearby = { type: 'npc', ref: npc }
+      nearby = { type: 'npc', ref: npc, x: npc.x, y: npc.y }
     }
   }
 

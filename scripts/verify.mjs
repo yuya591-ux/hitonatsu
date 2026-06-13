@@ -80,6 +80,17 @@ const browser = await puppeteer.launch({
 })
 
 try {
+  // タイトル画面（パラメータなし＝スタート画面が出る）
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 20000 })
+    await new Promise((r) => setTimeout(r, 700))
+    await page.screenshot({ path: join(outDir, 'title.png') })
+    console.log('撮影: title.png')
+    await page.close()
+  }
+
   for (const vp of VIEWPORTS) {
     for (const time of TIMES) {
       const page = await browser.newPage()

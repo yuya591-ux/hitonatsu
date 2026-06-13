@@ -142,9 +142,22 @@ const DRAWERS = {
   grasshopper: drawGrasshopper,
 }
 
+// いまの位置（飛ぶ虫はゆっくり漂う）。描画と「つかまえ判定」で同じ位置を使う。
+export function creaturePos(c, now) {
+  if (c.kind === 'dragonfly' || c.kind === 'butterfly') {
+    const sp = (c.kind === 'butterfly' ? 0.6 : 0.9) * (now / 1000)
+    return {
+      x: c.x + Math.sin(sp + c.seed) * 0.05,
+      y: c.y + Math.cos(sp * 1.3 + c.seed) * 0.025,
+    }
+  }
+  return { x: c.x, y: c.y }
+}
+
 // 1匹を描く（c = {kind, x, y, id}）
 export function drawCreature(c, ctx, view, frame) {
+  const pos = creaturePos(c, frame.now)
   const s = view.h * SIZE
   const drawer = DRAWERS[c.kind]
-  if (drawer) drawer(ctx, c.x * view.w, c.y * view.h, s, frame.now, c.seed || 0)
+  if (drawer) drawer(ctx, pos.x * view.w, pos.y * view.h, s, frame.now, c.seed || 0)
 }
