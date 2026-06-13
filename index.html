@@ -2,12 +2,35 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>ひと夏の一日</title>
+    <!-- 小さな夏空の太陽アイコン（外部ファイル不要のインラインSVG） -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23BFE3F0'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23FFE9A8'/%3E%3C/svg%3E"
+    />
   </head>
   <body>
-    <!-- 一枚絵の風景を描くための土台キャンバス。中身は今後のフェーズで描く -->
+    <!-- 一枚絵の風景を描く土台キャンバス -->
     <canvas id="scene"></canvas>
+
+    <!-- スタート画面：「はじめる」を押すと一日が動き出す（音もこの後に立ち上げる） -->
+    <div id="start-screen">
+      <div class="start-inner">
+        <h1 class="title">ひと夏の一日</h1>
+        <button id="start-button" class="start-button">はじめる</button>
+        <p class="hint">画面は横向きでお楽しみください</p>
+      </div>
+    </div>
+
+    <!-- スマホを縦に持ったときの案内（横画面では隠れる） -->
+    <div id="rotate-notice">
+      <p>横にしてください</p>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

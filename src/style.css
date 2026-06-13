@@ -3,12 +3,92 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: #1b1d24; /* 描画前の暗い下地。空の色は今後キャンバスに描く */
+  background: #1b1d24;
   overflow: hidden;
+  /* 素朴で温かい雰囲気に合うやさしい游ゴシック系 */
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  color: #3b3024;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #scene {
   display: block;
   width: 100vw;
   height: 100vh;
+}
+
+/* ── スタート画面 ── */
+#start-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 後ろの空がうっすら透ける、やわらかい覆い */
+  background: rgba(252, 247, 235, 0.55);
+  backdrop-filter: blur(2px);
+  transition: opacity 0.8s ease;
+}
+#start-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.start-inner {
+  text-align: center;
+}
+.title {
+  margin: 0 0 1.4em;
+  font-size: clamp(28px, 6vw, 64px);
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  /* 全角空白ぶんの右寄りを相殺 */
+  text-indent: 0.3em;
+  color: #4a4032;
+  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.6);
+}
+.start-button {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.7em 2.4em;
+  font-size: clamp(16px, 3vw, 24px);
+  font-family: inherit;
+  color: #4a4032;
+  background: rgba(255, 250, 240, 0.85);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(120, 100, 70, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.start-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(120, 100, 70, 0.3);
+}
+.start-button:active {
+  transform: translateY(1px);
+}
+.hint {
+  margin-top: 1.6em;
+  font-size: clamp(12px, 2.4vw, 16px);
+  color: #6b5d49;
+}
+
+/* ── 縦持ちの案内（横画面では隠す） ── */
+#rotate-notice {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #1b1d24;
+  color: #e8dcc6;
+  font-size: clamp(18px, 5vw, 28px);
+  letter-spacing: 0.2em;
+  z-index: 10;
+}
+/* スマホ縦（縦長かつ高さが小さめ）のときだけ案内を出す */
+@media (orientation: portrait) and (max-width: 900px) {
+  #rotate-notice {
+    display: flex;
+  }
 }

@@ -8,6 +8,9 @@ dist/
 *.log
 .vite/
 
+# 自己検証の出力（スクリーンショット等）
+.verify/
+
 # OS・エディタの作業ファイル
 .DS_Store
 Thumbs.db
