@@ -3,10 +3,13 @@
 // ・音が使えない環境・素材が無い場合は黙って無音（エラーにしない）
 // ・音量／ミュートに対応
 
+import { createMusic } from './music.js'
+
 export function createAudioManager(soundUrls) {
   const ids = Object.keys(soundUrls)
   let ctx = null
   let master = null
+  let music = null
   let started = false
   let muted = false
   let volume = 0.8
@@ -26,6 +29,14 @@ export function createAudioManager(soundUrls) {
       master = ctx.createGain()
       applyMaster()
       master.connect(ctx.destination)
+
+      // 控えめなオリジナル音楽（環境音の上に薄く重ねる）
+      try {
+        music = createMusic(ctx, master)
+        music.start()
+      } catch {
+        /* 音楽なしでも続行 */
+      }
 
       // 再生の開始(resume)は待たない。音の読み込み(decode)は再生状態に依存しないので先に進める。
       // 実際の発音はユーザー操作後に resume されたタイミングで始まる（iOS等の自動再生制限に準拠）。
@@ -120,6 +131,10 @@ export function createAudioManager(soundUrls) {
     // 手動で再生再開を試みる
     resume() {
       if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
+    },
+    // 時間帯に合わせて音楽の雰囲気を切り替える
+    setMusicPhase(key) {
+      if (music) music.setPhase(key)
     },
     setVolume(v) {
       volume = Math.max(0, Math.min(1, v))

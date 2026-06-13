@@ -97,6 +97,7 @@ let dialogue = null // { npc, idx }
 let diaryOpen = false
 let recordOpen = false
 let sleepReady = false
+let lastMusicPhase = null
 
 function showToast(msg) {
   if (!toast) return
@@ -169,6 +170,7 @@ if (catchPrompt) {
 function openDiary() {
   diaryOpen = true
   clock.pause()
+  audio.setMusicPhase('diary') // 静かな曲に
   if (diaryTitle) diaryTitle.textContent = 'ひと夏の一日 ― きょうのえにっき'
   // いまの画面を「描いた絵」として取り込む
   if (diaryPicture) {
@@ -226,6 +228,7 @@ function closeDiary() {
   if (diaryOverlay) diaryOverlay.classList.add('hidden')
   // 1日完結なので、また朝から（時計を朝へ戻して再開）
   clock.setTime(0)
+  lastMusicPhase = null // 音楽を朝へ戻す
   if (!paused) clock.start()
 }
 if (diaryClose) diaryClose.addEventListener('click', closeDiary)
@@ -413,6 +416,14 @@ function onFrame(dt, now) {
   if (audio.started) {
     audio.setActive(activeSounds(time, scenes.currentId))
     audio.update(dt)
+    // 音楽の雰囲気も時間帯に合わせる（日記/記録中はそのまま）
+    if (!diaryOpen && !recordOpen) {
+      const pk = getCurrentPhase(time).key
+      if (pk !== lastMusicPhase) {
+        lastMusicPhase = pk
+        audio.setMusicPhase(pk)
+      }
+    }
   }
 }
 
