@@ -9,6 +9,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { loadAudioUrls } from '../data/audioAssets.js'
+import boyImgUrl from './boy.png' // 主人公＝手描き水彩画（作者オリジナル）をビルボードで立てる
 
 const canvas = document.getElementById('c')
 const actBtn = document.getElementById('act')
@@ -1299,7 +1300,7 @@ Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
 // ※特定作品のキャラ・顔の模倣はしない。素朴で可愛い普遍的なトゥーン顔。
 function makeBoy() {
   const g = new THREE.Group()
-  const skin = toon(0xf2c6a0), shirt = toon(0xdfe3ea), pants = toon(0x3f5a77), hat = toon(0xe6c178)
+  const skin = toon(0xeebb8e), shirt = toon(0xeef0ea), pants = toon(0xc9a86a), hat = toon(0xe6c178) // 肌は小麦色・半ズボンはベージュ（イラスト準拠）
   // ── 関節のある体（股→膝→足、肩→肘→手）でゲームキューブ世代の立体感に。
   //    legL/legR は股関節ピボット、armL/armR は肩ピボット（既存アニメ互換）。膝・肘は子グループ。──
   // 脚（夏なので半ズボン＝太もも下は素足）。股ピボット=0.92 → 膝0.44 → 足首0.08（足裏≒地面）。脚を長めにして頭身を上げる
@@ -1308,7 +1309,10 @@ function makeBoy() {
     const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.28, 4, 10), skin); thigh.position.y = -0.23; hip.add(thigh)
     const knee = new THREE.Group(); knee.position.y = -0.48; hip.add(knee)
     const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.24, 4, 10), skin); shin.position.y = -0.18; knee.add(shin)
-    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.36, 0.05); knee.add(shoe)
+    // サンダル：素足の甲＋革のソール＋甲ストラップ（イラスト準拠）
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.26), skin); foot.position.set(0, -0.39, 0.06); knee.add(foot)
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.045, 0.32), toon(0x7a5436)); sole.position.set(0, -0.45, 0.07); knee.add(sole)
+    const strapF = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.09), toon(0x6a4830)); strapF.position.set(0, -0.34, 0.1); knee.add(strapF)
     g.add(hip)
     return { hip, knee }
   }
@@ -1339,7 +1343,7 @@ function makeBoy() {
   // むぎわら帽子
   const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.04, 22), hat); brim.position.y = 2.02; g.add(brim)
   const cap = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 2.02; g.add(cap)
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.07, 22), toon(0xb8893f)); band.position.y = 2.05; g.add(band) // 帽子のリボン
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.07, 22), toon(0x5b7a9c)); band.position.y = 2.05; g.add(band) // 帽子のリボン（青・イラスト準拠）
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
@@ -1355,6 +1359,15 @@ function makeBoy() {
   satchel.position.set(0.27, 0.82, 0.17); satchel.rotation.z = 0.08; g.add(satchel)
   const flap = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.17), toon(0xa6794a))
   flap.position.set(0.27, 0.91, 0.17); flap.rotation.z = 0.08; g.add(flap) // ふた
+  // 胸の水筒（肩ひもで提げる丸い水筒＝イラストの胸の物。あの時代の遠足の定番）
+  const canteenStrap = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.82, 0.07), bagStrap)
+  canteenStrap.position.set(-0.04, 1.18, 0.17); canteenStrap.rotation.set(0.16, 0, -0.5); g.add(canteenStrap) // 反対の肩がけ
+  const canteen = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.22, 12), toon(0x4f8a52))
+  canteen.position.set(-0.2, 0.92, 0.2); g.add(canteen)
+  const canteenCap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.06, 10), toon(0xc0c0b6))
+  canteenCap.position.set(-0.2, 1.05, 0.2); g.add(canteenCap)
+  // シャツの胸の小さなモチーフ（虫＝夏の少年らしさ）
+  const motif = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), toon(0x6a4a2e)); motif.scale.set(1, 1.3, 0.4); motif.position.set(0.05, 1.3, 0.27); g.add(motif)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.userData = { legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, net, swing: 0 }
   return g
@@ -1367,20 +1380,61 @@ outlineObj(boy, 0.03)
   const head = boy.userData.head
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.4 })
-  for (const ex of [-0.1, 0.1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 12), eyeMat); e.scale.set(0.84, 1.14, 0.5); e.position.set(ex, 0.04, 0.246); head.add(e) // 瞳
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 8), hiMat); hi.position.set(ex + 0.018, 0.07, 0.282); head.add(hi) // ハイライト＝いきいき
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.058, 12, 10), blushMat); bl.scale.set(1, 0.62, 0.4); bl.position.set(ex + (ex > 0 ? 0.062 : -0.062), -0.055, 0.225); head.add(bl) // ほっぺの赤み
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.45 })
+  // にっこり閉じた目（イラスト準拠の笑顔）＝中央が高い ⌒（＾＿＾の目）
+  for (const ex of [-0.105, 0.105]) {
+    const eye = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.0105, 6, 12, Math.PI), eyeMat)
+    eye.position.set(ex, 0.05, 0.252); head.add(eye)
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.058, 12, 10), blushMat); bl.scale.set(1, 0.62, 0.4); bl.position.set(ex + (ex > 0 ? 0.062 : -0.062), -0.045, 0.225); head.add(bl) // ほっぺの赤み
   }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.044, 0.013, 6, 12, Math.PI), eyeMat) // 小さな笑み
-  mouth.rotation.z = Math.PI; mouth.position.set(0, -0.1, 0.258); head.add(mouth)
+  // 大きな笑顔（口）＝開いた弧＋うっすら口の中
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.014, 6, 14, Math.PI), eyeMat)
+  mouth.rotation.z = Math.PI; mouth.position.set(0, -0.095, 0.252); head.add(mouth)
+  const mfill = new THREE.Mesh(new THREE.CircleGeometry(0.05, 14, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0xc56a5c }))
+  mfill.rotation.z = Math.PI; mfill.position.set(0, -0.095, 0.246); head.add(mfill)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
-const boyShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), shadowMat)
+const boyShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), shadowMat)
 boyShadow.rotation.x = -Math.PI / 2
 scene.add(boyShadow)
+
+// ── 主人公＝手描き水彩画のビルボード（差し替え可能：CLAUDE.mdの「画像差し替え」設計の実体化）──
+// 立体モデルは隠し、絵を板に貼って世界に立たせ、生きた挿絵のように弾む/揺れる。カメラへ水平に正対（直立を保つ）。
+const USE_BILLBOARD = true
+let charMesh = null, charReady = false
+const charNightTint = new THREE.Color(0x5a6890)
+if (USE_BILLBOARD) {
+  boy.traverse((o) => { if (o.isMesh) o.visible = false }) // コードの立体は隠す（位置・判定のため boy 自体は残す）
+  const geo = new THREE.PlaneGeometry(1, 1); geo.translate(0, 0.5, 0) // 足元を原点に
+  const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.42, side: THREE.DoubleSide, fog: true, depthWrite: true })
+  charMesh = new THREE.Mesh(geo, mat); charMesh.renderOrder = 2; scene.add(charMesh)
+  new THREE.TextureLoader().load(boyImgUrl, (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter; tex.anisotropy = 4
+    mat.map = tex; mat.needsUpdate = true
+    const asp = (tex.image.width || 1) / (tex.image.height || 1)
+    const H = 2.6 // 世界での背丈（足〜帽子）
+    charMesh.scale.set(H * asp, H, 1)
+    charMesh.userData.baseH = H; charMesh.userData.asp = asp
+    charReady = true
+  })
+}
+// ビルボードを主人公に追従＋生命感（毎フレーム呼ぶ）。phase/moving はモジュール変数。
+function updateBillboard() {
+  if (!charReady || !charMesh) return
+  charMesh.visible = boy.visible && mode === 'walk' // 座る/寝る/ブランコ＝一人称なので隠す
+  if (!charMesh.visible) return
+  const t = clock.elapsedTime
+  charMesh.position.set(boy.position.x, boy.position.y, boy.position.z)
+  charMesh.rotation.y = Math.atan2(camera.position.x - boy.position.x, camera.position.z - boy.position.z) // カメラへ水平正対＝直立
+  const sway = moving ? Math.sin(phase) * 0.06 : Math.sin(t * 1.5) * 0.012 // 歩くと左右に揺れ・立つと呼吸で小さく
+  const sq = moving ? 1 + Math.sin(phase * 2) * 0.035 : 1 + Math.sin(t * 1.5) * 0.012 // 縦の伸び縮み
+  charMesh.rotation.z = sway
+  const H = charMesh.userData.baseH, asp = charMesh.userData.asp
+  charMesh.scale.set(H * asp * (2 - sq), H * sq, 1) // 体積保存ぎみに
+  // 昼夜で明るさを合わせる（無光源マテリアルなので手動で陰る）
+  charMesh.material.color.setRGB(1, 1, 1).lerp(charNightTint, nightFactor(tday) * 0.62)
+}
 
 // ── 村の人（“人の気配”。近づくと話せる。台詞は時間帯で変わる）──
 function makeVillager(x, z, opt) {
@@ -2956,6 +3010,7 @@ function update(dt) {
     lookGoal.copy(lookTo)
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
+  updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (window.__freezeCam) return // 検証用：カメラ固定（顔の確認など）
   // カメラを目標へなめらかに寄せる（ブランコは追従を速く＝ぶれない視点）
   camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 6 : 5)))
