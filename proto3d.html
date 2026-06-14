@@ -34,8 +34,11 @@
         transition: opacity 1s ease; }
       @media (orientation: portrait) and (max-width: 900px) { #rotate { display: block; } }
       #go { left: 50%; bottom: 24%; transform: translateX(-50%); appearance: none; border: none; cursor: pointer;
-        padding: 0.55em 1.5em; font-size: clamp(14px,2.8vw,20px); font-family: inherit; color: #4a4032;
-        background: rgba(255,250,240,0.94); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); display: none; }
+        padding: 0.62em 1.7em; font-size: clamp(15px,3vw,22px); font-family: inherit; color: #3b4a2e; font-weight: 600;
+        background: rgba(244,250,236,0.96); border-radius: 999px; box-shadow: 0 4px 16px rgba(90,120,70,0.35);
+        border: 2px solid rgba(150,180,120,0.7); display: none; }
+      #go.near { animation: gopulse 1.3s ease-in-out infinite; background: rgba(236,248,224,0.98); }
+      @keyframes gopulse { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.07); } }
       #fade { position: fixed; inset: 0; background: #0c0d12; opacity: 0; pointer-events: none;
         transition: opacity 0.45s ease; z-index: 30; }
       #catch { left: 50%; bottom: 17%; transform: translateX(-50%); appearance: none; border: none; cursor: pointer;

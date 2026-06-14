@@ -406,6 +406,24 @@ function makeApproach(cx, cz, dz, len) {
 }
 makeApproach(GATE_FIELD.x, GATE_FIELD.z + 1.5, 1, 28)  // 野原の門→（町の方へ続く道）
 makeApproach(GATE_TOWN.x, GATE_TOWN.z - 1.5, -1, 28)   // 町の門→（野原の方へ続く道）
+// 道しるべ（木の標識）＝どこへ行けるか ひと目で分かるように。プレイヤーの方を向く面に文字。
+function makeSignpost(x, z, rot, text) {
+  const g = new THREE.Group(); const w = toon(0x8a5e34)
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.6, 6), w); post.position.y = 1.3; g.add(post)
+  const c = document.createElement('canvas'); c.width = 320; c.height = 90; const cx = c.getContext('2d')
+  cx.fillStyle = '#ecdfc2'; cx.fillRect(0, 0, 320, 90)
+  cx.strokeStyle = '#6a5230'; cx.lineWidth = 7; cx.strokeRect(4, 4, 312, 82)
+  cx.fillStyle = '#4a3a24'; cx.font = 'bold 38px "Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'
+  cx.fillText(text, 160, 48)
+  const tex = new THREE.CanvasTexture(c)
+  const board = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.62, 0.1), new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD }))
+  board.position.y = 2.15; g.add(board)
+  placeProp(g, x, z, rot || 0, 0.03, 0.5)
+}
+// 野原側：門の手前に立て、野原から来る人（-z向き）に見えるよう板を-zへ向ける
+makeSignpost(GATE_FIELD.x + 3.0, GATE_FIELD.z - 2.2, Math.PI, 'このさき 町（まち）')
+// 町側：門の手前に立て、町から来る人（+z向き）に見えるよう板を+zへ向ける
+makeSignpost(GATE_TOWN.x - 3.0, GATE_TOWN.z + 2.2, 0, 'このさき はらっぱ')
 // 商店街の一軒（昭和の店構え：店先・縞テント・看板・袖看板・品物）
 function makeShop(x, z, rot, opt) {
   const g = new THREE.Group()
@@ -1848,7 +1866,9 @@ function update(dt) {
     lieBtn.style.display = dialogue ? 'none' : 'block'
     // 門に近づくと往来ボタン
     const g = curGate()
-    goEl.style.display = (!dialogue && Math.hypot(boy.position.x - g.x, boy.position.z - g.z) < 3.5) ? 'block' : 'none'
+    const gateD = Math.hypot(boy.position.x - g.x, boy.position.z - g.z)
+    goEl.style.display = (!dialogue && gateD < 7) ? 'block' : 'none' // 判定をひろげて見つけやすく
+    goEl.classList.toggle('near', gateD < 3.2) // 門の目の前ではボタンを強調
     // いちばん近い虫を「つかまえる」対象に（野原のみ）
     catchTarget = null
     if (area === 'field') { let cd = 3.2; for (const c of catchables) { if (c.done) continue; const p = c.obj.position; const dd2 = Math.hypot(boy.position.x - p.x, boy.position.z - p.z); if (dd2 < cd) { cd = dd2; catchTarget = c } } }
