@@ -14,11 +14,14 @@ const actBtn = document.getElementById('act')
 const lookHint = document.getElementById('look')
 
 // ── 地面の高さ（解析式）。地面メッシュもキャラの足元もこの式で揃える。──
+const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
 function heightAt(x, z) {
   const hill = 6.0 * Math.exp(-((x * x) + (z + 28) * (z + 28)) / (2 * 18 * 18)) // -Z側のなだらかな高台
   const undul = 0.6 * Math.sin(x * 0.08) * Math.cos(z * 0.08) // 微妙なうねり
-  return hill + undul
+  const pond = -2.8 * Math.exp(-(((x - POND.x) ** 2) + ((z - POND.z) ** 2)) / (2 * 7 * 7)) // 池のくぼみ
+  return hill + undul + pond
 }
+const WATER_Y = -1.05 // 水面の高さ
 const SEAT = new THREE.Vector3(0, 0, -27) // 高台のベンチ位置
 SEAT.y = heightAt(SEAT.x, SEAT.z)
 
@@ -202,6 +205,45 @@ const ground = new THREE.Mesh(gGeo, new THREE.MeshToonMaterial({ vertexColors: t
 ground.receiveShadow = true
 scene.add(ground)
 
+// ── 池（様式化したトゥーン水面：さざ波＋きらめき）──
+const waterMat = new THREE.ShaderMaterial({
+  transparent: true,
+  uniforms: {
+    uTime: { value: 0 },
+    deep: { value: new THREE.Color(0x2f6f86) },
+    shallow: { value: new THREE.Color(0x7fc0c8) },
+  },
+  vertexShader: `varying vec2 vUv; varying vec3 vW;
+    void main(){ vUv = uv; vW = (modelMatrix * vec4(position,1.0)).xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `varying vec2 vUv; varying vec3 vW; uniform float uTime; uniform vec3 deep; uniform vec3 shallow;
+    void main(){
+      float d = distance(vUv, vec2(0.5)) * 2.0;
+      vec3 col = mix(deep, shallow, smoothstep(0.45, 1.0, d)); // 岸ほど淡く
+      float w = sin(vW.x * 0.7 + uTime * 0.9) * sin(vW.z * 0.7 - uTime * 0.7); // さざ波
+      col += vec3(0.07, 0.11, 0.11) * smoothstep(0.35, 0.95, w);
+      float sp = sin(vW.x * 6.0 + uTime * 3.0) * sin(vW.z * 5.3 + uTime * 2.1); // きらめき
+      col += vec3(0.95, 0.98, 1.0) * 0.22 * smoothstep(0.93, 1.0, sp);
+      float edge = smoothstep(0.85, 1.0, d); // 岸ぎわは少し透ける
+      gl_FragColor = vec4(col, 0.9 - edge * 0.35);
+    }`,
+})
+const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 48), waterMat)
+water.rotation.x = -Math.PI / 2
+water.position.set(POND.x, WATER_Y, POND.z)
+scene.add(water)
+// 岸の小石
+for (let i = 0; i < 7; i++) {
+  const a = (i / 7) * Math.PI * 2 + 0.4
+  const rr = POND.r * (0.92 + Math.random() * 0.18)
+  const rx = POND.x + Math.cos(a) * rr, rz = POND.z + Math.sin(a) * rr
+  const sz = 0.4 + Math.random() * 0.5
+  const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(sz, 0), toon(0x9a958c))
+  rock.position.set(rx, heightAt(rx, rz) + sz * 0.3, rz); rock.castShadow = true
+  addOutline(rock, 0.05); addContactShadow(rock, sz * 1.4, -sz * 0.28)
+  scene.add(rock)
+}
+
 // ── 低ポリの木（幹＋葉のかたまり）──
 function makeTree(x, z, s = 1) {
   const g = new THREE.Group()
@@ -230,6 +272,7 @@ for (const [x, z, s] of [[14, 6, 1.1], [-16, 2, 1.0], [22, -10, 1.2], [-22, -14,
   for (let i = 0; i < 60; i++) {
     const x = (Math.random() - 0.5) * 110, z = (Math.random() - 0.5) * 110
     if (x * x + (z + 28) * (z + 28) < 30) continue
+    if ((x - POND.x) ** 2 + (z - POND.z) ** 2 < POND.r * POND.r) continue // 池の上は空ける
     const fg = new THREE.Group()
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6, 4), toon(0x5f8b3c)); stem.position.y = 0.3; fg.add(stem)
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), toon(flowerCols[i % flowerCols.length])); head.position.y = 0.62; fg.add(head)
@@ -271,6 +314,7 @@ let grassShader = null
   while (n < N) {
     const x = (Math.random() - 0.5) * 150, z = (Math.random() - 0.5) * 150
     if (x * x + (z + 28) * (z + 28) < 36) continue // ベンチ周りは空ける
+    if ((x - POND.x) ** 2 + (z - POND.z) ** 2 < POND.r * POND.r) continue // 池の上は空ける
     p.set(x, heightAt(x, z) + 0.12, z)
     q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, 0))
     const sc2 = 0.5 + Math.random() * 1.1
@@ -737,6 +781,7 @@ function update(dt) {
   const tsec = clock.elapsedTime
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
   if (grassShader) grassShader.uniforms.uTime.value = tsec // 草が風になびく
+  waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 入道雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
@@ -887,6 +932,7 @@ window.__proto3d = {
   THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp, lieDown,
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   startAudio,
+  placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()

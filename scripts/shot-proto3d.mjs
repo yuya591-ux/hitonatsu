@@ -72,6 +72,11 @@ try {
   await new Promise((r) => setTimeout(r, 1800))
   await page.screenshot({ path: join(outDir, 'proto3d-godray.png') })
   console.log('撮影: proto3d-godray.png')
+  // 池（水面）：池の北側に立つと手前に水面が入る
+  await page.evaluate(() => { window.__proto3d.setDay(0.45); window.__proto3d.placeBoy(26, 29) })
+  await new Promise((r) => setTimeout(r, 1200))
+  await page.screenshot({ path: join(outDir, 'proto3d-pond.png') })
+  console.log('撮影: proto3d-pond.png')
   await page.close()
 } finally {
   await browser.close()
