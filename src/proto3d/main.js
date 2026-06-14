@@ -1467,10 +1467,10 @@ composer.addPass(godrayPass)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.14 }, amount: { value: 1.0 }, wc: { value: 1.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.14 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -1494,6 +1494,11 @@ const gradePass = new ShaderPass({
       graded = mix(vec3(lum), graded, 0.90 - 0.10 * wc);                        // 退色（水彩のくすみ）
       graded = graded * 0.975 + 0.018;
       c = mix(c, graded, amount);
+      // 黄金色の夕（ゴールデンアワー）：夕方は画面全体を温かく金色に染め、上空ほど茜色に
+      if (golden > 0.001) {
+        c += golden * vec3(0.10, 0.045, -0.05) * (0.35 + lum);          // 光の当たる所ほど金色に
+        c += golden * vec3(0.05, 0.0, 0.02) * smoothstep(0.45, 1.0, vUv.y); // 上空は茜色がかる
+      }
       // 紙の質感：低周波の紙むら＋細かいザラ。明るい所にも残す＝水彩紙
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.5 + vnoise(vUv * vec2(38.0, 36.0)) * 0.5;
       c *= 1.0 - wc * (0.10 - paper * 0.2);
@@ -2325,6 +2330,7 @@ function update(dt) {
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.5 : 0
+  gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.6, 0.74) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.93)) // 夕方の黄金色
   godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
 
   if (mode === 'walk') {
