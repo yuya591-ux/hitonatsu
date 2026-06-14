@@ -451,6 +451,26 @@ function makeSmoke(x, y, z, n = 14) {
 }
 makeSmoke(HENG.x + 1.4, HENG.y + 0.7, HENG.z) // 縁側の蚊取り線香
 
+// ── 物干し竿＝洗濯物が風にゆれる（昭和の生活感）──
+{
+  const lx = HOUSE.x - 4.2, lz0 = HOUSE.z + 1.5, lz1 = HOUSE.z + 6.5, lzm = (lz0 + lz1) / 2
+  const postMat = toon(0x9a8a6a)
+  for (const lz of [lz0, lz1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.8, 6), postMat); post.position.set(lx, heightAt(lx, lz) + 0.9, lz); post.castShadow = true; addOutline(post, 0.02); scene.add(post) }
+  const line = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, lz1 - lz0, 4), toon(0x6a5a44)); line.rotation.x = Math.PI / 2; line.position.set(lx, heightAt(lx, lzm) + 1.66, lzm); scene.add(line)
+  const cols = [0xece4d4, 0x9ac0d8, 0xd89090, 0xece4d4, 0xc8d8a0]
+  const sizes = [[0.5, 0.62], [0.42, 0.72], [0.54, 0.5], [0.4, 0.66]]
+  let i = 0
+  for (const cz of [lz0 + 1.0, lz0 + 2.3, lz0 + 3.6, lz0 + 4.6]) {
+    const grp = new THREE.Group(); grp.position.set(lx, heightAt(lx, cz) + 1.66, cz)
+    const [w, h] = sizes[i % sizes.length]
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshToonMaterial({ color: cols[i % cols.length], gradientMap: GRAD, side: THREE.DoubleSide, map: watercolorTex }))
+    cloth.position.y = -h / 2; cloth.castShadow = true; grp.add(cloth)
+    scene.add(grp)
+    swayables.push({ obj: grp, ph: i * 1.3, amp: 0.11 }) // 風でゆらゆら（pendulum）
+    i++
+  }
+}
+
 // ── 時代の生活痕（昭和後期〜平成初期）：丸ポスト・物干し・電柱と電線・自販機 ──
 function placeProp(g, x, z, rot, outline, shadowR) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
