@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { loadAudioUrls } from '../data/audioAssets.js'
 
 const canvas = document.getElementById('c')
 const actBtn = document.getElementById('act')
@@ -419,6 +420,67 @@ function resize() {
 addEventListener('resize', resize)
 resize()
 
+// ── 環境音（蝉↔ヒグラシを時間帯でブレンド＋夕焼けチャイム）──
+// 音は癒しの半分。2D版の素材(MP3)を流用し、時刻で滑らかにクロスフェード。
+const listener = new THREE.AudioListener()
+camera.add(listener)
+const audioUrls = loadAudioUrls()
+const ambients = {} // id -> THREE.Audio
+let audioStarted = false
+let chimeArmed = true
+;(function initAmbients() {
+  const loader = new THREE.AudioLoader()
+  for (const id of ['morning', 'cicada', 'higurashi', 'night']) {
+    const url = audioUrls[id]
+    if (!url) continue
+    const a = new THREE.Audio(listener)
+    a.setLoop(true); a.setVolume(0)
+    loader.load(url, (buf) => { a.setBuffer(buf); if (audioStarted) try { a.play() } catch (e) {} }, undefined, () => {})
+    ambients[id] = a
+  }
+})()
+function startAudio() {
+  if (audioStarted) return
+  audioStarted = true
+  try {
+    const ctx = listener.context
+    if (ctx.state === 'suspended') ctx.resume()
+    for (const id in ambients) { const a = ambients[id]; if (a.buffer && !a.isPlaying) a.play() }
+  } catch (e) {}
+}
+function ambientWeights(t) {
+  const ss = (a, b) => THREE.MathUtils.smoothstep(t, a, b)
+  return {
+    morning: Math.max(0, 1 - Math.abs(t - 0.03) / 0.14),
+    cicada: ss(0.08, 0.2) * (1 - ss(0.5, 0.66)),
+    higurashi: ss(0.52, 0.64) * (1 - ss(0.8, 0.9)),
+    night: ss(0.82, 0.93) + (t < 0.02 ? 0.3 : 0),
+  }
+}
+function playChime() {
+  // 完全オリジナルの素朴な5音（特定の防災チャイム旋律は使わない）。遠くから聞こえるよう強めにLPF。
+  try {
+    const ctx = listener.context
+    const now = ctx.currentTime
+    const base = 523.25 // C5
+    const notes = [0, 2, 4, 7, 4]
+    notes.forEach((n, i) => {
+      const t0 = now + i * 0.5
+      const f = base * Math.pow(2, n / 12)
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0001, t0)
+      g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.02)
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.7)
+      for (const mul of [1, 2.01]) {
+        const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = f * mul
+        osc.connect(g); osc.start(t0); osc.stop(t0 + 1.8)
+      }
+      g.connect(lp); lp.connect(ctx.destination)
+    })
+  } catch (e) {}
+}
+
 // ── 入力・状態 ──
 let mode = 'walk' // 'walk' | 'sit' | 'lie'
 let moving = false
@@ -455,6 +517,7 @@ function midDist() {
 }
 
 canvas.addEventListener('pointerdown', (e) => {
+  startAudio() // 最初のタッチで音を立ち上げる（iOSの自動再生制限への先回り）
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
   canvas.setPointerCapture(e.pointerId)
   if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
@@ -580,6 +643,13 @@ function update(dt) {
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 入道雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
+  // 環境音：時刻でクロスフェード＋夕方に一度だけ夕焼けチャイム
+  if (audioStarted) {
+    const w = ambientWeights(tday)
+    for (const id in ambients) { const a = ambients[id]; if (a.buffer) a.setVolume(Math.min(1, w[id] || 0) * 0.6) }
+    if (tday < 0.4) chimeArmed = true
+    if (chimeArmed && tday > 0.69) { chimeArmed = false; playChime() }
+  }
   // 夜の演出
   const nf = nightFactor(tday)
   moon.material.opacity = nf
@@ -711,4 +781,9 @@ addEventListener('pointerdown', function lockOnce() {
 window.__proto3d = {
   THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp, lieDown,
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
+  startAudio,
+  audioState() {
+    const playing = Object.keys(ambients).filter((id) => ambients[id].isPlaying)
+    return { started: audioStarted, ctx: listener.context.state, loaded: Object.keys(ambients).length, playing }
+  },
 }

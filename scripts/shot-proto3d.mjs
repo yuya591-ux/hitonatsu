@@ -33,7 +33,7 @@ const errors = []
 const browser = await puppeteer.launch({
   executablePath: EDGE,
   headless: 'new',
-  args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-webgl'],
+  args: ['--no-sandbox', '--ignore-gpu-blocklist', '--use-gl=angle', '--use-angle=swiftshader', '--enable-webgl', '--autoplay-policy=no-user-gesture-required'],
 })
 try {
   const page = await browser.newPage()
@@ -44,6 +44,13 @@ try {
   await new Promise((r) => setTimeout(r, 2500))
   const gl = await page.evaluate(() => !!window.__proto3d)
   console.log(`3D初期化: ${gl ? 'OK' : 'NG'}`)
+  // 環境音：起動して読み込み/再生状態を確認
+  await page.evaluate(() => window.__proto3d.startAudio())
+  await new Promise((r) => setTimeout(r, 1200))
+  const audio = await page.evaluate(() => window.__proto3d.audioState())
+  console.log(`環境音: started=${audio.started} ctx=${audio.ctx} loaded=${audio.loaded} playing=[${audio.playing.join(',')}]`)
+  if (audio.loaded < 4) errors.push(`環境音の読み込み不足（loaded=${audio.loaded}）`)
+  if (!audio.playing.length) errors.push('環境音が再生されていない')
   for (const [t, tag] of [[0.22, 'asa'], [0.5, 'hiru'], [0.74, 'yu'], [0.97, 'yoru']]) {
     await page.evaluate((tt) => window.__proto3d.setDay(tt), t)
     await new Promise((r) => setTimeout(r, 700))
