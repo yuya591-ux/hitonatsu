@@ -272,9 +272,9 @@ function makeTree(x, z, s = 1) {
 for (const [x, z, s] of [[14, 6, 1.1], [-16, 2, 1.0], [22, -10, 1.2], [-22, -14, 1.1], [9, -22, 0.9], [-10, -24, 0.95], [30, 12, 1.0], [-30, 14, 1.1]]) makeTree(x, z, s)
 
 // ── 昭和の田舎家（縁側・瓦屋根・障子）＝時代の空気の核。麦わら帽子の少年の“おばあちゃんち”的な原風景 ──
-function makeHouse(x, z, rot) {
+function makeHouse(x, z, rot, roofHex) {
   const g = new THREE.Group()
-  const wall = toon(0xe6dcc4), wood = toon(0x8a6a44), roofC = toon(0x586472), woodDark = toon(0x6a4e30)
+  const wall = toon(0xe6dcc4), wood = toon(0x8a6a44), roofC = toon(roofHex || 0x586472), woodDark = toon(0x6a4e30)
   const body = new THREE.Mesh(new THREE.BoxGeometry(7, 3.1, 5), wall); body.position.y = 1.75; g.add(body)
   // 縁側（前面の木の床）と支柱
   const engawa = new THREE.Mesh(new THREE.BoxGeometry(7, 0.28, 1.5), wood); engawa.position.set(0, 0.62, 3.2); g.add(engawa)
@@ -385,6 +385,8 @@ function makeShop(x, z, rot, opt) {
   const g = new THREE.Group()
   const body = new THREE.Mesh(new THREE.BoxGeometry(6, 4.2, 5), toon(0xe2d6bc)); body.position.y = 2.1; g.add(body)
   const front = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.3), new THREE.MeshBasicMaterial({ color: 0x2a221a })); front.position.set(0, 1.35, 2.51); g.add(front)
+  // 暖簾（のれん・切れ目つき）
+  for (let i = 0; i < 4; i++) { const nr = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 0.95), toon(opt.sign)); nr.position.set(-1.8 + i * 1.2, 2.05, 2.53); g.add(nr) }
   // 縞テント（白×店色）
   const tent = new THREE.Group()
   const stripes = 6
@@ -422,10 +424,11 @@ function makeShop(x, z, rot, opt) {
   road.rotation.x = -Math.PI / 2; road.position.set(T.x, 0.02, T.z); scene.add(road)
   const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0xeeeae0 }))
   cl.rotation.x = -Math.PI / 2; cl.position.set(T.x, 0.03, T.z); scene.add(cl)
-  // 右側：家＋ブロック塀（道を向く）
+  // 右側：家＋ブロック塀（道を向く・屋根色をばらして“クローン感”を消す）
+  const roofs = [0x586472, 0x6a5a4a, 0x4a6a5a, 0x705a52, 0x556088]
   for (let i = 0; i < 4; i++) {
     const hx = T.x + 12, hz = T.z - 18 + i * 13
-    makeHouse(hx, hz, -Math.PI / 2)
+    makeHouse(hx, hz, -Math.PI / 2, roofs[i % roofs.length])
     const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 1.0, 0.4), toon(0xbcb6a4))
     wall.position.set(hx - 4.4, 0.5, hz); wall.rotation.y = Math.PI / 2; wall.castShadow = true
     addOutline(wall, 0.03); scene.add(wall)
