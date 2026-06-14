@@ -29,7 +29,7 @@ const SEAT = new THREE.Vector3(0, 0, -27) // 高台のベンチ位置
 SEAT.y = heightAt(SEAT.x, SEAT.z)
 
 // ── レンダラ ──
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true }) // 絵日記に画面を取り込むため
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)) // 発熱対策で控えめ
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
@@ -984,6 +984,34 @@ const diaryEl = document.getElementById('diary')
 const diaryTitleEl = document.getElementById('diary-title')
 const diaryBodyEl = document.getElementById('diary-body')
 const diaryCloseEl = document.getElementById('diary-close')
+const diaryPicEl = document.getElementById('diary-pic')
+// 紙の質感タイル（絵日記の絵に重ねる）
+const paperPat = (() => {
+  const s = 80, c = document.createElement('canvas'); c.width = c.height = s
+  const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
+  for (let i = 0; i < 420; i++) { const v = 200 + Math.random() * 55; x.fillStyle = `rgba(${v | 0},${(v - 8) | 0},${(v - 20) | 0},0.08)`; x.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 2, 1 + Math.random() * 2) }
+  return c
+})()
+// いまの3Dの眺めを「絵」に：やわらかく退色させ、紙の質感を重ねて子どもの絵日記風にする
+function makeDiaryPicture() {
+  try {
+    const src = renderer.domElement
+    if (!src.width) return null
+    const w = 480, h = Math.max(1, Math.round((w * src.height) / src.width))
+    const c = document.createElement('canvas'); c.width = w; c.height = h
+    const x = c.getContext('2d')
+    x.filter = 'saturate(0.82) contrast(1.05) brightness(1.06) blur(0.6px)' // クレヨン/水彩風のやわらかさ
+    x.drawImage(src, 0, 0, w, h)
+    x.filter = 'none'
+    x.globalCompositeOperation = 'multiply'; x.globalAlpha = 0.5
+    x.fillStyle = x.createPattern(paperPat, 'repeat'); x.fillRect(0, 0, w, h)
+    x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'
+    const g = x.createRadialGradient(w / 2, h * 0.45, h * 0.25, w / 2, h * 0.5, w * 0.72) // ふちの紙の余白
+    g.addColorStop(0, 'rgba(252,247,236,0)'); g.addColorStop(1, 'rgba(252,247,236,0.55)')
+    x.fillStyle = g; x.fillRect(0, 0, w, h)
+    return c.toDataURL('image/png')
+  } catch (e) { return null }
+}
 const badgeEl = document.getElementById('badge')
 function refreshBadge() { if (badgeEl) badgeEl.textContent = `なつやすみ ${day}にちめ` }
 refreshBadge()
@@ -991,6 +1019,7 @@ function openDiary() {
   diaryOpen = true; dayAuto = false
   const body = []
   if (caught.count) body.push(`むしを ${caught.count}ひき つかまえた（${Object.keys(caught.kinds).join('・')}）。`)
+  if (fish.count) body.push(`池で さかなを ${fish.count}ひき つった（${Object.keys(fish.kinds).join('・')}）。`)
   if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。')
   if (todayFlags.wentTown) body.push('街の 商店街まで あるいた。')
   if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
@@ -1000,6 +1029,13 @@ function openDiary() {
   if (day >= 3) { diaryTitleEl.textContent = 'ひと夏が おわった'; body.push('たのしい 夏休みだった。…また 来年。') }
   else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? '明日は もっと 話せるかな。' : 'もうすぐ おまつりらしい。') }
   diaryBodyEl.innerHTML = body.map((l) => `<div class="line">${l}</div>`).join('')
+  // その日の眺めを「絵」として貼る
+  if (diaryPicEl) {
+    const pic = makeDiaryPicture()
+    diaryPicEl.innerHTML = ''
+    if (pic) { const im = new Image(); im.src = pic; diaryPicEl.appendChild(im); diaryPicEl.style.display = 'block' }
+    else diaryPicEl.style.display = 'none'
+  }
   diaryEl.style.display = 'flex'
 }
 function nextDay() {
@@ -1065,6 +1101,36 @@ function doCatch() {
   if (catchEl) catchEl.style.display = 'none'
 }
 if (catchEl) catchEl.addEventListener('click', doCatch)
+
+// ── 釣り（池）──
+const fishEl = document.getElementById('fish')
+const FISH_NAMES = ['フナ', 'メダカ', 'ザリガニ', 'ナマズ', 'おたまじゃくし']
+const fish = { count: 0, kinds: {} }
+let fishState = 'idle'
+let fishTimer = null
+const floatMesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshToonMaterial({ color: 0xe0544a, gradientMap: GRAD }))
+floatMesh.visible = false; scene.add(floatMesh)
+function castLine() {
+  const dir = new THREE.Vector3(POND.x - boy.position.x, 0, POND.z - boy.position.z)
+  if (dir.lengthSq() < 0.01) dir.set(0, 0, 1); dir.normalize()
+  floatMesh.position.set(boy.position.x + dir.x * 2.5, WATER_Y + 0.15, boy.position.z + dir.z * 2.5)
+  floatMesh.visible = true
+  fishState = 'wait'; showToast('…あたりを まつ')
+  clearTimeout(fishTimer)
+  fishTimer = setTimeout(() => {
+    fishState = 'bite'; if (fishEl) fishEl.textContent = 'ひく！'; showToast('！ いまだ！')
+    clearTimeout(fishTimer); fishTimer = setTimeout(() => { if (fishState === 'bite') endFishing('にげられた…') }, 1300)
+  }, 1500 + Math.random() * 2500)
+}
+function reel() {
+  if (fishState === 'bite') {
+    const name = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]
+    fish.count++; fish.kinds[name] = (fish.kinds[name] || 0) + 1
+    showToast(`${name}が つれた！`); endFishing()
+  } else if (fishState === 'wait') endFishing('はやい！ にげられた')
+}
+function endFishing(msg) { fishState = 'idle'; clearTimeout(fishTimer); floatMesh.visible = false; if (fishEl) fishEl.textContent = 'つる'; if (msg) showToast(msg) }
+if (fishEl) fishEl.addEventListener('click', () => { if (fishState === 'idle') castLine(); else reel() })
 
 // ぷにコン（指でスライドした方向へ歩く・白猫プロジェクト風）
 const stickEl = document.getElementById('stick')
@@ -1160,7 +1226,7 @@ function lieDown() {
   camera.position.set(ex, ey, ez)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(ex + Math.sin(seatLook.yaw) * cp, ey + Math.sin(seatLook.pitch), ez + Math.cos(seatLook.yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 
@@ -1192,7 +1258,7 @@ function sitDown(which) {
   camera.position.copy(eye)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(eye.x + Math.sin(yaw) * cp, eye.y + Math.sin(seatLook.pitch), eye.z + Math.cos(yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 function standUp() {
@@ -1325,7 +1391,7 @@ function update(dt) {
     let sx = 0, sy = 0
     if (puni.active && Math.hypot(puni.vx, puni.vy) > 0.06) { sx = puni.vx; sy = puni.vy }
     else if (kx || kz) { sx = kx; sy = kz }
-    if (dialogue || diaryOpen) { sx = 0; sy = 0 } // 会話・絵日記中は歩かない
+    if (dialogue || diaryOpen || fishState !== 'idle') { sx = 0; sy = 0 } // 会話・絵日記・釣り中は歩かない
     const mag = Math.min(1, Math.hypot(sx, sy))
     // 目標速度（倒し量で“そろり〜小走り”）。慣性で滑らかに加減速。
     let tx = 0, tz = 0
@@ -1391,6 +1457,10 @@ function update(dt) {
     if (area === 'field') { let cd = 3.2; for (const c of catchables) { if (c.done) continue; const p = c.obj.position; const dd2 = Math.hypot(boy.position.x - p.x, boy.position.z - p.z); if (dd2 < cd) { cd = dd2; catchTarget = c } } }
     catchEl.style.display = (catchTarget && !dialogue) ? 'block' : 'none'
     if (catchTarget) npcEl.style.display = 'none'
+    // 池のそばで「つる」（釣り中は出したまま）
+    const nearPond = area === 'field' && Math.hypot(boy.position.x - POND.x, boy.position.z - POND.z) < POND.r + 3
+    fishEl.style.display = ((nearPond || fishState !== 'idle') && !dialogue && !catchTarget) ? 'block' : 'none'
+    if (fishState === 'bite') floatMesh.position.y = WATER_Y + 0.15 + Math.sin(tsec * 30) * 0.08
 
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
     camCtl.dist += (BASE_DIST * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
@@ -1407,7 +1477,7 @@ function update(dt) {
     const cp = Math.cos(seatLook.pitch)
     lookTo.set(seatEye.x + Math.sin(seatLook.yaw) * cp, seatEye.y + Math.sin(seatLook.pitch), seatEye.z + Math.cos(seatLook.yaw) * cp)
     camGoal.copy(seatEye); lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   } else {
     // 座って360度見回す（高台のベンチ or 縁側。目線は座る位置）
     seatEye.copy(curSitEye)
@@ -1419,7 +1489,7 @@ function update(dt) {
     )
     camGoal.copy(seatEye)
     lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
   // カメラを目標へなめらかに寄せる
   camera.position.lerp(camGoal, Math.min(1, dt * (mode !== 'walk' ? 6 : 5)))

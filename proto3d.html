@@ -55,6 +55,9 @@
         background: #fbf6ea; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); text-align: center;
         background-image: linear-gradient(rgba(180,160,120,0.12) 1px, transparent 1px); background-size: 100% 2.1em; }
       #diary-title { margin: 0 0 0.6em; font-size: clamp(19px,4vw,28px); color: #4a4032; letter-spacing: 0.08em; }
+      #diary-pic { margin: 0 auto 0.9em; width: min(76%, 360px); border: 5px solid #fff; border-radius: 4px;
+        box-shadow: 0 3px 14px rgba(120,100,70,0.32); transform: rotate(-1.3deg); overflow: hidden; background: #eee; }
+      #diary-pic img { display: block; width: 100%; }
       #diary-body { text-align: left; font-size: clamp(15px,2.8vw,20px); line-height: 2.0; color: #3b3024; max-width: 26em; margin: 0 auto; }
       #diary-body .line { border-bottom: 1px dashed rgba(150,130,90,0.3); }
       #diary-close { margin-top: 1.2em; appearance: none; border: none; cursor: pointer; padding: 0.55em 2.2em;
@@ -104,11 +107,13 @@
     <button id="go" class="hud">町へ →</button>
     <div id="fade"></div>
     <button id="catch" class="hud">つかまえる</button>
+    <button id="fish" class="hud">つる</button>
     <div id="toast" class="hud"></div>
     <button id="sleep" class="hud">🌙 ねる</button>
     <div id="diary">
       <div class="diary-page">
         <h2 id="diary-title">えにっき</h2>
+        <div id="diary-pic"></div>
         <div id="diary-body"></div>
         <button id="diary-close">おやすみ</button>
       </div>
