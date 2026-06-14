@@ -1329,6 +1329,7 @@ function sitDown(which) {
     eye = curSitEye.set(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
     yaw = Math.PI
   }
+  boy.rotation.x = 0
   boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢
   moving = false
   seatLook.yaw = yaw; seatLook.pitch = -0.05
@@ -1549,18 +1550,20 @@ function update(dt) {
     let d = facing - boy.rotation.y
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2
     boy.rotation.y += d * Math.min(1, dt * 10)
-    // 歩行アニメ（速度で振り幅）
-    const amp = THREE.MathUtils.clamp(speedNow / 6, 0, 1) * 0.6
+    // 歩行/走行アニメ（速いほど大きく振り、前傾し、ぴょこぴょこ跳ねる）
+    const run = THREE.MathUtils.clamp(speedNow / 7, 0, 1) // 0=そろり 1=全力
+    const amp = 0.35 + run * 0.9
     const sw = Math.sin(phase) * amp
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
-    boy.userData.armL.rotation.x = -sw; boy.userData.armR.rotation.x = sw
+    boy.userData.armL.rotation.x = -sw - run * 0.25; boy.userData.armR.rotation.x = sw - run * 0.25 // 走ると肘を前に振る
+    boy.rotation.x += ((moving ? run * 0.28 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前傾
 
     // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
     idleTime = moving ? 0 : idleTime + dt
     const calm = THREE.MathUtils.clamp((idleTime - 1.2) / 3, 0, 1) // 1.2秒後から3秒かけて
     lookUp += ((moving ? 0 : calm * 0.18) - lookUp) * Math.min(1, dt * 2)
     boy.userData.head.rotation.x = -lookUp * 1.6 // 空を見上げる
-    boy.position.y += moving ? Math.abs(Math.sin(phase)) * 0.06 : Math.sin(tsec * 1.4) * 0.012 // 歩く弾み/立つ呼吸
+    boy.position.y += moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012 // ぴょこぴょこ跳ねる/立つ呼吸
 
     const nearBench = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
     const nearEngawa = Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
