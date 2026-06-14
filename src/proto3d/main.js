@@ -658,7 +658,7 @@ function makeVillager(x, z, opt) {
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2018 })
   for (const ex of [-0.1, 0.1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat); e.position.set(ex, 2.05, 0.27); g.add(e) }
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z) }
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, wph: 0 }
   scene.add(g)
   return g
 }
@@ -1396,21 +1396,27 @@ function update(dt) {
     if (p.position.z > u.z1) { u.dir = -1; p.rotation.y = Math.PI }
     else if (p.position.z < u.z0) { u.dir = 1; p.rotation.y = 0 }
     p.position.x = u.x
-    p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(tsec * 6 + u.ph)) * 0.04
+    p.userData.wph += dt * 7
+    p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * 0.05
+    const sw = Math.sin(p.userData.wph) * 0.5; p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
     const sp = villager.userData.spots[phaseOf(tday)]
     const dx = sp.x - villager.position.x, dz = sp.z - villager.position.z
     const dd = Math.hypot(dx, dz)
+    const vu = villager.userData
     if (dd > 0.3) {
       const step = Math.min(1.6 * dt, dd)
       villager.position.x += (dx / dd) * step
       villager.position.z += (dz / dd) * step
-      villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(tsec * 7)) * 0.05
+      vu.wph += dt * 8
+      villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(vu.wph)) * 0.05
       villager.rotation.y = Math.atan2(dx, dz)
+      const sw = Math.sin(vu.wph) * 0.5; vu.legL.rotation.x = sw; vu.legR.rotation.x = -sw
     } else {
       villager.position.y = heightAt(villager.position.x, villager.position.z)
+      vu.legL.rotation.x *= 0.8; vu.legR.rotation.x *= 0.8
     }
   }
   // 蝶（昼に舞い、夜は消える）
