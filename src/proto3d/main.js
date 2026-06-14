@@ -1525,12 +1525,23 @@ const cloudMat = new THREE.ShaderMaterial({
     sunDir: { value: sunDir },
     sunCol: { value: new THREE.Color(0xfff0d4) },
   },
-  vertexShader: 'varying vec3 vN; void main(){ vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `varying vec3 vN; uniform float opacity; uniform vec3 topCol; uniform vec3 botCol; uniform vec3 sunDir; uniform vec3 sunCol;
+  vertexShader: `varying vec3 vN; varying vec3 vL; varying vec3 vView;
+    void main(){ vN = normalize(mat3(modelMatrix) * normal); vL = position; vec4 wp = modelMatrix * vec4(position, 1.0); vView = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  // もくもくの陰影(3Dノイズ)＋上白下青のグラデ＋太陽側の暖色＋フチの銀色(フレネル)で、よりリアルな積乱雲に
+  fragmentShader: `varying vec3 vN; varying vec3 vL; varying vec3 vView; uniform float opacity; uniform vec3 topCol; uniform vec3 botCol; uniform vec3 sunDir; uniform vec3 sunCol;
+    float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z); }
+    float fbm(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 3; i++){ v += a * noise(p); p *= 2.02; a *= 0.5; } return v; }
     void main(){
       float up = clamp(vN.y * 0.5 + 0.5, 0.0, 1.0);
-      vec3 col = mix(botCol, topCol, smoothstep(0.16, 0.82, up)); // 上面は白く、下面は陰って青みがかる
-      col += sunCol * max(0.0, dot(vN, normalize(sunDir))) * 0.16; // 太陽の当たる面を暖かく
+      float bump = smoothstep(0.3, 0.72, fbm(vL * 0.16));            // 表面のもくもく（こぶ＝明、谷＝暗）
+      vec3 col = mix(botCol, topCol, smoothstep(0.14, 0.86, up));    // 上は白く、下は青く陰る
+      col *= 0.8 + 0.32 * bump;                                      // こぶの陰影で立体感
+      col += sunCol * max(0.0, dot(vN, normalize(sunDir))) * 0.18;   // 太陽側を暖かく
+      float fres = pow(1.0 - max(0.0, dot(vView, vN)), 3.0);
+      col += vec3(0.14, 0.14, 0.13) * fres;                          // フチの銀色（雲の縁が光る）
       gl_FragColor = vec4(col, opacity);
     }`,
   transparent: true, fog: false,
@@ -1556,8 +1567,8 @@ function buildCumulonimbus() {
 }
 for (let i = 0; i < 7; i++) {
   const mesh = new THREE.Mesh(buildCumulonimbus(), cloudMat)
-  mesh.scale.setScalar(2.6 + Math.random() * 2.0) // ぐっと巨大に（夏空にそびえる）
-  mesh.userData = { az: (i / 7) * Math.PI * 2 + Math.random() * 0.6, dist: 330 + Math.random() * 160, baseY: -2 - Math.random() * 14, drift: 0.0022 + Math.random() * 0.0035 }
+  mesh.scale.setScalar(3.4 + Math.random() * 2.6) // さらに巨大に（夏空にどっしり）
+  mesh.userData = { az: (i / 7) * Math.PI * 2 + Math.random() * 0.6, dist: 360 + Math.random() * 180, baseY: 2 - Math.random() * 16, drift: 0.0018 + Math.random() * 0.003 }
   scene.add(mesh); thunderheads.push(mesh)
 }
 
