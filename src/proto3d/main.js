@@ -1311,9 +1311,16 @@ let talkTarget = null
 
 // 商店街の通行人（道を行き来＝賑わい。会話はしない）
 const pedestrians = []
-for (const [dx, col, sp, boyP] of [[-2.8, 0x7a8a9a, 1.2, false], [2.8, 0x9a7a6a, 1.0, true], [-3.6, 0x6f8a6a, 1.5, false], [3.4, 0x8a6a8a, 1.3, true]]) {
-  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair: 0x3a2e22, boy: boyP, face: 0, info: { name: '', byPhase: { noon: [''] } } })
-  p.userData.ped = { sp, dir: 1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6 }
+const pedDefs = [
+  [-2.8, 0x7a8a9a, 1.2, false], [2.8, 0x9a7a6a, 1.0, true], [-3.6, 0x6f8a6a, 1.5, false], [3.4, 0x8a6a8a, 1.3, true],
+  [-3.2, 0xb07a5a, 0.9, true], [3.0, 0x5a7a9a, 1.1, false], [-2.5, 0x8a9a6a, 1.4, false], [3.6, 0xa05a6a, 1.0, true],
+  [-3.8, 0x6a6a8a, 1.25, true], [2.4, 0x9a8a5a, 1.15, false], // ＝計10人。お父さん風・子ども風を混ぜて
+]
+for (const [dx, col, sp, boyP] of pedDefs) {
+  const hair = boyP ? 0x2a2218 : [0x3a2e22, 0x4a3a2e, 0x5a4a3a][Math.floor(Math.random() * 3)]
+  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  p.userData.ped = { sp, dir: Math.random() < 0.5 ? 1 : -1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
+  p.position.z = TOWN.z - 28 + Math.random() * 56; p.rotation.y = p.userData.ped.dir > 0 ? 0 : Math.PI // 散らばった初期位置・向き
   pedestrians.push(p)
 }
 
@@ -2224,17 +2231,31 @@ function update(dt) {
     pts.material.opacity = Math.max(0, 1 - u.age / 2.3)
     if (u.age > 2.3) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
   }
-  // 商店街の通行人（道を行き来）
+  // 商店街の通行人：一様に行進せず、立ち止まったり向きを変えたり＝右往左往して自然に
   for (const p of pedestrians) {
     const u = p.userData.ped
-    p.position.z += u.sp * u.dir * dt
-    if (p.position.z > u.z1) { u.dir = -1; p.rotation.y = Math.PI }
-    else if (p.position.z < u.z0) { u.dir = 1; p.rotation.y = 0 }
-    p.position.x = u.x
-    p.userData.wph += dt * 7
-    p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * 0.05
-    const sw = Math.sin(p.userData.wph) * 0.5; p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
-    p.userData.armL.rotation.x = -sw; p.userData.armR.rotation.x = sw // 腕を振って歩く
+    u.timer -= dt
+    if (u.timer <= 0) {
+      if (u.state === 'pause') { u.state = 'walk'; u.timer = 3 + Math.random() * 7 } // 歩き出す
+      else { const r = Math.random()
+        if (r < 0.42) { u.state = 'pause'; u.timer = 1.5 + Math.random() * 4.5 } // ふと立ち止まる
+        else { if (r < 0.62) u.dir *= -1; u.timer = 3 + Math.random() * 7 } // 気まぐれに引き返す
+        p.rotation.y = u.dir > 0 ? 0 : Math.PI
+      }
+    }
+    if (u.state === 'pause') { // 立ち止まり：息づかい＋見回す、手足は下ろす
+      p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(tsec * 1.3 + u.ph)) * 0.012
+      p.userData.legL.rotation.x *= 0.85; p.userData.legR.rotation.x *= 0.85; p.userData.armL.rotation.x *= 0.85; p.userData.armR.rotation.x *= 0.85
+      p.userData.head.rotation.y = Math.sin(tsec * 0.5 + u.ph) * 0.5
+    } else {
+      p.position.z += u.sp * u.dir * dt
+      if (p.position.z > u.z1) { u.dir = -1; p.rotation.y = Math.PI } else if (p.position.z < u.z0) { u.dir = 1; p.rotation.y = 0 }
+      p.position.x = u.x; p.userData.wph += dt * 7
+      p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * 0.05
+      const sw = Math.sin(p.userData.wph) * 0.5; p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
+      p.userData.armL.rotation.x = -sw; p.userData.armR.rotation.x = sw
+      p.userData.head.rotation.y *= 0.9
+    }
   }
   // うろつく猫（家のまわりを気ままに・休む）
   {
