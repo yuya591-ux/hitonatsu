@@ -1579,8 +1579,12 @@ function update(dt) {
   camera.lookAt(camera.userData._look)
 }
 
+// 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
+let frameAcc = 0
 renderer.setAnimationLoop(() => {
-  const dt = Math.min(clock.getDelta(), 0.05)
+  frameAcc += Math.min(clock.getDelta(), 0.1)
+  if (frameAcc < 1 / 30) return
+  const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   update(dt)
   composer.render()
 })
