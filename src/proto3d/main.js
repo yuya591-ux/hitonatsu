@@ -908,11 +908,13 @@ let grassShader = null
   const grassMat = toon(0x76a249)
   grassMat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = { value: 0 }
+    sh.uniforms.uWind = { value: 0.5 } // 風の強さ（突風で草が大きくしなる）
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uTime;')
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         float gw = sin(uTime * 1.3 + (instanceMatrix[3].x + instanceMatrix[3].z) * 0.25);
-        transformed.x += gw * 0.18 * max(position.y, 0.0);`)
+        transformed.x += gw * (0.1 + uWind * 0.24) * max(position.y, 0.0);
+        transformed.z += gw * (0.03 + uWind * 0.08) * max(position.y, 0.0);`)
     grassShader = sh
   }
   const grass = new THREE.InstancedMesh(tuft, grassMat, N)
@@ -2095,8 +2097,10 @@ function update(dt) {
   rim.target.position.copy(boy.position)
   // 風で草木をゆらす・光の粒を漂わせる（生気）
   const tsec = clock.elapsedTime
-  for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
-  if (grassShader) grassShader.uniforms.uTime.value = tsec // 草が風になびく
+  // 統一された「風」：ゆるやかなそよ風＋時おりの突風。これで草・木・風鈴・のぼりが一斉に揺れて世界が呼吸する
+  const wind = THREE.MathUtils.clamp(0.42 + 0.3 * Math.sin(tsec * 0.21) + 0.22 * Math.sin(tsec * 0.55 + 1.4) + 0.12 * Math.sin(tsec * 1.27 + 0.4), 0.05, 1.25)
+  for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp * (0.5 + wind)
+  if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 雲がゆっくり流れる
@@ -2111,7 +2115,7 @@ function update(dt) {
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
   for (const tex of barberPoles) { tex.offset.y -= dt * 0.4 }
-  for (const nb of noboris) { nb.flag.rotation.y = Math.sin(tsec * 2.0 + nb.ph) * 0.35 } // のぼりが風になびく
+  for (const nb of noboris) { nb.flag.rotation.y = Math.sin(tsec * 2.0 + nb.ph) * 0.22 * (0.5 + wind) } // のぼりが風になびく
   // 蚊取り線香の煙がゆらゆら昇る（複数の発生源）
   for (const sm of smokers) {
     const pa = sm.pts.geometry.attributes.position
@@ -2124,7 +2128,7 @@ function update(dt) {
     pa.needsUpdate = true
   }
   // 風鈴の短冊がそよぐ
-  windchime.userData.tan.rotation.z = Math.sin(tsec * 2.2) * 0.3
+  windchime.userData.tan.rotation.z = Math.sin(tsec * 2.2) * 0.18 * (0.4 + wind) // 風で短冊がそよぐ
   windchime.rotation.z = Math.sin(tsec * 1.7) * 0.05
   // 主人公の接地影は地面に沿わせる
   boyShadow.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.05, boy.position.z)
