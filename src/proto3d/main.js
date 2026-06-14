@@ -1336,11 +1336,11 @@ function makeBoy() {
   }
   const L = makeLeg(-1), R = makeLeg(1)
   const legL = L.hip, legR = R.hip, kneeL = L.knee, kneeR = R.knee
-  // 半ズボン（腰まわり・大きめで股の継ぎ目を覆う）
-  const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), pants); shorts.scale.set(1.06, 0.72, 0.88); shorts.position.y = 0.78; g.add(shorts)
-  // 胴＝丸いおなか（小学生のぷっくり体型）
-  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.31, 18, 14), shirt); torso.scale.set(1.02, 1.06, 0.88); torso.position.y = 1.02; g.add(torso)
-  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), shirt); chest.scale.set(1.08, 0.7, 0.86); chest.position.y = 1.24; g.add(chest)
+  // 半ズボン（腰まわり・股の継ぎ目を覆う）
+  const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.27, 16, 12), pants); shorts.scale.set(1.04, 0.72, 0.84); shorts.position.y = 0.78; g.add(shorts)
+  // 胴＝ほっそりめ（おなかを出さない・小学生のすっきり体型）
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.255, 18, 14), shirt); torso.scale.set(1.02, 1.16, 0.78); torso.position.y = 1.04; g.add(torso)
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.235, 16, 12), shirt); chest.scale.set(1.06, 0.74, 0.82); chest.position.y = 1.24; g.add(chest)
   // 腕（肩ピボット→肘）。短くぷっくり。半袖から素手。肘も丸で継ぎ目を隠す
   function makeArm(side) {
     const sh = new THREE.Group(); sh.position.set(0.26 * side, 1.22, 0); sh.rotation.z = -0.12 * side
@@ -1356,13 +1356,13 @@ function makeBoy() {
   const AL = makeArm(-1), AR = makeArm(1)
   const armL = AL.sh, armR = AR.sh, elbowL = AL.elbow, elbowR = AR.elbow
   // 首（短く・ほぼ隠れる）
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.094, 0.1, 10), skin); neck.position.y = 1.4; g.add(neck)
-  // あたま＝小学生らしく気持ち大きめ（でも頭でっかちにはしない）
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 22, 20), skin); head.scale.set(1, 1.04, 0.98); head.position.y = 1.58; g.add(head)
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.086, 0.1, 10), skin); neck.position.y = 1.38; g.add(neck)
+  // あたま＝小さめ（顔だけさらに小さく）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 22, 20), skin); head.scale.set(1, 1.05, 0.98); head.position.y = 1.52; g.add(head)
   // むぎわら帽子
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.035, 22), hat); brim.position.y = 1.79; g.add(brim)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.25, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 1.79; g.add(cap)
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.255, 0.255, 0.06, 22), toon(0x5b7a9c)); band.position.y = 1.81; g.add(band) // 帽子のリボン（青）
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.37, 0.032, 22), hat); brim.position.y = 1.7; g.add(brim)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.21, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 1.7; g.add(cap)
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.055, 22), toon(0x5b7a9c)); band.position.y = 1.72; g.add(band) // 帽子のリボン（青）
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
@@ -1384,6 +1384,7 @@ function makeBoy() {
   return g
 }
 const boy = makeBoy()
+boy.scale.setScalar(0.92) // 体全体を少し小さく（小柄な小学生に）
 boy.position.set(0, heightAt(0, 6), 6)
 outlineObj(boy, 0.03)
 // 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
@@ -1393,17 +1394,17 @@ outlineObj(boy, 0.03)
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xf3a59a, transparent: true, opacity: 0.5 })
   const browMat = new THREE.MeshBasicMaterial({ color: 0x6a4a34 })
-  // 目＝白目＋丸い茶色の瞳＋ハイライト（やさしく親しみやすい。頭0.25に合わせる）
-  for (const ex of [-0.098, 0.098]) {
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.053, 14, 12), hiMat); sclera.scale.set(0.78, 1.05, 0.42); sclera.position.set(ex, 0.042, 0.208); head.add(sclera) // 白目
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.037, 14, 12), eyeMat); iris.scale.set(0.92, 1.0, 0.42); iris.position.set(ex, 0.035, 0.227); head.add(iris) // 瞳（茶）
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 8), hiMat); hi.position.set(ex + 0.015, 0.066, 0.244); head.add(hi) // きらり
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.066, 0.012, 0.018), browMat); brow.position.set(ex, 0.104, 0.232); brow.rotation.z = ex > 0 ? 0.12 : -0.12; head.add(brow) // やわらかい眉
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.051, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.06 : -0.06), -0.046, 0.2); head.add(bl) // ほっぺ
+  // 目＝白目＋丸い茶色の瞳＋ハイライト（やさしく親しみやすい。頭0.21に合わせる）
+  for (const ex of [-0.083, 0.083]) {
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 12), hiMat); sclera.scale.set(0.78, 1.05, 0.42); sclera.position.set(ex, 0.035, 0.176); head.add(sclera) // 白目
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.031, 14, 12), eyeMat); iris.scale.set(0.92, 1.0, 0.42); iris.position.set(ex, 0.03, 0.192); head.add(iris) // 瞳（茶）
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.013, 8, 8), hiMat); hi.position.set(ex + 0.013, 0.056, 0.206); head.add(hi) // きらり
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.011, 0.016), browMat); brow.position.set(ex, 0.088, 0.196); brow.rotation.z = ex > 0 ? 0.12 : -0.12; head.add(brow) // やわらかい眉
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.043, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.051 : -0.051), -0.039, 0.169); head.add(bl) // ほっぺ
   }
   // 口＝小さなにっこり（線だけ・暗い穴は作らない＝怖くならない）
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.011, 6, 14, Math.PI * 0.9), browMat)
-  mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.077, 0.227); head.add(mouth)
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.01, 6, 14, Math.PI * 0.9), browMat)
+  mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.065, 0.192); head.add(mouth)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
