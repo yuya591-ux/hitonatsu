@@ -702,6 +702,14 @@ const townKid = makeVillager(TOWN.x - 30, TOWN.z + 16, {
 const npcs = [villager, townLady, townKid]
 let talkTarget = null
 
+// 商店街の通行人（道を行き来＝賑わい。会話はしない）
+const pedestrians = []
+for (const [dx, col, sp, boyP] of [[-2.8, 0x7a8a9a, 1.2, false], [2.8, 0x9a7a6a, 1.0, true], [-3.6, 0x6f8a6a, 1.5, false], [3.4, 0x8a6a8a, 1.3, true]]) {
+  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair: 0x3a2e22, boy: boyP, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  p.userData.ped = { sp, dir: 1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6 }
+  pedestrians.push(p)
+}
+
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
   const N = 140
@@ -1264,6 +1272,15 @@ function update(dt) {
     pa.needsUpdate = true
     pts.material.opacity = Math.max(0, 1 - u.age / 2.3)
     if (u.age > 2.3) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
+  }
+  // 商店街の通行人（道を行き来）
+  for (const p of pedestrians) {
+    const u = p.userData.ped
+    p.position.z += u.sp * u.dir * dt
+    if (p.position.z > u.z1) { u.dir = -1; p.rotation.y = Math.PI }
+    else if (p.position.z < u.z0) { u.dir = 1; p.rotation.y = 0 }
+    p.position.x = u.x
+    p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(tsec * 6 + u.ph)) * 0.04
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
