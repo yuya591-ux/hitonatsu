@@ -67,6 +67,11 @@ try {
   await new Promise((r) => setTimeout(r, 1500))
   await page.screenshot({ path: join(outDir, 'proto3d-lie.png') })
   console.log('撮影: proto3d-lie.png')
+  // 木漏れ日：夕方、太陽の方を向く
+  await page.evaluate(() => { window.__proto3d.standUp(); window.__proto3d.aimSun(0.7) })
+  await new Promise((r) => setTimeout(r, 1800))
+  await page.screenshot({ path: join(outDir, 'proto3d-godray.png') })
+  console.log('撮影: proto3d-godray.png')
   await page.close()
 } finally {
   await browser.close()

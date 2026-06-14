@@ -453,6 +453,33 @@ composer.addPass(new RenderPass(scene, camera))
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）
 composer.addPass(bloom)
 
+// 木漏れ日（ゴッドレイ）：太陽の画面位置から、明るい所を放射状に伸ばす光条
+const godrayPass = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, lightPos: { value: new THREE.Vector2(0.5, 0.8) }, strength: { value: 0.0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform vec2 lightPos; uniform float strength;
+    void main(){
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      if (strength > 0.001) {
+        const int N = 18;
+        vec2 uv = vUv;
+        vec2 delta = (uv - lightPos) * (0.55 / float(N));
+        float illum = 1.0;
+        vec3 ray = vec3(0.0);
+        for (int i = 0; i < N; i++) {
+          uv -= delta;
+          vec3 s = texture2D(tDiffuse, uv).rgb;
+          float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.75); // 明るい所だけ
+          ray += s * b * illum;
+          illum *= 0.92;
+        }
+        col += ray * (strength / float(N)) * 6.0;
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+})
+composer.addPass(godrayPass)
+
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
@@ -701,6 +728,7 @@ const lookGoal = new THREE.Vector3()
 const tmp = new THREE.Vector3()
 const camFwd = new THREE.Vector3()
 const camRight = new THREE.Vector3()
+const sunProj = new THREE.Vector3()
 
 function update(dt) {
   // 一日の移ろい（ゆっくり）
@@ -741,6 +769,11 @@ function update(dt) {
     u.mat.opacity = 1 - nf
     b.visible = nf < 0.96
   }
+  // 木漏れ日：太陽の画面位置と強さ（昼に強く・画面内のときだけ）
+  sunProj.copy(sunBall.position).project(camera)
+  godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
+  const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
+  godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.5 : 0
 
   if (mode === 'walk') {
     // カメラ基準の前/右（地面上）。指のスライド方向を世界の向きへ変換。
@@ -854,6 +887,14 @@ window.__proto3d = {
   THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp, lieDown,
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   startAudio,
+  aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
+    if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
+    sitDown()
+    const eye = new THREE.Vector3(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
+    const dir = sunBall.position.clone().sub(eye)
+    seatLook.yaw = Math.atan2(dir.x, dir.z)
+    seatLook.pitch = Math.asin(THREE.MathUtils.clamp(dir.y / dir.length(), -1, 1))
+  },
   audioState() {
     const playing = Object.keys(ambients).filter((id) => ambients[id].isPlaying)
     return { started: audioStarted, ctx: listener.context.state, loaded: Object.keys(ambients).length, playing }
