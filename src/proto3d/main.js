@@ -397,16 +397,25 @@ composer.addPass(new RenderPass(scene, camera))
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）
 composer.addPass(bloom)
 
-// 仕上げ：夏の暖色グレード＋周辺減光（没入感）
+// 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
+// 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.012 }, vig: { value: 0.12 } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.14 }, amount: { value: 1.0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float warmth; uniform float vig;
-    void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb;
-      c.r += warmth; c.b -= warmth*0.5;                 // ごくわずかな夏の暖かみ
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float lum = dot(c, vec3(0.299, 0.587, 0.114));
+      vec3 graded = c;
+      graded += vec3(-0.018, 0.010, 0.030) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
+      graded += vec3(0.030, 0.014, -0.020) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
+      graded = mix(vec3(lum), graded, 0.90);                                    // 退色（彩度を少し落とす）
+      graded = graded * 0.975 + 0.018;                                          // フィルムの黒浮き
+      c = mix(c, graded, amount);
       float d = distance(vUv, vec2(0.5));
-      c *= 1.0 - vig * smoothstep(0.55, 0.95, d);        // ごく控えめな周辺減光
-      gl_FragColor = vec4(c, 1.0); }`,
+      c *= 1.0 - vig * smoothstep(0.5, 0.95, d);                                // 周辺減光
+      gl_FragColor = vec4(c, 1.0);
+    }`,
 })
 composer.addPass(gradePass)
 
