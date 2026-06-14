@@ -521,7 +521,7 @@ let grassShader = null
 {
   const tuft = new THREE.IcosahedronGeometry(0.5, 0)
   tuft.scale(1, 0.45, 1) // ぺたっと平たく＝草むらのかたまり
-  const N = 520
+  const N = 860
   const grassMat = toon(0x76a249)
   grassMat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = { value: 0 }
@@ -536,14 +536,19 @@ let grassShader = null
   const m = new THREE.Matrix4(); const q = new THREE.Quaternion(); const p = new THREE.Vector3(); const s2 = new THREE.Vector3()
   let n = 0
   while (n < N) {
-    const x = (Math.random() - 0.5) * 150, z = (Math.random() - 0.5) * 150
+    let x, z
+    if (n < N * 0.45) { // 半分弱は中央の遊び場を密に＝歩く所がいちばん草深い
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 44
+      x = Math.cos(a) * r; z = Math.sin(a) * r
+    } else { x = (Math.random() - 0.5) * 150; z = (Math.random() - 0.5) * 150 }
     if (x * x + (z + 28) * (z + 28) < 36) continue // ベンチ周りは空ける
     if ((x - POND.x) ** 2 + (z - POND.z) ** 2 < POND.r * POND.r) continue // 池の上は空ける
     if ((x - HOUSE.x) ** 2 + (z - HOUSE.z) ** 2 < 40) continue // 家の周りは空ける
     p.set(x, heightAt(x, z) + 0.12, z)
     q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, 0))
     const sc2 = 0.5 + Math.random() * 1.1
-    s2.set(sc2, sc2 * (0.7 + Math.random() * 0.5), sc2)
+    const yh = Math.random() < 0.28 ? 1.0 + Math.random() * 0.7 : 0.7 + Math.random() * 0.5 // 約3割は背が高くこんもり
+    s2.set(sc2, sc2 * yh, sc2)
     m.compose(p, q, s2)
     grass.setMatrixAt(n++, m)
   }
