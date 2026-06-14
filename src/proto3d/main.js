@@ -925,7 +925,7 @@ canvas.addEventListener('pointercancel', onUp)
 addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 
-actBtn.addEventListener('click', () => { if (mode === 'walk') sitDown() })
+actBtn.addEventListener('click', () => { if (mode === 'walk') sitDown(actBtn.dataset.spot || 'bench') })
 lieBtn.addEventListener('click', () => { if (mode === 'walk') lieDown() })
 
 function lieDown() {
@@ -949,26 +949,34 @@ function lieDown() {
   lookHint.style.display = 'block'
 }
 
-function sitDown() {
+// 縁側の座る位置（家の前・外を向く）
+const ENGAWA = new THREE.Vector3(HOUSE.x + Math.sin(0.35) * 3.4, 0, HOUSE.z + Math.cos(0.35) * 3.4)
+ENGAWA.y = heightAt(ENGAWA.x, ENGAWA.z)
+const curSitEye = new THREE.Vector3()
+function sitDown(which) {
   mode = 'sit'
   todayFlags.satHill = true
   endPuni()
-  boy.position.copy(SEAT)
-  boy.rotation.y = Math.PI // 外側を向く
+  let eye, yaw
+  if (which === 'engawa') {
+    boy.position.set(ENGAWA.x, ENGAWA.y + 0.6, ENGAWA.z)
+    boy.rotation.y = 0.35
+    // 目線は縁側の少し前・上（支柱に遮られず庭を見渡す）
+    eye = curSitEye.set(ENGAWA.x + Math.sin(0.35) * 1.7, ENGAWA.y + 1.55, ENGAWA.z + Math.cos(0.35) * 1.7)
+    yaw = 0.35 // 庭と空の方（外）を向く
+  } else {
+    boy.position.copy(SEAT); boy.position.y = SEAT.y + 0.55
+    boy.rotation.y = Math.PI
+    eye = curSitEye.set(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
+    yaw = Math.PI
+  }
   boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢
-  boy.position.y = SEAT.y + 0.55
   moving = false
-  seatLook.yaw = Math.PI; seatLook.pitch = -0.05 // 景色（外側-Z）を向いてから
-  // カメラを高台の目線へスッと移し、外を向かせる（誤って真下を向かない）
+  seatLook.yaw = yaw; seatLook.pitch = -0.05
   const cp = Math.cos(seatLook.pitch)
-  const ex = SEAT.x, ey = SEAT.y + 2.3, ez = SEAT.z - 0.9
-  camera.position.set(ex, ey, ez)
+  camera.position.copy(eye)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
-  camera.userData._look.set(
-    ex + Math.sin(seatLook.yaw) * cp,
-    ey + Math.sin(seatLook.pitch),
-    ez + Math.cos(seatLook.yaw) * cp,
-  )
+  camera.userData._look.set(eye.x + Math.sin(yaw) * cp, eye.y + Math.sin(seatLook.pitch), eye.z + Math.cos(yaw) * cp)
   actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
@@ -1123,10 +1131,13 @@ function update(dt) {
     boy.userData.head.rotation.x = -lookUp * 1.6 // 空を見上げる
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * 0.06 : Math.sin(tsec * 1.4) * 0.012 // 歩く弾み/立つ呼吸
 
-    const near = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
+    const nearBench = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
+    const nearEngawa = Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
     const nearNpc = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z) < 3
     npcEl.style.display = (nearNpc && !dialogue) ? 'block' : 'none'
-    actBtn.style.display = (near && !nearNpc && !dialogue) ? 'block' : 'none'
+    if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
+    else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
+    else actBtn.style.display = 'none'
     lieBtn.style.display = dialogue ? 'none' : 'block'
 
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
@@ -1146,8 +1157,8 @@ function update(dt) {
     camGoal.copy(seatEye); lookGoal.copy(lookTo)
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
   } else {
-    // 座って360度見回す（目線は座面の少し前・上＝体に埋まらない）
-    seatEye.set(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
+    // 座って360度見回す（高台のベンチ or 縁側。目線は座る位置）
+    seatEye.copy(curSitEye)
     const cp = Math.cos(seatLook.pitch)
     lookTo.set(
       seatEye.x + Math.sin(seatLook.yaw) * cp,
