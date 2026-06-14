@@ -1327,15 +1327,17 @@ function makeBoy() {
     const knee = new THREE.Group(); knee.position.y = -0.32; hip.add(knee)
     const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.108, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目を丸で埋める＝人形っぽさ消し
     const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.103, 0.15, 5, 12), skin); shin.position.y = -0.16; knee.add(shin)
+    // 足首ピボット＝歩いても足裏が地面に沿う（スケートのように爪先が突き出ない）
+    const ankle = new THREE.Group(); ankle.position.y = -0.32; knee.add(ankle)
     // サンダル：素足の甲＋革のソール＋甲ストラップ
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.27), skin); foot.position.set(0, -0.34, 0.06); knee.add(foot)
-    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.045, 0.33), toon(0x7a5436)); sole.position.set(0, -0.4, 0.07); knee.add(sole)
-    const strapF = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.09), toon(0x6a4830)); strapF.position.set(0, -0.29, 0.1); knee.add(strapF)
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.27), skin); foot.position.set(0, -0.02, 0.06); ankle.add(foot)
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.045, 0.33), toon(0x7a5436)); sole.position.set(0, -0.08, 0.07); ankle.add(sole)
+    const strapF = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.09), toon(0x6a4830)); strapF.position.set(0, 0.03, 0.1); ankle.add(strapF)
     g.add(hip)
-    return { hip, knee }
+    return { hip, knee, ankle }
   }
   const L = makeLeg(-1), R = makeLeg(1)
-  const legL = L.hip, legR = R.hip, kneeL = L.knee, kneeR = R.knee
+  const legL = L.hip, legR = R.hip, kneeL = L.knee, kneeR = R.knee, ankleL = L.ankle, ankleR = R.ankle
   // 半ズボン（腰まわり・股の継ぎ目を覆う）
   const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.27, 16, 12), pants); shorts.scale.set(1.04, 0.72, 0.84); shorts.position.y = 0.78; g.add(shorts)
   // 胴＝ほっそりめ（おなかを出さない・小学生のすっきり体型）
@@ -1380,7 +1382,7 @@ function makeBoy() {
   flap.position.set(0.25, 0.73, 0.2); flap.rotation.z = 0.07; g.add(flap) // ふた
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   brim.castShadow = false; cap.castShadow = false; band.castShadow = false // 帽子が顔に影を落として暗く見えるのを防ぐ＝明るい笑顔
-  g.userData = { legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, net, swing: 0 }
+  g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, swing: 0 }
   return g
 }
 const boy = makeBoy()
@@ -2385,6 +2387,7 @@ function lieDown() {
   boy.rotation.x = -1.35 // あおむけ
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
   boy.userData.kneeL.rotation.x = 0.2; boy.userData.kneeR.rotation.x = 0.2
+  boy.userData.ankleL.rotation.x = 0; boy.userData.ankleR.rotation.x = 0
   boy.visible = false // 一人称で空を見る（自分の体は映さない）
   seatLook.yaw = boy.rotation.y; seatLook.pitch = 1.2 // 空を見上げる
   // カメラを地面すぐ上へ置き、空へ向ける（スナップ）
@@ -2439,6 +2442,7 @@ function sitDown(which) {
   boy.rotation.x = 0
   boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢（太ももは前へ）
   boy.userData.kneeL.rotation.x = 1.5; boy.userData.kneeR.rotation.x = 1.5 // すねは下へ＝膝を曲げて腰かける
+  boy.userData.ankleL.rotation.x = 0.2; boy.userData.ankleR.rotation.x = 0.2 // 足先を前へ
   moving = false
   seatLook.yaw = yaw; seatLook.pitch = pitch
   const cp = Math.cos(seatLook.pitch)
@@ -2452,6 +2456,7 @@ function standUp() {
   mode = 'walk'
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
   boy.userData.kneeL.rotation.x = 0.12; boy.userData.kneeR.rotation.x = 0.12
+  boy.userData.ankleL.rotation.x = 0; boy.userData.ankleR.rotation.x = 0
   boy.rotation.x = 0
   boy.visible = true
   boy.position.y = heightAt(boy.position.x, boy.position.z)
@@ -2921,13 +2926,22 @@ function update(dt) {
     }
     lastStepS = sw
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
-    boy.userData.armL.rotation.x = -sw - run * 0.25; boy.userData.armR.rotation.x = sw - run * 0.25 // 走ると肘を前に振る
+    // 腕：歩くと振る／止まると凍りつかず、そっと息づくように下ろす
+    const armTL = moving ? (-sw - run * 0.25) : Math.sin(tsec * 1.3) * 0.05
+    const armTR = moving ? (sw - run * 0.25) : Math.sin(tsec * 1.3 + 0.6) * 0.05
+    boy.userData.armL.rotation.x += (armTL - boy.userData.armL.rotation.x) * Math.min(1, dt * (moving ? 20 : 6))
+    boy.userData.armR.rotation.x += (armTR - boy.userData.armR.rotation.x) * Math.min(1, dt * (moving ? 20 : 6))
     // 膝・肘の曲げ＝関節のある歩行（足が前に振り出される側の膝が曲がる／肘は軽く曲げて自然に）
     const kAmp = 0.5 + run * 0.8
     const kbL = 0.12 + (moving ? Math.max(0, -sw) * kAmp : 0)
     const kbR = 0.12 + (moving ? Math.max(0, sw) * kAmp : 0)
     boy.userData.kneeL.rotation.x += (kbL - boy.userData.kneeL.rotation.x) * Math.min(1, dt * 13)
     boy.userData.kneeR.rotation.x += (kbR - boy.userData.kneeR.rotation.x) * Math.min(1, dt * 13)
+    // 足首：腿＋膝の傾きを打ち消して足裏を地面と平行に保つ（接地感・スケート歩き解消）
+    const akL = THREE.MathUtils.clamp(-(boy.userData.legL.rotation.x + boy.userData.kneeL.rotation.x) * 0.85, -0.7, 0.5)
+    const akR = THREE.MathUtils.clamp(-(boy.userData.legR.rotation.x + boy.userData.kneeR.rotation.x) * 0.85, -0.7, 0.5)
+    boy.userData.ankleL.rotation.x += (akL - boy.userData.ankleL.rotation.x) * Math.min(1, dt * 14)
+    boy.userData.ankleR.rotation.x += (akR - boy.userData.ankleR.rotation.x) * Math.min(1, dt * 14)
     const eb = -(0.28 + run * 0.35) // 肘は前へ軽く曲げる
     boy.userData.elbowL.rotation.x += (eb - boy.userData.elbowL.rotation.x) * Math.min(1, dt * 10)
     boy.userData.elbowR.rotation.x += (eb - boy.userData.elbowR.rotation.x) * Math.min(1, dt * 10)
