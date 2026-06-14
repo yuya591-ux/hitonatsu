@@ -87,6 +87,14 @@ try {
   if (!talking) errors.push('村の人と会話できていない')
   await page.screenshot({ path: join(outDir, 'proto3d-talk.png') })
   console.log('撮影: proto3d-talk.png')
+  // 絵日記（その日やったこと→翌日への予告）
+  await page.evaluate(() => { window.__proto3d.openDiary() })
+  await new Promise((r) => setTimeout(r, 500))
+  const diaryShown = await page.evaluate(() => document.getElementById('diary').style.display === 'flex' && document.getElementById('diary-body').children.length > 0)
+  console.log(`絵日記テスト: ${diaryShown ? 'OK' : 'NG'}（${await page.evaluate(() => window.__proto3d.day)}にちめ）`)
+  if (!diaryShown) errors.push('絵日記が表示されない')
+  await page.screenshot({ path: join(outDir, 'proto3d-diary.png') })
+  console.log('撮影: proto3d-diary.png')
   await page.close()
 } finally {
   await browser.close()

@@ -442,6 +442,12 @@ const villager = makeVillager(13, 9, {
   shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5,
   info: {
     name: '女の子',
+    // 3日かけて進む関係（最初はそっけない→打ちとける→夏の終わりの別れ）
+    arcByDay: {
+      1: ['（女の子は こちらを ちらっと見て、すこし はにかんだ）', 'えっと…　こんにちは。'],
+      2: ['あ、きのうの。また 会ったね。', 'この はらっぱ、わたしの おきにいりなんだ。いっしょに 見る？'],
+      3: ['今日で 夏休みも おわりだね。', 'はい、これ おまもり。…また 来年、ここで 会えたら いいな。'],
+    },
     byPhase: {
       morning: ['おはよう。今日も いい天気だね。', '朝の はらっぱは すずしくて すきなんだ。'],
       noon: ['暑いねえ。日かげで すこし 休もうよ。', 'むこうの 池に、メダカが いるんだよ。'],
@@ -676,15 +682,54 @@ let dialogue = null // { lines, idx }
 const phaseOf = (t) => (t < 0.18 ? 'morning' : t < 0.5 ? 'noon' : t < 0.78 ? 'evening' : 'night')
 function startDialogue() {
   const info = villager.userData.info
-  const lines = info.byPhase[phaseOf(tday)] || info.byPhase.noon
+  // その日の関係の台詞（あれば）→ なければ時間帯の台詞
+  const lines = (info.arcByDay && info.arcByDay[day]) || info.byPhase[phaseOf(tday)] || info.byPhase.noon
   dialogue = { lines, idx: 0 }
   dlgNameEl.textContent = info.name
   dlgTextEl.textContent = lines[0]
   dialogueEl.style.display = 'block'
   npcEl.style.display = 'none'
   endPuni()
+  todayFlags.metGirl = true
   villager.rotation.y = Math.atan2(boy.position.x - villager.position.x, boy.position.z - villager.position.z) // こちらを向く
 }
+
+// ── 「3日だけの夏」＋絵日記（その日やったこと→翌日への予告／夏の終わり）──
+let day = 1
+let diaryOpen = false
+const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false }
+try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= 3) day = s } catch (e) {}
+const sleepEl = document.getElementById('sleep')
+const diaryEl = document.getElementById('diary')
+const diaryTitleEl = document.getElementById('diary-title')
+const diaryBodyEl = document.getElementById('diary-body')
+const diaryCloseEl = document.getElementById('diary-close')
+const badgeEl = document.getElementById('badge')
+function refreshBadge() { if (badgeEl) badgeEl.textContent = `なつやすみ ${day}にちめ` }
+refreshBadge()
+function openDiary() {
+  diaryOpen = true; dayAuto = false
+  const body = []
+  if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。')
+  if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
+  if (todayFlags.satHill) body.push('高台で ぼーっと した。')
+  if (todayFlags.layDown) body.push('草の上で ねころんで 空を ながめた。')
+  if (!body.length) body.push('きょうは のんびり あるいた。')
+  if (day >= 3) { diaryTitleEl.textContent = 'ひと夏が おわった'; body.push('たのしい 夏休みだった。…また 来年。') }
+  else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? '明日は もっと 話せるかな。' : 'もうすぐ おまつりらしい。') }
+  diaryBodyEl.innerHTML = body.map((l) => `<div class="line">${l}</div>`).join('')
+  diaryEl.style.display = 'flex'
+}
+function nextDay() {
+  diaryEl.style.display = 'none'; diaryOpen = false
+  day = day >= 3 ? 1 : day + 1 // プロトなので3日のあとは1日目へ
+  for (const k in todayFlags) todayFlags[k] = false
+  tday = 0.18; dayAuto = true; setTimeOfDay(tday)
+  try { localStorage.setItem('hn3d_day', day) } catch (e) {}
+  refreshBadge()
+}
+sleepEl.addEventListener('click', () => { if (!diaryOpen && !dialogue) openDiary() })
+diaryCloseEl.addEventListener('click', () => { if (diaryOpen) nextDay() })
 function advanceDialogue() {
   if (!dialogue) return
   dialogue.idx++
@@ -773,6 +818,7 @@ lieBtn.addEventListener('click', () => { if (mode === 'walk') lieDown() })
 
 function lieDown() {
   mode = 'lie'
+  todayFlags.layDown = true
   endPuni()
   vel.set(0, 0, 0)
   boy.position.y = heightAt(boy.position.x, boy.position.z) + 0.25
@@ -793,6 +839,7 @@ function lieDown() {
 
 function sitDown() {
   mode = 'sit'
+  todayFlags.satHill = true
   endPuni()
   boy.position.copy(SEAT)
   boy.rotation.y = Math.PI // 外側を向く
@@ -848,6 +895,8 @@ function update(dt) {
   // 主人公の接地影は地面に沿わせる
   boyShadow.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.05, boy.position.z)
   boyShadow.visible = boy.visible
+  // 池に近づいたら“見た”ことを記録（絵日記用）
+  if (Math.hypot(boy.position.x - POND.x, boy.position.z - POND.z) < POND.r + 2) todayFlags.sawPond = true
   // 環境音：時刻でクロスフェード＋夕方に一度だけ夕焼けチャイム
   if (audioStarted) {
     const w = ambientWeights(tday)
@@ -889,7 +938,7 @@ function update(dt) {
     let sx = 0, sy = 0
     if (puni.active && Math.hypot(puni.vx, puni.vy) > 0.06) { sx = puni.vx; sy = puni.vy }
     else if (kx || kz) { sx = kx; sy = kz }
-    if (dialogue) { sx = 0; sy = 0 } // 会話中は歩かない
+    if (dialogue || diaryOpen) { sx = 0; sy = 0 } // 会話・絵日記中は歩かない
     const mag = Math.min(1, Math.hypot(sx, sy))
     // 目標速度（倒し量で“そろり〜小走り”）。慣性で滑らかに加減速。
     let tx = 0, tz = 0
@@ -997,6 +1046,8 @@ window.__proto3d = {
   startAudio,
   placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
   talk() { startDialogue() }, // 検証用
+  openDiary() { openDiary() }, // 検証用
+  get day() { return day },
   villager,
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
