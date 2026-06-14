@@ -18,6 +18,8 @@ const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
 const HOUSE = { x: -17, z: 13 } // 昭和の田舎家（縁側）の位置
 const TOWN = { x: 1000, z: 0 } // 住宅街エリアは遠くにオフセット（霧で野原と分離）。x>500=街
 const MOUNT = { x: TOWN.x + 6, z: TOWN.z + 92, h: 34, w: 40, d: 18 } // 町の北にそびえる裏山（頂上で街を一望）
+const SWING = { x: TOWN.x - 16, z: TOWN.z + 37, py: 3.0, L: 2.2 } // 裏山ふもとのブランコ（乗ると街を見おろすブランコ視点）
+let swingSeat = null, swingPhase = 0, swingAmp = 0.3 // 振り子の状態
 function heightAt(x, z) {
   if (x > 500) {
     // 住宅街は平地。北（+z奥）へ行くほど裏山がせり上がる
@@ -545,6 +547,21 @@ function makeShop(x, z, rot, opt) {
   }
   // 裏山の雑木（斜面に点々と＝木立の山）
   for (const [tx, tz, ts] of [[T.x - 22, T.z + 50, 1.1], [T.x + 26, T.z + 56, 1.2], [T.x - 6, T.z + 66, 1.0], [T.x + 16, T.z + 72, 1.1], [T.x - 30, T.z + 66, 0.95], [T.x + 36, T.z + 46, 1.0], [T.x - 14, T.z + 80, 0.9]]) makeTree(tx, tz, ts)
+  // ── ブランコ（乗ってブランコ視点であそぶ）──
+  {
+    const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
+    for (const sx of [-1.5, 1.5]) for (const dz of [-0.8, 0.8]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 3.35, 6), frame)
+      leg.position.set(sx + (dz > 0 ? 0.0 : 0.0), SWING.py / 2, dz * 0.9); leg.rotation.x = dz > 0 ? 0.22 : -0.22; g.add(leg)
+    }
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8), frameDark); top.rotation.z = Math.PI / 2; top.position.y = SWING.py; g.add(top)
+    // 座面＝振り子。swingSeat を吊り元(top)に置き、x軸で回す
+    swingSeat = new THREE.Group(); swingSeat.position.y = SWING.py; g.add(swingSeat)
+    for (const rx of [-0.42, 0.42]) { const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, SWING.L, 4), frameDark); rope.position.set(rx, -SWING.L / 2, 0); swingSeat.add(rope) }
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.1, 0.42), toon(0x8a5a32)); seat.position.y = -SWING.L; swingSeat.add(seat)
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    g.position.set(SWING.x, heightAt(SWING.x, SWING.z), SWING.z); outlineObj(g, 0.03); addContactShadow(g, 2.2); scene.add(g)
+  }
   // 街かどの生活痕：丸ポスト・当時の自販機
   {
     const pg = new THREE.Group(); const red = toon(0xc0392b)
@@ -1550,7 +1567,10 @@ canvas.addEventListener('pointermove', (e) => {
 function onUp(e) {
   if (!pointers.has(e.pointerId)) return
   pointers.delete(e.pointerId)
-  if (mode !== 'walk') { if (sitTap && !sitTap.moved) standUp(); sitTap = null; return }
+  if (mode !== 'walk') {
+    if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else standUp() } // ブランコはタップで こぐ
+    sitTap = null; return
+  }
   if (pointers.size < 2) orbit = null
   if (e.pointerId === puni.id) endPuni()
   // 2本指→1本に戻ったら、残った指でぷにコン再開
@@ -1564,7 +1584,11 @@ canvas.addEventListener('pointercancel', onUp)
 addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 
-actBtn.addEventListener('click', () => { if (mode === 'walk') sitDown(actBtn.dataset.spot || 'bench') })
+actBtn.addEventListener('click', () => {
+  const spot = actBtn.dataset.spot
+  if (mode === 'walk') { if (spot === 'swing') rideSwing(); else sitDown(spot || 'bench') }
+  else if (mode === 'swing' && spot === 'offswing') getOffSwing()
+})
 lieBtn.addEventListener('click', () => { if (mode === 'walk') lieDown() })
 
 function lieDown() {
@@ -1644,6 +1668,17 @@ function standUp() {
   boy.position.y = heightAt(boy.position.x, boy.position.z)
   idleTime = 0
   lookHint.style.display = 'none'
+}
+function rideSwing() {
+  mode = 'swing'; endPuni(); moving = false
+  swingPhase = 0; swingAmp = 0.35
+  boy.visible = false // ブランコ視点：自分の頭の中が映らないよう本体は隠す
+  lookHint.style.display = 'none'
+}
+function getOffSwing() {
+  // ブランコの手前（南側）に降りる
+  boy.position.set(SWING.x, 0, SWING.z - 2.4); boy.rotation.y = Math.PI
+  standUp()
 }
 
 // ── ループ ──
@@ -1947,6 +1982,7 @@ function update(dt) {
     const nearBench = area === 'field' && Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
     const nearEngawa = area === 'field' && Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
     const nearMtSeat = area === 'town' && Math.hypot(boy.position.x - MOUNT_SEAT.x, boy.position.z - MOUNT_SEAT.z) < 3.4
+    const nearSwing = area === 'town' && Math.hypot(boy.position.x - SWING.x, boy.position.z - (SWING.z - 2.4)) < 2.8
     // いちばん近い人を話し相手に
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
@@ -1960,6 +1996,7 @@ function update(dt) {
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearMtSeat) { actBtn.textContent = '街を ながめる'; actBtn.dataset.spot = 'mtview'; actBtn.style.display = 'block' }
+    else if (!nearNpc && !dialogue && nearSwing) { actBtn.textContent = 'ブランコに のる'; actBtn.dataset.spot = 'swing'; actBtn.style.display = 'block' }
     else actBtn.style.display = 'none'
     lieBtn.style.display = dialogue ? 'none' : 'block'
     // 門に近づくと往来ボタン
@@ -1993,6 +2030,21 @@ function update(dt) {
     lookTo.set(seatEye.x + Math.sin(seatLook.yaw) * cp, seatEye.y + Math.sin(seatLook.pitch), seatEye.z + Math.cos(seatLook.yaw) * cp)
     camGoal.copy(seatEye); lookGoal.copy(lookTo)
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
+  } else if (mode === 'swing') {
+    // ブランコ：振り子運動。乗り手の頭の位置から前方を見る＝ブランコ視点（上下にあおられる）
+    swingPhase += dt * 2.05
+    swingAmp = Math.max(0.18, swingAmp - dt * 0.045) // 自然に小さくなる（タップでこぐと大きくなる）
+    const th = swingAmp * Math.sin(swingPhase)
+    if (swingSeat) swingSeat.rotation.x = th
+    const gy = heightAt(SWING.x, SWING.z), L = SWING.L
+    const seatY = gy + SWING.py - Math.cos(th) * L, seatZ = SWING.z - Math.sin(th) * L
+    const eyeY = seatY + Math.cos(th) * 1.05, eyeZ = seatZ + Math.sin(th) * 1.05 // 座面から吊り元方向へ＝頭
+    const fY = Math.sin(th), fZ = -Math.cos(th) // 進行接線（θ=0で-z水平、上下にあおられる）
+    camGoal.set(SWING.x, eyeY, eyeZ)
+    lookGoal.set(SWING.x, eyeY + fY * 4, eyeZ + fZ * 4)
+    camera.fov += (54 - camera.fov) * Math.min(1, dt * 2); camera.updateProjectionMatrix() // 少し広角で疾走感
+    actBtn.textContent = 'おりる'; actBtn.dataset.spot = 'offswing'; actBtn.style.display = 'block'
+    lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   } else {
     // 座って360度見回す（高台のベンチ or 縁側。目線は座る位置）
     seatEye.copy(curSitEye)
@@ -2007,11 +2059,11 @@ function update(dt) {
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
   if (window.__freezeCam) return // 検証用：カメラ固定（顔の確認など）
-  // カメラを目標へなめらかに寄せる
-  camera.position.lerp(camGoal, Math.min(1, dt * (mode !== 'walk' ? 6 : 5)))
+  // カメラを目標へなめらかに寄せる（ブランコは追従を速く＝ぶれない視点）
+  camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 6 : 5)))
   // 注視点もなめらかに
   camera.userData._look = camera.userData._look || new THREE.Vector3().copy(lookGoal)
-  camera.userData._look.lerp(lookGoal, Math.min(1, dt * 6))
+  camera.userData._look.lerp(lookGoal, Math.min(1, dt * (mode === 'swing' ? 13 : 6)))
   camera.lookAt(camera.userData._look)
 }
 
@@ -2049,6 +2101,8 @@ window.__proto3d = {
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   startAudio,
   placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
+  rideSwing() { rideSwing() }, // 検証用
+  get modeNow() { return mode }, // 検証用
   talk() { startDialogue() }, // 検証用
   openDiary() { openDiary() }, // 検証用
   get day() { return day },
