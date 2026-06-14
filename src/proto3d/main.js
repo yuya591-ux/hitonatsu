@@ -616,6 +616,24 @@ function makeCrow() {
 }
 for (let i = 0; i < 5; i++) makeCrow()
 
+// ── 足元の砂ぼこり（走ると ふっと土が舞う）──
+const DUSTN = 36
+const dustPos = new Float32Array(DUSTN * 3).fill(-9999)
+const dustVel = new Float32Array(DUSTN * 3)
+const dustLife = new Float32Array(DUSTN)
+const dustGeo = new THREE.BufferGeometry()
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3))
+const dustPts = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xd8c6a2, size: 0.42, transparent: true, opacity: 0.45, depthWrite: false, fog: true }))
+dustPts.frustumCulled = false; scene.add(dustPts)
+let dustHead = 0
+function spawnDust(x, y, z) {
+  const i = dustHead; dustHead = (dustHead + 1) % DUSTN
+  dustPos[i * 3] = x + (Math.random() - 0.5) * 0.3; dustPos[i * 3 + 1] = y; dustPos[i * 3 + 2] = z + (Math.random() - 0.5) * 0.3
+  dustVel[i * 3] = (Math.random() - 0.5) * 0.5; dustVel[i * 3 + 1] = 0.4 + Math.random() * 0.4; dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.5
+  dustLife[i] = 0.55
+}
+let lastStepS = 0
+
 // ── 虫採り（つかまえる遊び）：蝶・カブトムシ・セミ ──
 const caught = { count: 0, kinds: {} }
 const catchables = []
@@ -1600,6 +1618,17 @@ function update(dt) {
     u.wl.rotation.z = f; u.wr.rotation.z = -f // はばたき
     u.mat.opacity = crowF
   }
+  // 足元の砂ぼこり：舞い上がって ゆっくり落ち、消える
+  for (let i = 0; i < DUSTN; i++) {
+    if (dustLife[i] <= 0) continue
+    dustLife[i] -= dt
+    dustPos[i * 3] += dustVel[i * 3] * dt
+    dustPos[i * 3 + 1] += dustVel[i * 3 + 1] * dt
+    dustPos[i * 3 + 2] += dustVel[i * 3 + 2] * dt
+    dustVel[i * 3 + 1] -= dt * 0.7 // 重力で失速
+    if (dustLife[i] <= 0) dustPos[i * 3 + 1] = -9999
+  }
+  dustGeo.attributes.position.needsUpdate = true
   // 木漏れ日：太陽の画面位置と強さ（昼に強く・画面内のときだけ）
   sunProj.copy(sunBall.position).project(camera)
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
@@ -1653,6 +1682,9 @@ function update(dt) {
     const run = THREE.MathUtils.clamp(speedNow / 7, 0, 1) // 0=そろり 1=全力
     const amp = 0.35 + run * 0.9
     const sw = Math.sin(phase) * amp
+    // 走っている時、足が着くたび（sin(phase)の符号が変わる瞬間）に砂ぼこり
+    if (moving && run > 0.4 && sw * lastStepS < 0) spawnDust(boy.position.x, boy.position.y + 0.05, boy.position.z)
+    lastStepS = sw
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     boy.userData.armL.rotation.x = -sw - run * 0.25; boy.userData.armR.rotation.x = sw - run * 0.25 // 走ると肘を前に振る
     boy.rotation.x += ((moving ? run * 0.28 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前傾
