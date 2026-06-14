@@ -902,6 +902,25 @@ function makeAsagao(x, z, rot) {
 }
 makeAsagao(HOUSE.x + 5.5, HOUSE.z + 3, 0)          // 野原の家のかきね
 makeAsagao(TOWN.x + 8, TOWN.z - 14, -Math.PI / 2)  // 町の家のかきね
+// 銭湯（昭和の街のランドマーク：瓦屋根・暖簾「ゆ」・煙を吐くレンガの煙突）
+function makeSento(x, z, rot) {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(10, 4.6, 9), toon(0xe2dac6)); body.position.y = 2.3; g.add(body)
+  const eave = new THREE.Mesh(new THREE.BoxGeometry(11, 0.4, 10), toon(0x556069)); eave.position.y = 4.7; g.add(eave)
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(7.2, 2.4, 4), toon(0x3f4a54)); roof.position.y = 6.0; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.7); g.add(roof)
+  // 入口のひさし＋暖簾「ゆ」
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(4, 0.3, 1.6), toon(0x6a5240)); hood.position.set(0, 3.0, 4.8); hood.rotation.x = -0.12; g.add(hood)
+  const noren = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.1), new THREE.MeshToonMaterial({ map: textTex('ゆ', '#2a5a8a', '#f4f1e8', false), gradientMap: GRAD, side: THREE.DoubleSide })); noren.position.set(0, 2.3, 4.7); g.add(noren)
+  // レンガの煙突
+  const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.68, 7.5, 10), toon(0xa05a48)); chimney.position.set(3.6, 6.2, -3); g.add(chimney)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
+  outlineObj(g, 0.04); addContactShadow(g, 6.5); addCollider(x, z, 5); scene.add(g)
+  // 煙突の先から煙（回転を考慮した世界座標）
+  const cw = new THREE.Vector3(3.6, 10, -3).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot || 0)
+  makeSmoke(x + cw.x, heightAt(x, z) + 10, z + cw.z, 18)
+}
+makeSento(TOWN.x + 34, TOWN.z - 12, -Math.PI / 2)
 
 // ── 小さな草花（赤・白・黄の点。場を生き生きと）──
 {
