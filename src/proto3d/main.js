@@ -619,12 +619,13 @@ function makeCat() {
   for (const [lx, lz] of [[0.32, 0.18], [0.32, -0.18], [-0.32, 0.18], [-0.32, -0.18]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.36, 6), fur); leg.position.set(lx, 0.18, lz); g.add(leg) }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   outlineObj(g, 0.022); addContactShadow(g, 0.6)
+  g.userData.tail = tail
   scene.add(g)
   return g
 }
 const cat = makeCat()
 cat.position.set(-10, heightAt(-10, 18), 18)
-cat.userData = { tx: -10, tz: 18, rest: 2000, phase: 0 }
+Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
 
 // ── 主人公（低ポリの少年・麦わら帽子）──
 function makeBoy() {
@@ -686,7 +687,7 @@ function makeVillager(x, z, opt) {
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2018 })
   for (const ex of [-0.1, 0.1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat); e.position.set(ex, 2.05, 0.27); g.add(e) }
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, wph: 0 }
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, head, wph: 0 }
   scene.add(g)
   return g
 }
@@ -1468,6 +1469,7 @@ function update(dt) {
       } else { const s = 1.1 * dt; cat.position.x += (dx / d) * s; cat.position.z += (dz / d) * s; cat.rotation.y = Math.atan2(dx, dz); u.phase += dt * 8 }
     }
     cat.position.y = heightAt(cat.position.x, cat.position.z) + (u.rest <= 0 ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
+    u.tail.rotation.z = -1.0 + Math.sin(tsec * 2.5) * 0.28 // 尻尾をゆらす
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
@@ -1483,14 +1485,17 @@ function update(dt) {
       villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(vu.wph)) * 0.05
       villager.rotation.y = Math.atan2(dx, dz)
       const sw = Math.sin(vu.wph) * 0.5; vu.legL.rotation.x = sw; vu.legR.rotation.x = -sw
+      vu.head.rotation.y *= 0.85 // 歩く時は前を向く
     } else {
       villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(tsec * 1.3)) * 0.012 // 息づかい
       vu.legL.rotation.x *= 0.8; vu.legR.rotation.x *= 0.8
+      vu.head.rotation.y = Math.sin(tsec * 0.4) * 0.45 // ゆっくり見回す
     }
   }
-  // 立っている街の人の息づかい
+  // 立っている街の人の息づかい＋ゆっくり見回す
   for (const n of [townLady, townKid]) {
     n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
+    n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
