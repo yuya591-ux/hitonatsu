@@ -1501,13 +1501,26 @@ function update(dt) {
     } else {
       villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(tsec * 1.3)) * 0.012 // 息づかい
       vu.legL.rotation.x *= 0.8; vu.legR.rotation.x *= 0.8
-      vu.head.rotation.y = Math.sin(tsec * 0.4) * 0.45 // ゆっくり見回す
+      const pd = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z)
+      if (pd < 4.5 && area === 'field') { // 近づくと気づいてこちらを向く
+        let dd2 = Math.atan2(boy.position.x - villager.position.x, boy.position.z - villager.position.z) - villager.rotation.y
+        while (dd2 > Math.PI) dd2 -= Math.PI * 2; while (dd2 < -Math.PI) dd2 += Math.PI * 2
+        villager.rotation.y += dd2 * Math.min(1, dt * 4); vu.head.rotation.y *= 0.85
+      } else vu.head.rotation.y = Math.sin(tsec * 0.4) * 0.45 // ゆっくり見回す
     }
   }
-  // 立っている街の人の息づかい＋ゆっくり見回す
+  // 立っている街の人：息づかい＋ふだんは見回し、近づくと気づいてこちらを向く
   for (const n of [townLady, townKid]) {
     n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
-    n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
+    const pd = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z)
+    if (pd < 4.5 && area === 'town') {
+      let dd = Math.atan2(boy.position.x - n.position.x, boy.position.z - n.position.z) - n.rotation.y
+      while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2
+      n.rotation.y += dd * Math.min(1, dt * 4)
+      n.userData.head.rotation.y *= 0.85
+    } else {
+      n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
+    }
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
