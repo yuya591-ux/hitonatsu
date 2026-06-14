@@ -181,12 +181,16 @@ const gPos = gGeo.attributes.position
 const gCol = []
 const cGrassLo = new THREE.Color(0x84b252)
 const cGrassHi = new THREE.Color(0xb6d97a)
+const cGrassDry = new THREE.Color(0xb0ac6e) // 夏の日に焼けた乾いた草＝大きなムラで点在
 for (let i = 0; i < gPos.count; i++) {
   const x = gPos.getX(i), z = gPos.getZ(i)
   const y = heightAt(x, z)
   gPos.setY(i, y)
   const t = THREE.MathUtils.clamp(0.4 + y * 0.06 + 0.5 * Math.sin(x * 0.3) * Math.cos(z * 0.3) * 0.2, 0, 1)
   const c = cGrassLo.clone().lerp(cGrassHi, t)
+  // 低い周波数の大きなパッチで、ところどころ乾いた色へ寄せる（のっぺり単一緑を崩す）
+  const dry = 0.5 + 0.5 * Math.sin(x * 0.045 + 1.3) * Math.cos(z * 0.05 - 0.7)
+  c.lerp(cGrassDry, THREE.MathUtils.smoothstep(dry, 0.74, 1.0) * 0.55)
   gCol.push(c.r, c.g, c.b)
 }
 gGeo.setAttribute('color', new THREE.Float32BufferAttribute(gCol, 3))
