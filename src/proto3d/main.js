@@ -29,14 +29,15 @@ const SEAT = new THREE.Vector3(0, 0, -27) // 高台のベンチ位置
 SEAT.y = heightAt(SEAT.x, SEAT.z)
 
 // ── レンダラ ──
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true }) // 絵日記に画面を取り込むため
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)) // 発熱対策で控えめ
+// antialias は EffectComposer 経由だと最終ブリットにしか効かず実質無駄なので切る（軽量化）
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true }) // 絵日記に画面を取り込むため
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)) // 発熱対策でさらに控えめ
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
 renderer.toneMapping = THREE.NeutralToneMapping
 renderer.toneMappingExposure = 1.18
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.shadowMap.type = THREE.PCFShadowMap // Softより軽い（トゥーンなら十分）
 
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0xdfeaf0, 48, 185) // 空気遠近（霞）。遠景を空の色へ溶かす
@@ -997,7 +998,7 @@ camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）。半解像度で軽量化（ぼかしなので見た目は変わらない）
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 3, innerHeight / 3), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）。1/3解像度で軽量化（ぼかしなので見た目は変わらない）
 composer.addPass(bloom)
 
 // 木漏れ日（ゴッドレイ）：太陽の画面位置から、明るい所を放射状に伸ばす光条
@@ -1056,7 +1057,7 @@ function resize() {
   const w = innerWidth, h = innerHeight
   renderer.setSize(w, h)
   composer.setSize(w, h)
-  bloom.setSize(w / 2, h / 2) // ブルームは半解像度を維持（発熱対策）
+  bloom.setSize(w / 3, h / 3) // ブルームは1/3解像度を維持（発熱対策）
   camera.aspect = w / h
   camera.updateProjectionMatrix()
 }
