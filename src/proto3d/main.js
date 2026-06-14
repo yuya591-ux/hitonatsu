@@ -293,6 +293,57 @@ function makeHouse(x, z, rot) {
 }
 makeHouse(HOUSE.x, HOUSE.z, 0.35)
 
+// ── 時代の生活痕（昭和後期〜平成初期）：丸ポスト・物干し・電柱と電線・自販機 ──
+function placeProp(g, x, z, rot, outline, shadowR) {
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
+  outlineObj(g, outline); addContactShadow(g, shadowR); scene.add(g)
+  return g
+}
+// 丸ポスト
+{
+  const g = new THREE.Group(); const red = toon(0xc0392b)
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 2.2, 12), red); body.position.y = 1.1; g.add(body)
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), red); top.position.y = 2.2; g.add(top)
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.06), toon(0x241712)); slot.position.set(0, 1.72, 0.42); g.add(slot)
+  placeProp(g, -7, 22, 0, 0.04, 0.7)
+}
+// 物干し（洗濯もの）
+{
+  const g = new THREE.Group(); const pole = toon(0xb4b4b0)
+  for (const px of [-1.8, 1.8]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.0, 6), pole); p.position.set(px, 1.0, 0); g.add(p) }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.9, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.85; g.add(bar)
+  const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]
+  for (let i = 0; i < 4; i++) { const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.85), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cloth.position.set(-1.3 + i * 0.86, 1.4, 0); g.add(cloth) }
+  placeProp(g, -22, 18, 0.4, 0.03, 1.6)
+}
+// 当時の自販機（前面が光る）
+{
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.9), toon(0xc23a2c)); body.position.y = 1.1; g.add(body)
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.25, 0.06), new THREE.MeshBasicMaterial({ color: 0xfff3c8 })); panel.position.set(0, 1.45, 0.46); g.add(panel)
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const can = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, 0.02), toon([0xd24a3a, 0x3a6a9a, 0x3e8a4a][(i + j) % 3])); can.position.set(-0.3 + i * 0.3, 1.05 + j * 0.4, 0.5); g.add(can) }
+  placeProp(g, -2, 24, 0.2, 0.04, 1.0)
+}
+// 電柱２本＋電線（drooping）
+function makePole(x, z) {
+  const g = new THREE.Group(); const pole = toon(0x9a958c)
+  const p = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 9, 8), pole); p.position.y = 4.5; g.add(p)
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 0.16), toon(0x6a5a44)); arm.position.y = 8.2; g.add(arm)
+  placeProp(g, x, z, 0, 0.05, 0.6)
+  return new THREE.Vector3(x, heightAt(x, z) + 8.2, z)
+}
+const poleA = makePole(-6, 30)
+const poleB = makePole(10, 32)
+function drawWire(a, b, sag) {
+  const pts = []
+  for (let i = 0; i <= 8; i++) { const t = i / 8; pts.push(new THREE.Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * sag, a.z + (b.z - a.z) * t)) }
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.7 }))
+  scene.add(line)
+}
+drawWire(poleA, poleB, 1.2)
+drawWire(poleB, new THREE.Vector3(HOUSE.x, heightAt(HOUSE.x, HOUSE.z) + 3.5, HOUSE.z), 0.8)
+
 // ── 小さな草花（赤・白・黄の点。場を生き生きと）──
 {
   const flowerCols = [0xe06a6a, 0xf2efe6, 0xe8c84a, 0x6e7fd0]
