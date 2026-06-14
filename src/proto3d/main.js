@@ -104,6 +104,9 @@ scene.add(sun)
 scene.add(sun.target) // 影カメラと光の向きを主人公に追従させるため
 const hemi = new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15) // 空色↔草色の柔らかい環境光（明るめ）
 scene.add(hemi)
+// 逆光のリムライト（太陽の反対側から低く差す暖色。輪郭をふちどり、夕方は特に強く）。影は落とさない。
+const rim = new THREE.DirectionalLight(0xffd9a8, 0.4)
+scene.add(rim); scene.add(rim.target)
 
 // ── 空（グラデのドーム。霧は掛けない）──
 const skyMat = new THREE.ShaderMaterial({
@@ -131,10 +134,10 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe9c8, li: 2.0, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.5, hsky: 0xcfe6f4, hgnd: 0x9ab468, ball: 0xfff0cf },
-  noon: { light: 0xfff6e8, li: 2.5, sky: 0x7fbce6, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.7, hsky: 0xdaf0fb, hgnd: 0x9ab468, ball: 0xfff6d8 },
-  dusk: { light: 0xffa85f, li: 2.0, sky: 0x7a6aa6, mid: 0xeaa672, bot: 0xf8d59a, fog: 0xeec096, hi: 1.15, hsky: 0xe0aa86, hgnd: 0x7e7a54, ball: 0xffac63 },
-  night: { light: 0x7d93cc, li: 0.7, sky: 0x0d1322, mid: 0x1a2340, bot: 0x2c3a58, fog: 0x222c48, hi: 0.62, hsky: 0x35487a, hgnd: 0x32434e, ball: 0xcdd6ff },
+  morn: { light: 0xffe9c8, li: 2.0, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.5, hsky: 0xcfe6f4, hgnd: 0x9ab468, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 },
+  noon: { light: 0xfff6e8, li: 2.5, sky: 0x7fbce6, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.7, hsky: 0xdaf0fb, hgnd: 0x9ab468, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
+  dusk: { light: 0xffa85f, li: 2.0, sky: 0x7a6aa6, mid: 0xeaa672, bot: 0xf8d59a, fog: 0xeec096, hi: 1.15, hsky: 0xe0aa86, hgnd: 0x7e7a54, ball: 0xffac63, rim: 0xff944e, ri: 0.95 },
+  night: { light: 0x7d93cc, li: 0.7, sky: 0x0d1322, mid: 0x1a2340, bot: 0x2c3a58, fog: 0x222c48, hi: 0.62, hsky: 0x35487a, hgnd: 0x32434e, ball: 0xcdd6ff, rim: 0x6a82c4, ri: 0.18 },
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
 const lc = (out, ha, hb, u) => out.copy(_a.set(ha)).lerp(_b.set(hb), u)
@@ -163,6 +166,9 @@ function setTimeOfDay(t) {
   hemi.intensity = ln(from.hi, to.hi, u)
   lc(hemi.color, from.hsky, to.hsky, u)
   lc(hemi.groundColor, from.hgnd, to.hgnd, u)
+  // リムライト：太陽の水平反対側から、やや低く差す（輪郭の暖かいふち）
+  lc(rim.color, from.rim, to.rim, u)
+  rim.intensity = ln(from.ri, to.ri, u)
 }
 let tday = 0.18 // 朝から始める
 let dayAuto = true // ゆっくり一日が流れる
@@ -1542,6 +1548,9 @@ function update(dt) {
   moonGlow.position.copy(moon.position)
   sun.position.copy(boy.position).addScaledVector(sunDir, 120)
   sun.target.position.copy(boy.position)
+  // リム＝太陽の水平反対側から低く。後ろ上から輪郭をふちどる
+  rim.position.set(boy.position.x - sunDir.x * 80, boy.position.y + 26, boy.position.z - sunDir.z * 80)
+  rim.target.position.copy(boy.position)
   // 風で草木をゆらす・光の粒を漂わせる（生気）
   const tsec = clock.elapsedTime
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
