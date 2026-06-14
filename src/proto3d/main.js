@@ -19,7 +19,7 @@ const HOUSE = { x: -17, z: 13 } // 昭和の田舎家（縁側）の位置
 const TOWN = { x: 1000, z: 0 } // 住宅街エリアは遠くにオフセット（霧で野原と分離）。x>500=街
 const MOUNT = { x: TOWN.x + 6, z: TOWN.z + 92, h: 34, w: 40, d: 18 } // 町の北にそびえる裏山（頂上で街を一望）
 const SHRINE = { x: 2000, z: 0 } // 鎮守の杜（神社）エリア。x>1500=神社。石段の先の小高い杜
-const SHR_HILL = { x: SHRINE.x, z: SHRINE.z + 40, h: 14, w: 30, d: 26 } // 社のある小山
+const SHR_HILL = { x: SHRINE.x, z: SHRINE.z + 45, h: 14, w: 26, d: 15 } // 社のある小山（入口側は平ら、奥でせり上がる）
 const SWING = { x: TOWN.x - 16, z: TOWN.z + 37, py: 3.0, L: 2.2 } // 裏山ふもとのブランコ（乗ると街を見おろすブランコ視点）
 let swingSeat = null, swingPhase = 0, swingAmp = 0.3 // 振り子の状態
 function heightAt(x, z) {
@@ -434,6 +434,56 @@ const GATES = [
   const pgeo = new THREE.PlaneGeometry(5, 38); pgeo.rotateX(-Math.PI / 2)
   const path = new THREE.Mesh(pgeo, new THREE.MeshToonMaterial({ color: 0xc6aa7c, gradientMap: GRAD, map: watercolorTex }))
   path.rotation.y = 1.05; path.position.set(36, 0.06, 31); path.receiveShadow = true; scene.add(path)
+}
+// ── 神社エリア（鎮守の杜：鳥居 → 参道・石段 → お社）──
+{
+  const S = SHRINE
+  // 地面（杜＝緑。石段の先の小山がせり上がる）
+  const SGX = S.x, SGZ = S.z + 18
+  const sgeo = new THREE.PlaneGeometry(110, 140, 56, 70); sgeo.rotateX(-Math.PI / 2)
+  const spos = sgeo.attributes.position, scol = []
+  const cG1 = new THREE.Color(0x6f9a47), cG2 = new THREE.Color(0x4f763a)
+  for (let i = 0; i < spos.count; i++) { const wx = spos.getX(i) + SGX, wz = spos.getZ(i) + SGZ, y = heightAt(wx, wz); spos.setY(i, y); const c = cG1.clone().lerp(cG2, THREE.MathUtils.smoothstep(y, 2, 12)); scol.push(c.r, c.g, c.b) }
+  sgeo.setAttribute('color', new THREE.Float32BufferAttribute(scol, 3)); sgeo.computeVertexNormals()
+  const sg = new THREE.Mesh(sgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex })); sg.position.set(SGX, 0, SGZ); sg.receiveShadow = true; scene.add(sg)
+  makeTorii(S.x, S.z - 24, 0, 1.15) // 入口の鳥居（神社→はらっぱの門と同じ位置）
+  // 参道（石畳）＋石段（小山をのぼる）
+  const stoneMat = toon(0xbdb6a6)
+  const sando = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 30), new THREE.MeshToonMaterial({ color: 0xc0b9a8, gradientMap: GRAD, map: watercolorTex })); sando.rotation.x = -Math.PI / 2; sando.position.set(S.x, 0.05, S.z - 9); scene.add(sando)
+  for (let i = 0; i < 14; i++) { const sz = S.z + 6 + i * 2.2, sy = heightAt(S.x, sz); const step = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.3, 2.2), stoneMat); step.position.set(S.x, sy + 0.05, sz); step.receiveShadow = true; addOutline(step, 0.015); scene.add(step) }
+  // 石灯籠 ×2（参道の脇）
+  function makeLantern(x, z) {
+    const g = new THREE.Group(); const st = toon(0xa8a296)
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 0.5, 6), st); base.position.y = 0.25; g.add(base)
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1.1, 6), st); pole.position.y = 1.05; g.add(pole)
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.5), st); box.position.y = 1.8; g.add(box)
+    const lit = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({ color: 0xffe6a0 })); lit.position.y = 1.8; g.add(lit)
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.4, 4), st); roof.position.y = 2.2; roof.rotation.y = Math.PI / 4; g.add(roof)
+    placeProp(g, x, z, 0, 0.02, 0.5)
+  }
+  makeLantern(S.x - 3.2, S.z - 4); makeLantern(S.x + 3.2, S.z - 4)
+  // 狛犬 ×2（入口の両脇・向き合う）
+  function makeKomainu(x, z, flip) {
+    const g = new THREE.Group(); const st = toon(0x9a958a)
+    const ped = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.8), st); ped.position.y = 0.35; g.add(ped)
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), st); body.scale.set(1, 1.2, 0.9); body.position.y = 1.0; g.add(body)
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), st); head.position.set(0, 1.45, 0.1); g.add(head)
+    for (const ez of [-0.1, 0.1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.16, 5), st); ear.position.set(0, 1.66, ez); g.add(ear) }
+    placeProp(g, x, z, flip ? Math.PI : 0, 0.02, 0.6)
+  }
+  makeKomainu(S.x - 2.8, S.z - 19, false); makeKomainu(S.x + 2.8, S.z - 19, true)
+  // お社（朱塗り・瓦屋根）＝頂上。手前に賽銭箱
+  {
+    const sz = S.z + 38, sy = heightAt(S.x, sz)
+    const g = new THREE.Group()
+    const base = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 4), toon(0x7a5230)); base.position.y = 0.25; g.add(base)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.4, 3.4), toon(0xc9402f)); body.position.y = 1.7; g.add(body)
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 1.6, 4), toon(0x37474f)); roof.position.y = 3.6; roof.rotation.y = Math.PI / 4; g.add(roof)
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(S.x, sy, sz); outlineObj(g, 0.04); addContactShadow(g, 3.5); scene.add(g)
+    const sai = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 0.85), toon(0x6a4a30)); sai.position.set(S.x, sy + 0.35, sz - 3); sai.castShadow = true; addOutline(sai, 0.02); scene.add(sai)
+  }
+  // 鎮守の杜（社のまわりの木立）
+  for (const [tx, tz, ts] of [[S.x - 16, S.z + 30, 1.3], [S.x + 16, S.z + 34, 1.4], [S.x - 22, S.z + 14, 1.2], [S.x + 22, S.z + 18, 1.2], [S.x - 11, S.z + 48, 1.3], [S.x + 12, S.z + 50, 1.3], [S.x - 26, S.z + 40, 1.1], [S.x + 26, S.z + 44, 1.1]]) makeTree(tx, tz, ts)
 }
 // 門の外へ続く田舎道＝往来の先が「もう一方の場所へ続く道」だと分かる導線。
 // 電柱と電線が霧の奥へ遠ざかり、道がそのまま続いている気配を出す。
@@ -1543,24 +1593,25 @@ let transitioning = false
 let autoWalk = null // 往来中の自動歩行 {x,z}（門をくぐって前進）
 const goEl = document.getElementById('go')
 const fadeEl = document.getElementById('fade')
-function curGate() { return area === 'field' ? GATE_FIELD : GATE_TOWN }
+let activeGate = null // 今いるエリアで近づいている門（GATESから毎フレーム選ぶ）
 function travel() {
-  if (transitioning || dialogue || diaryOpen) return
+  if (transitioning || dialogue || diaryOpen || !activeGate) return
+  const gate = activeGate
   transitioning = true
   endPuni()
-  // 門の方へ向き直って歩き出す（その先が、もう一方の場所へ続く道）
-  const g = curGate()
-  facing = Math.atan2(g.x - boy.position.x, g.z - boy.position.z)
+  // 門の方へ向き直って歩き出す（その先が、行き先へ続く道）
+  facing = Math.atan2(gate.x - boy.position.x, gate.z - boy.position.z)
   autoWalk = { x: Math.sin(facing), z: Math.cos(facing) }
   fadeEl.style.opacity = '1'
   setTimeout(() => {
-    if (area === 'field') { area = 'town'; boy.position.set(GATE_TOWN.x, 0, GATE_TOWN.z + 2.0); facing = 0; goEl.textContent = 'はらっぱへ →'; todayFlags.wentTown = true }
-    else { area = 'field'; boy.position.set(GATE_FIELD.x, 0, GATE_FIELD.z - 2.0); facing = Math.PI; goEl.textContent = '町へ →' }
+    area = gate.to
+    if (gate.to === 'town') todayFlags.wentTown = true
+    facing = gate.tf
     // 門をくぐって、前へ歩きながら現れる（ぷつっと切り替わらない）
     autoWalk = { x: Math.sin(facing), z: Math.cos(facing) }
-    vel.set(autoWalk.x * 3, 0, autoWalk.z * 3)
-    boy.position.y = heightAt(boy.position.x, boy.position.z)
+    boy.position.set(gate.tx, heightAt(gate.tx, gate.tz), gate.tz)
     boy.rotation.y = facing
+    vel.set(autoWalk.x * 3, 0, autoWalk.z * 3)
     camera.position.copy(boy.position).add(camOffset(tmp))
     if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
     setTimeout(() => { fadeEl.style.opacity = '0' }, 240)
@@ -2117,9 +2168,12 @@ function update(dt) {
         boy.position.x = POND.x + pdx * k; boy.position.z = POND.z + pdz * k
         vel.x *= 0.15; vel.z *= 0.15 // 水際で勢いを止める
       }
-    } else {
+    } else if (area === 'town') {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 72, TOWN.x + 78)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 30, TOWN.z + 96)
+    } else { // 神社
+      boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
     }
     boy.position.y = heightAt(boy.position.x, boy.position.z)
     if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
@@ -2169,11 +2223,11 @@ function update(dt) {
     else if (!nearNpc && !dialogue && nearSwing) { actBtn.textContent = 'ブランコに のる'; actBtn.dataset.spot = 'swing'; actBtn.style.display = 'block' }
     else actBtn.style.display = 'none'
     lieBtn.style.display = dialogue ? 'none' : 'block'
-    // 門に近づくと往来ボタン
-    const g = curGate()
-    const gateD = Math.hypot(boy.position.x - g.x, boy.position.z - g.z)
-    goEl.style.display = (!dialogue && gateD < 7) ? 'block' : 'none' // 判定をひろげて見つけやすく
-    goEl.classList.toggle('near', gateD < 3.2) // 門の目の前ではボタンを強調
+    // 門に近づくと往来ボタン（今いるエリアの最寄りの門を選ぶ）
+    activeGate = null; let gateD = 7
+    for (const gt of GATES) { if (gt.area !== area) continue; const d = Math.hypot(boy.position.x - gt.x, boy.position.z - gt.z); if (d < gateD) { gateD = d; activeGate = gt } }
+    if (!dialogue && activeGate) { goEl.textContent = activeGate.label; goEl.style.display = 'block'; goEl.classList.toggle('near', gateD < 3.2) }
+    else { goEl.style.display = 'none'; goEl.classList.remove('near') }
     // いちばん近い虫を「つかまえる」対象に（野原のみ）
     catchTarget = null
     if (area === 'field') { let cd = 3.2; for (const c of catchables) { if (c.done) continue; const p = c.obj.position; const dd2 = Math.hypot(boy.position.x - p.x, boy.position.z - p.z); if (dd2 < cd) { cd = dd2; catchTarget = c } } }
@@ -2281,6 +2335,7 @@ window.__proto3d = {
   goArea(a) { // 検証用：エリアへ瞬間移動
     area = a
     if (a === 'town') { boy.position.set(TOWN.x - 2, 0, TOWN.z); facing = 0 }
+    else if (a === 'shrine') { boy.position.set(SHRINE.x, 0, SHRINE.z - 18); facing = 0 }
     else { boy.position.set(GATE_FIELD.x, 0, GATE_FIELD.z - 3.5); facing = Math.PI }
     boy.position.y = heightAt(boy.position.x, boy.position.z); boy.rotation.y = facing
     camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))

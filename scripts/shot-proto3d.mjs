@@ -142,6 +142,16 @@ try {
   console.log(`歩き往来テスト: 門ボタン=${goShown ? 'OK' : 'NG'} → ${walked.area}(x=${walked.bx})`)
   if (!goShown || walked.area !== 'town') errors.push('門から町へ歩いて往来できない')
   console.log('撮影: proto3d-travel.png')
+  // 野原→神社の往来（複数エリア対応の門システム）
+  await page.evaluate(() => { const H = window.__proto3d; H.goArea('field'); H.placeBoy(-40, 35) })
+  await new Promise((r) => setTimeout(r, 350))
+  const shGate = await page.evaluate(() => { const g = document.getElementById('go'); return g.style.display === 'block' ? g.textContent : '' })
+  await page.evaluate(() => document.getElementById('go').click())
+  await new Promise((r) => setTimeout(r, 1500))
+  const shArea = await page.evaluate(() => window.__proto3d.area)
+  console.log(`神社往来テスト: 門ボタン=「${shGate}」 → ${shArea}`)
+  if (shGate !== '神社へ →' || shArea !== 'shrine') errors.push('野原から神社へ往来できない')
+  await page.screenshot({ path: join(outDir, 'proto3d-shrine-arrive.png') })
   // 絵日記（その日やったこと→翌日への予告）
   await page.evaluate(() => { window.__proto3d.openDiary() })
   await new Promise((r) => setTimeout(r, 500))
