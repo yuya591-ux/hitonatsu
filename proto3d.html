@@ -23,6 +23,16 @@
       #look { left: 50%; bottom: 9%; transform: translateX(-50%); padding: 0.4em 1.1em;
         font-size: clamp(12px,2.2vw,16px); color: #fdf7ec; background: rgba(60,66,98,0.8);
         border-radius: 999px; display: none; }
+      #lie { left: 50%; bottom: 9%; transform: translateX(calc(-50% + 92px)); appearance: none; border: none;
+        cursor: pointer; padding: 0.6em 1.4em; font-size: clamp(14px,2.6vw,19px); font-family: inherit;
+        color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px;
+        box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
+      /* 横向きのおすすめ（縦持ちのスマホにだけ・やさしく・閉じれる） */
+      #rotate { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); display: none;
+        padding: 0.5em 1.2em; font-size: clamp(13px,3vw,18px); letter-spacing: 0.06em; color: #fdf7ec;
+        background: rgba(60,66,98,0.85); border-radius: 999px; box-shadow: 0 3px 12px rgba(20,24,40,0.35);
+        transition: opacity 1s ease; }
+      @media (orientation: portrait) and (max-width: 900px) { #rotate { display: block; } }
       /* ぷにコン（指で動かす仮想スティック） */
       #stick { position: fixed; width: 132px; height: 132px; margin: -66px 0 0 -66px;
         border-radius: 50%; background: rgba(255,255,255,0.14);
@@ -37,7 +47,9 @@
     <div id="hint" class="hud">指でスライド＝歩く ／ 2本指で視点を回す・つまんで寄る ／ 高台のベンチへ</div>
     <div id="badge" class="hud">3D試作（低ポリ＋トゥーン）</div>
     <button id="act" class="hud">すわる</button>
+    <button id="lie" class="hud">ねころぶ</button>
     <div id="look" class="hud">スワイプで見回す ・ もう一度タップで立つ</div>
+    <div id="rotate" class="hud">横にすると、もっと広く見渡せます</div>
     <div id="stick"><div id="knob"></div></div>
     <script type="module" src="/src/proto3d/main.js"></script>
   </body>

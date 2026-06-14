@@ -360,6 +360,26 @@ const fireflies = (() => {
   scene.add(pts); return pts
 })()
 
+// ── 入道雲（高くにゆっくり流れる。寝ころんで空を見ると気持ちいい）──
+const clouds = []
+{
+  const cmat = new THREE.MeshBasicMaterial({ color: 0xfbfbf6, fog: false, transparent: true, opacity: 0.95 })
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group()
+    const n = 3 + Math.floor(Math.random() * 3)
+    for (let k = 0; k < n; k++) {
+      const r = 7 + Math.random() * 8
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), cmat)
+      puff.position.set((k - n / 2) * 9 + Math.random() * 4, Math.random() * 4, Math.random() * 6)
+      puff.scale.y = 0.6
+      g.add(puff)
+    }
+    g.position.set((Math.random() - 0.5) * 260, 60 + Math.random() * 25, (Math.random() - 0.5) * 260)
+    g.userData = { sp: 0.6 + Math.random() * 0.7 }
+    scene.add(g); clouds.push(g)
+  }
+}
+
 // ── カメラ（既定は斜め見下ろし。視点はユーザーが回せる/寄れる） ──
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
 // 視点の制御値（球面）。yaw=水平角, pitch=見下ろし角, dist=距離。
@@ -400,12 +420,18 @@ addEventListener('resize', resize)
 resize()
 
 // ── 入力・状態 ──
-let mode = 'walk' // 'walk' | 'sit'
+let mode = 'walk' // 'walk' | 'sit' | 'lie'
 let moving = false
 let phase = 0
 let facing = 0 // 向き(rad)
 const keys = {}
-const seatLook = { yaw: Math.PI, pitch: -0.05 } // 座ったときの視線（初期は外側=-Z）
+const seatLook = { yaw: Math.PI, pitch: -0.05 } // 座/寝の視線
+const vel = new THREE.Vector3() // 歩きの慣性（世界速度 x,z）
+let idleTime = 0 // 立ち止まっている時間（“間”の演出用）
+let lookUp = 0 // 立ち止まると少し空を見上げる量(0..1)
+const BASE_FOV = 45
+const BASE_DIST = 19
+const lieBtn = document.getElementById('lie')
 
 // ぷにコン（指でスライドした方向へ歩く・白猫プロジェクト風）
 const stickEl = document.getElementById('stick')
@@ -431,7 +457,7 @@ function midDist() {
 canvas.addEventListener('pointerdown', (e) => {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
   canvas.setPointerCapture(e.pointerId)
-  if (mode === 'sit') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
+  if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
   if (pointers.size === 1) startPuni(e.pointerId, e.clientX, e.clientY)
   else if (pointers.size === 2) { endPuni(); orbit = midDist() }
 })
@@ -439,10 +465,10 @@ canvas.addEventListener('pointermove', (e) => {
   if (!pointers.has(e.pointerId)) return
   const prev = pointers.get(e.pointerId)
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-  if (mode === 'sit') {
+  if (mode !== 'walk') {
     if (sitTap) {
       seatLook.yaw -= (e.clientX - prev.x) * 0.005
-      seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prev.y) * 0.005, -1.2, 1.1)
+      seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prev.y) * 0.005, -1.4, 1.45)
       if (Math.abs(e.clientX - sitTap.x) + Math.abs(e.clientY - sitTap.y) > 8) sitTap.moved = true
     }
     return
@@ -466,7 +492,7 @@ canvas.addEventListener('pointermove', (e) => {
 function onUp(e) {
   if (!pointers.has(e.pointerId)) return
   pointers.delete(e.pointerId)
-  if (mode === 'sit') { if (sitTap && !sitTap.moved) standUp(); sitTap = null; return }
+  if (mode !== 'walk') { if (sitTap && !sitTap.moved) standUp(); sitTap = null; return }
   if (pointers.size < 2) orbit = null
   if (e.pointerId === puni.id) endPuni()
   // 2本指→1本に戻ったら、残った指でぷにコン再開
@@ -481,6 +507,27 @@ addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 
 actBtn.addEventListener('click', () => { if (mode === 'walk') sitDown() })
+lieBtn.addEventListener('click', () => { if (mode === 'walk') lieDown() })
+
+function lieDown() {
+  mode = 'lie'
+  endPuni()
+  vel.set(0, 0, 0)
+  boy.position.y = heightAt(boy.position.x, boy.position.z) + 0.25
+  boy.rotation.x = -1.35 // あおむけ
+  boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
+  boy.visible = false // 一人称で空を見る（自分の体は映さない）
+  seatLook.yaw = boy.rotation.y; seatLook.pitch = 1.2 // 空を見上げる
+  // カメラを地面すぐ上へ置き、空へ向ける（スナップ）
+  camera.fov = BASE_FOV; camera.updateProjectionMatrix()
+  const ex = boy.position.x, ey = heightAt(boy.position.x, boy.position.z) + 0.55, ez = boy.position.z
+  const cp = Math.cos(seatLook.pitch)
+  camera.position.set(ex, ey, ez)
+  camera.userData._look = camera.userData._look || new THREE.Vector3()
+  camera.userData._look.set(ex + Math.sin(seatLook.yaw) * cp, ey + Math.sin(seatLook.pitch), ez + Math.cos(seatLook.yaw) * cp)
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'
+  lookHint.style.display = 'block'
+}
 
 function sitDown() {
   mode = 'sit'
@@ -501,13 +548,16 @@ function sitDown() {
     ey + Math.sin(seatLook.pitch),
     ez + Math.cos(seatLook.yaw) * cp,
   )
-  actBtn.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'
   lookHint.style.display = 'block'
 }
 function standUp() {
   mode = 'walk'
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
+  boy.rotation.x = 0
+  boy.visible = true
   boy.position.y = heightAt(boy.position.x, boy.position.z)
+  idleTime = 0
   lookHint.style.display = 'none'
 }
 
@@ -528,6 +578,8 @@ function update(dt) {
   const tsec = clock.elapsedTime
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
+  // 入道雲がゆっくり流れる
+  for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
   // 夜の演出
   const nf = nightFactor(tday)
   moon.material.opacity = nf
@@ -558,35 +610,63 @@ function update(dt) {
     if (puni.active && Math.hypot(puni.vx, puni.vy) > 0.06) { sx = puni.vx; sy = puni.vy }
     else if (kx || kz) { sx = kx; sy = kz }
     const mag = Math.min(1, Math.hypot(sx, sy))
-    moving = mag > 0.06
-    if (moving) {
-      // 画面：右=+sx, 上=前(=-sy)
+    // 目標速度（倒し量で“そろり〜小走り”）。慣性で滑らかに加減速。
+    let tx = 0, tz = 0
+    if (mag > 0.06) {
       const wx = camRight.x * sx + camFwd.x * (-sy)
       const wz = camRight.z * sx + camFwd.z * (-sy)
       const l = Math.hypot(wx, wz) || 1
-      const sp = 7 * dt * mag
-      boy.position.x += (wx / l) * sp
-      boy.position.z += (wz / l) * sp
-      boy.position.y = heightAt(boy.position.x, boy.position.z)
-      facing = Math.atan2(wx, wz)
-      phase += dt * 9 * Math.max(0.6, mag)
+      const speed = 7 * mag
+      tx = (wx / l) * speed; tz = (wz / l) * speed
     }
+    // 加速はやや速く・減速はゆっくり（歩いてる身体の惰性）
+    const k = (Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 6 : 3.5
+    vel.x += (tx - vel.x) * Math.min(1, dt * k)
+    vel.z += (tz - vel.z) * Math.min(1, dt * k)
+    const speedNow = Math.hypot(vel.x, vel.z)
+    moving = speedNow > 0.25
+    boy.position.x += vel.x * dt
+    boy.position.z += vel.z * dt
+    boy.position.y = heightAt(boy.position.x, boy.position.z)
+    if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
+    phase += dt * 1.3 * speedNow // 歩調は実速度に連動
     // 向きをなめらかに
     let d = facing - boy.rotation.y
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2
-    boy.rotation.y += d * Math.min(1, dt * 12)
-    // 歩行アニメ
-    const sw = moving ? Math.sin(phase) * 0.6 : 0
+    boy.rotation.y += d * Math.min(1, dt * 10)
+    // 歩行アニメ（速度で振り幅）
+    const amp = THREE.MathUtils.clamp(speedNow / 6, 0, 1) * 0.6
+    const sw = Math.sin(phase) * amp
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     boy.userData.armL.rotation.x = -sw; boy.userData.armR.rotation.x = sw
-    boy.position.y += moving ? Math.abs(Math.sin(phase)) * 0.06 : 0
+
+    // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
+    idleTime = moving ? 0 : idleTime + dt
+    const calm = THREE.MathUtils.clamp((idleTime - 1.2) / 3, 0, 1) // 1.2秒後から3秒かけて
+    lookUp += ((moving ? 0 : calm * 0.18) - lookUp) * Math.min(1, dt * 2)
+    boy.userData.head.rotation.x = -lookUp * 1.6 // 空を見上げる
+    boy.position.y += moving ? Math.abs(Math.sin(phase)) * 0.06 : Math.sin(tsec * 1.4) * 0.012 // 歩く弾み/立つ呼吸
 
     const near = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
     actBtn.style.display = near ? 'block' : 'none'
+    lieBtn.style.display = 'block'
 
-    // カメラ：今の視点（yaw/pitch/dist）で追従
+    // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
+    camCtl.dist += (BASE_DIST * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
+    camera.fov += ((BASE_FOV - calm * 4) - camera.fov) * Math.min(1, dt * 1.5)
+    camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
-    lookGoal.copy(boy.position); lookGoal.y += 1.4
+    // ごく微かな“息”の揺れ
+    camGoal.x += Math.sin(tsec * 0.6) * 0.06
+    camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05
+    lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
+  } else if (mode === 'lie') {
+    // 寝ころんで空を見る：目線は地面すぐ上、上を向く
+    seatEye.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.55, boy.position.z)
+    const cp = Math.cos(seatLook.pitch)
+    lookTo.set(seatEye.x + Math.sin(seatLook.yaw) * cp, seatEye.y + Math.sin(seatLook.pitch), seatEye.z + Math.cos(seatLook.yaw) * cp)
+    camGoal.copy(seatEye); lookGoal.copy(lookTo)
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'
   } else {
     // 座って360度見回す（目線は座面の少し前・上＝体に埋まらない）
     seatEye.set(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
@@ -598,9 +678,10 @@ function update(dt) {
     )
     camGoal.copy(seatEye)
     lookGoal.copy(lookTo)
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'
   }
   // カメラを目標へなめらかに寄せる
-  camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'sit' ? 6 : 5)))
+  camera.position.lerp(camGoal, Math.min(1, dt * (mode !== 'walk' ? 6 : 5)))
   // 注視点もなめらかに
   camera.userData._look = camera.userData._look || new THREE.Vector3().copy(lookGoal)
   camera.userData._look.lerp(lookGoal, Math.min(1, dt * 6))
@@ -613,8 +694,21 @@ renderer.setAnimationLoop(() => {
   composer.render()
 })
 
+// 横画面のおすすめ（縦持ちのスマホにだけ、やさしく一度。閉じれる/数秒で消える）
+const rotateEl = document.getElementById('rotate')
+function fadeRotate() {
+  if (!rotateEl) return
+  setTimeout(() => { rotateEl.style.opacity = '0' }, 4500)
+}
+fadeRotate()
+// 可能なら横向きに固定（Android等。iOSは無視されるが害なし）
+addEventListener('pointerdown', function lockOnce() {
+  removeEventListener('pointerdown', lockOnce)
+  try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}) } catch (e) {}
+}, { once: true })
+
 // 自己検証用の最小ハンドル
 window.__proto3d = {
-  THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp,
+  THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp, lieDown,
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
 }

@@ -55,6 +55,11 @@ try {
   await new Promise((r) => setTimeout(r, 1500))
   await page.screenshot({ path: join(outDir, 'proto3d-sit.png') })
   console.log('撮影: proto3d-sit.png')
+  // 寝ころんで空を見る（昼・原っぱの開けた場所で）
+  await page.evaluate(() => { window.__proto3d.standUp(); window.__proto3d.boy.position.set(10, 0, 8); window.__proto3d.setDay(0.35); window.__proto3d.lieDown() })
+  await new Promise((r) => setTimeout(r, 1500))
+  await page.screenshot({ path: join(outDir, 'proto3d-lie.png') })
+  console.log('撮影: proto3d-lie.png')
   await page.close()
 } finally {
   await browser.close()
