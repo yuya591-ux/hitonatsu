@@ -1256,8 +1256,8 @@ const gradePass = new ShaderPass({
       return mix(mix(a, b, f.x), mix(cc, d, f.x), f.y); }
     float L(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
     void main(){
-      // にじみのゆらぎ：低周波ノイズでサンプル位置を微妙に歪める＝手描きのよれ
-      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (2.4 * wc);
+      // にじみのゆらぎ：低周波ノイズでサンプル位置を歪める＝手描きのよれ
+      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (3.4 * wc);
       vec2 uv = vUv + wob;
       vec3 c = texture2D(tDiffuse, uv).rgb;
       float lum = L(c);
@@ -1266,16 +1266,16 @@ const gradePass = new ShaderPass({
               + abs(L(texture2D(tDiffuse, uv + vec2(0.0, texel.y)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(texel.x, 0.0)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(0.0, texel.y)).rgb) - lum);
-      c *= 1.0 - clamp(e * 1.7 * wc, 0.0, 0.34);
+      c *= 1.0 - clamp(e * 2.4 * wc, 0.0, 0.44);
       vec3 graded = c;
-      graded += vec3(-0.018, 0.010, 0.030) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
-      graded += vec3(0.030, 0.014, -0.020) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
-      graded = mix(vec3(lum), graded, 0.90 - 0.05 * wc);                        // 退色（水彩のくすみ）
+      graded += vec3(-0.020, 0.012, 0.034) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
+      graded += vec3(0.032, 0.016, -0.022) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
+      graded = mix(vec3(lum), graded, 0.90 - 0.10 * wc);                        // 退色（水彩のくすみ）
       graded = graded * 0.975 + 0.018;
       c = mix(c, graded, amount);
       // 紙の質感：低周波の紙むら＋細かいザラ。明るい所にも残す＝水彩紙
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.5 + vnoise(vUv * vec2(38.0, 36.0)) * 0.5;
-      c *= 1.0 - wc * (0.06 - paper * 0.12);
+      c *= 1.0 - wc * (0.10 - paper * 0.2);
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
       c += (grain - 0.5) * 0.02;
       float d = distance(vUv, vec2(0.5));
