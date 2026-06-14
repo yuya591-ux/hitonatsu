@@ -599,6 +599,23 @@ function makeDragonfly(cx, cz) {
 }
 for (const [x, z] of [[7, 4], [-6, 6], [10, -6], [-12, -2]]) makeDragonfly(x, z)
 
+// ── 夕方のカラス（夕焼け空を ねぐらへ帰っていく＝「そろそろ帰る時間」）──
+const crows = []
+function makeCrow() {
+  const g = new THREE.Group()
+  const mat = new THREE.MeshBasicMaterial({ color: 0x23252f, fog: false, side: THREE.DoubleSide, transparent: true, opacity: 0 })
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), mat); body.scale.set(1, 0.7, 2.4); g.add(body)
+  // 翼は体の中心をピボットにして はばたかせる（翼端が上下する＝鳥のV字）
+  const wl = new THREE.Group(); g.add(wl)
+  const wlm = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.42), mat); wlm.position.x = -0.7; wlm.rotation.x = -Math.PI / 2; wl.add(wlm)
+  const wr = new THREE.Group(); g.add(wr)
+  const wrm = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.42), mat); wrm.position.x = 0.7; wrm.rotation.x = -Math.PI / 2; wr.add(wrm)
+  g.rotation.y = -Math.PI / 2 // 進行方向（+x）を向く
+  g.userData = { wl, wr, mat, off: Math.random() * 240, sp: 5 + Math.random() * 2, alt: 17 + Math.random() * 9, lane: -85 + Math.random() * 45, flap: 7 + Math.random() * 3, fph: Math.random() * 6.28 }
+  g.visible = false; scene.add(g); crows.push(g)
+}
+for (let i = 0; i < 5; i++) makeCrow()
+
 // ── 虫採り（つかまえる遊び）：蝶・カブトムシ・セミ ──
 const caught = { count: 0, kinds: {} }
 const catchables = []
@@ -1571,6 +1588,18 @@ function update(dt) {
     u.body.opacity = eveningF; u.wing.opacity = eveningF * 0.5
     d.visible = eveningF > 0.02
   }
+  // 夕方のカラス（夕焼け〜宵に かけて 空を横切る）
+  const crowF = THREE.MathUtils.smoothstep(tday, 0.60, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.80, 0.90))
+  for (const c of crows) {
+    const u = c.userData
+    c.visible = crowF > 0.02
+    if (!c.visible) continue
+    const span = ((tsec * u.sp + u.off) % 260) - 130 // -130→+130 で横切り、端でループ
+    c.position.set(boy.position.x + span, u.alt + Math.sin(tsec * 0.3 + u.off) * 1.5, boy.position.z + u.lane)
+    const f = Math.sin(tsec * u.flap + u.fph) * 0.7
+    u.wl.rotation.z = f; u.wr.rotation.z = -f // はばたき
+    u.mat.opacity = crowF
+  }
   // 木漏れ日：太陽の画面位置と強さ（昼に強く・画面内のときだけ）
   sunProj.copy(sunBall.position).project(camera)
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
@@ -1761,5 +1790,24 @@ window.__proto3d = {
   audioState() {
     const playing = Object.keys(ambients).filter((id) => ambients[id].isPlaying)
     return { started: audioStarted, ctx: listener.context.state, loaded: Object.keys(ambients).length, playing }
+  },
+  aimSky(t) { // 検証用：ベンチに座って空を見上げる（夕方のカラスを見る視点）
+    if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
+    sitDown()
+    const eye = new THREE.Vector3(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
+    let best = null, bd = 1e9
+    for (const c of crows) { const d = c.position.distanceTo(eye); if (c.visible && d < bd) { bd = d; best = c } }
+    const dir = (best ? best.position.clone() : new THREE.Vector3(SEAT.x, SEAT.y + 25, SEAT.z - 60)).sub(eye)
+    seatLook.yaw = Math.atan2(dir.x, dir.z)
+    seatLook.pitch = Math.asin(THREE.MathUtils.clamp(dir.y / dir.length(), -1, 1))
+  },
+  crowsVisible() { // 検証用：画面内に見えているカラスの数
+    const v = new THREE.Vector3(); let n = 0
+    for (const c of crows) {
+      if (!c.visible) continue
+      v.copy(c.position).project(camera)
+      if (v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1) n++
+    }
+    return n
   },
 }

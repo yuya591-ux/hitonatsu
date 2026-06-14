@@ -72,6 +72,14 @@ try {
   await new Promise((r) => setTimeout(r, 1800))
   await page.screenshot({ path: join(outDir, 'proto3d-godray.png') })
   console.log('撮影: proto3d-godray.png')
+  // 夕方のカラス：夕焼け空を見上げる
+  await page.evaluate(() => window.__proto3d.aimSky(0.74))
+  await new Promise((r) => setTimeout(r, 1000))
+  const crowN = await page.evaluate(() => window.__proto3d.crowsVisible())
+  console.log(`カラステスト: 画面内のカラス=${crowN}`)
+  if (crowN < 1) errors.push('夕方のカラスが空に見えていない')
+  await page.screenshot({ path: join(outDir, 'proto3d-crow.png') })
+  console.log('撮影: proto3d-crow.png')
   // 池（水面）：池の北側に立つと手前に水面が入る
   await page.evaluate(() => { window.__proto3d.setDay(0.45); window.__proto3d.placeBoy(26, 29) })
   await new Promise((r) => setTimeout(r, 1200))
