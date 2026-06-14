@@ -1484,9 +1484,13 @@ function update(dt) {
       villager.rotation.y = Math.atan2(dx, dz)
       const sw = Math.sin(vu.wph) * 0.5; vu.legL.rotation.x = sw; vu.legR.rotation.x = -sw
     } else {
-      villager.position.y = heightAt(villager.position.x, villager.position.z)
+      villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(tsec * 1.3)) * 0.012 // 息づかい
       vu.legL.rotation.x *= 0.8; vu.legR.rotation.x *= 0.8
     }
+  }
+  // 立っている街の人の息づかい
+  for (const n of [townLady, townKid]) {
+    n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
