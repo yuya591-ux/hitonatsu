@@ -1510,6 +1510,21 @@ for (let i = 0; i < 7; i++) {
   scene.add(mesh); thunderheads.push(mesh)
 }
 
+// ── 夕立（時おり通り雨。空が陰り、雨が降って すぐ晴れる＝夏の通り雨）──
+let weather = 0, weatherTarget = 0, weatherTimer = 50 + Math.random() * 50 // 0=快晴 1=本降り
+const RAINN = 280, RAIN_BOX = 15, RAIN_H = 17
+const rainGeo = new THREE.BufferGeometry()
+const rainPos = new Float32Array(RAINN * 6)
+const rainY = new Float32Array(RAINN)
+for (let i = 0; i < RAINN; i++) {
+  const rx = (Math.random() - 0.5) * 2 * RAIN_BOX, rz = (Math.random() - 0.5) * 2 * RAIN_BOX
+  rainY[i] = Math.random() * RAIN_H
+  rainPos[i * 6] = rx; rainPos[i * 6 + 2] = rz; rainPos[i * 6 + 3] = rx + 0.06; rainPos[i * 6 + 5] = rz // 上端と下端（少し斜め）
+}
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3))
+const rainMesh = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xb4c6d6, transparent: true, opacity: 0, fog: false }))
+rainMesh.frustumCulled = false; scene.add(rainMesh)
+
 // ── カメラ（既定は斜め見下ろし。視点はユーザーが回せる/寄れる） ──
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
 // 視点の制御値（球面）。yaw=水平角, pitch=見下ろし角, dist=距離。
@@ -1556,10 +1571,10 @@ composer.addPass(godrayPass)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.05 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.05 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -1583,6 +1598,12 @@ const gradePass = new ShaderPass({
       graded = mix(vec3(lum), graded, 0.90 - 0.10 * wc);                        // 退色（水彩のくすみ）
       graded = graded * 0.975 + 0.018;
       c = mix(c, graded, amount);
+      // 夕立：降っている間は全体を少し暗く・青く・くすませる（曇って雨が来た空気）
+      if (rain > 0.001) {
+        float g2 = dot(c, vec3(0.3, 0.59, 0.11));
+        c = mix(c, vec3(g2) * vec3(0.82, 0.9, 1.02), rain * 0.5);
+        c *= 1.0 - rain * 0.22;
+      }
       // 黄金色の夕（ゴールデンアワー）：夕方は画面全体を温かく金色に染め、上空ほど茜色に
       if (golden > 0.001) {
         c += golden * vec3(0.10, 0.045, -0.05) * (0.35 + lum);          // 光の当たる所ほど金色に
@@ -2219,6 +2240,22 @@ function update(dt) {
     const u = t.userData; u.az += dt * u.drift
     t.position.set(camera.position.x + Math.cos(u.az) * u.dist, u.baseY, camera.position.z + Math.sin(u.az) * u.dist)
   }
+  // 夕立：時おり通り雨。空が陰り→雨→すぐ晴れる
+  weatherTimer -= dt
+  if (weatherTimer <= 0) {
+    if (weatherTarget > 0.5) { weatherTarget = 0; weatherTimer = 90 + Math.random() * 120 } // 雨→晴れ（晴れは長い）
+    else { weatherTarget = 1; weatherTimer = 13 + Math.random() * 14 } // 晴れ→夕立（短い通り雨）
+  }
+  weather += (weatherTarget - weather) * Math.min(1, dt * 0.3)
+  gradePass.uniforms.rain.value = weather
+  rainMesh.visible = weather > 0.03
+  rainMesh.material.opacity = Math.min(1, weather * 1.5) * 0.62
+  if (rainMesh.visible) {
+    rainMesh.position.set(camera.position.x, camera.position.y - 6.5, camera.position.z)
+    const pa = rainGeo.attributes.position, fall = 30 * dt
+    for (let i = 0; i < RAINN; i++) { rainY[i] -= fall; if (rainY[i] < 0) rainY[i] += RAIN_H; pa.array[i * 6 + 1] = rainY[i] + 0.85; pa.array[i * 6 + 4] = rainY[i] }
+    pa.needsUpdate = true
+  }
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
   for (const tex of barberPoles) { tex.offset.y -= dt * 0.4 }
@@ -2253,7 +2290,7 @@ function update(dt) {
   if (audioStarted) {
     const w = ambientWeights(tday)
     // 蝉しぐれ：ゆっくり寄せては返すように音量がうねる（一様でない＝本物の夏の気配）
-    const cicadaSwell = 0.68 + 0.32 * (0.5 + 0.5 * Math.sin(tsec * 0.12)) + 0.06 * Math.sin(tsec * 0.5 + 1.0)
+    const cicadaSwell = (0.68 + 0.32 * (0.5 + 0.5 * Math.sin(tsec * 0.12)) + 0.06 * Math.sin(tsec * 0.5 + 1.0)) * (1 - weather * 0.75) // 夕立で蝉が静かに
     for (const id in ambients) {
       const a = ambients[id]; if (!a.buffer) continue
       let v = Math.min(1, w[id] || 0) * 0.6
@@ -2735,6 +2772,7 @@ window.__proto3d = {
   villager, cat, // 検証用
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
   _jump() { doJump() }, // 検証用
+  _weather(v) { weather = v; weatherTarget = v; weatherTimer = 999 }, // 検証用：夕立 0=晴 1=雨
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
