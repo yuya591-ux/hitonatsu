@@ -569,6 +569,27 @@ function makeButterfly(cx, cz) {
 }
 for (const [x, z] of [[5, 2], [-8, -4], [12, -8]]) makeButterfly(x, z)
 
+// ── 虫採り（つかまえる遊び）：蝶・カブトムシ・セミ ──
+const caught = { count: 0, kinds: {} }
+const catchables = []
+for (const b of butterflies) catchables.push({ obj: b, kind: 'チョウ', done: false })
+function makeBug(x, y, z, kind) {
+  const g = new THREE.Group()
+  if (kind === 'カブトムシ') {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), toon(0x3a2a1a)); body.scale.set(1, 0.7, 1.35); g.add(body)
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.32, 6), toon(0x241810)); horn.position.set(0, 0.1, 0.34); horn.rotation.x = -0.7; g.add(horn)
+  } else {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), toon(0x5a5a50)); body.scale.set(1, 0.8, 1.7); g.add(body)
+  }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, y, z); scene.add(g)
+  catchables.push({ obj: g, kind, done: false })
+}
+makeBug(14, 2.2, 6.5, 'カブトムシ')
+makeBug(22, 2.4, -9.6, 'カブトムシ')
+makeBug(-16, 2.6, 2.5, 'セミ')
+makeBug(9, 2.0, -21.5, 'セミ')
+
 // ── 主人公（低ポリの少年・麦わら帽子）──
 function makeBoy() {
   const g = new THREE.Group()
@@ -961,6 +982,7 @@ refreshBadge()
 function openDiary() {
   diaryOpen = true; dayAuto = false
   const body = []
+  if (caught.count) body.push(`むしを ${caught.count}ひき つかまえた（${Object.keys(caught.kinds).join('・')}）。`)
   if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。')
   if (todayFlags.wentTown) body.push('街の 商店街まで あるいた。')
   if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
@@ -1013,6 +1035,28 @@ function advanceDialogue() {
 }
 npcEl.addEventListener('click', startDialogue)
 dialogueEl.addEventListener('click', advanceDialogue)
+
+// 虫採りの「つかまえる」とお知らせ（トースト）
+const catchEl = document.getElementById('catch')
+const toastEl = document.getElementById('toast')
+let catchTarget = null
+function showToast(msg) {
+  if (!toastEl) return
+  toastEl.textContent = msg; toastEl.classList.add('show')
+  clearTimeout(toastEl._t); toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 1800)
+}
+function doCatch() {
+  if (!catchTarget || catchTarget.done) return
+  catchTarget.done = true
+  catchTarget.obj.visible = false
+  catchTarget.obj.userData.done = true
+  caught.count += 1
+  caught.kinds[catchTarget.kind] = (caught.kinds[catchTarget.kind] || 0) + 1
+  showToast(`${catchTarget.kind}を つかまえた！`)
+  catchTarget = null
+  if (catchEl) catchEl.style.display = 'none'
+}
+if (catchEl) catchEl.addEventListener('click', doCatch)
 
 // ぷにコン（指でスライドした方向へ歩く・白猫プロジェクト風）
 const stickEl = document.getElementById('stick')
@@ -1108,7 +1152,7 @@ function lieDown() {
   camera.position.set(ex, ey, ez)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(ex + Math.sin(seatLook.yaw) * cp, ey + Math.sin(seatLook.pitch), ez + Math.cos(seatLook.yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 
@@ -1140,7 +1184,7 @@ function sitDown(which) {
   camera.position.copy(eye)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(eye.x + Math.sin(yaw) * cp, eye.y + Math.sin(seatLook.pitch), eye.z + Math.cos(yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 function standUp() {
@@ -1239,6 +1283,7 @@ function update(dt) {
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
     const u = b.userData
+    if (u.done) { b.visible = false; continue } // つかまえた蝶は出さない
     const a = tsec * u.sp + u.ph
     const bx = u.cx + Math.cos(a) * u.r, bz = u.cz + Math.sin(a) * u.r
     b.position.set(bx, heightAt(bx, bz) + 1.6 + Math.sin(a * 3) * 0.3, bz)
@@ -1324,6 +1369,11 @@ function update(dt) {
     // 門に近づくと往来ボタン
     const g = curGate()
     goEl.style.display = (!dialogue && Math.hypot(boy.position.x - g.x, boy.position.z - g.z) < 3.5) ? 'block' : 'none'
+    // いちばん近い虫を「つかまえる」対象に（野原のみ）
+    catchTarget = null
+    if (area === 'field') { let cd = 3.2; for (const c of catchables) { if (c.done) continue; const p = c.obj.position; const dd2 = Math.hypot(boy.position.x - p.x, boy.position.z - p.z); if (dd2 < cd) { cd = dd2; catchTarget = c } } }
+    catchEl.style.display = (catchTarget && !dialogue) ? 'block' : 'none'
+    if (catchTarget) npcEl.style.display = 'none'
 
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
     camCtl.dist += (BASE_DIST * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
@@ -1340,7 +1390,7 @@ function update(dt) {
     const cp = Math.cos(seatLook.pitch)
     lookTo.set(seatEye.x + Math.sin(seatLook.yaw) * cp, seatEye.y + Math.sin(seatLook.pitch), seatEye.z + Math.cos(seatLook.yaw) * cp)
     camGoal.copy(seatEye); lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
   } else {
     // 座って360度見回す（高台のベンチ or 縁側。目線は座る位置）
     seatEye.copy(curSitEye)
@@ -1352,7 +1402,7 @@ function update(dt) {
     )
     camGoal.copy(seatEye)
     lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'
   }
   // カメラを目標へなめらかに寄せる
   camera.position.lerp(camGoal, Math.min(1, dt * (mode !== 'walk' ? 6 : 5)))
@@ -1406,6 +1456,8 @@ window.__proto3d = {
     if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
   },
   get area() { return area },
+  doCatch() { doCatch() }, // 検証用
+  get caught() { return caught.count },
   villager,
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }

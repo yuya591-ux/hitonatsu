@@ -98,6 +98,13 @@ try {
   if (!talking) errors.push('村の人と会話できていない')
   await page.screenshot({ path: join(outDir, 'proto3d-talk.png') })
   console.log('撮影: proto3d-talk.png')
+  // 虫採り（カブトムシのそばで つかまえる）
+  await page.evaluate(() => { window.__proto3d.standUp(); window.__proto3d.placeBoy(14, 8) })
+  await new Promise((r) => setTimeout(r, 700))
+  await page.evaluate(() => window.__proto3d.doCatch())
+  const caughtN = await page.evaluate(() => window.__proto3d.caught)
+  console.log(`虫採りテスト: つかまえた数=${caughtN}`)
+  if (caughtN < 1) errors.push('虫をつかまえられない')
   // 絵日記（その日やったこと→翌日への予告）
   await page.evaluate(() => { window.__proto3d.openDiary() })
   await new Promise((r) => setTimeout(r, 500))
