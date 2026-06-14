@@ -1300,7 +1300,7 @@ Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
 // ※特定作品のキャラ・顔の模倣はしない。素朴で可愛い普遍的なトゥーン顔。
 function makeBoy() {
   const g = new THREE.Group()
-  const skin = toon(0xeebb8e), shirt = toon(0xeef0ea), pants = toon(0xc9a86a), hat = toon(0xe6c178) // 肌は小麦色・半ズボンはベージュ（イラスト準拠）
+  const skin = toon(0xf6cda3), shirt = toon(0xf2f3ee), pants = toon(0xcaa86a), hat = toon(0xe9c67e) // 明るい肌・白シャツ・ベージュ半ズボン
   // ── 関節のある体（股→膝→足、肩→肘→手）でゲームキューブ世代の立体感に。
   //    legL/legR は股関節ピボット、armL/armR は肩ピボット（既存アニメ互換）。膝・肘は子グループ。──
   // 脚（夏なので半ズボン＝太もも下は素足）。股ピボット=0.92 → 膝0.44 → 足首0.08（足裏≒地面）。脚を長めにして頭身を上げる
@@ -1359,16 +1359,8 @@ function makeBoy() {
   satchel.position.set(0.27, 0.82, 0.17); satchel.rotation.z = 0.08; g.add(satchel)
   const flap = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.17), toon(0xa6794a))
   flap.position.set(0.27, 0.91, 0.17); flap.rotation.z = 0.08; g.add(flap) // ふた
-  // 胸の水筒（肩ひもで提げる丸い水筒＝イラストの胸の物。あの時代の遠足の定番）
-  const canteenStrap = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.82, 0.07), bagStrap)
-  canteenStrap.position.set(-0.04, 1.18, 0.17); canteenStrap.rotation.set(0.16, 0, -0.5); g.add(canteenStrap) // 反対の肩がけ
-  const canteen = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.22, 12), toon(0x4f8a52))
-  canteen.position.set(-0.2, 0.92, 0.2); g.add(canteen)
-  const canteenCap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.06, 10), toon(0xc0c0b6))
-  canteenCap.position.set(-0.2, 1.05, 0.2); g.add(canteenCap)
-  // シャツの胸の小さなモチーフ（虫＝夏の少年らしさ）
-  const motif = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), toon(0x6a4a2e)); motif.scale.set(1, 1.3, 0.4); motif.position.set(0.05, 1.3, 0.27); g.add(motif)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  brim.castShadow = false; cap.castShadow = false; band.castShadow = false // 帽子が顔に影を落として暗く見えるのを防ぐ＝明るい笑顔
   g.userData = { legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, net, swing: 0 }
   return g
 }
@@ -1380,18 +1372,19 @@ outlineObj(boy, 0.03)
   const head = boy.userData.head
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.45 })
-  // にっこり閉じた目（イラスト準拠の笑顔）＝中央が高い ⌒（＾＿＾の目）
-  for (const ex of [-0.105, 0.105]) {
-    const eye = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.0105, 6, 12, Math.PI), eyeMat)
-    eye.position.set(ex, 0.05, 0.252); head.add(eye)
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.058, 12, 10), blushMat); bl.scale.set(1, 0.62, 0.4); bl.position.set(ex + (ex > 0 ? 0.062 : -0.062), -0.045, 0.225); head.add(bl) // ほっぺの赤み
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf3a59a, transparent: true, opacity: 0.5 })
+  const browMat = new THREE.MeshBasicMaterial({ color: 0x6a4a34 })
+  // 目＝白目＋丸い茶色の瞳＋ハイライト（やさしく親しみやすい。顔表面に沿って少しへこませる）
+  for (const ex of [-0.108, 0.108]) {
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.058, 14, 12), hiMat); sclera.scale.set(0.78, 1.05, 0.42); sclera.position.set(ex, 0.045, 0.232); head.add(sclera) // 白目
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.04, 14, 12), eyeMat); iris.scale.set(0.92, 1.0, 0.42); iris.position.set(ex, 0.038, 0.252); head.add(iris) // 瞳（茶）
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 8), hiMat); hi.position.set(ex + 0.016, 0.072, 0.272); head.add(hi) // きらり
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.014, 0.02), browMat); brow.position.set(ex, 0.115, 0.258); brow.rotation.z = ex > 0 ? 0.12 : -0.12; head.add(brow) // やわらかい眉
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.056, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.066 : -0.066), -0.05, 0.222); head.add(bl) // ほっぺ
   }
-  // 大きな笑顔（口）＝開いた弧＋うっすら口の中
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.014, 6, 14, Math.PI), eyeMat)
-  mouth.rotation.z = Math.PI; mouth.position.set(0, -0.095, 0.252); head.add(mouth)
-  const mfill = new THREE.Mesh(new THREE.CircleGeometry(0.05, 14, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0xc56a5c }))
-  mfill.rotation.z = Math.PI; mfill.position.set(0, -0.095, 0.246); head.add(mfill)
+  // 口＝小さなにっこり（線だけ・暗い穴は作らない＝怖くならない）
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 14, Math.PI * 0.9), browMat)
+  mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.085, 0.252); head.add(mouth)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
@@ -1401,7 +1394,7 @@ scene.add(boyShadow)
 
 // ── 主人公＝手描き水彩画のビルボード（差し替え可能：CLAUDE.mdの「画像差し替え」設計の実体化）──
 // 立体モデルは隠し、絵を板に貼って世界に立たせ、生きた挿絵のように弾む/揺れる。カメラへ水平に正対（直立を保つ）。
-const USE_BILLBOARD = true
+const USE_BILLBOARD = false // ※実機で崩れたため3Dモデルへ戻す（ビルボード機構は温存）
 let charMesh = null, charReady = false
 const charNightTint = new THREE.Color(0x5a6890)
 if (USE_BILLBOARD) {
