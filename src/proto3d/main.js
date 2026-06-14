@@ -15,6 +15,7 @@ const lookHint = document.getElementById('look')
 
 // ── 地面の高さ（解析式）。地面メッシュもキャラの足元もこの式で揃える。──
 const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
+const HOUSE = { x: -17, z: 13 } // 昭和の田舎家（縁側）の位置
 function heightAt(x, z) {
   const hill = 6.0 * Math.exp(-((x * x) + (z + 28) * (z + 28)) / (2 * 18 * 18)) // -Z側のなだらかな高台
   const undul = 0.6 * Math.sin(x * 0.08) * Math.cos(z * 0.08) // 微妙なうねり
@@ -266,6 +267,32 @@ function makeTree(x, z, s = 1) {
 }
 for (const [x, z, s] of [[14, 6, 1.1], [-16, 2, 1.0], [22, -10, 1.2], [-22, -14, 1.1], [9, -22, 0.9], [-10, -24, 0.95], [30, 12, 1.0], [-30, 14, 1.1]]) makeTree(x, z, s)
 
+// ── 昭和の田舎家（縁側・瓦屋根・障子）＝時代の空気の核。麦わら帽子の少年の“おばあちゃんち”的な原風景 ──
+function makeHouse(x, z, rot) {
+  const g = new THREE.Group()
+  const wall = toon(0xe6dcc4), wood = toon(0x8a6a44), roofC = toon(0x586472), woodDark = toon(0x6a4e30)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(7, 3.1, 5), wall); body.position.y = 1.75; g.add(body)
+  // 縁側（前面の木の床）と支柱
+  const engawa = new THREE.Mesh(new THREE.BoxGeometry(7, 0.28, 1.5), wood); engawa.position.set(0, 0.62, 3.2); g.add(engawa)
+  for (const px of [-3.2, 3.2]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.6, 0.18), woodDark); post.position.set(px, 1.9, 3.7); g.add(post) }
+  // 障子（前面の白い格子）
+  for (let i = 0; i < 3; i++) {
+    const sho = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 2.0), new THREE.MeshToonMaterial({ color: 0xf2efe2, gradientMap: GRAD }))
+    sho.position.set(-2.2 + i * 2.2, 1.85, 2.51); g.add(sho)
+  }
+  // 軒（前面の小庇）
+  const eave = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.16, 1.7), roofC); eave.position.set(0, 3.25, 3.3); eave.rotation.x = -0.12; g.add(eave)
+  // 瓦屋根（寄棟・青灰）
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(6.1, 2.7, 4), roofC); roof.position.y = 4.7; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.76); g.add(roof)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
+  outlineObj(g, 0.06)
+  addContactShadow(g, 5.2)
+  scene.add(g)
+  return g
+}
+makeHouse(HOUSE.x, HOUSE.z, 0.35)
+
 // ── 小さな草花（赤・白・黄の点。場を生き生きと）──
 {
   const flowerCols = [0xe06a6a, 0xf2efe6, 0xe8c84a, 0x6e7fd0]
@@ -315,6 +342,7 @@ let grassShader = null
     const x = (Math.random() - 0.5) * 150, z = (Math.random() - 0.5) * 150
     if (x * x + (z + 28) * (z + 28) < 36) continue // ベンチ周りは空ける
     if ((x - POND.x) ** 2 + (z - POND.z) ** 2 < POND.r * POND.r) continue // 池の上は空ける
+    if ((x - HOUSE.x) ** 2 + (z - HOUSE.z) ** 2 < 40) continue // 家の周りは空ける
     p.set(x, heightAt(x, z) + 0.12, z)
     q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, 0))
     const sc2 = 0.5 + Math.random() * 1.1
