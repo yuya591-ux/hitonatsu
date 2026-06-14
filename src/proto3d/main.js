@@ -587,6 +587,18 @@ function makeButterfly(cx, cz) {
 }
 for (const [x, z] of [[5, 2], [-8, -4], [12, -8]]) makeButterfly(x, z)
 
+// ── 赤とんぼ（夕方に飛ぶ＝夏の終わりの象徴）──
+const dragonflies = []
+function makeDragonfly(cx, cz) {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.75, 5), new THREE.MeshToonMaterial({ color: 0xd0503a, gradientMap: GRAD, transparent: true })); body.rotation.z = Math.PI / 2; g.add(body)
+  const wmat = new THREE.MeshBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+  for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.15), wmat); w.position.set(s * 0.05, 0.03, s * 0.12); g.add(w) }
+  g.userData = { cx, cz, ph: Math.random() * 6.28, r: 3 + Math.random() * 5, sp: 0.5 + Math.random() * 0.4, body: body.material, wing: wmat }
+  scene.add(g); dragonflies.push(g)
+}
+for (const [x, z] of [[7, 4], [-6, 6], [10, -6], [-12, -2]]) makeDragonfly(x, z)
+
 // ── 虫採り（つかまえる遊び）：蝶・カブトムシ・セミ ──
 const caught = { count: 0, kinds: {} }
 const catchables = []
@@ -1509,6 +1521,17 @@ function update(dt) {
     u.wl.rotation.y = flap; u.wr.rotation.y = -flap
     u.mat.opacity = 1 - nf
     b.visible = nf < 0.96
+  }
+  // 赤とんぼ（夕方に飛ぶ）
+  const eveningF = THREE.MathUtils.smoothstep(tday, 0.42, 0.58) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.92))
+  for (const d of dragonflies) {
+    const u = d.userData
+    const a = tsec * u.sp + u.ph
+    const dx = u.cx + Math.cos(a) * u.r, dz = u.cz + Math.sin(a * 1.3) * u.r
+    d.position.set(dx, heightAt(dx, dz) + 1.9 + Math.sin(a * 2) * 0.4, dz)
+    d.rotation.y = -a * 1.3 + Math.PI / 2
+    u.body.opacity = eveningF; u.wing.opacity = eveningF * 0.5
+    d.visible = eveningF > 0.02
   }
   // 木漏れ日：太陽の画面位置と強さ（昼に強く・画面内のときだけ）
   sunProj.copy(sunBall.position).project(camera)
