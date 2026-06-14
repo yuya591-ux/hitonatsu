@@ -1932,6 +1932,8 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ（2本指で視点操作）
 let orbit = null // { mx, my, d }
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
+let jumpY = 0, jumpV = 0 // ジャンプ（地面からの高さと上下速度）
+function doJump() { if (jumpY <= 0.02 && mode === 'walk') { jumpV = 7.0; playStep(0.05, area === 'town') } } // 接地時だけ跳ねる
 
 function startPuni(id, x, y) {
   puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
@@ -1947,7 +1949,7 @@ function midDist() {
 
 canvas.addEventListener('pointerdown', (e) => {
   startAudio() // 最初のタッチで音を立ち上げる（iOSの自動再生制限への先回り）
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() }) // タップ判定用に開始位置/時刻も保持
   canvas.setPointerCapture(e.pointerId)
   if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
   if (pointers.size === 1) startPuni(e.pointerId, e.clientX, e.clientY)
@@ -1956,11 +1958,12 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   if (!pointers.has(e.pointerId)) return
   const prev = pointers.get(e.pointerId)
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  const prevX = prev.x, prevY = prev.y
+  prev.x = e.clientX; prev.y = e.clientY // 開始位置/時刻(sx,sy,t)は保持
   if (mode !== 'walk') {
     if (sitTap) {
-      seatLook.yaw -= (e.clientX - prev.x) * 0.005
-      seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prev.y) * 0.005, -1.4, 1.45)
+      seatLook.yaw -= (e.clientX - prevX) * 0.005
+      seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prevY) * 0.005, -1.4, 1.45)
       if (Math.abs(e.clientX - sitTap.x) + Math.abs(e.clientY - sitTap.y) > 8) sitTap.moved = true
     }
     return
@@ -1983,11 +1986,14 @@ canvas.addEventListener('pointermove', (e) => {
 })
 function onUp(e) {
   if (!pointers.has(e.pointerId)) return
+  const p = pointers.get(e.pointerId)
   pointers.delete(e.pointerId)
   if (mode !== 'walk') {
     if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else standUp() } // ブランコはタップで こぐ
     sitTap = null; return
   }
+  // 軽いタップ（短時間・ほとんど動かさない）でジャンプ（移動中でもOK）
+  if (p && performance.now() - p.t < 230 && Math.abs(p.x - p.sx) + Math.abs(p.y - p.sy) < 14) doJump()
   if (pointers.size < 2) orbit = null
   if (e.pointerId === puni.id) endPuni()
   // 2本指→1本に戻ったら、残った指でぷにコン再開
@@ -2454,6 +2460,14 @@ function update(dt) {
     lookUp += ((moving ? 0 : calm * 0.18) - lookUp) * Math.min(1, dt * 2)
     boy.userData.head.rotation.x = -lookUp * 1.6 // 空を見上げる
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012 // ぴょこぴょこ跳ねる/立つ呼吸
+    // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
+    if (jumpV !== 0 || jumpY > 0) {
+      jumpV -= 22 * dt; jumpY += jumpV * dt
+      if (jumpY <= 0) { jumpY = 0; jumpV = 0 }
+      boy.position.y += jumpY
+      boy.rotation.x += (-0.12 * Math.min(1, jumpY) - boy.rotation.x) * Math.min(1, dt * 8) // 跳ぶと少しのけぞる
+      boy.userData.legL.rotation.x = -0.5; boy.userData.legR.rotation.x = -0.3 // 足をたたむ
+    }
 
     const nearBench = area === 'field' && Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
     const nearEngawa = area === 'field' && Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
@@ -2598,6 +2612,7 @@ window.__proto3d = {
   get caught() { return caught.count },
   villager, cat, // 検証用
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
+  _jump() { doJump() }, // 検証用
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
