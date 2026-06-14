@@ -16,9 +16,16 @@ const lookHint = document.getElementById('look')
 // ── 地面の高さ（解析式）。地面メッシュもキャラの足元もこの式で揃える。──
 const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
 const HOUSE = { x: -17, z: 13 } // 昭和の田舎家（縁側）の位置
-const TOWN = { x: 1000, z: 0 } // 住宅街エリアは遠くにオフセット（霧で野原と分離）。x>500=街=平地
+const TOWN = { x: 1000, z: 0 } // 住宅街エリアは遠くにオフセット（霧で野原と分離）。x>500=街
+const MOUNT = { x: TOWN.x + 6, z: TOWN.z + 92, h: 34, w: 40, d: 18 } // 町の北にそびえる裏山（頂上で街を一望）
 function heightAt(x, z) {
-  if (x > 500) return 0 // 住宅街エリア（平地）
+  if (x > 500) {
+    // 住宅街は平地。北（+z奥）へ行くほど裏山がせり上がる
+    const mdx = x - MOUNT.x, mdz = z - MOUNT.z
+    const m = MOUNT.h * Math.exp(-(mdx * mdx / (2 * MOUNT.w * MOUNT.w) + mdz * mdz / (2 * MOUNT.d * MOUNT.d)))
+    const undul = 0.4 * Math.sin(x * 0.1) * Math.cos(z * 0.1)
+    return m + (m > 0.5 ? undul : 0)
+  }
   const hill = 6.0 * Math.exp(-((x * x) + (z + 28) * (z + 28)) / (2 * 18 * 18)) // -Z側のなだらかな高台
   const undul = 0.6 * Math.sin(x * 0.08) * Math.cos(z * 0.08) // 微妙なうねり
   const pond = -2.8 * Math.exp(-(((x - POND.x) ** 2) + ((z - POND.z) ** 2)) / (2 * 7 * 7)) // 池のくぼみ
@@ -462,9 +469,21 @@ function makeShop(x, z, rot, opt) {
 }
 {
   const T = TOWN
-  // 地面（土）と道（アスファルト）
-  const tg = new THREE.Mesh(new THREE.PlaneGeometry(96, 64), new THREE.MeshToonMaterial({ color: 0xb6ad99, gradientMap: GRAD, map: watercolorTex }))
-  tg.rotation.x = -Math.PI / 2; tg.position.set(T.x, 0, T.z); tg.receiveShadow = true; scene.add(tg)
+  // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
+  const TGX = T.x + 5, TGZ = T.z + 35 // 地面メッシュの中心（北へ広げ裏山を含む）
+  const tgeo = new THREE.PlaneGeometry(190, 210, 95, 105); tgeo.rotateX(-Math.PI / 2)
+  const tpos = tgeo.attributes.position, tcol = []
+  const cTownGnd = new THREE.Color(0xb6ad99), cMntGrass = new THREE.Color(0x86b257), cMntDark = new THREE.Color(0x6f9a47)
+  for (let i = 0; i < tpos.count; i++) {
+    const wx = tpos.getX(i) + TGX, wz = tpos.getZ(i) + TGZ
+    const y = heightAt(wx, wz); tpos.setY(i, y)
+    const c = cTownGnd.clone().lerp(cMntGrass, THREE.MathUtils.smoothstep(y, 1, 6))
+    c.lerp(cMntDark, THREE.MathUtils.smoothstep(y, 16, 30))
+    tcol.push(c.r, c.g, c.b)
+  }
+  tgeo.setAttribute('color', new THREE.Float32BufferAttribute(tcol, 3)); tgeo.computeVertexNormals()
+  const tg = new THREE.Mesh(tgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex }))
+  tg.position.set(TGX, 0, TGZ); tg.receiveShadow = true; scene.add(tg)
   const road = new THREE.Mesh(new THREE.PlaneGeometry(9, 64), new THREE.MeshToonMaterial({ color: 0x8c8c8c, gradientMap: GRAD }))
   road.rotation.x = -Math.PI / 2; road.position.set(T.x, 0.02, T.z); scene.add(road)
   const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0xeeeae0 }))
@@ -1826,8 +1845,8 @@ function update(dt) {
         vel.x *= 0.15; vel.z *= 0.15 // 水際で勢いを止める
       }
     } else {
-      boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 44, TOWN.x + 44)
-      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 30, TOWN.z + 30)
+      boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 72, TOWN.x + 78)
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 30, TOWN.z + 96)
     }
     boy.position.y = heightAt(boy.position.x, boy.position.z)
     if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
