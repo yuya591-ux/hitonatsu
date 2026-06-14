@@ -1568,6 +1568,16 @@ const townLady = makeVillager(TOWN.x - 7.5, TOWN.z - 18, {
     },
   },
 })
+// 店のおばさんに うちわ（夏の小芝居：暑い昼はパタパタとあおぐ）
+{
+  const u = new THREE.Group()
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.16, 0.018), toon(0x9a7b4a)); handle.position.y = 0.07; u.add(handle)
+  const paddle = new THREE.Mesh(new THREE.CircleGeometry(0.13, 18), new THREE.MeshToonMaterial({ color: 0xeae2cc, gradientMap: GRAD, side: THREE.DoubleSide })); paddle.position.y = 0.22; u.add(paddle)
+  u.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  u.position.set(0, -0.24, 0.05); u.rotation.x = -0.5
+  townLady.userData.elbowR.add(u)
+  townLady.userData.uchiwa = u; townLady.userData.fans = true
+}
 // 近所の子（空き地の土管のそば＝ひみつきち。昭和の原風景）
 const townKid = makeVillager(TOWN.x - 30, TOWN.z + 16, {
   boy: true, shirt: 0x6aa0d8, skirt: 0x3f5a77, hair: 0x3a2e22, face: -0.6,
@@ -2714,6 +2724,20 @@ function update(dt) {
       n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
     }
     npcArms(n, near, dt, tsec)
+    // 店のおばさんの小芝居：暑い昼〜夕方、話していない時はうちわでパタパタあおぐ
+    if (n.userData.fans) {
+      const hot = tday > 0.34 && tday < 0.82
+      if (!near && hot) {
+        const f = Math.sin(tsec * 7) // あおぐリズム
+        n.userData.armR.rotation.x += (-0.95 - n.userData.armR.rotation.x) * Math.min(1, dt * 5) // 手を顔の前へ
+        n.userData.armR.rotation.z += (0.55 - n.userData.armR.rotation.z) * Math.min(1, dt * 5)
+        n.userData.elbowR.rotation.x += ((-1.35 + f * 0.28) - n.userData.elbowR.rotation.x) * Math.min(1, dt * 12)
+        n.userData.uchiwa.rotation.x = -0.5 + f * 0.35
+      } else { // しまう（腕・肘・うちわを戻す）
+        n.userData.elbowR.rotation.x += (-0.2 - n.userData.elbowR.rotation.x) * Math.min(1, dt * 5)
+        n.userData.uchiwa.rotation.x += (-0.5 - n.userData.uchiwa.rotation.x) * Math.min(1, dt * 4)
+      }
+    }
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
@@ -3113,7 +3137,7 @@ window.__proto3d = {
   get area() { return area },
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
-  villager, cat, // 検証用
+  villager, townLady, townKid, cat, // 検証用
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
   _jump() { doJump() }, // 検証用
   _info() { // 検証用：シーン1回描画の実コスト
