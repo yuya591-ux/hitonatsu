@@ -118,11 +118,8 @@ sun.shadow.camera.far = 260
 const sc = sun.shadow.camera
 sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70
 sun.shadow.bias = -0.0004
-sun.shadow.autoUpdate = false // 影は手動更新（毎フレームではなく間引く＝軽量化）
-sun.shadow.needsUpdate = true
 scene.add(sun)
 scene.add(sun.target) // 影カメラと光の向きを主人公に追従させるため
-let shadowTick = 0
 const hemi = new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15) // 空色↔草色の柔らかい環境光（明るめ）
 scene.add(hemi)
 // 逆光のリムライト（太陽の反対側から低く差す暖色。輪郭をふちどり、夕方は特に強く）。影は落とさない。
@@ -1263,7 +1260,7 @@ camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 3, innerHeight / 3), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）。1/3解像度で軽量化（ぼかしなので見た目は変わらない）
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.35, 0.5, 0.92) // 強さ控えめ・しきい値高め＝白飛び/ちらつきを抑える。半解像度
 composer.addPass(bloom)
 
 // 木漏れ日（ゴッドレイ）：太陽の画面位置から、明るい所を放射状に伸ばす光条
@@ -1306,17 +1303,17 @@ const gradePass = new ShaderPass({
       return mix(mix(a, b, f.x), mix(cc, d, f.x), f.y); }
     float L(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
     void main(){
-      // にじみのゆらぎ：低周波ノイズでサンプル位置を歪める＝手描きのよれ
-      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (3.4 * wc);
+      // にじみのゆらぎ：低周波ノイズでサンプル位置を歪める＝手描きのよれ（弱め＝輪郭のチラつき防止）
+      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (1.4 * wc);
       vec2 uv = vUv + wob;
       vec3 c = texture2D(tDiffuse, uv).rgb;
       float lum = L(c);
-      // 顔料だまり：周囲との明度差（エッジ）でフチを暗く＝水彩の縁取り
+      // 顔料だまり：周囲との明度差（エッジ）でフチを暗く＝水彩の縁取り（控えめ＝シマシマ防止）
       float e = abs(L(texture2D(tDiffuse, uv + vec2(texel.x, 0.0)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv + vec2(0.0, texel.y)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(texel.x, 0.0)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(0.0, texel.y)).rgb) - lum);
-      c *= 1.0 - clamp(e * 2.4 * wc, 0.0, 0.44);
+      c *= 1.0 - clamp(e * 1.7 * wc, 0.0, 0.32);
       vec3 graded = c;
       graded += vec3(-0.020, 0.012, 0.034) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
       graded += vec3(0.032, 0.016, -0.022) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
@@ -1339,7 +1336,7 @@ function resize() {
   const w = innerWidth, h = innerHeight
   renderer.setSize(w, h)
   composer.setSize(w, h)
-  bloom.setSize(w / 3, h / 3) // ブルームは1/3解像度を維持（発熱対策）
+  bloom.setSize(w / 2, h / 2) // ブルームは半解像度を維持
   gradePass.uniforms.texel.value.set(1 / w, 1 / h) // 水彩のエッジ/にじみ用の1テクセル幅
   camera.aspect = w / h
   camera.updateProjectionMatrix()
@@ -1905,13 +1902,10 @@ function update(dt) {
   stars.position.copy(camera.position)
   moon.position.set(camera.position.x + 70, 95, camera.position.z - 90)
   moonGlow.position.copy(moon.position)
-  // 影は静止物（家・木）が主役なので、影カメラの追従＋影レンダを3フレームに1回へ間引く（軽量化・見た目はほぼ不変）
-  shadowTick = (shadowTick + 1) % 3
-  if (shadowTick === 0) {
-    sun.position.copy(boy.position).addScaledVector(sunDir, 120)
-    sun.target.position.copy(boy.position); sun.target.updateMatrixWorld()
-    sun.shadow.needsUpdate = true
-  }
+  // 影カメラを主人公に追従させ、毎フレーム更新（間引くと歩行時に影がカクつき＝チカチカの原因になるため）
+  sun.position.copy(boy.position).addScaledVector(sunDir, 120)
+  sun.target.position.copy(boy.position); sun.target.updateMatrixWorld()
+  sun.shadow.needsUpdate = true
   // リム＝太陽の水平反対側から低く。後ろ上から輪郭をふちどる（影なしなので毎フレームでも軽い）
   rim.position.set(boy.position.x - sunDir.x * 80, boy.position.y + 26, boy.position.z - sunDir.z * 80)
   rim.target.position.copy(boy.position)
