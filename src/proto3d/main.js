@@ -27,7 +27,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)) // 発熱対
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
 renderer.toneMapping = THREE.NeutralToneMapping
-renderer.toneMappingExposure = 1.05
+renderer.toneMappingExposure = 1.18
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
@@ -38,8 +38,10 @@ const swayables = [] // 風で揺らす草木（{ obj, ph, amp }）
 
 // ── トゥーン用のグラデ（数段の階調）──
 function toonGradient(steps = 4) {
+  // 影側が真っ暗にならないよう、最暗を 0.5 まで持ち上げる（やわらかく明るいトゥーン）
+  const min = 0.5
   const data = new Uint8Array(steps)
-  for (let i = 0; i < steps; i++) data[i] = Math.round(255 * (i / (steps - 1)))
+  for (let i = 0; i < steps; i++) data[i] = Math.round(255 * (min + (1 - min) * (i / (steps - 1))))
   const tex = new THREE.DataTexture(data, steps, 1, THREE.RedFormat)
   tex.minFilter = THREE.NearestFilter
   tex.magFilter = THREE.NearestFilter
@@ -48,6 +50,21 @@ function toonGradient(steps = 4) {
 }
 const GRAD = toonGradient(4)
 const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
+
+// ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
+const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x2c2419, side: THREE.BackSide, fog: true })
+function addOutline(mesh, thickness = 0.05) {
+  mesh.geometry.computeBoundingSphere()
+  const r = (mesh.geometry.boundingSphere && mesh.geometry.boundingSphere.radius) || 1
+  const o = new THREE.Mesh(mesh.geometry, OUTLINE_MAT)
+  o.scale.setScalar(1 + thickness / r) // 世界でほぼ一定の太さに
+  mesh.add(o)
+}
+function outlineObj(obj, thickness = 0.05) {
+  const meshes = []
+  obj.traverse((m) => { if (m.isMesh) meshes.push(m) })
+  for (const m of meshes) addOutline(m, thickness)
+}
 
 // ── ライト ──
 const sunDir = new THREE.Vector3(-0.5, 0.82, -0.32).normalize()
@@ -61,7 +78,8 @@ const sc = sun.shadow.camera
 sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70
 sun.shadow.bias = -0.0004
 scene.add(sun)
-scene.add(new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15)) // 空色↔草色の柔らかい環境光（明るめ）
+const hemi = new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15) // 空色↔草色の柔らかい環境光（明るめ）
+scene.add(hemi)
 
 // ── 空（グラデのドーム。霧は掛けない）──
 const skyMat = new THREE.ShaderMaterial({
@@ -86,13 +104,52 @@ const sunBall = new THREE.Mesh(
 sunBall.position.copy(sunDir.clone().multiplyScalar(300))
 scene.add(sunBall)
 
+// ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
+const PAL = {
+  morn: { light: 0xffe9c8, li: 2.0, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.5, hsky: 0xcfe6f4, hgnd: 0x9ab468, ball: 0xfff0cf },
+  noon: { light: 0xfff6e8, li: 2.5, sky: 0x7fbce6, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.7, hsky: 0xdaf0fb, hgnd: 0x9ab468, ball: 0xfff6d8 },
+  dusk: { light: 0xffa85f, li: 2.0, sky: 0x7a6aa6, mid: 0xeaa672, bot: 0xf8d59a, fog: 0xeec096, hi: 1.15, hsky: 0xe0aa86, hgnd: 0x7e7a54, ball: 0xffac63 },
+  night: { light: 0x7d93cc, li: 0.7, sky: 0x0d1322, mid: 0x1a2340, bot: 0x2c3a58, fog: 0x222c48, hi: 0.62, hsky: 0x35487a, hgnd: 0x32434e, ball: 0xcdd6ff },
+}
+const _a = new THREE.Color(), _b = new THREE.Color()
+const lc = (out, ha, hb, u) => out.copy(_a.set(ha)).lerp(_b.set(hb), u)
+const ln = (a, b, u) => a + (b - a) * u
+function pickPal(t) {
+  if (t < 0.5) return { from: PAL.morn, to: PAL.noon, u: t / 0.5 }
+  if (t < 0.78) return { from: PAL.noon, to: PAL.dusk, u: (t - 0.5) / 0.28 }
+  return { from: PAL.dusk, to: PAL.night, u: (t - 0.78) / 0.22 }
+}
+function setTimeOfDay(t) {
+  const { from, to, u } = pickPal(t)
+  // 太陽の運行（朝=低い東 → 昼=高い → 夕=低い西）。夜は地平線下。
+  const elev = Math.sin(Math.min(t, 0.9) / 0.9 * Math.PI) // 0..1..0
+  const elevAngle = elev * 1.25
+  const az = Math.PI * (0.12 + t * 0.95)
+  sunDir.set(Math.cos(az) * Math.cos(elevAngle), Math.sin(elevAngle) + 0.04, Math.sin(az) * Math.cos(elevAngle)).normalize()
+  sun.position.copy(sunDir).multiplyScalar(120)
+  sunBall.position.copy(sunDir).multiplyScalar(300)
+  lc(sun.color, from.light, to.light, u)
+  sun.intensity = ln(from.li, to.li, u)
+  lc(sunBall.material.color, from.ball, to.ball, u)
+  lc(skyMat.uniforms.top.value, from.sky, to.sky, u)
+  lc(skyMat.uniforms.mid.value, from.mid, to.mid, u)
+  lc(skyMat.uniforms.bottom.value, from.bot, to.bot, u)
+  lc(scene.fog.color, from.fog, to.fog, u)
+  hemi.intensity = ln(from.hi, to.hi, u)
+  lc(hemi.color, from.hsky, to.hsky, u)
+  lc(hemi.groundColor, from.hgnd, to.hgnd, u)
+}
+let tday = 0.22 // 朝から始める
+let dayAuto = true // ゆっくり一日が流れる
+setTimeOfDay(tday)
+
 // ── 地面（高台つきの草地。頂点を heightAt で持ち上げる）──
 const gGeo = new THREE.PlaneGeometry(240, 240, 90, 90)
 gGeo.rotateX(-Math.PI / 2)
 const gPos = gGeo.attributes.position
 const gCol = []
-const cGrassLo = new THREE.Color(0x6f9c45)
-const cGrassHi = new THREE.Color(0x9cc06a)
+const cGrassLo = new THREE.Color(0x84b252)
+const cGrassHi = new THREE.Color(0xb6d97a)
 for (let i = 0; i < gPos.count; i++) {
   const x = gPos.getX(i), z = gPos.getZ(i)
   const y = heightAt(x, z)
@@ -122,6 +179,7 @@ function makeTree(x, z, s = 1) {
     g.add(blob)
   }
   g.position.set(x, heightAt(x, z), z)
+  outlineObj(g, 0.08)
   scene.add(g)
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.02 })
 }
@@ -178,10 +236,11 @@ for (let i = 0; i < 10; i++) {
 function makeSunflower(x, z) {
   const g = new THREE.Group()
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.4, 5), toon(0x5f8b3c)); stem.position.y = 1.2; g.add(stem)
-  const petals = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.12, 16), toon(0xe8b23a)); petals.position.y = 2.5; petals.rotation.x = 0.5; g.add(petals)
+  const petals = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.12, 16), toon(0xf2cb50)); petals.position.y = 2.5; petals.rotation.x = 0.5; g.add(petals)
   const core = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.16, 12), toon(0x7a4a22)); core.position.set(0, 2.55, 0.04); core.rotation.x = 0.5; g.add(core)
   g.position.set(x, heightAt(x, z), z)
   g.children.forEach((c) => (c.castShadow = true))
+  outlineObj(g, 0.05)
   scene.add(g)
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.05 })
 }
@@ -198,6 +257,7 @@ function makeBench() {
   g.children.forEach((c) => (c.castShadow = true))
   g.position.copy(SEAT)
   g.rotation.y = Math.PI // 背を-Z側に＝座ると景色(-Z, 外側)を向く
+  outlineObj(g, 0.05)
   scene.add(g)
 }
 makeBench()
@@ -206,8 +266,24 @@ makeBench()
 for (const [x, z, r] of [[3, -20, 0.7], [-4, -18, 0.5], [12, -2, 0.6]]) {
   const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), toon(0x9a958c))
   rock.position.set(x, heightAt(x, z) + r * 0.4, z); rock.castShadow = true; rock.receiveShadow = true
+  addOutline(rock, 0.05)
   scene.add(rock)
 }
+
+// ── 蝶（昼に舞う。夜は消える）──
+const butterflies = []
+function makeButterfly(cx, cz) {
+  const g = new THREE.Group()
+  const col = [0xf2c84a, 0xe8743c, 0xf0f0f0, 0x8a6ed0][Math.floor(Math.random() * 4)]
+  const wmat = new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true })
+  const wing = new THREE.PlaneGeometry(0.34, 0.46)
+  const wl = new THREE.Mesh(wing, wmat); wl.position.x = -0.18; g.add(wl)
+  const wr = new THREE.Mesh(wing, wmat); wr.position.x = 0.18; g.add(wr)
+  g.userData = { wl, wr, cx, cz, r: 4 + Math.random() * 6, ph: Math.random() * 6.28, sp: 0.5 + Math.random() * 0.5, mat: wmat }
+  scene.add(g)
+  butterflies.push(g)
+}
+for (const [x, z] of [[5, 2], [-8, -4], [12, -8]]) makeButterfly(x, z)
 
 // ── 主人公（低ポリの少年・麦わら帽子）──
 function makeBoy() {
@@ -222,11 +298,21 @@ function makeBoy() {
   const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.18), skin); armL.position.set(-0.42, 1.5, 0); g.add(armL)
   const armR = armL.clone(); armR.position.x = 0.42; g.add(armR)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-  g.userData = { legL, legR, armL, armR }
+  g.userData = { legL, legR, armL, armR, head }
   return g
 }
 const boy = makeBoy()
 boy.position.set(0, heightAt(0, 6), 6)
+outlineObj(boy, 0.035)
+// 顔（輪郭線の後に付ける＝目はフチ無し）。少年は+z方向を向く。
+{
+  const eye = new THREE.MeshBasicMaterial({ color: 0x2a2018 })
+  for (const ex of [-0.12, 0.12]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eye)
+    e.position.set(ex, 0.04, 0.29)
+    boy.userData.head.add(e)
+  }
+}
 scene.add(boy)
 
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
@@ -247,6 +333,32 @@ scene.add(boy)
   scene.add(motes)
   window.__motes = motes
 }
+
+// ── 夜の演出：月・星・蛍（夜になるほど現れる）──
+const nightFactor = (t) => THREE.MathUtils.smoothstep(t, 0.72, 0.99)
+const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 24, 24),
+  new THREE.MeshBasicMaterial({ color: 0xeef0ff, fog: false, transparent: true, opacity: 0 }))
+moon.position.set(70, 95, -90); scene.add(moon)
+const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(13, 24, 24),
+  new THREE.MeshBasicMaterial({ color: 0xbcd0ff, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending }))
+moonGlow.position.copy(moon.position); scene.add(moonGlow)
+const stars = (() => {
+  const g = new THREE.BufferGeometry(); const p = []
+  for (let i = 0; i < 170; i++) {
+    const u = Math.random() * Math.PI * 2, v = Math.random() * 0.55 + 0.15, r = 380
+    p.push(Math.cos(u) * Math.cos(v) * r, Math.sin(v) * r, Math.sin(u) * Math.cos(v) * r)
+  }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }))
+  scene.add(pts); return pts
+})()
+const fireflies = (() => {
+  const g = new THREE.BufferGeometry(); const p = []
+  for (let i = 0; i < 55; i++) p.push((Math.random() - 0.5) * 80, 0.6 + Math.random() * 3.5, (Math.random() - 0.5) * 80)
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 0.34, transparent: true, opacity: 0, depthWrite: false, fog: true, blending: THREE.AdditiveBlending }))
+  scene.add(pts); return pts
+})()
 
 // ── カメラ（既定は斜め見下ろし。視点はユーザーが回せる/寄れる） ──
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
@@ -378,6 +490,17 @@ function sitDown() {
   boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢
   boy.position.y = SEAT.y + 0.55
   moving = false
+  seatLook.yaw = Math.PI; seatLook.pitch = -0.05 // 景色（外側-Z）を向いてから
+  // カメラを高台の目線へスッと移し、外を向かせる（誤って真下を向かない）
+  const cp = Math.cos(seatLook.pitch)
+  const ex = SEAT.x, ey = SEAT.y + 2.3, ez = SEAT.z - 0.9
+  camera.position.set(ex, ey, ez)
+  camera.userData._look = camera.userData._look || new THREE.Vector3()
+  camera.userData._look.set(
+    ex + Math.sin(seatLook.yaw) * cp,
+    ey + Math.sin(seatLook.pitch),
+    ez + Math.cos(seatLook.yaw) * cp,
+  )
   actBtn.style.display = 'none'
   lookHint.style.display = 'block'
 }
@@ -399,10 +522,31 @@ const camFwd = new THREE.Vector3()
 const camRight = new THREE.Vector3()
 
 function update(dt) {
+  // 一日の移ろい（ゆっくり）
+  if (dayAuto) { tday = (tday + dt / 240) % 1; setTimeOfDay(tday) }
   // 風で草木をゆらす・光の粒を漂わせる（生気）
   const tsec = clock.elapsedTime
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
+  // 夜の演出
+  const nf = nightFactor(tday)
+  moon.material.opacity = nf
+  moonGlow.material.opacity = nf * 0.45
+  stars.material.opacity = nf
+  fireflies.material.opacity = nf * (0.45 + 0.4 * (0.5 + 0.5 * Math.sin(tsec * 3)))
+  fireflies.rotation.y = tsec * 0.05
+  // 蝶（昼に舞い、夜は消える）
+  for (const b of butterflies) {
+    const u = b.userData
+    const a = tsec * u.sp + u.ph
+    const bx = u.cx + Math.cos(a) * u.r, bz = u.cz + Math.sin(a) * u.r
+    b.position.set(bx, heightAt(bx, bz) + 1.6 + Math.sin(a * 3) * 0.3, bz)
+    b.rotation.y = -a + Math.PI / 2
+    const flap = Math.sin(tsec * 14 + u.ph) * 0.9
+    u.wl.rotation.y = flap; u.wr.rotation.y = -flap
+    u.mat.opacity = 1 - nf
+    b.visible = nf < 0.96
+  }
 
   if (mode === 'walk') {
     // カメラ基準の前/右（地面上）。指のスライド方向を世界の向きへ変換。
@@ -444,8 +588,8 @@ function update(dt) {
     camGoal.copy(boy.position).add(camOffset(tmp))
     lookGoal.copy(boy.position); lookGoal.y += 1.4
   } else {
-    // 座って360度見回す
-    seatEye.copy(SEAT); seatEye.y = SEAT.y + 2.0
+    // 座って360度見回す（目線は座面の少し前・上＝体に埋まらない）
+    seatEye.set(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
     const cp = Math.cos(seatLook.pitch)
     lookTo.set(
       seatEye.x + Math.sin(seatLook.yaw) * cp,
@@ -470,4 +614,7 @@ renderer.setAnimationLoop(() => {
 })
 
 // 自己検証用の最小ハンドル
-window.__proto3d = { THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp }
+window.__proto3d = {
+  THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp,
+  setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
+}

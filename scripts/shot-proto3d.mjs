@@ -44,15 +44,17 @@ try {
   await new Promise((r) => setTimeout(r, 2500))
   const gl = await page.evaluate(() => !!window.__proto3d)
   console.log(`3D初期化: ${gl ? 'OK' : 'NG'}`)
-  await page.screenshot({ path: join(outDir, 'proto3d-walk.png') })
-  console.log('撮影: proto3d-walk.png')
-  // 座って景色を見回す状態
-  await page.evaluate(() => window.__proto3d.sitDown())
+  for (const [t, tag] of [[0.22, 'asa'], [0.5, 'hiru'], [0.74, 'yu'], [0.97, 'yoru']]) {
+    await page.evaluate((tt) => window.__proto3d.setDay(tt), t)
+    await new Promise((r) => setTimeout(r, 700))
+    await page.screenshot({ path: join(outDir, `proto3d-${tag}.png`) })
+    console.log(`撮影: proto3d-${tag}.png`)
+  }
+  // 座って景色を見回す（昼）
+  await page.evaluate(() => { window.__proto3d.setDay(0.4); window.__proto3d.sitDown() })
   await new Promise((r) => setTimeout(r, 1500))
   await page.screenshot({ path: join(outDir, 'proto3d-sit.png') })
   console.log('撮影: proto3d-sit.png')
-  // 見回し（yawを回す）
-  await page.evaluate(() => { window.__proto3d.camera.userData._look = null }) // 注視リセットは不要だが安全に
   await page.close()
 } finally {
   await browser.close()
