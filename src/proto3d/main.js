@@ -145,16 +145,23 @@ const sunDir = new THREE.Vector3(-0.5, 0.82, -0.32).normalize()
 const sun = new THREE.DirectionalLight(0xfff2d8, 2.1)
 sun.position.copy(sunDir.clone().multiplyScalar(120))
 sun.castShadow = true
-sun.shadow.mapSize.set(1024, 1024)
+sun.shadow.mapSize.set(2048, 2048) // 固定カメラで広域を覆うので解像度を上げて補う（再描画は稀なのでコスト可）
 sun.shadow.camera.near = 10
-sun.shadow.camera.far = 260
+sun.shadow.camera.far = 360
 const sc = sun.shadow.camera
-sc.left = -42; sc.right = 42; sc.top = 42; sc.bottom = -42 // 主人公まわりに絞る＝影パスの対象が減り軽い＋影が精細に
-sun.shadow.autoUpdate = false; sun.shadow.needsUpdate = true // 影は必要な時だけ手動再描画（下のループで制御）
-const shadowAnchor = new THREE.Vector3(9999, 0, 9999); let lastShadowTday = -1
-sun.shadow.bias = -0.0004
+sun.shadow.autoUpdate = false; sun.shadow.needsUpdate = true // 影は手動再描画（エリア切替/時刻変化の時だけ＝歩行中はチカチカしない）
+sun.shadow.bias = -0.0005
 scene.add(sun)
-scene.add(sun.target) // 影カメラと光の向きを主人公に追従させるため
+scene.add(sun.target)
+let shadowArea = '', lastShadowTday = -1
+// 影カメラを「エリア」ごとに固定して張る（歩いても動かさない＝影の縁がずれずチカチカが出ない）。
+// 動く主人公やNPCは別の接地影ブロブで表現しているので、この固定影マップで十分。
+function frameShadow(cx, cz, size) {
+  sun.target.position.set(cx, 0, cz); sun.target.updateMatrixWorld()
+  sun.position.set(cx + sunDir.x * 180, sunDir.y * 180, cz + sunDir.z * 180)
+  sc.left = -size; sc.right = size; sc.top = size; sc.bottom = -size; sc.updateProjectionMatrix()
+  sun.shadow.needsUpdate = true
+}
 const hemi = new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15) // 空色↔草色の柔らかい環境光（明るめ）
 scene.add(hemi)
 // 逆光のリムライト（太陽の反対側から低く差す暖色。輪郭をふちどり、夕方は特に強く）。影は落とさない。
@@ -207,7 +214,7 @@ function setTimeOfDay(t) {
   const elevAngle = elev * 1.25
   const az = Math.PI * (0.12 + t * 0.95)
   sunDir.set(Math.cos(az) * Math.cos(elevAngle), Math.sin(elevAngle) + 0.04, Math.sin(az) * Math.cos(elevAngle)).normalize()
-  sun.position.copy(sunDir).multiplyScalar(120)
+  // sun.position は影カメラと一体なので frameShadow が管理（毎フレームここで動かすと影がずれる）
   sunBall.position.copy(sunDir).multiplyScalar(300)
   lc(sun.color, from.light, to.light, u)
   sun.intensity = ln(from.li, to.li, u)
@@ -2283,14 +2290,13 @@ function update(dt) {
   stars.position.copy(camera.position)
   moon.position.set(camera.position.x + 70, 95, camera.position.z - 90)
   moonGlow.position.copy(moon.position)
-  // 影：主役の建物・木は静止物なので、影マップは「主人公が一定以上動いた／時刻が変わった」時だけ再描画。
-  // 動く主人公やNPCは別の接地影ブロブで表現しているので、これで毎フレームの影パス全描画を省ける（軽量化）。
-  // 再描画は止まると0回・歩行中もたまにだけ＝3フレーム間引きのようなチカチカは出ない。
-  if (boy.position.distanceTo(shadowAnchor) > 5 || Math.abs(tday - lastShadowTday) > 0.004) {
-    sun.position.copy(boy.position).addScaledVector(sunDir, 120)
-    sun.target.position.copy(boy.position); sun.target.updateMatrixWorld()
-    sun.shadow.needsUpdate = true
-    shadowAnchor.copy(boy.position); lastShadowTday = tday
+  // 影：エリアごとに固定して張り直すのは「エリアが変わった／時刻がそれなりに動いた」時だけ。
+  // 歩行中は影カメラが一切動かない＝影の縁がずれず、町でのチカチカが原理的に出ない。
+  if (area !== shadowArea || Math.abs(tday - lastShadowTday) > 0.012) {
+    if (area === 'town') frameShadow(TOWN.x + 4, TOWN.z + 22, 92)
+    else if (area === 'shrine') frameShadow(SHRINE.x, SHRINE.z + 16, 62)
+    else frameShadow(0, 4, 82)
+    shadowArea = area; lastShadowTday = tday
   }
   // リム＝太陽の水平反対側から低く。後ろ上から輪郭をふちどる（影なしなので毎フレームでも軽い）
   rim.position.set(boy.position.x - sunDir.x * 80, boy.position.y + 26, boy.position.z - sunDir.z * 80)
