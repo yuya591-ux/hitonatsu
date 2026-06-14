@@ -96,6 +96,12 @@ try {
   await new Promise((r) => setTimeout(r, 1200))
   await page.screenshot({ path: join(outDir, 'proto3d-house.png') })
   console.log('撮影: proto3d-house.png')
+  // 当たり判定：家の中に置いても外へ押し戻される
+  await page.evaluate(() => window.__proto3d.placeBoy(-16, 13))
+  await new Promise((r) => setTimeout(r, 350))
+  const houseDist = await page.evaluate(() => { const b = window.__proto3d.boy.position; return Math.round(Math.hypot(b.x + 17, b.z - 13) * 10) / 10 })
+  console.log(`当たり判定テスト: 家の中心からの距離=${houseDist}（>=2.6なら通り抜けない）`)
+  if (houseDist < 2.6) errors.push('家をすり抜けてしまう（当たり判定なし）')
   // うろつく猫（家のまわり）
   await page.evaluate(() => { window.__proto3d.standUp(); window.__proto3d.setDay(0.45); window.__proto3d.placeBoy(-10, 21) })
   await new Promise((r) => setTimeout(r, 600))
