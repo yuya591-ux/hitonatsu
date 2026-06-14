@@ -33,7 +33,7 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 const scene = new THREE.Scene()
-scene.fog = new THREE.Fog(0xdfeaf0, 55, 240) // 空気遠近（霞）。手前は鮮明、奥は淡く
+scene.fog = new THREE.Fog(0xdfeaf0, 48, 185) // 空気遠近（霞）。遠景を空の色へ溶かす
 
 const swayables = [] // 風で揺らす草木（{ obj, ph, amp }）
 
@@ -65,6 +65,22 @@ function outlineObj(obj, thickness = 0.05) {
   const meshes = []
   obj.traverse((m) => { if (m.isMesh) meshes.push(m) })
   for (const m of meshes) addOutline(m, thickness)
+}
+
+// ── 接地影（やわらかい丸影）：物が地面から浮いて見える低ポリの安っぽさを消す ──
+const SHADOW_TEX = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64
+  const x = c.getContext('2d')
+  const g = x.createRadialGradient(32, 32, 2, 32, 32, 30)
+  g.addColorStop(0, 'rgba(24,28,18,0.5)'); g.addColorStop(1, 'rgba(24,28,18,0)')
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64)
+  return new THREE.CanvasTexture(c)
+})()
+const shadowMat = new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, fog: true })
+function addContactShadow(parent, radius, y = 0.05) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), shadowMat)
+  m.rotation.x = -Math.PI / 2; m.position.y = y
+  parent.add(m); return m
 }
 
 // ── ライト ──
@@ -181,6 +197,7 @@ function makeTree(x, z, s = 1) {
   }
   g.position.set(x, heightAt(x, z), z)
   outlineObj(g, 0.08)
+  addContactShadow(g, 2.0 * s)
   scene.add(g)
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.02 })
 }
@@ -242,6 +259,7 @@ function makeSunflower(x, z) {
   g.position.set(x, heightAt(x, z), z)
   g.children.forEach((c) => (c.castShadow = true))
   outlineObj(g, 0.05)
+  addContactShadow(g, 0.7)
   scene.add(g)
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.05 })
 }
@@ -259,6 +277,7 @@ function makeBench() {
   g.position.copy(SEAT)
   g.rotation.y = Math.PI // 背を-Z側に＝座ると景色(-Z, 外側)を向く
   outlineObj(g, 0.05)
+  addContactShadow(g, 1.8)
   scene.add(g)
 }
 makeBench()
@@ -268,6 +287,7 @@ for (const [x, z, r] of [[3, -20, 0.7], [-4, -18, 0.5], [12, -2, 0.6]]) {
   const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), toon(0x9a958c))
   rock.position.set(x, heightAt(x, z) + r * 0.4, z); rock.castShadow = true; rock.receiveShadow = true
   addOutline(rock, 0.05)
+  addContactShadow(rock, r * 1.5, -r * 0.32)
   scene.add(rock)
 }
 
@@ -315,6 +335,10 @@ outlineObj(boy, 0.035)
   }
 }
 scene.add(boy)
+// 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
+const boyShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), shadowMat)
+boyShadow.rotation.x = -Math.PI / 2
+scene.add(boyShadow)
 
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
@@ -412,6 +436,9 @@ const gradePass = new ShaderPass({
       graded = mix(vec3(lum), graded, 0.90);                                    // 退色（彩度を少し落とす）
       graded = graded * 0.975 + 0.018;                                          // フィルムの黒浮き
       c = mix(c, graded, amount);
+      // 紙のグレイン（水彩紙のような微かなザラつき）
+      float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
+      c += (grain - 0.5) * 0.022;
       float d = distance(vUv, vec2(0.5));
       c *= 1.0 - vig * smoothstep(0.5, 0.95, d);                                // 周辺減光
       gl_FragColor = vec4(c, 1.0);
@@ -652,6 +679,9 @@ function update(dt) {
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 入道雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
+  // 主人公の接地影は地面に沿わせる
+  boyShadow.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.05, boy.position.z)
+  boyShadow.visible = boy.visible
   // 環境音：時刻でクロスフェード＋夕方に一度だけ夕焼けチャイム
   if (audioStarted) {
     const w = ambientWeights(tday)
