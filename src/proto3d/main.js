@@ -197,7 +197,7 @@ scene.add(sunBall)
 const PAL = {
   morn: { light: 0xffe9c8, li: 2.0, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.5, hsky: 0xcfe6f4, hgnd: 0x9ab468, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 },
   noon: { light: 0xfff6e8, li: 2.5, sky: 0x7fbce6, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.7, hsky: 0xdaf0fb, hgnd: 0x9ab468, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
-  dusk: { light: 0xffa85f, li: 2.0, sky: 0x7a6aa6, mid: 0xeaa672, bot: 0xf8d59a, fog: 0xeec096, hi: 1.15, hsky: 0xe0aa86, hgnd: 0x7e7a54, ball: 0xffac63, rim: 0xff944e, ri: 0.95 },
+  dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xee7438, bot: 0xf7b262, fog: 0xe7a074, hi: 1.15, hsky: 0xe89a72, hgnd: 0x7e7250, ball: 0xff8f48, rim: 0xff8038, ri: 1.05 },
   night: { light: 0x8fa3d6, li: 0.95, sky: 0x121a30, mid: 0x24304f, bot: 0x3a4a6e, fog: 0x2c3a5a, hi: 0.85, hsky: 0x44588c, hgnd: 0x3c4e5e, ball: 0xcdd6ff, rim: 0x7d93cc, ri: 0.28 },
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
@@ -427,6 +427,11 @@ function makeBush(x, z, s = 1) {
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.035 })
 }
 for (const [x, z, s] of [[16, 9, 1.0], [-14, 5, 0.9], [24, -7, 1.1], [-20, -11, 1.0], [11, -19, 0.85], [-8, -21, 0.9], [32, 14, 1.0], [-28, 16, 1.05], [38, -2, 0.95], [-32, 9, 1.0], [21, 23, 0.9], [-23, 27, 1.0], [-15, 30, 0.85], [33, 25, 0.95], [7, 26, 0.9], [-35, -22, 1.0]]) makeBush(x, z, s)
+// 町の緑（街路樹・植え込み）＝商店街と住宅街にも木かげと葉を。道や店先を避けて配置
+for (const [dx, dz, s] of [[16, -10, 1.0], [-16, 14, 0.95], [15, 28, 1.05], [-15, 28, 1.0], [16, 8, 0.9], [-30, 6, 1.0]]) makeTree(TOWN.x + dx, TOWN.z + dz, s)
+for (const [dx, dz, s] of [[8.5, -12, 0.95], [-8.5, -2, 0.9], [8.5, 6, 0.95], [-8.5, 12, 0.9], [10, 30, 0.85], [-10, 30, 0.85], [-34, 14, 0.9], [-30, 18, 0.85]]) makeBush(TOWN.x + dx, TOWN.z + dz, s)
+// 神社の杜にも木立を足す（鎮守の杜らしく）
+for (const [dx, dz, s] of [[14, 18, 1.1], [-14, 20, 1.05], [10, 30, 1.0], [-12, 34, 1.0], [18, 40, 1.05]]) makeTree(SHRINE.x + dx, SHRINE.z + dz, s)
 
 // ── 昭和の田舎家（縁側・瓦屋根・障子）＝時代の空気の核。麦わら帽子の少年の“おばあちゃんち”的な原風景 ──
 function makeHouse(x, z, rot, roofHex) {
@@ -1194,6 +1199,21 @@ let wateringT = 0 // 水やり中の残り時間
   const m4 = new THREE.Matrix4(); let n = 0
   for (let r = 0; r < 12 && n < 240; r++) for (let c = 0; c < 20 && n < 240; c++) { m4.makeTranslation(px - 12 + c * 1.25, by + 0.32, pz - 9 + r * 1.6); rice.setMatrixAt(n++, m4) }
   rice.instanceMatrix.needsUpdate = true; rice.castShadow = false; scene.add(rice)
+  // かかし（あぜの角に立つ＝夏の田んぼの原風景）
+  const sx = px - 12.5, sz = pz - 9.5, sy = heightAt(sx, sz)
+  const k = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.2, 6), toon(0x8a6a44)); pole.position.y = 1.1; k.add(pole)
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.08), toon(0x8a6a44)); arm.position.y = 1.5; k.add(arm)
+  const shirtm = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.7, 0.5), toon(0xb0563f)); shirtm.position.y = 1.34; k.add(shirtm) // ぼろシャツ
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 10), toon(0xe2cf9a)); head.position.y = 1.95; k.add(head)
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.32, 12), toon(0xcaad6a)); hat.position.y = 2.16; k.add(hat) // 三角の笠
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
+  for (const ex of [-0.09, 0.09]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), eyeMat); e.position.set(ex, 1.97, 0.23); k.add(e) }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.022, 0.02), eyeMat); mouth.position.set(0, 1.88, 0.24); mouth.rotation.z = 0.1; k.add(mouth)
+  k.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  k.position.set(sx, sy, sz); k.rotation.y = -0.7
+  mergedOutline(k, 0.03); addContactShadow(k, 0.9); scene.add(k)
+  swayables.push({ obj: k, ph: 1.0, amp: 0.014 }) // 風でわずかに傾ぐ
 }
 // すずめ（地面をついばみ、近づくと いっせいに飛び立つ＝反応する世界）
 const sparrows = []
