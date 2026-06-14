@@ -953,6 +953,29 @@ function makeSento(x, z, rot) {
   makeSmoke(x + cw.x, heightAt(x, z) + 10, z + cw.z, 18)
 }
 makeSento(TOWN.x + 34, TOWN.z - 12, -Math.PI / 2)
+// 商店街アーチ（入口をまたぐ門＋看板＋提灯）＝昭和の商店街の象徴
+function makeArcade(x, z, rot) {
+  const g = new THREE.Group(); const post = toon(0x8a96a2), red = toon(0xc23a2c)
+  for (const px of [-5.2, 5.2]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 6, 8), post); p.position.set(px, 3, 0); g.add(p) }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(11, 0.5, 0.5), post); beam.position.y = 5.9; g.add(beam)
+  const signbg = new THREE.Mesh(new THREE.BoxGeometry(8.4, 1.5, 0.3), red); signbg.position.set(0, 5.15, 0.3); g.add(signbg)
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.2), new THREE.MeshBasicMaterial({ map: textTex('商店街', '#c23a2c', '#fff3d8', false) })); sign.position.set(0, 5.15, 0.47); g.add(sign)
+  for (let i = 0; i < 5; i++) { const lan = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), red); lan.scale.set(1, 1.25, 1); lan.position.set(-4.2 + i * 2.1, 5.35, -0.45); g.add(lan) }
+  placeProp(g, x, z, rot || 0, 0.04, 1.0)
+}
+makeArcade(TOWN.x, TOWN.z - 22, 0)
+// 公衆電話ボックス（昭和の緑の電話）
+function makePhoneBox(x, z, rot) {
+  const g = new THREE.Group(); const frame = toon(0x2f7a4a)
+  const glass = new THREE.MeshToonMaterial({ color: 0xbcd4d8, transparent: true, opacity: 0.4, gradientMap: GRAD })
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.18, 1.2), frame); base.position.y = 0.09; g.add(base)
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1.05, 2.2, 1.05), glass); box.position.y = 1.28; g.add(box)
+  for (const [px, pz] of [[-0.52, -0.52], [0.52, -0.52], [-0.52, 0.52], [0.52, 0.52]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.1), frame); p.position.set(px, 1.28, pz); g.add(p) }
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.28, 1.32), frame); roof.position.y = 2.5; g.add(roof)
+  const phone = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.5, 0.16), toon(0x256a3a)); phone.position.set(0, 1.45, -0.4); g.add(phone)
+  placeProp(g, x, z, rot || 0, 0.03, 0.7)
+}
+makePhoneBox(TOWN.x + 6, TOWN.z - 23, -0.4)
 
 // ── 小さな草花（赤・白・黄の点。場を生き生きと）──
 {
