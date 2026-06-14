@@ -33,6 +33,11 @@
         background: rgba(60,66,98,0.85); border-radius: 999px; box-shadow: 0 3px 12px rgba(20,24,40,0.35);
         transition: opacity 1s ease; }
       @media (orientation: portrait) and (max-width: 900px) { #rotate { display: block; } }
+      #go { left: 50%; bottom: 24%; transform: translateX(-50%); appearance: none; border: none; cursor: pointer;
+        padding: 0.55em 1.5em; font-size: clamp(14px,2.8vw,20px); font-family: inherit; color: #4a4032;
+        background: rgba(255,250,240,0.94); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); display: none; }
+      #fade { position: fixed; inset: 0; background: #0c0d12; opacity: 0; pointer-events: none;
+        transition: opacity 0.45s ease; z-index: 30; }
       #sleep { left: 3%; bottom: 6%; appearance: none; border: none; cursor: pointer;
         padding: 0.45em 1em; font-size: clamp(12px,2.3vw,16px); font-family: inherit; color: #fdf7ec;
         background: rgba(60,66,98,0.78); border-radius: 999px; box-shadow: 0 3px 10px rgba(20,24,40,0.3); }
@@ -74,6 +79,8 @@
     <div id="rotate" class="hud">横にすると、もっと広く見渡せます</div>
     <button id="npc" class="hud">はなしかける</button>
     <div id="dialogue" class="hud"><span id="dlg-name"></span><p id="dlg-text"></p></div>
+    <button id="go" class="hud">町へ →</button>
+    <div id="fade"></div>
     <button id="sleep" class="hud">🌙 ねる</button>
     <div id="diary">
       <div class="diary-page">

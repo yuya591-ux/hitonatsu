@@ -106,6 +106,14 @@ try {
   if (!diaryShown) errors.push('絵日記が表示されない')
   await page.screenshot({ path: join(outDir, 'proto3d-diary.png') })
   console.log('撮影: proto3d-diary.png')
+  // 住宅街エリア（往来先・ドラえもん的）
+  await page.evaluate(() => { document.getElementById('diary').style.display = 'none'; const H = window.__proto3d; H.standUp(); H.setGameDay(1); H.setDay(0.4); H.goArea('town') })
+  await new Promise((r) => setTimeout(r, 1000))
+  const inTown = await page.evaluate(() => window.__proto3d.area === 'town')
+  console.log(`往来テスト: 街エリア=${inTown ? 'OK' : 'NG'}`)
+  if (!inTown) errors.push('街エリアへ移動できない')
+  await page.screenshot({ path: join(outDir, 'proto3d-town.png') })
+  console.log('撮影: proto3d-town.png')
   // 3日目の夜＝おまつり（提灯＋花火）
   await page.evaluate(() => {
     const H = window.__proto3d

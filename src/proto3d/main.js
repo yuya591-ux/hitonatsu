@@ -16,7 +16,9 @@ const lookHint = document.getElementById('look')
 // ── 地面の高さ（解析式）。地面メッシュもキャラの足元もこの式で揃える。──
 const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
 const HOUSE = { x: -17, z: 13 } // 昭和の田舎家（縁側）の位置
+const TOWN = { x: 1000, z: 0 } // 住宅街エリアは遠くにオフセット（霧で野原と分離）。x>500=街=平地
 function heightAt(x, z) {
+  if (x > 500) return 0 // 住宅街エリア（平地）
   const hill = 6.0 * Math.exp(-((x * x) + (z + 28) * (z + 28)) / (2 * 18 * 18)) // -Z側のなだらかな高台
   const undul = 0.6 * Math.sin(x * 0.08) * Math.cos(z * 0.08) // 微妙なうねり
   const pond = -2.8 * Math.exp(-(((x - POND.x) ** 2) + ((z - POND.z) ** 2)) / (2 * 7 * 7)) // 池のくぼみ
@@ -99,6 +101,7 @@ const sc = sun.shadow.camera
 sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70
 sun.shadow.bias = -0.0004
 scene.add(sun)
+scene.add(sun.target) // 影カメラと光の向きを主人公に追従させるため
 const hemi = new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15) // 空色↔草色の柔らかい環境光（明るめ）
 scene.add(hemi)
 
@@ -115,7 +118,8 @@ const skyMat = new THREE.ShaderMaterial({
   fragmentShader: `varying vec3 vP; uniform vec3 top; uniform vec3 mid; uniform vec3 bottom;
     void main(){ float h = normalize(vP).y; vec3 c = h>0.0 ? mix(mid, top, clamp(h*1.4,0.0,1.0)) : mix(mid, bottom, clamp(-h*2.0,0.0,1.0)); gl_FragColor = vec4(c,1.0);} `,
 })
-scene.add(new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), skyMat))
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), skyMat)
+scene.add(skyDome)
 
 // 太陽（明るい球。ブルームでにじむ）
 const sunBall = new THREE.Mesh(
@@ -343,6 +347,54 @@ function drawWire(a, b, sag) {
 }
 drawWire(poleA, poleB, 1.2)
 drawWire(poleB, new THREE.Vector3(HOUSE.x, heightAt(HOUSE.x, HOUSE.z) + 3.5, HOUSE.z), 0.8)
+
+// ── 住宅街エリア（昭和の街並み：家・ブロック塀・電柱・空き地の土管）＝ドラえもん的な往来先 ──
+const GATE_FIELD = new THREE.Vector3(42, 0, 36)            // 野原側の出入口（→町へ）
+const GATE_TOWN = new THREE.Vector3(TOWN.x, 0, TOWN.z - 26) // 街側の出入口（→はらっぱへ）
+function makeGate(p, rot) {
+  const g = new THREE.Group(); const w = toon(0x9a6a3a)
+  for (const px of [-1.7, 1.7]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 3.4, 8), w); post.position.set(px, 1.7, 0); g.add(post) }
+  const top = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.34, 0.34), toon(0x7a5230)); top.position.y = 3.3; g.add(top)
+  placeProp(g, p.x, p.z, rot || 0, 0.05, 1.6)
+}
+makeGate(GATE_FIELD, 0)
+makeGate(GATE_TOWN, 0)
+{
+  const T = TOWN
+  // 地面（土）と道（アスファルト）
+  const tg = new THREE.Mesh(new THREE.PlaneGeometry(96, 64), new THREE.MeshToonMaterial({ color: 0xb6ad99, gradientMap: GRAD, map: watercolorTex }))
+  tg.rotation.x = -Math.PI / 2; tg.position.set(T.x, 0, T.z); tg.receiveShadow = true; scene.add(tg)
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(9, 64), new THREE.MeshToonMaterial({ color: 0x8c8c8c, gradientMap: GRAD }))
+  road.rotation.x = -Math.PI / 2; road.position.set(T.x, 0.02, T.z); scene.add(road)
+  const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0xeeeae0 }))
+  cl.rotation.x = -Math.PI / 2; cl.position.set(T.x, 0.03, T.z); scene.add(cl)
+  // 両側に家＋ブロック塀（道を向く）
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      const hx = T.x + side * 12, hz = T.z - 14 + i * 15
+      makeHouse(hx, hz, side > 0 ? -Math.PI / 2 : Math.PI / 2)
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 1.0, 0.4), toon(0xbcb6a4))
+      wall.position.set(hx - side * 4.4, 0.5, hz); wall.rotation.y = Math.PI / 2; wall.castShadow = true
+      addOutline(wall, 0.03); scene.add(wall)
+    }
+  }
+  // 電柱＋電線
+  const tp = []
+  for (let i = 0; i < 4; i++) tp.push(makePole(T.x + 5.5, T.z - 22 + i * 15))
+  for (let i = 0; i < tp.length - 1; i++) drawWire(tp[i], tp[i + 1], 1.0)
+  // 空き地＋土管（ドラえもん的）＋雑草
+  function pipe(x, y, z) {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 2.3, 18, 1, true), new THREE.MeshToonMaterial({ color: 0xc0bcb0, gradientMap: GRAD, side: THREE.DoubleSide }))
+    p.rotation.z = Math.PI / 2; p.position.set(x, y, z); p.castShadow = true; addOutline(p, 0.04); scene.add(p)
+  }
+  const lx = T.x - 33, lz = T.z + 12
+  pipe(lx, 1.0, lz); pipe(lx + 2.4, 1.0, lz); pipe(lx + 1.2, 2.7, lz)
+  for (let i = 0; i < 34; i++) {
+    const wx = lx - 7 + Math.random() * 18, wz = lz - 9 + Math.random() * 16
+    const w = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), toon(0x88a250)); w.scale.set(1, 0.4, 1)
+    w.position.set(wx, 0.1, wz); scene.add(w)
+  }
+}
 
 // ── 小さな草花（赤・白・黄の点。場を生き生きと）──
 {
@@ -842,6 +894,29 @@ function nextDay() {
 }
 sleepEl.addEventListener('click', () => { if (!diaryOpen && !dialogue) openDiary() })
 diaryCloseEl.addEventListener('click', () => { if (diaryOpen) nextDay() })
+
+// ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
+let area = 'field'
+let transitioning = false
+const goEl = document.getElementById('go')
+const fadeEl = document.getElementById('fade')
+function curGate() { return area === 'field' ? GATE_FIELD : GATE_TOWN }
+function travel() {
+  if (transitioning || dialogue || diaryOpen) return
+  transitioning = true
+  endPuni(); vel.set(0, 0, 0)
+  fadeEl.style.opacity = '1'
+  setTimeout(() => {
+    if (area === 'field') { area = 'town'; boy.position.set(GATE_TOWN.x, 0, GATE_TOWN.z + 3.5); facing = 0; goEl.textContent = 'はらっぱへ →' }
+    else { area = 'field'; boy.position.set(GATE_FIELD.x, 0, GATE_FIELD.z - 3.5); facing = Math.PI; goEl.textContent = '町へ →' }
+    boy.position.y = heightAt(boy.position.x, boy.position.z)
+    boy.rotation.y = facing
+    camera.position.copy(boy.position).add(camOffset(tmp))
+    if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
+    setTimeout(() => { fadeEl.style.opacity = '0'; transitioning = false }, 220)
+  }, 470)
+}
+goEl.addEventListener('click', travel)
 function advanceDialogue() {
   if (!dialogue) return
   dialogue.idx++
@@ -945,7 +1020,7 @@ function lieDown() {
   camera.position.set(ex, ey, ez)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(ex + Math.sin(seatLook.yaw) * cp, ey + Math.sin(seatLook.pitch), ez + Math.cos(seatLook.yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 
@@ -977,7 +1052,7 @@ function sitDown(which) {
   camera.position.copy(eye)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(eye.x + Math.sin(yaw) * cp, eye.y + Math.sin(seatLook.pitch), eye.z + Math.cos(yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 function standUp() {
@@ -1004,6 +1079,14 @@ const sunProj = new THREE.Vector3()
 function update(dt) {
   // 一日の移ろい（ゆっくり）
   if (dayAuto) { tday = (tday + dt / 240) % 1; setTimeOfDay(tday) }
+  // 空・太陽・星・月を主人公/カメラに追従（遠くの街エリアでも空が正しく回り、影も届く）
+  skyDome.position.copy(camera.position)
+  sunBall.position.copy(camera.position).addScaledVector(sunDir, 300)
+  stars.position.copy(camera.position)
+  moon.position.set(camera.position.x + 70, 95, camera.position.z - 90)
+  moonGlow.position.copy(moon.position)
+  sun.position.copy(boy.position).addScaledVector(sunDir, 120)
+  sun.target.position.copy(boy.position)
   // 風で草木をゆらす・光の粒を漂わせる（生気）
   const tsec = clock.elapsedTime
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
@@ -1139,6 +1222,9 @@ function update(dt) {
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
     else actBtn.style.display = 'none'
     lieBtn.style.display = dialogue ? 'none' : 'block'
+    // 門に近づくと往来ボタン
+    const g = curGate()
+    goEl.style.display = (!dialogue && Math.hypot(boy.position.x - g.x, boy.position.z - g.z) < 3.5) ? 'block' : 'none'
 
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
     camCtl.dist += (BASE_DIST * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
@@ -1155,7 +1241,7 @@ function update(dt) {
     const cp = Math.cos(seatLook.pitch)
     lookTo.set(seatEye.x + Math.sin(seatLook.yaw) * cp, seatEye.y + Math.sin(seatLook.pitch), seatEye.z + Math.cos(seatLook.yaw) * cp)
     camGoal.copy(seatEye); lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
   } else {
     // 座って360度見回す（高台のベンチ or 縁側。目線は座る位置）
     seatEye.copy(curSitEye)
@@ -1167,7 +1253,7 @@ function update(dt) {
     )
     camGoal.copy(seatEye)
     lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'
   }
   // カメラを目標へなめらかに寄せる
   camera.position.lerp(camGoal, Math.min(1, dt * (mode !== 'walk' ? 6 : 5)))
@@ -1207,6 +1293,15 @@ window.__proto3d = {
   get day() { return day },
   setGameDay(d) { day = d; refreshBadge() }, // 検証用
   spawnFirework() { spawnFirework() }, // 検証用
+  goArea(a) { // 検証用：エリアへ瞬間移動
+    area = a
+    if (a === 'town') { boy.position.set(TOWN.x - 2, 0, TOWN.z); facing = 0 }
+    else { boy.position.set(GATE_FIELD.x, 0, GATE_FIELD.z - 3.5); facing = Math.PI }
+    boy.position.y = heightAt(boy.position.x, boy.position.z); boy.rotation.y = facing
+    camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
+    if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
+  },
+  get area() { return area },
   villager,
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
