@@ -521,6 +521,30 @@ function makeShop(x, z, rot, opt) {
     const w = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), toon(0x88a250)); w.scale.set(1, 0.4, 1)
     w.position.set(wx, 0.1, wz); scene.add(w)
   }
+  // ── 一本道ではなく「複数の道がある住宅街」に：交差する道＋枝道＋家のブロック ──
+  const roofs2 = [0x6a5a4a, 0x4a6a5a, 0x705a52, 0x556088, 0x586472]
+  const asphalt = () => new THREE.MeshToonMaterial({ color: 0x8c8c8c, gradientMap: GRAD })
+  const cross = new THREE.Mesh(new THREE.PlaneGeometry(90, 8), asphalt()); cross.rotation.x = -Math.PI / 2; cross.position.set(T.x, 0.02, T.z + 24); scene.add(cross) // 交差する東西の道
+  const cl2 = new THREE.Mesh(new THREE.PlaneGeometry(90, 0.3), new THREE.MeshBasicMaterial({ color: 0xeeeae0 })); cl2.rotation.x = -Math.PI / 2; cl2.position.set(T.x, 0.03, T.z + 24); scene.add(cl2)
+  const side = new THREE.Mesh(new THREE.PlaneGeometry(7, 30), asphalt()); side.rotation.x = -Math.PI / 2; side.position.set(T.x - 28, 0.02, T.z + 9); scene.add(side) // 枝道（南北）
+  // 交差路の北に並ぶ家（南向き）＋ブロック塀
+  const northXs = [T.x - 26, T.x - 8, T.x + 10, T.x + 28]
+  for (let i = 0; i < northXs.length; i++) {
+    const hx = northXs[i], hz = T.z + 31
+    makeHouse(hx, hz, Math.PI, roofs2[i % roofs2.length])
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 1.0, 0.4), toon(0xbcb6a4))
+    wall.position.set(hx, 0.5, hz - 4.4); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall)
+  }
+  // 枝道ぞいの家（東向き）
+  makeHouse(T.x - 37, T.z + 3, Math.PI / 2, roofs2[1]); makeHouse(T.x - 37, T.z + 16, Math.PI / 2, roofs2[3])
+  // 裏山へのぼる飛び石の小道
+  for (let i = 0; i < 10; i++) {
+    const sz = T.z + 33 + i * 4.6, sx = T.x + 2 + Math.sin(i * 0.7) * 3.2
+    const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.15, 8), toon(0xb6ab97))
+    stone.position.set(sx, heightAt(sx, sz) + 0.05, sz); scene.add(stone)
+  }
+  // 裏山の雑木（斜面に点々と＝木立の山）
+  for (const [tx, tz, ts] of [[T.x - 22, T.z + 50, 1.1], [T.x + 26, T.z + 56, 1.2], [T.x - 6, T.z + 66, 1.0], [T.x + 16, T.z + 72, 1.1], [T.x - 30, T.z + 66, 0.95], [T.x + 36, T.z + 46, 1.0], [T.x - 14, T.z + 80, 0.9]]) makeTree(tx, tz, ts)
   // 街かどの生活痕：丸ポスト・当時の自販機
   {
     const pg = new THREE.Group(); const red = toon(0xc0392b)
