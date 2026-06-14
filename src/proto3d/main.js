@@ -1549,8 +1549,8 @@ function buildCumulonimbus() {
 }
 for (let i = 0; i < 7; i++) {
   const mesh = new THREE.Mesh(buildCumulonimbus(), cloudMat)
-  mesh.scale.setScalar(1.3 + Math.random() * 1.1)
-  mesh.userData = { az: (i / 7) * Math.PI * 2 + Math.random() * 0.6, dist: 250 + Math.random() * 130, baseY: -14 - Math.random() * 9, drift: 0.0025 + Math.random() * 0.004 }
+  mesh.scale.setScalar(2.6 + Math.random() * 2.0) // ぐっと巨大に（夏空にそびえる）
+  mesh.userData = { az: (i / 7) * Math.PI * 2 + Math.random() * 0.6, dist: 330 + Math.random() * 160, baseY: -2 - Math.random() * 14, drift: 0.0022 + Math.random() * 0.0035 }
   scene.add(mesh); thunderheads.push(mesh)
 }
 
