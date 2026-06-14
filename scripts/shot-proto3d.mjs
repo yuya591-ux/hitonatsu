@@ -114,6 +114,11 @@ try {
   if (!inTown) errors.push('街エリアへ移動できない')
   await page.screenshot({ path: join(outDir, 'proto3d-town.png') })
   console.log('撮影: proto3d-town.png')
+  // 空き地の土管＋近所の子
+  await page.evaluate(() => { window.__proto3d.placeBoy(972, 21) })
+  await new Promise((r) => setTimeout(r, 900))
+  await page.screenshot({ path: join(outDir, 'proto3d-lot.png') })
+  console.log('撮影: proto3d-lot.png')
   // 3日目の夜＝おまつり（提灯＋花火）
   await page.evaluate(() => {
     const H = window.__proto3d

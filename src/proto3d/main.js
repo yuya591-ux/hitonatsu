@@ -359,6 +359,12 @@ function makeGate(p, rot) {
 }
 makeGate(GATE_FIELD, 0)
 makeGate(GATE_TOWN, 0)
+// 野原から門へ続く土の道（往来の導線＝門が「町への道」だと分かる）
+{
+  const pgeo = new THREE.PlaneGeometry(5, 38); pgeo.rotateX(-Math.PI / 2)
+  const path = new THREE.Mesh(pgeo, new THREE.MeshToonMaterial({ color: 0xc6aa7c, gradientMap: GRAD, map: watercolorTex }))
+  path.rotation.y = 1.05; path.position.set(36, 0.06, 31); path.receiveShadow = true; scene.add(path)
+}
 // 商店街の一軒（昭和の店構え：店先・縞テント・看板・袖看板・品物）
 function makeShop(x, z, rot, opt) {
   const g = new THREE.Group()
@@ -602,10 +608,11 @@ function makeVillager(x, z, opt) {
   const g = new THREE.Group()
   const skin = toon(0xe9bb8e)
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.34), toon(opt.shirt)); torso.position.y = 1.5; g.add(torso)
-  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.62, 12), toon(opt.skirt)); skirt.position.y = 1.05; g.add(skirt)
+  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.32, 0.36), toon(opt.skirt)); shorts.position.y = 1.05; g.add(shorts) }
+  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.62, 12), toon(opt.skirt)); skirt.position.y = 1.05; g.add(skirt) }
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), skin); head.position.y = 2.05; g.add(head)
   const hair = new THREE.Mesh(new THREE.SphereGeometry(0.33, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 2.09; hair.rotation.x = -0.25; g.add(hair)
-  for (const hx of [-0.3, 0.3]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), toon(opt.hair)); pt.position.set(hx, 2.0, -0.04); g.add(pt) }
+  if (!opt.boy) for (const hx of [-0.3, 0.3]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), toon(opt.hair)); pt.position.set(hx, 2.0, -0.04); g.add(pt) }
   const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), skin); legL.position.set(-0.13, 0.7, 0); g.add(legL)
   const legR = legL.clone(); legR.position.x = 0.13; g.add(legR)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
@@ -657,8 +664,21 @@ const townLady = makeVillager(TOWN.x - 7.5, TOWN.z - 18, {
     },
   },
 })
+// 近所の子（空き地の土管のそば＝ひみつきち。昭和の原風景）
+const townKid = makeVillager(TOWN.x - 30, TOWN.z + 16, {
+  boy: true, shirt: 0x6aa0d8, skirt: 0x3f5a77, hair: 0x3a2e22, face: -0.6,
+  info: {
+    name: '近所の子',
+    byPhase: {
+      morning: ['おはよう！ 虫とり 行く？', 'この 土管、ぼくらの ひみつきちなんだ。'],
+      noon: ['ここで かくれんぼ するんだ。', 'きみも 入って みる？'],
+      evening: ['もう 帰らないと おこられちゃう。', 'また あした 遊ぼうな！'],
+      night: ['まだ 起きてるの？', '夜の 空き地は ちょっと こわいや。'],
+    },
+  },
+})
 // 会話できる人たち（いちばん近い人に話しかける）
-const npcs = [villager, townLady]
+const npcs = [villager, townLady, townKid]
 let talkTarget = null
 
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
@@ -928,7 +948,7 @@ function startDialogue() {
 // ── 「3日だけの夏」＋絵日記（その日やったこと→翌日への予告／夏の終わり）──
 let day = 1
 let diaryOpen = false
-const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false }
+const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false }
 try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= 3) day = s } catch (e) {}
 const sleepEl = document.getElementById('sleep')
 const diaryEl = document.getElementById('diary')
@@ -942,6 +962,7 @@ function openDiary() {
   diaryOpen = true; dayAuto = false
   const body = []
   if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。')
+  if (todayFlags.wentTown) body.push('街の 商店街まで あるいた。')
   if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
   if (todayFlags.satHill) body.push('高台で ぼーっと した。')
   if (todayFlags.layDown) body.push('草の上で ねころんで 空を ながめた。')
@@ -974,7 +995,7 @@ function travel() {
   endPuni(); vel.set(0, 0, 0)
   fadeEl.style.opacity = '1'
   setTimeout(() => {
-    if (area === 'field') { area = 'town'; boy.position.set(GATE_TOWN.x, 0, GATE_TOWN.z + 3.5); facing = 0; goEl.textContent = 'はらっぱへ →' }
+    if (area === 'field') { area = 'town'; boy.position.set(GATE_TOWN.x, 0, GATE_TOWN.z + 3.5); facing = 0; goEl.textContent = 'はらっぱへ →'; todayFlags.wentTown = true }
     else { area = 'field'; boy.position.set(GATE_FIELD.x, 0, GATE_FIELD.z - 3.5); facing = Math.PI; goEl.textContent = '町へ →' }
     boy.position.y = heightAt(boy.position.x, boy.position.z)
     boy.rotation.y = facing
