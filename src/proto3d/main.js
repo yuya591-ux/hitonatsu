@@ -2069,6 +2069,7 @@ const STICK_R = 60
 const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1..1
 const pointers = new Map() // 多点タッチ（2本指で視点操作）
 let orbit = null // { mx, my, d }
+let cam2 = -1, cam2Moved = false // 歩きながら視点を回す“2本目の指”（ドラッグ=回転／タップ=ジャンプ）
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 let jumpY = 0, jumpV = 0 // ジャンプ（地面からの高さと上下速度）
 function doJump() { if (jumpY <= 0.02 && mode === 'walk') { jumpV = 7.0; playStep(0.05, area === 'town'); todayFlags.jumped = true } } // 接地時だけ跳ねる
@@ -2091,7 +2092,8 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId)
   if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
   if (pointers.size === 1) startPuni(e.pointerId, e.clientX, e.clientY)
-  else if (pointers.size === 2) { endPuni(); orbit = midDist() }
+  else if (puni.active && cam2 < 0) { cam2 = e.pointerId; cam2Moved = false } // 歩きながら：2本目の指は視点回転/ジャンプ（歩きは止めない）
+  else if (pointers.size === 2) { orbit = midDist() } // 歩いていない時だけ2本指オービット/ズーム
 })
 canvas.addEventListener('pointermove', (e) => {
   if (!pointers.has(e.pointerId)) return
@@ -2106,8 +2108,13 @@ canvas.addEventListener('pointermove', (e) => {
     }
     return
   }
-  if (pointers.size >= 2 && orbit) {
-    // 2本指：視点を回す・つまんで寄る
+  if (e.pointerId === cam2) {
+    // 歩きながら2本目の指で視点を回す
+    camCtl.yaw -= (e.clientX - prevX) * 0.006
+    camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005, camCtl.minPitch, camCtl.maxPitch)
+    if (Math.abs(e.clientX - prev.sx) + Math.abs(e.clientY - prev.sy) > 12) cam2Moved = true
+  } else if (pointers.size >= 2 && orbit && !puni.active) {
+    // 2本指（歩いていない時）：視点を回す・つまんで寄る
     const m = midDist()
     camCtl.yaw -= (m.mx - orbit.mx) * 0.006
     camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (m.my - orbit.my) * 0.005, camCtl.minPitch, camCtl.maxPitch)
@@ -2130,14 +2137,19 @@ function onUp(e) {
     if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else standUp() } // ブランコはタップで こぐ
     sitTap = null; return
   }
-  // 軽いタップ（短時間・ほとんど動かさない）でジャンプ（移動中でもOK）
+  // 2本目の指を離した：ドラッグせず軽いタップだったらジャンプ
+  if (e.pointerId === cam2) {
+    if (!cam2Moved && performance.now() - p.t < 250 && Math.abs(p.x - p.sx) + Math.abs(p.y - p.sy) < 14) doJump()
+    cam2 = -1; return
+  }
+  // 1本指の軽いタップでジャンプ（立ち止まりからでも）
   if (p && performance.now() - p.t < 230 && Math.abs(p.x - p.sx) + Math.abs(p.y - p.sy) < 14) doJump()
   if (pointers.size < 2) orbit = null
   if (e.pointerId === puni.id) endPuni()
-  // 2本指→1本に戻ったら、残った指でぷにコン再開
+  // 残った指でぷにコン再開（ただし視点回転用の2本目には乗っ取らせない）
   if (pointers.size === 1 && !puni.active) {
-    const [id, p] = [...pointers.entries()][0]
-    startPuni(id, p.x, p.y)
+    const [id, pp] = [...pointers.entries()][0]
+    if (id !== cam2) startPuni(id, pp.x, pp.y)
   }
 }
 canvas.addEventListener('pointerup', onUp)
