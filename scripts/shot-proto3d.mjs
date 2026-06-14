@@ -77,6 +77,16 @@ try {
   await new Promise((r) => setTimeout(r, 1200))
   await page.screenshot({ path: join(outDir, 'proto3d-pond.png') })
   console.log('撮影: proto3d-pond.png')
+  // 村の人と会話
+  await page.evaluate(() => { window.__proto3d.setDay(0.4); const v = window.__proto3d.villager; window.__proto3d.placeBoy(v.position.x, v.position.z + 2.4) })
+  await new Promise((r) => setTimeout(r, 900))
+  await page.evaluate(() => window.__proto3d.talk())
+  await new Promise((r) => setTimeout(r, 600))
+  const talking = await page.evaluate(() => document.getElementById('dialogue').style.display === 'block' && document.getElementById('dlg-text').textContent.length > 0)
+  console.log(`会話テスト: ${talking ? 'OK' : 'NG'}`)
+  if (!talking) errors.push('村の人と会話できていない')
+  await page.screenshot({ path: join(outDir, 'proto3d-talk.png') })
+  console.log('撮影: proto3d-talk.png')
   await page.close()
 } finally {
   await browser.close()

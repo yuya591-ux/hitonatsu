@@ -416,6 +416,41 @@ const boyShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), shadowMat)
 boyShadow.rotation.x = -Math.PI / 2
 scene.add(boyShadow)
 
+// ── 村の人（“人の気配”。近づくと話せる。台詞は時間帯で変わる）──
+function makeVillager(x, z, opt) {
+  const g = new THREE.Group()
+  const skin = toon(0xe9bb8e)
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.34), toon(opt.shirt)); torso.position.y = 1.5; g.add(torso)
+  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.62, 12), toon(opt.skirt)); skirt.position.y = 1.05; g.add(skirt)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), skin); head.position.y = 2.05; g.add(head)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.33, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 2.09; hair.rotation.x = -0.25; g.add(hair)
+  for (const hx of [-0.3, 0.3]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), toon(opt.hair)); pt.position.set(hx, 2.0, -0.04); g.add(pt) }
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), skin); legL.position.set(-0.13, 0.7, 0); g.add(legL)
+  const legR = legL.clone(); legR.position.x = 0.13; g.add(legR)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, heightAt(x, z), z)
+  g.rotation.y = opt.face || 0
+  outlineObj(g, 0.03)
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2018 })
+  for (const ex of [-0.1, 0.1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat); e.position.set(ex, 2.05, 0.27); g.add(e) }
+  addContactShadow(g, 0.6)
+  g.userData = { info: opt.info, baseY: heightAt(x, z) }
+  scene.add(g)
+  return g
+}
+const villager = makeVillager(13, 9, {
+  shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5,
+  info: {
+    name: '女の子',
+    byPhase: {
+      morning: ['おはよう。今日も いい天気だね。', '朝の はらっぱは すずしくて すきなんだ。'],
+      noon: ['暑いねえ。日かげで すこし 休もうよ。', 'むこうの 池に、メダカが いるんだよ。'],
+      evening: ['夕やけ、きれいだね。', 'ヒグラシが 鳴きはじめたね。そろそろ おうちかな。'],
+      night: ['もう こんな時間。', '星が たくさん 見えるね。'],
+    },
+  },
+})
+
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
   const N = 140
@@ -633,6 +668,31 @@ let lookUp = 0 // 立ち止まると少し空を見上げる量(0..1)
 const BASE_FOV = 45
 const BASE_DIST = 19
 const lieBtn = document.getElementById('lie')
+const npcEl = document.getElementById('npc')
+const dialogueEl = document.getElementById('dialogue')
+const dlgNameEl = document.getElementById('dlg-name')
+const dlgTextEl = document.getElementById('dlg-text')
+let dialogue = null // { lines, idx }
+const phaseOf = (t) => (t < 0.18 ? 'morning' : t < 0.5 ? 'noon' : t < 0.78 ? 'evening' : 'night')
+function startDialogue() {
+  const info = villager.userData.info
+  const lines = info.byPhase[phaseOf(tday)] || info.byPhase.noon
+  dialogue = { lines, idx: 0 }
+  dlgNameEl.textContent = info.name
+  dlgTextEl.textContent = lines[0]
+  dialogueEl.style.display = 'block'
+  npcEl.style.display = 'none'
+  endPuni()
+  villager.rotation.y = Math.atan2(boy.position.x - villager.position.x, boy.position.z - villager.position.z) // こちらを向く
+}
+function advanceDialogue() {
+  if (!dialogue) return
+  dialogue.idx++
+  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none' }
+  else dlgTextEl.textContent = dialogue.lines[dialogue.idx]
+}
+npcEl.addEventListener('click', startDialogue)
+dialogueEl.addEventListener('click', advanceDialogue)
 
 // ぷにコン（指でスライドした方向へ歩く・白猫プロジェクト風）
 const stickEl = document.getElementById('stick')
@@ -727,7 +787,7 @@ function lieDown() {
   camera.position.set(ex, ey, ez)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(ex + Math.sin(seatLook.yaw) * cp, ey + Math.sin(seatLook.pitch), ez + Math.cos(seatLook.yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 
@@ -750,7 +810,7 @@ function sitDown() {
     ey + Math.sin(seatLook.pitch),
     ez + Math.cos(seatLook.yaw) * cp,
   )
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 function standUp() {
@@ -829,6 +889,7 @@ function update(dt) {
     let sx = 0, sy = 0
     if (puni.active && Math.hypot(puni.vx, puni.vy) > 0.06) { sx = puni.vx; sy = puni.vy }
     else if (kx || kz) { sx = kx; sy = kz }
+    if (dialogue) { sx = 0; sy = 0 } // 会話中は歩かない
     const mag = Math.min(1, Math.hypot(sx, sy))
     // 目標速度（倒し量で“そろり〜小走り”）。慣性で滑らかに加減速。
     let tx = 0, tz = 0
@@ -868,8 +929,10 @@ function update(dt) {
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * 0.06 : Math.sin(tsec * 1.4) * 0.012 // 歩く弾み/立つ呼吸
 
     const near = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
-    actBtn.style.display = near ? 'block' : 'none'
-    lieBtn.style.display = 'block'
+    const nearNpc = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z) < 3
+    npcEl.style.display = (nearNpc && !dialogue) ? 'block' : 'none'
+    actBtn.style.display = (near && !nearNpc && !dialogue) ? 'block' : 'none'
+    lieBtn.style.display = dialogue ? 'none' : 'block'
 
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
     camCtl.dist += (BASE_DIST * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
@@ -886,7 +949,7 @@ function update(dt) {
     const cp = Math.cos(seatLook.pitch)
     lookTo.set(seatEye.x + Math.sin(seatLook.yaw) * cp, seatEye.y + Math.sin(seatLook.pitch), seatEye.z + Math.cos(seatLook.yaw) * cp)
     camGoal.copy(seatEye); lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
   } else {
     // 座って360度見回す（目線は座面の少し前・上＝体に埋まらない）
     seatEye.set(SEAT.x, SEAT.y + 2.3, SEAT.z - 0.9)
@@ -898,7 +961,7 @@ function update(dt) {
     )
     camGoal.copy(seatEye)
     lookGoal.copy(lookTo)
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'
+    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'
   }
   // カメラを目標へなめらかに寄せる
   camera.position.lerp(camGoal, Math.min(1, dt * (mode !== 'walk' ? 6 : 5)))
@@ -933,6 +996,8 @@ window.__proto3d = {
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   startAudio,
   placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
+  talk() { startDialogue() }, // 検証用
+  villager,
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
