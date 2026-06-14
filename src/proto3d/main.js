@@ -2149,7 +2149,14 @@ function update(dt) {
   // 環境音：時刻でクロスフェード＋夕方に一度だけ夕焼けチャイム
   if (audioStarted) {
     const w = ambientWeights(tday)
-    for (const id in ambients) { const a = ambients[id]; if (a.buffer) a.setVolume(Math.min(1, w[id] || 0) * 0.6) }
+    // 蝉しぐれ：ゆっくり寄せては返すように音量がうねる（一様でない＝本物の夏の気配）
+    const cicadaSwell = 0.68 + 0.32 * (0.5 + 0.5 * Math.sin(tsec * 0.12)) + 0.06 * Math.sin(tsec * 0.5 + 1.0)
+    for (const id in ambients) {
+      const a = ambients[id]; if (!a.buffer) continue
+      let v = Math.min(1, w[id] || 0) * 0.6
+      if (id === 'cicada' || id === 'higurashi') v *= cicadaSwell
+      a.setVolume(Math.max(0, v))
+    }
     if (tday < 0.4) chimeArmed = true
     if (chimeArmed && tday > 0.69) { chimeArmed = false; playChime() }
   }
