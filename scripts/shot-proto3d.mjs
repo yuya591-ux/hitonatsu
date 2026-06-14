@@ -184,6 +184,20 @@ try {
   await new Promise((r) => setTimeout(r, 700))
   await page.screenshot({ path: join(outDir, 'proto3d-festival.png') })
   console.log('撮影: proto3d-festival.png')
+  // 夏の終わり：3日目に女の子と会うと おまもりをもらい、最後の絵日記に結ばれる
+  await page.evaluate(() => { const H = window.__proto3d; document.getElementById('diary').style.display = 'none'; H.setGameDay(3); H.setDay(0.5); H.goArea('field'); const v = H.villager; H.placeBoy(v.position.x, v.position.z + 2.2) })
+  await new Promise((r) => setTimeout(r, 500))
+  await page.evaluate(() => window.__proto3d.talk())
+  await new Promise((r) => setTimeout(r, 250))
+  for (let i = 0; i < 4; i++) { await page.evaluate(() => document.getElementById('dialogue').click()); await new Promise((r) => setTimeout(r, 100)) }
+  await page.evaluate(() => window.__proto3d.openDiary())
+  await new Promise((r) => setTimeout(r, 400))
+  const ending = await page.evaluate(() => ({ title: document.getElementById('diary-title').textContent, body: document.getElementById('diary-body').textContent }))
+  const okEnd = ending.title.includes('おわった') && ending.body.includes('おまもり')
+  console.log(`夏の終わりテスト: ${okEnd ? 'OK' : 'NG'}（${ending.title}）`)
+  if (!okEnd) errors.push('3日目に女の子と会っても おまもりの結びが出ない')
+  await page.screenshot({ path: join(outDir, 'proto3d-ending.png') })
+  console.log('撮影: proto3d-ending.png')
   await page.close()
 } finally {
   await browser.close()

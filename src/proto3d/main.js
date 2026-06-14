@@ -1213,12 +1213,15 @@ function startDialogue() {
   npcEl.style.display = 'none'
   endPuni()
   if (who === villager) todayFlags.metGirl = true
+  if (who === villager && day >= 3) { gotOmamori = true; try { localStorage.setItem('hn3d_omamori', '1') } catch (e) {} } // 最終日に会えたら おまもりを受け取る
   if (who === townLady) todayFlags.metShop = true
   who.rotation.y = Math.atan2(boy.position.x - who.position.x, boy.position.z - who.position.z) // こちらを向く
 }
 
 // ── 「3日だけの夏」＋絵日記（その日やったこと→翌日への予告／夏の終わり）──
 let day = 1
+let gotOmamori = false // 夏の終わりに女の子から おまもりを もらった（日をまたいで残る＝関係の証）
+try { gotOmamori = localStorage.getItem('hn3d_omamori') === '1' } catch (e) {}
 const dayEvents = { radio: false, dinner: false } // 昭和の日課（1日1回）
 let diaryOpen = false
 const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false, petCat: false, lamune: false, metShop: false }
@@ -1273,8 +1276,11 @@ function openDiary() {
   if (todayFlags.satHill) body.push('高台で ぼーっと した。')
   if (todayFlags.layDown) body.push('草の上で ねころんで 空を ながめた。')
   if (!body.length) body.push('きょうは のんびり あるいた。')
-  if (day >= 3) { diaryTitleEl.textContent = 'ひと夏が おわった'; body.push('たのしい 夏休みだった。…また 来年。') }
-  else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? '明日は もっと 話せるかな。' : 'もうすぐ おまつりらしい。') }
+  if (day >= 3) {
+    diaryTitleEl.textContent = 'ひと夏が おわった'
+    if (gotOmamori) { body.push('女の子に おまもりを もらった。'); body.push('ずっと わすれない 夏に なった。…また 来年、あの はらっぱで。') }
+    else { body.push('たのしい 夏休みだった。…また 来年。') }
+  } else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? '明日は もっと 話せるかな。' : 'もうすぐ おまつりらしい。') }
   diaryBodyEl.innerHTML = body.map((l) => `<div class="line">${l}</div>`).join('')
   // その日の眺めを「絵」として貼る
   if (diaryPicEl) {
