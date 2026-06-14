@@ -380,6 +380,17 @@ makeGate(GATE_TOWN, 0)
   const path = new THREE.Mesh(pgeo, new THREE.MeshToonMaterial({ color: 0xc6aa7c, gradientMap: GRAD, map: watercolorTex }))
   path.rotation.y = 1.05; path.position.set(36, 0.06, 31); path.receiveShadow = true; scene.add(path)
 }
+// 門の外へ続く田舎道＝往来の先が「もう一方の場所へ続く道」だと分かる導線。
+// 電柱と電線が霧の奥へ遠ざかり、道がそのまま続いている気配を出す。
+function makeApproach(cx, cz, dz, len) {
+  const pg = new THREE.PlaneGeometry(5, len); pg.rotateX(-Math.PI / 2)
+  const road = new THREE.Mesh(pg, new THREE.MeshToonMaterial({ color: 0xc6aa7c, gradientMap: GRAD, map: watercolorTex }))
+  road.position.set(cx, 0.05, cz + dz * (len / 2)); road.receiveShadow = true; scene.add(road)
+  let prev = null
+  for (let i = 1; i <= 3; i++) { const top = makePole(cx + 3.4, cz + dz * (i * len / 3.2)); if (prev) drawWire(prev, top, 0.9); prev = top }
+}
+makeApproach(GATE_FIELD.x, GATE_FIELD.z + 1.5, 1, 28)  // 野原の門→（町の方へ続く道）
+makeApproach(GATE_TOWN.x, GATE_TOWN.z - 1.5, -1, 28)   // 町の門→（野原の方へ続く道）
 // 商店街の一軒（昭和の店構え：店先・縞テント・看板・袖看板・品物）
 function makeShop(x, z, rot, opt) {
   const g = new THREE.Group()
@@ -1191,22 +1202,31 @@ diaryCloseEl.addEventListener('click', () => { if (diaryOpen) nextDay() })
 // ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
 let area = 'field'
 let transitioning = false
+let autoWalk = null // 往来中の自動歩行 {x,z}（門をくぐって前進）
 const goEl = document.getElementById('go')
 const fadeEl = document.getElementById('fade')
 function curGate() { return area === 'field' ? GATE_FIELD : GATE_TOWN }
 function travel() {
   if (transitioning || dialogue || diaryOpen) return
   transitioning = true
-  endPuni(); vel.set(0, 0, 0)
+  endPuni()
+  // 門の方へ向き直って歩き出す（その先が、もう一方の場所へ続く道）
+  const g = curGate()
+  facing = Math.atan2(g.x - boy.position.x, g.z - boy.position.z)
+  autoWalk = { x: Math.sin(facing), z: Math.cos(facing) }
   fadeEl.style.opacity = '1'
   setTimeout(() => {
-    if (area === 'field') { area = 'town'; boy.position.set(GATE_TOWN.x, 0, GATE_TOWN.z + 3.5); facing = 0; goEl.textContent = 'はらっぱへ →'; todayFlags.wentTown = true }
-    else { area = 'field'; boy.position.set(GATE_FIELD.x, 0, GATE_FIELD.z - 3.5); facing = Math.PI; goEl.textContent = '町へ →' }
+    if (area === 'field') { area = 'town'; boy.position.set(GATE_TOWN.x, 0, GATE_TOWN.z + 2.0); facing = 0; goEl.textContent = 'はらっぱへ →'; todayFlags.wentTown = true }
+    else { area = 'field'; boy.position.set(GATE_FIELD.x, 0, GATE_FIELD.z - 2.0); facing = Math.PI; goEl.textContent = '町へ →' }
+    // 門をくぐって、前へ歩きながら現れる（ぷつっと切り替わらない）
+    autoWalk = { x: Math.sin(facing), z: Math.cos(facing) }
+    vel.set(autoWalk.x * 3, 0, autoWalk.z * 3)
     boy.position.y = heightAt(boy.position.x, boy.position.z)
     boy.rotation.y = facing
     camera.position.copy(boy.position).add(camOffset(tmp))
     if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
-    setTimeout(() => { fadeEl.style.opacity = '0'; transitioning = false }, 220)
+    setTimeout(() => { fadeEl.style.opacity = '0' }, 240)
+    setTimeout(() => { autoWalk = null; transitioning = false }, 780) // 数歩あるいてから操作にもどす
   }, 470)
 }
 goEl.addEventListener('click', travel)
@@ -1673,6 +1693,7 @@ function update(dt) {
       const speed = 7 * mag
       tx = (wx / l) * speed; tz = (wz / l) * speed
     }
+    if (autoWalk) { tx = autoWalk.x * 4.4; tz = autoWalk.z * 4.4 } // 往来中は門の先へ自動で歩く
     // 加速はやや速く・減速はゆっくり（歩いてる身体の惰性）
     const k = (Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 6 : 3.5
     vel.x += (tx - vel.x) * Math.min(1, dt * k)

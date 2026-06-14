@@ -120,6 +120,22 @@ try {
   const caughtN = await page.evaluate(() => window.__proto3d.caught)
   console.log(`虫採りテスト: つかまえた数=${caughtN}`)
   if (caughtN < 1) errors.push('虫をつかまえられない')
+  // 往来：野原の門のボタンを押して、歩いて町へ抜ける（ぷつっと切り替わらない）
+  await page.evaluate(() => { const H = window.__proto3d; H.standUp(); H.setDay(0.42); H.placeBoy(42, 30) })
+  await new Promise((r) => setTimeout(r, 500))
+  await page.screenshot({ path: join(outDir, 'proto3d-gate.png') }) // 野原の門＋町へ続く道
+  console.log('撮影: proto3d-gate.png')
+  await page.evaluate(() => window.__proto3d.placeBoy(42, 33))
+  await new Promise((r) => setTimeout(r, 300))
+  const goShown = await page.evaluate(() => document.getElementById('go').style.display === 'block')
+  await page.evaluate(() => document.getElementById('go').click())
+  await new Promise((r) => setTimeout(r, 700))
+  await page.screenshot({ path: join(outDir, 'proto3d-travel.png') }) // 歩き抜けの途中
+  await new Promise((r) => setTimeout(r, 900))
+  const walked = await page.evaluate(() => ({ area: window.__proto3d.area, bx: window.__proto3d.boy.position.x | 0 }))
+  console.log(`歩き往来テスト: 門ボタン=${goShown ? 'OK' : 'NG'} → ${walked.area}(x=${walked.bx})`)
+  if (!goShown || walked.area !== 'town') errors.push('門から町へ歩いて往来できない')
+  console.log('撮影: proto3d-travel.png')
   // 絵日記（その日やったこと→翌日への予告）
   await page.evaluate(() => { window.__proto3d.openDiary() })
   await new Promise((r) => setTimeout(r, 500))
