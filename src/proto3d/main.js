@@ -197,7 +197,7 @@ const PAL = {
   morn: { light: 0xffe9c8, li: 2.0, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.5, hsky: 0xcfe6f4, hgnd: 0x9ab468, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 },
   noon: { light: 0xfff6e8, li: 2.5, sky: 0x7fbce6, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.7, hsky: 0xdaf0fb, hgnd: 0x9ab468, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
   dusk: { light: 0xffa85f, li: 2.0, sky: 0x7a6aa6, mid: 0xeaa672, bot: 0xf8d59a, fog: 0xeec096, hi: 1.15, hsky: 0xe0aa86, hgnd: 0x7e7a54, ball: 0xffac63, rim: 0xff944e, ri: 0.95 },
-  night: { light: 0x7d93cc, li: 0.7, sky: 0x0d1322, mid: 0x1a2340, bot: 0x2c3a58, fog: 0x222c48, hi: 0.62, hsky: 0x35487a, hgnd: 0x32434e, ball: 0xcdd6ff, rim: 0x6a82c4, ri: 0.18 },
+  night: { light: 0x8fa3d6, li: 0.95, sky: 0x121a30, mid: 0x24304f, bot: 0x3a4a6e, fog: 0x2c3a5a, hi: 0.85, hsky: 0x44588c, hgnd: 0x3c4e5e, ball: 0xcdd6ff, rim: 0x7d93cc, ri: 0.28 },
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
 const lc = (out, ha, hb, u) => out.copy(_a.set(ha)).lerp(_b.set(hb), u)
@@ -652,6 +652,7 @@ function makeShop(x, z, rot, opt) {
   scene.add(g)
   return g
 }
+const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自販機）。nfで点灯＝夜のエモさ
 {
   const T = TOWN
   // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
@@ -671,7 +672,8 @@ function makeShop(x, z, rot, opt) {
   tg.position.set(TGX, 0, TGZ); tg.receiveShadow = true; scene.add(tg)
   const road = new THREE.Mesh(new THREE.PlaneGeometry(9, 64), new THREE.MeshToonMaterial({ color: 0x8c8c8c, gradientMap: GRAD }))
   road.rotation.x = -Math.PI / 2; road.position.set(T.x, 0.02, T.z); scene.add(road)
-  const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0xeeeae0 }))
+  // 道のセンターライン＝トゥーン材で夜は一緒に暗くなる（昔の白線のテカリ防止）
+  const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 64), new THREE.MeshToonMaterial({ color: 0xcfc9bb, gradientMap: GRAD }))
   cl.rotation.x = -Math.PI / 2; cl.position.set(T.x, 0.03, T.z); scene.add(cl)
   // 右側：家＋ブロック塀（道を向く・屋根色をばらして“クローン感”を消す）
   const roofs = [0x586472, 0x6a5a4a, 0x4a6a5a, 0x705a52, 0x556088]
@@ -690,6 +692,33 @@ function makeShop(x, z, rot, opt) {
     { awn: 0xc85a95, sign: 0xa84080, kind: 'dagashi' },
   ]
   for (let i = 0; i < shopDefs.length; i++) makeShop(T.x - 12, T.z - 18 + i * 13, Math.PI / 2, shopDefs[i])
+  // ── 夜のあかり：街灯・窓あかり（昼は消え、夜にぽつぽつ灯る＝夏の夜のエモさ）──
+  function addGlow(x, y, z, ry, w, h, color, base) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide }))
+    m.position.set(x, y, z); m.rotation.y = ry; scene.add(m)
+    townNightLights.push({ m, base, ph: Math.random() * 6 })
+    return m
+  }
+  // 街灯（道ぞいに4本。柱＋かさ＋灯り。灯りはブルームでにじむ）
+  for (let i = 0; i < 4; i++) {
+    const sx = T.x + (i % 2 ? 6.2 : -6.2), sz = T.z - 22 + i * 15
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.085, 3.6, 6), toon(0x46423a)); pole.position.set(sx, 1.8, sz); pole.castShadow = true; addOutline(pole, 0.02); scene.add(pole)
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.26, 10), toon(0x39352e)); shade.position.set(sx, 3.72, sz); addOutline(shade, 0.02); scene.add(shade)
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffe2a6, fog: false, transparent: true, opacity: 0 }))
+    bulb.position.set(sx, 3.5, sz); scene.add(bulb); townNightLights.push({ m: bulb, base: 1.0, ph: i })
+    // 灯りが地面へ落とす淡い光だまり
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(2.2, 16), new THREE.MeshBasicMaterial({ color: 0xffcf86, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }))
+    pool.rotation.x = -Math.PI / 2; pool.position.set(sx, 0.04, sz); scene.add(pool); townNightLights.push({ m: pool, base: 0.22, ph: i })
+  }
+  // 商店・家の窓あかり（道を向く面に。あたたかいオレンジ）
+  for (let i = 0; i < 4; i++) {
+    const sz = T.z - 18 + i * 13
+    addGlow(T.x - 9.4, 1.5, sz - 1.4, Math.PI / 2, 1.0, 0.7, 0xffce82, 0.9) // 商店の窓（左・道向き）
+    addGlow(T.x - 9.4, 1.5, sz + 1.4, Math.PI / 2, 1.0, 0.7, 0xffce82, 0.9)
+    addGlow(T.x + 9.4, 1.7, sz, -Math.PI / 2, 1.1, 0.8, 0xffd98e, 0.85) // 家の窓（右・道向き）
+  }
+  // 交差路の北の家の窓（南向き）
+  for (const hx of [T.x - 26, T.x - 8, T.x + 10, T.x + 28]) addGlow(hx, 1.7, T.z + 28.6, 0, 1.2, 0.8, 0xffd98e, 0.85)
   // 電柱＋電線
   const tp = []
   for (let i = 0; i < 4; i++) tp.push(makePole(T.x + 5.5, T.z - 22 + i * 15))
@@ -710,7 +739,7 @@ function makeShop(x, z, rot, opt) {
   const roofs2 = [0x6a5a4a, 0x4a6a5a, 0x705a52, 0x556088, 0x586472]
   const asphalt = () => new THREE.MeshToonMaterial({ color: 0x8c8c8c, gradientMap: GRAD })
   const cross = new THREE.Mesh(new THREE.PlaneGeometry(90, 8), asphalt()); cross.rotation.x = -Math.PI / 2; cross.position.set(T.x, 0.02, T.z + 24); scene.add(cross) // 交差する東西の道
-  const cl2 = new THREE.Mesh(new THREE.PlaneGeometry(90, 0.3), new THREE.MeshBasicMaterial({ color: 0xeeeae0 })); cl2.rotation.x = -Math.PI / 2; cl2.position.set(T.x, 0.03, T.z + 24); scene.add(cl2)
+  const cl2 = new THREE.Mesh(new THREE.PlaneGeometry(90, 0.3), new THREE.MeshToonMaterial({ color: 0xcfc9bb, gradientMap: GRAD })); cl2.rotation.x = -Math.PI / 2; cl2.position.set(T.x, 0.03, T.z + 24); scene.add(cl2)
   const side = new THREE.Mesh(new THREE.PlaneGeometry(7, 30), asphalt()); side.rotation.x = -Math.PI / 2; side.position.set(T.x - 28, 0.02, T.z + 9); scene.add(side) // 枝道（南北）
   // 交差路の北に並ぶ家（南向き）＋ブロック塀
   const northXs = [T.x - 26, T.x - 8, T.x + 10, T.x + 28]
@@ -1271,24 +1300,46 @@ Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
 function makeBoy() {
   const g = new THREE.Group()
   const skin = toon(0xf2c6a0), shirt = toon(0xdfe3ea), pants = toon(0x3f5a77), hat = toon(0xe6c178)
-  // 脚＝カプセルで丸みのある立体。足裏が原点(y=0)に来るよう配置（接地）
-  const legGeo = new THREE.CapsuleGeometry(0.135, 0.4, 4, 10)
-  const legL = new THREE.Mesh(legGeo, pants); legL.position.set(-0.15, 0.33, 0); g.add(legL)
-  const legR = legL.clone(); legR.position.x = 0.15; g.add(legR)
-  // くつ（丸い足先）
-  for (const sx of [-0.15, 0.15]) { const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), toon(0x6a4a32)); shoe.scale.set(1, 0.62, 1.35); shoe.position.set(sx, 0.075, 0.06); g.add(shoe) }
-  // 胴＝たまご型でぷっくり立体的に
-  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 16), shirt); torso.scale.set(0.94, 1.08, 0.82); torso.position.y = 1.02; g.add(torso)
-  // 腕＝カプセル。肩から下げる
-  const armGeo = new THREE.CapsuleGeometry(0.1, 0.42, 4, 10)
-  const armL = new THREE.Mesh(armGeo, skin); armL.position.set(-0.4, 1.04, 0); g.add(armL)
-  const armR = armL.clone(); armR.position.x = 0.4; g.add(armR)
-  // あたま＝大きめの球であどけなく
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 22, 20), skin); head.scale.set(1, 0.98, 0.96); head.position.y = 1.78; g.add(head)
+  // ── 関節のある体（股→膝→足、肩→肘→手）でゲームキューブ世代の立体感に。
+  //    legL/legR は股関節ピボット、armL/armR は肩ピボット（既存アニメ互換）。膝・肘は子グループ。──
+  // 脚（夏なので半ズボン＝太もも下は素足）。股ピボット=0.92 → 膝0.44 → 足首0.08（足裏≒地面）。脚を長めにして頭身を上げる
+  function makeLeg(side) {
+    const hip = new THREE.Group(); hip.position.set(0.13 * side, 0.92, 0)
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.28, 4, 10), skin); thigh.position.y = -0.23; hip.add(thigh)
+    const knee = new THREE.Group(); knee.position.y = -0.48; hip.add(knee)
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.24, 4, 10), skin); shin.position.y = -0.18; knee.add(shin)
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.36, 0.05); knee.add(shoe)
+    g.add(hip)
+    return { hip, knee }
+  }
+  const L = makeLeg(-1), R = makeLeg(1)
+  const legL = L.hip, legR = R.hip, kneeL = L.knee, kneeR = R.knee
+  // 半ズボン（腰まわり）
+  const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), pants); shorts.scale.set(1.0, 0.66, 0.82); shorts.position.y = 0.96; g.add(shorts)
+  // 胴＝下すぼまりの円筒＋丸い肩。胴を長めにして頭身を上げる
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.19, 0.5, 16), shirt); torso.position.y = 1.2; g.add(torso)
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.26, 18, 14), shirt); chest.scale.set(1.12, 0.74, 0.84); chest.position.y = 1.42; g.add(chest)
+  // 腕（肩ピボット→肘）。肩=1.42, 手は腰の高さあたりへ。半袖から素手が出る＝夏のシャツ
+  function makeArm(side) {
+    const sh = new THREE.Group(); sh.position.set(0.27 * side, 1.42, 0); sh.rotation.z = -0.13 * side // 腕は体に沿わせる
+    const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.105, 12, 10), shirt); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.04; sh.add(sleeve) // 半袖のふくらみ
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.082, 0.16, 4, 9), skin); upper.position.y = -0.16; sh.add(upper)
+    const elbow = new THREE.Group(); elbow.position.y = -0.31; sh.add(elbow)
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.073, 0.17, 4, 9), skin); fore.position.y = -0.13; elbow.add(fore)
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 9), skin); hand.scale.set(1, 0.9, 1.05); hand.position.y = -0.27; elbow.add(hand)
+    g.add(sh)
+    return { sh, elbow }
+  }
+  const AL = makeArm(-1), AR = makeArm(1)
+  const armL = AL.sh, armR = AR.sh, elbowL = AL.elbow, elbowR = AR.elbow
+  // 首
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.13, 10), skin); neck.position.y = 1.58; g.add(neck)
+  // あたま＝小さめ（頭身を上げて人形っぽさを消す）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 22, 20), skin); head.scale.set(1, 1.06, 0.98); head.position.y = 1.82; g.add(head)
   // むぎわら帽子
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.05, 22), hat); brim.position.y = 2.04; g.add(brim)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 2.04; g.add(cap)
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.365, 0.365, 0.09, 22), toon(0xb8893f)); band.position.y = 2.07; g.add(band) // 帽子のリボン
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.04, 22), hat); brim.position.y = 2.02; g.add(brim)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 2.02; g.add(cap)
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.07, 22), toon(0xb8893f)); band.position.y = 2.05; g.add(band) // 帽子のリボン
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
@@ -1296,8 +1347,16 @@ function makeBoy() {
   const bag = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.28, side: THREE.DoubleSide })); bag.position.y = 1.3; bag.rotation.x = Math.PI; net.add(bag)
   net.position.set(0.33, 1.0, -0.12); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ
   g.add(net)
+  // 斜めがけのかばん（夏の探検バッグ＝あの時代の小学生）。胴に付くので歩いても自然
+  const bagBody = toon(0xb98a52), bagStrap = toon(0x8a6a3a)
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.92, 0.08), bagStrap)
+  strap.position.set(0.02, 1.16, 0.17); strap.rotation.set(0.16, 0, 0.6); g.add(strap) // 左肩→右腰へ斜めに
+  const satchel = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.24, 0.15), bagBody)
+  satchel.position.set(0.27, 0.82, 0.17); satchel.rotation.z = 0.08; g.add(satchel)
+  const flap = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.17), toon(0xa6794a))
+  flap.position.set(0.27, 0.91, 0.17); flap.rotation.z = 0.08; g.add(flap) // ふた
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-  g.userData = { legL, legR, armL, armR, head, net, swing: 0 }
+  g.userData = { legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, net, swing: 0 }
   return g
 }
 const boy = makeBoy()
@@ -1308,14 +1367,14 @@ outlineObj(boy, 0.03)
   const head = boy.userData.head
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.5 })
-  for (const ex of [-0.14, 0.14]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 12), eyeMat); e.scale.set(0.82, 1.18, 0.5); e.position.set(ex, 0.05, 0.345); head.add(e) // ぱっちりした瞳
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), hiMat); hi.position.set(ex + 0.025, 0.1, 0.4); head.add(hi) // ハイライト＝いきいき
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), blushMat); bl.scale.set(1, 0.62, 0.4); bl.position.set(ex + (ex > 0 ? 0.08 : -0.08), -0.07, 0.31); head.add(bl) // ほっぺの赤み
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.4 })
+  for (const ex of [-0.1, 0.1]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 12), eyeMat); e.scale.set(0.84, 1.14, 0.5); e.position.set(ex, 0.04, 0.246); head.add(e) // 瞳
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 8), hiMat); hi.position.set(ex + 0.018, 0.07, 0.282); head.add(hi) // ハイライト＝いきいき
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.058, 12, 10), blushMat); bl.scale.set(1, 0.62, 0.4); bl.position.set(ex + (ex > 0 ? 0.062 : -0.062), -0.055, 0.225); head.add(bl) // ほっぺの赤み
   }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.016, 6, 12, Math.PI), eyeMat) // 小さな笑み
-  mouth.rotation.z = Math.PI; mouth.position.set(0, -0.14, 0.36); head.add(mouth)
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.044, 0.013, 6, 12, Math.PI), eyeMat) // 小さな笑み
+  mouth.rotation.z = Math.PI; mouth.position.set(0, -0.1, 0.258); head.add(mouth)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
@@ -1326,25 +1385,56 @@ scene.add(boyShadow)
 // ── 村の人（“人の気配”。近づくと話せる。台詞は時間帯で変わる）──
 function makeVillager(x, z, opt) {
   const g = new THREE.Group()
-  const skin = toon(0xf0c49c)
-  // 脚＝カプセル（足裏が原点＝接地。浮かない）
-  const legGeo = new THREE.CapsuleGeometry(0.1, 0.42, 4, 8)
-  const legL = new THREE.Mesh(legGeo, skin); legL.position.set(-0.12, 0.31, 0); g.add(legL)
-  const legR = legL.clone(); legR.position.x = 0.12; g.add(legR)
-  // 胴＝たまご型でぷっくり
-  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 14), toon(opt.shirt)); torso.scale.set(0.96, 1.05, 0.82); torso.position.y = 0.92; g.add(torso)
-  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.34), toon(opt.skirt)); shorts.position.y = 0.62; g.add(shorts) }
-  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.46, 0.56, 14), toon(opt.skirt)); skirt.position.y = 0.64; g.add(skirt) }
-  // あたま（大きめ・丸い）
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 18, 16), skin); head.scale.set(1, 0.98, 0.96); head.position.y = 1.52; g.add(head)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.56; hair.rotation.x = -0.25; g.add(hair)
-  if (!opt.boy && !opt.simple) for (const hx of [-0.32, 0.32]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.46, -0.04); g.add(pt) }
-  // 腕（肩ピボット＝手を振る）。カプセルで丸く
-  const armGeo = new THREE.CapsuleGeometry(0.085, 0.38, 4, 8)
-  const armL = new THREE.Group(); armL.position.set(-0.32, 1.16, 0); g.add(armL)
-  const armLm = new THREE.Mesh(armGeo, skin); armLm.position.y = -0.28; armL.add(armLm)
-  const armR = new THREE.Group(); armR.position.set(0.32, 1.16, 0); g.add(armR)
-  const armRm = new THREE.Mesh(armGeo, skin); armRm.position.y = -0.28; armR.add(armRm)
+  const skin = toon(0xf0c49c), shirtM = toon(opt.shirt)
+  const full = !opt.simple // 会話する村人＝関節あり／背景の通行人＝軽量（股ピボットのみ）
+  // 脚（股ピボット=0.8。会話する村人は膝で曲がる。背景の人は1本カプセルで軽量・足裏≒地面）
+  let kneeL = null, kneeR = null
+  function makeLeg(side) {
+    const hip = new THREE.Group(); hip.position.set(0.12 * side, 0.8, 0); g.add(hip)
+    if (full) {
+      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.22, 4, 8), skin); thigh.position.y = -0.18; hip.add(thigh)
+      const knee = new THREE.Group(); knee.position.y = -0.38; hip.add(knee)
+      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.088, 0.2, 4, 8), skin); shin.position.y = -0.17; knee.add(shin)
+      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.35); shoe.position.set(0, -0.36, 0.04); knee.add(shoe)
+      return { hip, knee }
+    }
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.56, 4, 8), skin); leg.position.y = -0.4; hip.add(leg)
+    return { hip, knee: null }
+  }
+  const LL = makeLeg(-1), LR = makeLeg(1)
+  const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
+  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 10), toon(opt.skirt)); shorts.scale.set(1, 0.62, 0.82); shorts.position.y = 0.78; g.add(shorts) }
+  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 14), toon(opt.skirt)); skirt.position.y = 0.7; g.add(skirt) }
+  // 胴。会話する村人は円筒＋丸い肩、背景の人はたまご型（軽量）
+  if (full) {
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.18, 0.4, 14), shirtM); torso.position.y = 1.04; g.add(torso)
+    const chest = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 12), shirtM); chest.scale.set(1.1, 0.74, 0.82); chest.position.y = 1.22; g.add(chest)
+  } else {
+    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), shirtM); torso.scale.set(0.98, 1.0, 0.82); torso.position.y = 1.06; g.add(torso)
+  }
+  // 首
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.12, 9), skin); neck.position.y = 1.4; g.add(neck)
+  // あたま（小さめ＝人形っぽさを消す）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 18, 16), skin); head.scale.set(1, 1.04, 0.97); head.position.y = 1.58; g.add(head)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.61; hair.rotation.x = -0.25; g.add(hair)
+  if (!opt.boy && !opt.simple) for (const hx of [-0.27, 0.27]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.52, -0.04); g.add(pt) }
+  // 腕（肩ピボット=1.2＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル
+  let elbowL = null, elbowR = null
+  function makeArm(side) {
+    const sh = new THREE.Group(); sh.position.set(0.27 * side, 1.2, 0); sh.rotation.z = -0.12 * side; g.add(sh)
+    if (full) {
+      const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.105, 12, 9), shirtM); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.03; sh.add(sleeve)
+      const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.14, 4, 8), skin); upper.position.y = -0.14; sh.add(upper)
+      const elbow = new THREE.Group(); elbow.position.y = -0.27; elbow.rotation.x = -0.2; sh.add(elbow) // 肘を軽く曲げて自然に
+      const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.15, 4, 8), skin); fore.position.y = -0.12; elbow.add(fore)
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.08, 9, 8), skin); hand.position.y = -0.25; elbow.add(hand)
+      return { sh, elbow }
+    }
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.082, 0.36, 4, 8), skin); arm.position.y = -0.27; sh.add(arm)
+    return { sh, elbow: null }
+  }
+  const AL = makeArm(-1), AR = makeArm(1)
+  const armL = AL.sh, armR = AR.sh; elbowL = AL.elbow; elbowR = AR.elbow
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z)
   g.rotation.y = opt.face || 0
@@ -1352,16 +1442,16 @@ function makeVillager(x, z, opt) {
   // 顔（輪郭線の後・頭の子に付ける＝見回しで一緒に動く・フチ無し）
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.5 })
-  for (const ex of [-0.12, 0.12]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), eyeMat); e.scale.set(0.85, 1.15, 0.5); e.position.set(ex, 0.04, 0.29); head.add(e)
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.4 })
+  for (const ex of [-0.1, 0.1]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 10), eyeMat); e.scale.set(0.86, 1.14, 0.5); e.position.set(ex, 0.035, 0.244); head.add(e)
     if (opt.simple) continue // 背景の通行人は瞳だけ（軽量化）
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 6), hiMat); hi.position.set(ex + 0.02, 0.08, 0.33); head.add(hi)
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.07 : -0.07), -0.07, 0.26); head.add(bl)
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 6), hiMat); hi.position.set(ex + 0.017, 0.066, 0.278); head.add(hi)
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.058, 10, 8), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.06 : -0.06), -0.058, 0.218); head.add(bl)
   }
-  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.013, 6, 10, Math.PI), eyeMat); mouth.rotation.z = Math.PI; mouth.position.set(0, -0.13, 0.3); head.add(mouth) }
+  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.012, 6, 10, Math.PI), eyeMat); mouth.rotation.z = Math.PI; mouth.position.set(0, -0.11, 0.252); head.add(mouth) }
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, armL, armR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4 }
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4 }
   scene.add(g)
   return g
 }
@@ -1426,9 +1516,9 @@ function npcArms(n, near, dt, tsec) {
   if (near && u.wave <= 0) { u.waveCd -= dt; if (u.waveCd <= 0) { u.wave = 1; u.waveCd = 5 + Math.random() * 6 } }
   if (u.wave > 0) u.wave = Math.max(0, u.wave - dt / 1.6) // 約1.6秒かけて上げて振って下ろす
   const w = Math.sin(Math.min(u.wave, 1) * Math.PI) // 0→1→0 でなめらか
-  u.armR.rotation.z += (-2.1 * w - u.armR.rotation.z) * Math.min(1, dt * 10)
+  u.armR.rotation.z += ((-0.12 - 2.0 * w) - u.armR.rotation.z) * Math.min(1, dt * 10) // 振ってない時は体に沿う角度へ
   u.armR.rotation.x = Math.sin(tsec * 9) * 0.35 * w // 手先を左右に振る
-  u.armL.rotation.z += (0 - u.armL.rotation.z) * Math.min(1, dt * 6)
+  u.armL.rotation.z += (0.12 - u.armL.rotation.z) * Math.min(1, dt * 6)
   u.armL.rotation.x = Math.sin(tsec * 1.3 + n.position.x) * 0.05 // 反対の腕は息で少し揺れる
 }
 let talkTarget = null
@@ -2109,9 +2199,10 @@ const stickEl = document.getElementById('stick')
 const knobEl = document.getElementById('knob')
 const STICK_R = 60
 const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1..1
-const pointers = new Map() // 多点タッチ（2本指で視点操作）
-let orbit = null // { mx, my, d }
-let cam2 = -1, cam2Moved = false, pinchD = 0 // 歩きながら視点を回す“2本目の指”（ドラッグ=回転／タップ=ジャンプ）。pinchD=2本指の距離（つまむとズーム）
+const pointers = new Map() // 多点タッチ
+// 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
+const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
+let pinchD = 0
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 let jumpY = 0, jumpV = 0 // ジャンプ（地面からの高さと上下速度）
 function doJump() { if (jumpY <= 0.02 && mode === 'walk') { jumpV = 7.0; playStep(0.05, area === 'town'); todayFlags.jumped = true } } // 接地時だけ跳ねる
@@ -2128,20 +2219,25 @@ function midDist() {
   return { mx: (a[0].x + a[1].x) / 2, my: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) }
 }
 
+function pinchInit() { // 2本の視点指の距離を記録
+  const a = [...lookIds].map((id) => pointers.get(id)).filter(Boolean)
+  pinchD = a.length === 2 ? Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) : 0
+}
 canvas.addEventListener('pointerdown', (e) => {
   startAudio() // 最初のタッチで音を立ち上げる（iOSの自動再生制限への先回り）
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() }) // タップ判定用に開始位置/時刻も保持
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false })
   canvas.setPointerCapture(e.pointerId)
   if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
-  if (pointers.size === 1) startPuni(e.pointerId, e.clientX, e.clientY)
-  else if (puni.active && cam2 < 0) { cam2 = e.pointerId; cam2Moved = false; const f1 = pointers.get(puni.id); pinchD = f1 ? Math.hypot(e.clientX - f1.x, e.clientY - f1.y) : 0 } // 歩きながら：2本目の指は視点回転/ジャンプ＋つまむとズーム
-  else if (pointers.size === 2) { orbit = midDist() } // 歩いていない時だけ2本指オービット/ズーム
+  // 左半分＝移動スティック／右半分＝視点ドラッグ（移動スティックが無ければ左でも視点に回す）
+  if (e.clientX < innerWidth * 0.46 && !puni.active) startPuni(e.pointerId, e.clientX, e.clientY)
+  else { lookIds.add(e.pointerId); if (lookIds.size === 2) pinchInit() }
 })
 canvas.addEventListener('pointermove', (e) => {
   if (!pointers.has(e.pointerId)) return
   const prev = pointers.get(e.pointerId)
   const prevX = prev.x, prevY = prev.y
-  prev.x = e.clientX; prev.y = e.clientY // 開始位置/時刻(sx,sy,t)は保持
+  prev.x = e.clientX; prev.y = e.clientY
+  if (Math.abs(e.clientX - prev.sx) + Math.abs(e.clientY - prev.sy) > 12) prev.moved = true
   if (mode !== 'walk') {
     if (sitTap) {
       seatLook.yaw -= (e.clientX - prevX) * 0.005
@@ -2150,28 +2246,21 @@ canvas.addEventListener('pointermove', (e) => {
     }
     return
   }
-  if (e.pointerId === cam2) {
-    // 歩きながら2本目の指で視点を回す
-    camCtl.yaw -= (e.clientX - prevX) * 0.006
-    camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005, camCtl.minPitch, camCtl.maxPitch)
-    if (Math.abs(e.clientX - prev.sx) + Math.abs(e.clientY - prev.sy) > 12) cam2Moved = true
-    // つまむ＝ズーム（指1と指2の距離の変化）。歩行スティックの微動はデッドゾーンで無視
-    const f1 = pointers.get(puni.id)
-    if (f1) { const d = Math.hypot(prev.x - f1.x, prev.y - f1.y); if (pinchD > 0 && Math.abs(d - pinchD) > 1.0) camDistTarget = THREE.MathUtils.clamp(camDistTarget * (1 - (d - pinchD) * 0.006), camCtl.minDist, camCtl.maxDist); pinchD = d }
-  } else if (pointers.size >= 2 && orbit && !puni.active) {
-    // 2本指（歩いていない時）：視点を回す・つまんで寄る
-    const m = midDist()
-    camCtl.yaw -= (m.mx - orbit.mx) * 0.006
-    camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (m.my - orbit.my) * 0.005, camCtl.minPitch, camCtl.maxPitch)
-    if (m.d > 0) camDistTarget = THREE.MathUtils.clamp(camDistTarget * (orbit.d / m.d), camCtl.minDist, camCtl.maxDist)
-    orbit = m
-  } else if (puni.active && e.pointerId === puni.id) {
+  if (e.pointerId === puni.id) {
     let dx = e.clientX - puni.ox, dy = e.clientY - puni.oy
     const len = Math.hypot(dx, dy) || 1
     const cl = Math.min(len, STICK_R)
     dx = (dx / len) * cl; dy = (dy / len) * cl
     knobEl.style.left = `calc(50% + ${dx}px)`; knobEl.style.top = `calc(50% + ${dy}px)`
     puni.vx = dx / STICK_R; puni.vy = dy / STICK_R
+  } else if (lookIds.has(e.pointerId)) {
+    if (lookIds.size >= 2) { // 2本指ピンチ＝ズーム
+      const a = [...lookIds].map((id) => pointers.get(id)).filter(Boolean)
+      if (a.length === 2) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (pinchD > 0 && d > 0) camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist); pinchD = d }
+    } else { // 1本指＝視点を回す
+      camCtl.yaw -= (e.clientX - prevX) * 0.006
+      camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005, camCtl.minPitch, camCtl.maxPitch)
+    }
   }
 })
 function onUp(e) {
@@ -2182,25 +2271,30 @@ function onUp(e) {
     if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else standUp() } // ブランコはタップで こぐ
     sitTap = null; return
   }
-  // 2本目の指を離した：ドラッグせず軽いタップだったらジャンプ
-  if (e.pointerId === cam2) {
-    if (!cam2Moved && performance.now() - p.t < 250 && Math.abs(p.x - p.sx) + Math.abs(p.y - p.sy) < 14) doJump()
-    cam2 = -1; pinchD = 0; return
-  }
-  // 1本指の軽いタップでジャンプ（立ち止まりからでも）
-  if (p && performance.now() - p.t < 230 && Math.abs(p.x - p.sx) + Math.abs(p.y - p.sy) < 14) doJump()
-  if (pointers.size < 2) orbit = null
-  if (e.pointerId === puni.id) endPuni()
-  // 残った指でぷにコン再開（ただし視点回転用の2本目には乗っ取らせない）
-  if (pointers.size === 1 && !puni.active) {
-    const [id, pp] = [...pointers.entries()][0]
-    if (id !== cam2) startPuni(id, pp.x, pp.y)
+  if (e.pointerId === puni.id) { endPuni() }
+  else if (lookIds.has(e.pointerId)) {
+    lookIds.delete(e.pointerId)
+    // 視点側を動かさず軽くタップ＝ジャンプ（ボタンが届かない時の保険）
+    if (!p.moved && performance.now() - p.t < 250) doJump()
+    if (lookIds.size === 2) pinchInit(); else pinchD = 0
   }
 }
 canvas.addEventListener('pointerup', onUp)
 canvas.addEventListener('pointercancel', onUp)
-addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true })
+addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; if (e.key === ' ') doJump() })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
+
+// ジャンプ・ズームの専用ボタン（一般的なゲーム配置：右下ジャンプ、右側＋／－ズーム）
+const jumpEl = document.getElementById('jump')
+const zinEl = document.getElementById('zin')
+const zoutEl = document.getElementById('zout')
+if (jumpEl) jumpEl.addEventListener('click', () => doJump())
+const zoomStep = (f) => { camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) }
+if (zinEl) zinEl.addEventListener('click', () => zoomStep(0.8))
+if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
+// 上の操作ヒントは数秒で やさしく消す（ずっと出ていると邪魔なので）
+const hintEl = document.getElementById('hint')
+if (hintEl) { setTimeout(() => hintEl.classList.add('gone'), 6500); canvas.addEventListener('pointerdown', () => hintEl.classList.add('gone'), { once: true }) }
 
 actBtn.addEventListener('click', () => {
   const spot = actBtn.dataset.spot
@@ -2217,6 +2311,7 @@ function lieDown() {
   boy.position.y = heightAt(boy.position.x, boy.position.z) + 0.25
   boy.rotation.x = -1.35 // あおむけ
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
+  boy.userData.kneeL.rotation.x = 0.2; boy.userData.kneeR.rotation.x = 0.2
   boy.visible = false // 一人称で空を見る（自分の体は映さない）
   seatLook.yaw = boy.rotation.y; seatLook.pitch = 1.2 // 空を見上げる
   // カメラを地面すぐ上へ置き、空へ向ける（スナップ）
@@ -2269,7 +2364,8 @@ function sitDown(which) {
     yaw = Math.PI
   }
   boy.rotation.x = 0
-  boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢
+  boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢（太ももは前へ）
+  boy.userData.kneeL.rotation.x = 1.5; boy.userData.kneeR.rotation.x = 1.5 // すねは下へ＝膝を曲げて腰かける
   moving = false
   seatLook.yaw = yaw; seatLook.pitch = pitch
   const cp = Math.cos(seatLook.pitch)
@@ -2282,6 +2378,7 @@ function sitDown(which) {
 function standUp() {
   mode = 'walk'
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
+  boy.userData.kneeL.rotation.x = 0.12; boy.userData.kneeR.rotation.x = 0.12
   boy.rotation.x = 0
   boy.visible = true
   boy.position.y = heightAt(boy.position.x, boy.position.z)
@@ -2312,6 +2409,11 @@ const camRight = new THREE.Vector3()
 const sunProj = new THREE.Vector3()
 
 function update(dt) {
+  // ジャンプ・ズームボタンは歩いている時だけ表示（座る/寝る/会話/絵日記の時は隠す）
+  const walkUI = mode === 'walk' && !dialogue && !diaryOpen
+  if (jumpEl) jumpEl.style.display = walkUI ? 'block' : 'none'
+  if (zinEl) zinEl.style.display = walkUI ? 'block' : 'none'
+  if (zoutEl) zoutEl.style.display = walkUI ? 'block' : 'none'
   // 一日の移ろい（朝→夜で止まり、「ねる」で翌日へ。ループしない＝3日間の区切り）
   if (dayAuto) {
     const prev = tday
@@ -2424,6 +2526,8 @@ function update(dt) {
   fireflies.rotation.y = tsec * 0.05
   // 提灯のあかり（夜に灯る・ゆらぐ）
   for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
+  // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
+  for (const L of townNightLights) L.m.material.opacity = nf * L.base * (0.9 + 0.1 * Math.sin(tsec * 2.2 + L.ph))
   // 花火（夜・3日目はおまつりで多め）
   if (nf > 0.4) {
     fwTimer -= dt
@@ -2494,7 +2598,8 @@ function update(dt) {
       villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(vu.wph)) * 0.05
       villager.rotation.y = Math.atan2(dx, dz)
       const sw = Math.sin(vu.wph) * 0.5; vu.legL.rotation.x = sw; vu.legR.rotation.x = -sw
-      vu.armL.rotation.x = -sw; vu.armR.rotation.x = sw; vu.armL.rotation.z *= 0.8; vu.armR.rotation.z *= 0.8 // 歩くと腕を振る
+      vu.armL.rotation.x = -sw; vu.armR.rotation.x = sw // 歩くと腕を振る
+      if (vu.kneeL) { vu.kneeL.rotation.x = 0.15 + Math.max(0, -sw) * 0.9; vu.kneeR.rotation.x = 0.15 + Math.max(0, sw) * 0.9 } // 膝で蹴り出す
       vu.wave = 0
       vu.head.rotation.y *= 0.85 // 歩く時は前を向く
     } else {
@@ -2737,6 +2842,15 @@ function update(dt) {
     lastStepS = sw
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     boy.userData.armL.rotation.x = -sw - run * 0.25; boy.userData.armR.rotation.x = sw - run * 0.25 // 走ると肘を前に振る
+    // 膝・肘の曲げ＝関節のある歩行（足が前に振り出される側の膝が曲がる／肘は軽く曲げて自然に）
+    const kAmp = 0.5 + run * 0.8
+    const kbL = 0.12 + (moving ? Math.max(0, -sw) * kAmp : 0)
+    const kbR = 0.12 + (moving ? Math.max(0, sw) * kAmp : 0)
+    boy.userData.kneeL.rotation.x += (kbL - boy.userData.kneeL.rotation.x) * Math.min(1, dt * 13)
+    boy.userData.kneeR.rotation.x += (kbR - boy.userData.kneeR.rotation.x) * Math.min(1, dt * 13)
+    const eb = -(0.28 + run * 0.35) // 肘は前へ軽く曲げる
+    boy.userData.elbowL.rotation.x += (eb - boy.userData.elbowL.rotation.x) * Math.min(1, dt * 10)
+    boy.userData.elbowR.rotation.x += (eb - boy.userData.elbowR.rotation.x) * Math.min(1, dt * 10)
     boy.rotation.x += ((moving ? run * 0.28 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前傾
 
     // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
@@ -2758,6 +2872,7 @@ function update(dt) {
       boy.position.y += jumpY
       boy.rotation.x += (-0.12 * Math.min(1, jumpY) - boy.rotation.x) * Math.min(1, dt * 8) // 跳ぶと少しのけぞる
       boy.userData.legL.rotation.x = -0.5; boy.userData.legR.rotation.x = -0.3 // 足をたたむ
+      boy.userData.kneeL.rotation.x = 0.7; boy.userData.kneeR.rotation.x = 0.5 // 膝をたたんで跳ぶ
     }
 
     const nearBench = area === 'field' && Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
