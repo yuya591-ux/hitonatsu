@@ -1046,7 +1046,7 @@ function makeDiaryPicture() {
     const w = 480, h = Math.max(1, Math.round((w * src.height) / src.width))
     const c = document.createElement('canvas'); c.width = w; c.height = h
     const x = c.getContext('2d')
-    x.filter = 'saturate(0.82) contrast(1.05) brightness(1.06) blur(0.6px)' // クレヨン/水彩風のやわらかさ
+    x.filter = 'saturate(0.85) contrast(1.04) brightness(1.13) blur(0.6px)' // クレヨン/水彩風＋少し明るく（夜でも見やすい）
     x.drawImage(src, 0, 0, w, h)
     x.filter = 'none'
     x.globalCompositeOperation = 'multiply'; x.globalAlpha = 0.5
@@ -1332,8 +1332,13 @@ const camRight = new THREE.Vector3()
 const sunProj = new THREE.Vector3()
 
 function update(dt) {
-  // 一日の移ろい（ゆっくり）
-  if (dayAuto) { tday = (tday + dt / 240) % 1; setTimeOfDay(tday) }
+  // 一日の移ろい（朝→夜で止まり、「ねる」で翌日へ。ループしない＝3日間の区切り）
+  if (dayAuto) {
+    const prev = tday
+    tday = Math.min(0.97, tday + dt / 240)
+    setTimeOfDay(tday)
+    if (prev < 0.9 && tday >= 0.9 && !diaryOpen) showToast('そろそろ ねる じかんだ…')
+  }
   // 空・太陽・星・月を主人公/カメラに追従（遠くの街エリアでも空が正しく回り、影も届く）
   skyDome.position.copy(camera.position)
   sunBall.position.copy(camera.position).addScaledVector(sunDir, 300)
