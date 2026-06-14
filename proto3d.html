@@ -60,6 +60,20 @@
         box-shadow: 0 6px 22px rgba(80,66,46,0.35); display: none; cursor: pointer; }
       #dlg-name { font-size: clamp(12px,2.3vw,16px); color: #8a6a3a; }
       #dlg-text { margin: 0.25em 0 0; font-size: clamp(15px,3vw,21px); line-height: 1.6; color: #3b3024; }
+      /* タイトル画面 */
+      #title { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(rgba(40,44,60,0.28), rgba(40,44,60,0.04) 42%, rgba(40,44,60,0.4));
+        z-index: 25; transition: opacity 0.9s ease; }
+      #title.hidden { opacity: 0; pointer-events: none; }
+      .title-inner { text-align: center; }
+      .t-sub { margin: 0 0 0.4em; font-size: clamp(12px,2.6vw,18px); letter-spacing: 0.26em; text-indent: 0.26em;
+        color: #fdf6e8; text-shadow: 0 1px 6px rgba(40,40,50,0.6); }
+      .t-main { margin: 0 0 1.2em; font-size: clamp(28px,7vw,60px); font-weight: 600; letter-spacing: 0.3em;
+        text-indent: 0.3em; color: #fffaf0; text-shadow: 0 2px 14px rgba(30,30,40,0.65); }
+      #t-start { appearance: none; border: none; cursor: pointer; padding: 0.7em 2.4em; font-size: clamp(16px,3vw,22px);
+        font-family: inherit; color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px;
+        box-shadow: 0 4px 16px rgba(120,100,70,0.3); }
+      .t-hint { margin-top: 1.5em; font-size: clamp(11px,2.4vw,15px); color: #e8dcc6; }
       /* ぷにコン（指で動かす仮想スティック） */
       #stick { position: fixed; width: 132px; height: 132px; margin: -66px 0 0 -66px;
         border-radius: 50%; background: rgba(255,255,255,0.14);
@@ -90,6 +104,14 @@
       </div>
     </div>
     <div id="stick"><div id="knob"></div></div>
+    <div id="title">
+      <div class="title-inner">
+        <p class="t-sub">― 昭和の夏の、ある数日 ―</p>
+        <h1 class="t-main">ひと夏の一日</h1>
+        <button id="t-start">はじめる</button>
+        <p class="t-hint">指でスライドして歩く ／ 横画面・音を出してお楽しみください</p>
+      </div>
+    </div>
     <script type="module" src="/src/proto3d/main.js"></script>
   </body>
 </html>

@@ -44,8 +44,8 @@ try {
   await new Promise((r) => setTimeout(r, 2500))
   const gl = await page.evaluate(() => !!window.__proto3d)
   console.log(`3D初期化: ${gl ? 'OK' : 'NG'}`)
-  // 環境音：起動して読み込み/再生状態を確認
-  await page.evaluate(() => window.__proto3d.startAudio())
+  // タイトルを閉じて環境音を起動
+  await page.evaluate(() => { window.__proto3d.startAudio(); document.getElementById('title')?.classList.add('hidden') })
   await new Promise((r) => setTimeout(r, 1200))
   const audio = await page.evaluate(() => window.__proto3d.audioState())
   console.log(`環境音: started=${audio.started} ctx=${audio.ctx} loaded=${audio.loaded} playing=[${audio.playing.join(',')}]`)

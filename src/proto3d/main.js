@@ -1282,6 +1282,14 @@ function update(dt) {
     moving = speedNow > 0.25
     boy.position.x += vel.x * dt
     boy.position.z += vel.z * dt
+    // エリアの外（霧の何もない空間）へ迷い込まないように境界で止める
+    if (area === 'field') {
+      boy.position.x = THREE.MathUtils.clamp(boy.position.x, -92, 92)
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, -92, 92)
+    } else {
+      boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 44, TOWN.x + 44)
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 30, TOWN.z + 30)
+    }
     boy.position.y = heightAt(boy.position.x, boy.position.z)
     if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
     phase += dt * 1.3 * speedNow // 歩調は実速度に連動
@@ -1372,6 +1380,11 @@ addEventListener('pointerdown', function lockOnce() {
   removeEventListener('pointerdown', lockOnce)
   try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}) } catch (e) {}
 }, { once: true })
+
+// タイトル画面：「はじめる」で消えて、音を立ち上げる（iOSの自動再生制限への先回り）
+const titleEl = document.getElementById('title')
+const startBtn = document.getElementById('t-start')
+if (startBtn) startBtn.addEventListener('click', () => { startAudio(); if (titleEl) titleEl.classList.add('hidden') })
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {
