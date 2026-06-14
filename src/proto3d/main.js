@@ -2209,8 +2209,9 @@ function update(dt) {
   // 風鈴の短冊がそよぐ
   windchime.userData.tan.rotation.z = Math.sin(tsec * 2.2) * 0.18 * (0.4 + wind) // 風で短冊がそよぐ
   windchime.rotation.z = Math.sin(tsec * 1.7) * 0.05
-  // 主人公の接地影は地面に沿わせる
+  // 主人公の接地影は地面に沿わせる（跳ぶと小さくなって浮遊感を出す）
   boyShadow.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.05, boy.position.z)
+  boyShadow.scale.setScalar(1 - Math.min(0.5, jumpY * 0.42))
   boyShadow.visible = boy.visible
   // 虫取り網を振る（採取時）
   if (boy.userData.swing > 0) {
@@ -2540,6 +2541,10 @@ function update(dt) {
     const calm = THREE.MathUtils.clamp((idleTime - 1.2) / 3, 0, 1) // 1.2秒後から3秒かけて
     lookUp += ((moving ? 0 : calm * 0.18) - lookUp) * Math.min(1, dt * 2)
     boy.userData.head.rotation.x = -lookUp * 1.6 // 空を見上げる
+    // 立ち止まると あたりを見回し、重心がわずかに揺れる＝生きた所作
+    const idleLook = moving ? 0 : calm
+    boy.userData.head.rotation.y += ((Math.sin(tsec * 0.34) * 0.45 + Math.sin(tsec * 0.13) * 0.2) * idleLook - boy.userData.head.rotation.y) * Math.min(1, dt * 3)
+    boy.rotation.z += (Math.sin(tsec * 0.5) * 0.02 * idleLook - boy.rotation.z) * Math.min(1, dt * 3)
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012 // ぴょこぴょこ跳ねる/立つ呼吸
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
