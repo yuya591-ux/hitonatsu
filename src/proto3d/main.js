@@ -880,14 +880,26 @@ makeBug(9, 2.0, -21.5, 'セミ')
 // ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
 function makeCat() {
   const g = new THREE.Group()
-  const fur = toon(0xd98a4a), dark = toon(0xa86a34)
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 10), fur); body.scale.set(1.4, 0.8, 0.85); body.position.y = 0.36; g.add(body)
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), fur); head.position.set(0.46, 0.5, 0); g.add(head)
-  for (const ez of [-0.12, 0.12]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.17, 5), dark); ear.position.set(0.44, 0.72, ez); g.add(ear) }
-  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.03, 0.55, 6), fur); tail.position.set(-0.52, 0.5, 0); tail.rotation.z = -1.0; g.add(tail)
-  for (const [lx, lz] of [[0.32, 0.18], [0.32, -0.18], [-0.32, 0.18], [-0.32, -0.18]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.36, 6), fur); leg.position.set(lx, 0.18, lz); g.add(leg) }
+  const fur = toon(0xdf9450), cream = toon(0xf2e4cb)
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), fur); body.scale.set(1.45, 0.86, 0.92); body.position.y = 0.4; g.add(body)
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), cream); chest.scale.set(0.8, 1, 0.8); chest.position.set(0.42, 0.34, 0); g.add(chest) // 胸の白
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), fur); head.position.set(0.5, 0.58, 0); g.add(head)
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), cream); muzzle.scale.set(1, 0.72, 0.9); muzzle.position.set(0.64, 0.5, 0); g.add(muzzle) // 口元の白
+  for (const ez of [-0.13, 0.13]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.18, 5), fur); ear.position.set(0.46, 0.8, ez); g.add(ear)
+    const ein = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.1, 5), toon(0xe6a8a4)); ein.position.set(0.48, 0.8, ez); g.add(ein) // 耳の中のピンク
+  }
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.035, 0.6, 6), fur); tail.position.set(-0.56, 0.55, 0); tail.rotation.z = -1.0; g.add(tail)
+  for (const [lx, lz] of [[0.34, 0.2], [0.34, -0.2], [-0.34, 0.2], [-0.34, -0.2]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.4, 6), fur); leg.position.set(lx, 0.2, lz); g.add(leg)
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), cream); paw.position.set(lx, 0.04, lz); g.add(paw) // 白い足先
+  }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-  outlineObj(g, 0.022); addContactShadow(g, 0.6)
+  outlineObj(g, 0.022); addContactShadow(g, 0.7)
+  // 顔（輪郭線の後・フチ無し）：目・鼻
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2e2a22 })
+  for (const ez of [-0.1, 0.1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.046, 8, 8), eyeMat); e.scale.set(0.7, 1, 0.6); e.position.set(0.71, 0.62, ez); g.add(e) }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.036, 8, 6), new THREE.MeshBasicMaterial({ color: 0xd98a9a })); nose.position.set(0.78, 0.52, 0); g.add(nose)
   g.userData.tail = tail
   scene.add(g)
   return g
@@ -2232,7 +2244,7 @@ window.__proto3d = {
   get area() { return area },
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
-  villager,
+  villager, cat, // 検証用
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
