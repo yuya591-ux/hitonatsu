@@ -617,8 +617,15 @@ function makeBoy() {
   const legR = legL.clone(); legR.position.x = 0.16; g.add(legR)
   const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.18), skin); armL.position.set(-0.42, 1.5, 0); g.add(armL)
   const armR = armL.clone(); armR.position.x = 0.42; g.add(armR)
+  // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
+  const net = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 6, 14), toon(0x8a6b3a)); ring.position.y = 1.3; ring.rotation.x = Math.PI / 2; net.add(ring)
+  const bag = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.28, side: THREE.DoubleSide })); bag.position.y = 1.3; bag.rotation.x = Math.PI; net.add(bag)
+  net.position.set(0.34, 0.62, -0.05); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ
+  g.add(net)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-  g.userData = { legL, legR, armL, armR, head }
+  g.userData = { legL, legR, armL, armR, head, net, swing: 0 }
   return g
 }
 const boy = makeBoy()
@@ -1127,6 +1134,9 @@ function showToast(msg) {
 }
 function doCatch() {
   if (!catchTarget || catchTarget.done) return
+  const tp = catchTarget.obj.position
+  facing = Math.atan2(tp.x - boy.position.x, tp.z - boy.position.z); boy.rotation.y = facing // 虫の方を向く
+  boy.userData.swing = 320 // 網を振る
   catchTarget.done = true
   catchTarget.obj.visible = false
   catchTarget.obj.userData.done = true
@@ -1354,6 +1364,12 @@ function update(dt) {
   // 主人公の接地影は地面に沿わせる
   boyShadow.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.05, boy.position.z)
   boyShadow.visible = boy.visible
+  // 虫取り網を振る（採取時）
+  if (boy.userData.swing > 0) {
+    boy.userData.swing = Math.max(0, boy.userData.swing - dt * 1000)
+    const sw = Math.sin((1 - boy.userData.swing / 320) * Math.PI)
+    boy.userData.net.rotation.x = -0.2 - sw * 1.9
+  } else boy.userData.net.rotation.x = -0.2
   // 池に近づいたら“見た”ことを記録（絵日記用）
   if (Math.hypot(boy.position.x - POND.x, boy.position.z - POND.z) < POND.r + 2) todayFlags.sawPond = true
   // 環境音：時刻でクロスフェード＋夕方に一度だけ夕焼けチャイム
