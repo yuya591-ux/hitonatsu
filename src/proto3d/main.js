@@ -722,6 +722,52 @@ function makeSunflower(x, z) {
 }
 for (const [x, z] of [[6, 8], [7.2, 9], [-5, 7], [4, -4]]) makeSunflower(x, z)
 
+// ── 野原(エリア1)の充実：家の畑・田んぼ・すずめ ──
+// 家のとなりの畑（うね＋作物＋スイカ）＝暮らしの気配
+{
+  const soil = toon(0x6b4a33)
+  const gx = HOUSE.x + 7, gz = HOUSE.z - 6
+  for (let r = 0; r < 4; r++) {
+    const rz = gz + r * 1.3
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(6, 0.24, 0.7), soil); ridge.position.set(gx, heightAt(gx, rz) + 0.12, rz); ridge.castShadow = true; addOutline(ridge, 0.02); scene.add(ridge)
+    for (let c = 0; c < 5; c++) {
+      const cx = gx - 2.4 + c * 1.2
+      const crop = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26, 0), toon([0x4a7a3a, 0x6f9a47][(r + c) % 2])); crop.scale.set(1, 0.85, 1); crop.position.set(cx, heightAt(cx, rz) + 0.32, rz); crop.castShadow = true; addOutline(crop, 0.03); scene.add(crop)
+    }
+  }
+  for (const [sx, sz] of [[gx - 2, gz + 5.4], [gx + 1.6, gz + 5.7]]) { const wm = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), toon(0x2f6b34)); wm.scale.set(1.1, 0.9, 1.1); wm.position.set(sx, heightAt(sx, sz) + 0.36, sz); wm.castShadow = true; addOutline(wm, 0.03); addContactShadow(wm, 0.5); scene.add(wm) }
+}
+// 田んぼ（青田）＝夏の田舎の原風景。あぜ道で囲み、稲を並べる（InstancedMeshで安く）
+{
+  const px = 72, pz = 4, by = heightAt(px, pz)
+  const paddy = new THREE.Mesh(new THREE.PlaneGeometry(28, 22), new THREE.MeshToonMaterial({ color: 0x7faa4e, gradientMap: GRAD, map: watercolorTex }))
+  paddy.rotation.x = -Math.PI / 2; paddy.position.set(px, by + 0.06, pz); paddy.receiveShadow = true; scene.add(paddy)
+  for (const [ax, az, sw, sd] of [[px, pz - 11.2, 29, 1], [px, pz + 11.2, 29, 1], [px - 14.2, pz, 1, 23.4], [px + 14.2, pz, 1, 23.4]]) {
+    const aze = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.3, sd), toon(0xb09a72)); aze.position.set(ax, by + 0.12, az); scene.add(aze)
+  }
+  const rice = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.5, 4), toon(0x6f9a3e), 240)
+  const m4 = new THREE.Matrix4(); let n = 0
+  for (let r = 0; r < 12 && n < 240; r++) for (let c = 0; c < 20 && n < 240; c++) { m4.makeTranslation(px - 12 + c * 1.25, by + 0.32, pz - 9 + r * 1.6); rice.setMatrixAt(n++, m4) }
+  rice.instanceMatrix.needsUpdate = true; rice.castShadow = false; scene.add(rice)
+}
+// すずめ（地面をついばみ、近づくと いっせいに飛び立つ＝反応する世界）
+const sparrows = []
+function makeSparrow(hx, hz) {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 7), toon(0x9a7a52)); body.scale.set(1, 0.9, 1.4); g.add(body)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), toon(0xa88a5e)); head.position.set(0, 0.08, 0.13); g.add(head)
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 4), toon(0xc8a23a)); beak.rotation.x = Math.PI / 2; beak.position.set(0, 0.07, 0.22); g.add(beak)
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 4), toon(0x6a5436)); tail.rotation.x = -Math.PI / 2.3; tail.position.set(0, 0.03, -0.2); g.add(tail)
+  const wmat = new THREE.MeshToonMaterial({ color: 0x7a6038, gradientMap: GRAD, side: THREE.DoubleSide })
+  const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.12), wmat); wl.position.set(-0.11, 0.03, 0); g.add(wl)
+  const wr = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.12), wmat); wr.position.set(0.11, 0.03, 0); g.add(wr)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.userData = { wl, wr, hx, hz, ph: Math.random() * 6.28, state: 'ground', t: 0, vx: 0, vz: 0 }
+  g.position.set(hx + (Math.random() - 0.5) * 7, heightAt(hx, hz) + 0.12, hz + (Math.random() - 0.5) * 7)
+  scene.add(g); sparrows.push(g)
+}
+for (let i = 0; i < 6; i++) makeSparrow(12, 30)
+
 // ── ベンチ（高台の上）──
 function makeBench() {
   const g = new THREE.Group()
@@ -1932,6 +1978,26 @@ function update(dt) {
     const f = Math.sin(tsec * u.flap + u.fph) * 0.7
     u.wl.rotation.z = f; u.wr.rotation.z = -f // はばたき
     u.mat.opacity = crowF
+  }
+  // すずめ：地面をついばみ、近づくと いっせいに飛び立つ（反応する世界）
+  for (const s of sparrows) {
+    const u = s.userData
+    if (area !== 'field') { s.visible = false; continue }
+    s.visible = true
+    const pd = Math.hypot(boy.position.x - s.position.x, boy.position.z - s.position.z)
+    if (u.state === 'ground') {
+      s.position.y = heightAt(s.position.x, s.position.z) + 0.1 + Math.abs(Math.sin(tsec * 4 + u.ph)) * 0.04 // ついばむ上下
+      s.rotation.y = Math.sin(tsec * 0.4 + u.ph) * 0.9
+      u.wl.rotation.z = 0.12; u.wr.rotation.z = -0.12
+      if (pd < 5.5) { u.state = 'fly'; u.t = 0; const dx = s.position.x - boy.position.x, dz = s.position.z - boy.position.z, l = Math.hypot(dx, dz) || 1; u.vx = dx / l; u.vz = dz / l }
+    } else {
+      u.t += dt
+      s.position.x += u.vx * dt * 7; s.position.z += u.vz * dt * 7
+      s.position.y += dt * Math.max(0, 3.2 - u.t * 1.5) // 上昇して水平飛行へ
+      s.rotation.y = Math.atan2(u.vx, u.vz)
+      const f = Math.sin(tsec * 32 + u.ph) * 0.7 + 0.2; u.wl.rotation.z = f; u.wr.rotation.z = -f // 羽ばたき
+      if (u.t > 3 && pd > 10) { u.state = 'ground'; s.position.set(u.hx + (Math.random() - 0.5) * 8, heightAt(u.hx, u.hz) + 0.1, u.hz + (Math.random() - 0.5) * 8) } // 遠ざかったら別の所へ着地
+    }
   }
   // 足元の砂ぼこり：舞い上がって ゆっくり落ち、消える
   for (let i = 0; i < DUSTN; i++) {
