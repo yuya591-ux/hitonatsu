@@ -608,6 +608,24 @@ makeBug(22, 2.4, -9.6, 'カブトムシ')
 makeBug(-16, 2.6, 2.5, 'セミ')
 makeBug(9, 2.0, -21.5, 'セミ')
 
+// ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
+function makeCat() {
+  const g = new THREE.Group()
+  const fur = toon(0xd98a4a), dark = toon(0xa86a34)
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 10), fur); body.scale.set(1.4, 0.8, 0.85); body.position.y = 0.36; g.add(body)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), fur); head.position.set(0.46, 0.5, 0); g.add(head)
+  for (const ez of [-0.12, 0.12]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.17, 5), dark); ear.position.set(0.44, 0.72, ez); g.add(ear) }
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.03, 0.55, 6), fur); tail.position.set(-0.52, 0.5, 0); tail.rotation.z = -1.0; g.add(tail)
+  for (const [lx, lz] of [[0.32, 0.18], [0.32, -0.18], [-0.32, 0.18], [-0.32, -0.18]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.36, 6), fur); leg.position.set(lx, 0.18, lz); g.add(leg) }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  outlineObj(g, 0.022); addContactShadow(g, 0.6)
+  scene.add(g)
+  return g
+}
+const cat = makeCat()
+cat.position.set(-10, heightAt(-10, 18), 18)
+cat.userData = { tx: -10, tz: 18, rest: 2000, phase: 0 }
+
 // ── 主人公（低ポリの少年・麦わら帽子）──
 function makeBoy() {
   const g = new THREE.Group()
@@ -1017,13 +1035,14 @@ function startDialogue() {
   npcEl.style.display = 'none'
   endPuni()
   if (who === villager) todayFlags.metGirl = true
+  if (who === townLady) todayFlags.lamune = true
   who.rotation.y = Math.atan2(boy.position.x - who.position.x, boy.position.z - who.position.z) // こちらを向く
 }
 
 // ── 「3日だけの夏」＋絵日記（その日やったこと→翌日への予告／夏の終わり）──
 let day = 1
 let diaryOpen = false
-const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false }
+const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false, petCat: false, lamune: false }
 try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= 3) day = s } catch (e) {}
 const sleepEl = document.getElementById('sleep')
 const diaryEl = document.getElementById('diary')
@@ -1067,7 +1086,9 @@ function openDiary() {
   if (caught.count) body.push(`むしを ${caught.count}ひき つかまえた（${Object.keys(caught.kinds).join('・')}）。`)
   if (fish.count) body.push(`池で さかなを ${fish.count}ひき つった（${Object.keys(fish.kinds).join('・')}）。`)
   if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。')
+  if (todayFlags.petCat) body.push('ねこを なでた。ごろごろ いっていた。')
   if (todayFlags.wentTown) body.push('街の 商店街まで あるいた。')
+  if (todayFlags.lamune) body.push('商店街で ラムネを のんだ。すずしかった。')
   if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
   if (todayFlags.satHill) body.push('高台で ぼーっと した。')
   if (todayFlags.layDown) body.push('草の上で ねころんで 空を ながめた。')
@@ -1123,8 +1144,14 @@ function advanceDialogue() {
   if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none' }
   else dlgTextEl.textContent = dialogue.lines[dialogue.idx]
 }
-npcEl.addEventListener('click', startDialogue)
+npcEl.addEventListener('click', () => { if (npcEl.dataset.pet === '1') petCat(); else startDialogue() })
 dialogueEl.addEventListener('click', advanceDialogue)
+function petCat() {
+  showToast('ねこは ごろごろ いっている。')
+  cat.userData.rest = Math.max(cat.userData.rest, 3000)
+  cat.rotation.y = Math.atan2(boy.position.x - cat.position.x, boy.position.z - cat.position.z)
+  todayFlags.petCat = true
+}
 
 // 虫採りの「つかまえる」とお知らせ（トースト）
 const catchEl = document.getElementById('catch')
@@ -1424,6 +1451,18 @@ function update(dt) {
     p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * 0.05
     const sw = Math.sin(p.userData.wph) * 0.5; p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
   }
+  // うろつく猫（家のまわりを気ままに・休む）
+  {
+    const u = cat.userData
+    if (u.rest > 0) { u.rest -= dt * 1000 } else {
+      const dx = u.tx - cat.position.x, dz = u.tz - cat.position.z; const d = Math.hypot(dx, dz)
+      if (d < 0.3) {
+        if (Math.random() < 0.5) u.rest = 2000 + Math.random() * 4000
+        else { u.tx = HOUSE.x + (Math.random() - 0.5) * 18; u.tz = HOUSE.z + (Math.random() - 0.5) * 18 }
+      } else { const s = 1.1 * dt; cat.position.x += (dx / d) * s; cat.position.z += (dz / d) * s; cat.rotation.y = Math.atan2(dx, dz); u.phase += dt * 8 }
+    }
+    cat.position.y = heightAt(cat.position.x, cat.position.z) + (u.rest <= 0 ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
+  }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
     const sp = villager.userData.spots[phaseOf(tday)]
@@ -1523,8 +1562,11 @@ function update(dt) {
     // いちばん近い人を話し相手に
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
+    const nearCat = area === 'field' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2
     const nearNpc = !!talkTarget
-    npcEl.style.display = (nearNpc && !dialogue) ? 'block' : 'none'
+    if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.pet = ''; npcEl.style.display = 'block' }
+    else if (nearCat && !dialogue) { npcEl.textContent = 'なでる'; npcEl.dataset.pet = '1'; npcEl.style.display = 'block' }
+    else npcEl.style.display = 'none'
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
     else actBtn.style.display = 'none'

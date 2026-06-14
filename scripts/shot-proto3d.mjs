@@ -82,6 +82,11 @@ try {
   await new Promise((r) => setTimeout(r, 1200))
   await page.screenshot({ path: join(outDir, 'proto3d-house.png') })
   console.log('撮影: proto3d-house.png')
+  // うろつく猫（家のまわり）
+  await page.evaluate(() => { window.__proto3d.standUp(); window.__proto3d.setDay(0.45); window.__proto3d.placeBoy(-10, 21) })
+  await new Promise((r) => setTimeout(r, 600))
+  await page.screenshot({ path: join(outDir, 'proto3d-cat.png') })
+  console.log('撮影: proto3d-cat.png')
   // 縁側にすわって庭を眺める
   await page.evaluate(() => { window.__proto3d.setDay(0.62); window.__proto3d.sitDown('engawa') })
   await new Promise((r) => setTimeout(r, 1500))
