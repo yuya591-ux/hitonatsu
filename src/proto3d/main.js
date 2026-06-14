@@ -688,7 +688,6 @@ function spawnDust(x, y, z) {
   dustLife[i] = 0.55
 }
 let lastStepS = 0
-let cawCd = 3 // カラスの鳴き声の間隔タイマー
 
 // ── 虫採り（つかまえる遊び）：蝶・カブトムシ・セミ ──
 const caught = { count: 0, kinds: {} }
@@ -734,20 +733,21 @@ Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
 function makeBoy() {
   const g = new THREE.Group()
   const skin = toon(0xe9bb8e), shirt = toon(0xf4f1e8), pants = toon(0x3f5a77), hat = toon(0xe0bc72)
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.38), shirt); torso.position.y = 1.5; g.add(torso)
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), skin); head.position.y = 2.12; g.add(head)
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 16), hat); brim.position.y = 2.3; g.add(brim)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 2.3; g.add(cap)
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.7, 0.24), pants); legL.position.set(-0.16, 0.9, 0); g.add(legL)
+  // 足の裏が原点(y=0)に来るように全体を下げる＝地面にぴったり接地（浮き防止）
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.38), shirt); torso.position.y = 0.98; g.add(torso)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), skin); head.position.y = 1.6; g.add(head)
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 16), hat); brim.position.y = 1.78; g.add(brim)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 1.78; g.add(cap)
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.7, 0.24), pants); legL.position.set(-0.16, 0.38, 0); g.add(legL)
   const legR = legL.clone(); legR.position.x = 0.16; g.add(legR)
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.18), skin); armL.position.set(-0.42, 1.5, 0); g.add(armL)
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.18), skin); armL.position.set(-0.42, 0.98, 0); g.add(armL)
   const armR = armL.clone(); armR.position.x = 0.42; g.add(armR)
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 6, 14), toon(0x8a6b3a)); ring.position.y = 1.3; ring.rotation.x = Math.PI / 2; net.add(ring)
   const bag = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.28, side: THREE.DoubleSide })); bag.position.y = 1.3; bag.rotation.x = Math.PI; net.add(bag)
-  net.position.set(0.34, 0.62, -0.05); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ
+  net.position.set(0.34, 0.10, -0.05); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ（本体を下げたぶん網も下げる）
   g.add(net)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.userData = { legL, legR, armL, armR, head, net, swing: 0 }
@@ -1140,26 +1140,6 @@ function playThunk() { // 自販機のガコン＋カラン
       const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = f
       const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t1); g2.gain.exponentialRampToValueAtTime(0.05, t1 + 0.005); g2.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.26)
       o2.connect(g2); g2.connect(ctx.destination); o2.start(t1); o2.stop(t1 + 0.3)
-    }
-  } catch (e) {}
-}
-function playCaw() { // 夕方のカラス「カァー」（遠く・かすれた下降音）
-  if (!audioStarted) return
-  try {
-    const ctx = listener.context, now = ctx.currentTime
-    const n = Math.random() < 0.5 ? 2 : 1
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2100; lp.connect(ctx.destination) // 遠くの空気
-    for (let c = 0; c < n; c++) {
-      const t0 = now + c * 0.52
-      const src = ctx.createBufferSource(); src.buffer = getNoise(); src.loop = true
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 5
-      bp.frequency.setValueAtTime(1150, t0); bp.frequency.linearRampToValueAtTime(720, t0 + 0.33)
-      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(430, t0); o.frequency.linearRampToValueAtTime(300, t0 + 0.33)
-      const og = ctx.createGain(); og.gain.value = 0.4
-      const g = ctx.createGain()
-      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.05, t0 + 0.05); g.gain.setValueAtTime(0.05, t0 + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4)
-      src.connect(bp); bp.connect(g); o.connect(og); og.connect(g); g.connect(lp)
-      src.start(t0); src.stop(t0 + 0.45); o.start(t0); o.stop(t0 + 0.45)
     }
   } catch (e) {}
 }
@@ -1748,7 +1728,6 @@ function update(dt) {
   }
   // 夕方のカラス（夕焼け〜宵に かけて 空を横切る）
   const crowF = THREE.MathUtils.smoothstep(tday, 0.60, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.80, 0.90))
-  if (crowF > 0.3) { cawCd -= dt; if (cawCd <= 0) { playCaw(); cawCd = 5 + Math.random() * 7 } } else cawCd = 2 + Math.random() * 3
   for (const c of crows) {
     const u = c.userData
     c.visible = crowF > 0.02
@@ -1981,7 +1960,6 @@ window.__proto3d = {
     seatLook.yaw = Math.atan2(dir.x, dir.z)
     seatLook.pitch = Math.asin(THREE.MathUtils.clamp(dir.y / dir.length(), -1, 1))
   },
-  _caw() { playCaw() }, // 検証用：カラスの鳴き声が例外なく鳴るか
   crowsVisible() { // 検証用：画面内に見えているカラスの数
     const v = new THREE.Vector3(); let n = 0
     for (const c of crows) {
