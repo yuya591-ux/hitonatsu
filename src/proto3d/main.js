@@ -692,6 +692,11 @@ function makeVillager(x, z, opt) {
   if (!opt.boy) for (const hx of [-0.3, 0.3]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), toon(opt.hair)); pt.position.set(hx, 2.0, -0.04); g.add(pt) }
   const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), skin); legL.position.set(-0.13, 0.7, 0); g.add(legL)
   const legR = legL.clone(); legR.position.x = 0.13; g.add(legR)
+  // 腕（肩から下げる。肩を回転軸にしたいので、肩位置にピボット用Groupを置く）
+  const armL = new THREE.Group(); armL.position.set(-0.34, 1.72, 0); g.add(armL)
+  const armLm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.56, 0.16), skin); armLm.position.y = -0.28; armL.add(armLm)
+  const armR = new THREE.Group(); armR.position.set(0.34, 1.72, 0); g.add(armR)
+  const armRm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.56, 0.16), skin); armRm.position.y = -0.28; armR.add(armRm)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z)
   g.rotation.y = opt.face || 0
@@ -699,7 +704,7 @@ function makeVillager(x, z, opt) {
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2a2018 })
   for (const ex of [-0.1, 0.1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat); e.position.set(ex, 2.05, 0.27); g.add(e) }
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, head, wph: 0 }
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, armL, armR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4 }
   scene.add(g)
   return g
 }
@@ -756,6 +761,19 @@ const townKid = makeVillager(TOWN.x - 30, TOWN.z + 16, {
 })
 // 会話できる人たち（いちばん近い人に話しかける）
 const npcs = [villager, townLady, townKid]
+
+// NPC共通：腕は基本だらんと下げ、近づくと たまに手を振る。
+function npcArms(n, near, dt, tsec) {
+  const u = n.userData
+  if (!u.armR) return
+  if (near && u.wave <= 0) { u.waveCd -= dt; if (u.waveCd <= 0) { u.wave = 1; u.waveCd = 5 + Math.random() * 6 } }
+  if (u.wave > 0) u.wave = Math.max(0, u.wave - dt / 1.6) // 約1.6秒かけて上げて振って下ろす
+  const w = Math.sin(Math.min(u.wave, 1) * Math.PI) // 0→1→0 でなめらか
+  u.armR.rotation.z += (-2.1 * w - u.armR.rotation.z) * Math.min(1, dt * 10)
+  u.armR.rotation.x = Math.sin(tsec * 9) * 0.35 * w // 手先を左右に振る
+  u.armL.rotation.z += (0 - u.armL.rotation.z) * Math.min(1, dt * 6)
+  u.armL.rotation.x = Math.sin(tsec * 1.3 + n.position.x) * 0.05 // 反対の腕は息で少し揺れる
+}
 let talkTarget = null
 
 // 商店街の通行人（道を行き来＝賑わい。会話はしない）
@@ -1469,6 +1487,7 @@ function update(dt) {
     p.userData.wph += dt * 7
     p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * 0.05
     const sw = Math.sin(p.userData.wph) * 0.5; p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
+    p.userData.armL.rotation.x = -sw; p.userData.armR.rotation.x = sw // 腕を振って歩く
   }
   // うろつく猫（家のまわりを気ままに・休む）
   {
@@ -1497,23 +1516,28 @@ function update(dt) {
       villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(vu.wph)) * 0.05
       villager.rotation.y = Math.atan2(dx, dz)
       const sw = Math.sin(vu.wph) * 0.5; vu.legL.rotation.x = sw; vu.legR.rotation.x = -sw
+      vu.armL.rotation.x = -sw; vu.armR.rotation.x = sw; vu.armL.rotation.z *= 0.8; vu.armR.rotation.z *= 0.8 // 歩くと腕を振る
+      vu.wave = 0
       vu.head.rotation.y *= 0.85 // 歩く時は前を向く
     } else {
       villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(tsec * 1.3)) * 0.012 // 息づかい
       vu.legL.rotation.x *= 0.8; vu.legR.rotation.x *= 0.8
       const pd = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z)
-      if (pd < 4.5 && area === 'field') { // 近づくと気づいてこちらを向く
+      const near = pd < 4.5 && area === 'field'
+      if (near) { // 近づくと気づいてこちらを向く
         let dd2 = Math.atan2(boy.position.x - villager.position.x, boy.position.z - villager.position.z) - villager.rotation.y
         while (dd2 > Math.PI) dd2 -= Math.PI * 2; while (dd2 < -Math.PI) dd2 += Math.PI * 2
         villager.rotation.y += dd2 * Math.min(1, dt * 4); vu.head.rotation.y *= 0.85
       } else vu.head.rotation.y = Math.sin(tsec * 0.4) * 0.45 // ゆっくり見回す
+      npcArms(villager, near, dt, tsec)
     }
   }
   // 立っている街の人：息づかい＋ふだんは見回し、近づくと気づいてこちらを向く
   for (const n of [townLady, townKid]) {
     n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
     const pd = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z)
-    if (pd < 4.5 && area === 'town') {
+    const near = pd < 4.5 && area === 'town'
+    if (near) {
       let dd = Math.atan2(boy.position.x - n.position.x, boy.position.z - n.position.z) - n.rotation.y
       while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2
       n.rotation.y += dd * Math.min(1, dt * 4)
@@ -1521,6 +1545,7 @@ function update(dt) {
     } else {
       n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
     }
+    npcArms(n, near, dt, tsec)
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
