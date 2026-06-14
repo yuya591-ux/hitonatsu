@@ -100,6 +100,16 @@ try {
   if (!diaryShown) errors.push('絵日記が表示されない')
   await page.screenshot({ path: join(outDir, 'proto3d-diary.png') })
   console.log('撮影: proto3d-diary.png')
+  // 3日目の夜＝おまつり（提灯＋花火）
+  await page.evaluate(() => {
+    const H = window.__proto3d
+    document.getElementById('diary').style.display = 'none'
+    H.standUp(); H.setGameDay(3); H.setDay(0.95); H.placeBoy(-15, 22)
+    for (let i = 0; i < 5; i++) H.spawnFirework()
+  })
+  await new Promise((r) => setTimeout(r, 700))
+  await page.screenshot({ path: join(outDir, 'proto3d-festival.png') })
+  console.log('撮影: proto3d-festival.png')
   await page.close()
 } finally {
   await browser.close()

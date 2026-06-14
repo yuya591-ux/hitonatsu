@@ -484,6 +484,13 @@ const villager = makeVillager(13, 9, {
     },
   },
 })
+// 生活リズム：時間帯で居場所が変わる（朝＝池ばた、昼＝木かげ、夕＝家のそば、夜＝縁側）
+villager.userData.spots = {
+  morning: new THREE.Vector3(18, 0, 20),
+  noon: new THREE.Vector3(13, 0, 7),
+  evening: new THREE.Vector3(-13, 0, 17),
+  night: new THREE.Vector3(-15.5, 0, 15),
+}
 
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
@@ -529,6 +536,32 @@ const fireflies = (() => {
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 0.34, transparent: true, opacity: 0, depthWrite: false, fog: true, blending: THREE.AdditiveBlending }))
   scene.add(pts); return pts
 })()
+// 提灯（家の軒先・夜にあかりが灯る）
+const lanterns = []
+for (let i = 0; i < 5; i++) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff8a4a, fog: false, transparent: true, opacity: 0 }))
+  m.scale.y = 1.25
+  m.position.set(HOUSE.x - 3 + i * 1.5, heightAt(HOUSE.x, HOUSE.z) + 3.3, HOUSE.z + 4.1)
+  scene.add(m); lanterns.push(m)
+}
+// 夏の夜の花火（夜に空へ開く。3日目はおまつりで多め）
+const fireworksGroup = new THREE.Group(); scene.add(fireworksGroup)
+let fwTimer = 3
+function spawnFirework() {
+  const N = 72
+  const cx = (Math.random() - 0.5) * 70, cy = 34 + Math.random() * 18, cz = -36 - Math.random() * 28
+  const pos = new Float32Array(N * 3); const vel = []
+  for (let i = 0; i < N; i++) {
+    pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
+    vel.push(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(5 + Math.random() * 5))
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const c = new THREE.Color().setHSL(Math.random(), 0.7, 0.62)
+  const mat = new THREE.PointsMaterial({ color: c, size: 0.7, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })
+  const pts = new THREE.Points(geo, mat); pts.userData = { vel, age: 0 }
+  fireworksGroup.add(pts)
+}
 
 // ── 入道雲（高くにゆっくり流れる。寝ころんで空を見ると気持ちいい）──
 const clouds = []
@@ -939,6 +972,40 @@ function update(dt) {
   stars.material.opacity = nf
   fireflies.material.opacity = nf * (0.45 + 0.4 * (0.5 + 0.5 * Math.sin(tsec * 3)))
   fireflies.rotation.y = tsec * 0.05
+  // 提灯のあかり（夜に灯る・ゆらぐ）
+  for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
+  // 花火（夜・3日目はおまつりで多め）
+  if (nf > 0.4) {
+    fwTimer -= dt
+    if (fwTimer <= 0) { fwTimer = (day >= 3 ? 1.4 : 3.2) + Math.random() * 2.5; spawnFirework() }
+  }
+  for (const pts of [...fireworksGroup.children]) {
+    const u = pts.userData; u.age += dt
+    const pa = pts.geometry.attributes.position
+    for (let i = 0; i < u.vel.length; i++) {
+      const v = u.vel[i]
+      pa.setXYZ(i, pa.getX(i) + v.x * dt, pa.getY(i) + v.y * dt - 2.2 * dt, pa.getZ(i) + v.z * dt)
+      v.multiplyScalar(0.95)
+    }
+    pa.needsUpdate = true
+    pts.material.opacity = Math.max(0, 1 - u.age / 2.3)
+    if (u.age > 2.3) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
+  }
+  // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
+  if (!dialogue) {
+    const sp = villager.userData.spots[phaseOf(tday)]
+    const dx = sp.x - villager.position.x, dz = sp.z - villager.position.z
+    const dd = Math.hypot(dx, dz)
+    if (dd > 0.3) {
+      const step = Math.min(1.6 * dt, dd)
+      villager.position.x += (dx / dd) * step
+      villager.position.z += (dz / dd) * step
+      villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(tsec * 7)) * 0.05
+      villager.rotation.y = Math.atan2(dx, dz)
+    } else {
+      villager.position.y = heightAt(villager.position.x, villager.position.z)
+    }
+  }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
     const u = b.userData
@@ -1076,6 +1143,8 @@ window.__proto3d = {
   talk() { startDialogue() }, // 検証用
   openDiary() { openDiary() }, // 検証用
   get day() { return day },
+  setGameDay(d) { day = d; refreshBadge() }, // 検証用
+  spawnFirework() { spawnFirework() }, // 検証用
   villager,
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
