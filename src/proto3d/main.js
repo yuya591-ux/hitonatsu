@@ -1334,6 +1334,20 @@ const clouds = []
     scene.add(g); clouds.push(g)
   }
 }
+// ── 入道雲（夏の空のシンボル。地平から もくもくと そびえる。どのエリアからも見える背景）──
+const thunderheads = []
+// トゥーン材で太陽に照らし、上は白く下は陰る＝もくもくした立体感（Basicだと白い壁になる）
+const thMat = new THREE.MeshToonMaterial({ color: 0xf6f6ee, gradientMap: GRAD, fog: false, transparent: true, opacity: 0.97 })
+{
+  const lobes = [[0, 0, 16], [-8, 8, 13], [9, 9, 12], [0, 15, 13], [-6, 21, 10], [6, 22, 9], [0, 27, 9], [-3, 32, 7], [4, 33, 6], [0, 38, 6], [0, 43, 4.5]]
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group()
+    for (const [lx, ly, r] of lobes) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), thMat); m.position.set(lx + (Math.random() - 0.5) * 3, ly, (Math.random() - 0.5) * 5); m.scale.setScalar(0.92 + Math.random() * 0.2); g.add(m) }
+    g.scale.setScalar(1.5 + Math.random() * 0.8)
+    g.userData = { az: (i / 4) * Math.PI * 2 + Math.random(), dist: 300 + Math.random() * 80, baseY: -8 - Math.random() * 6, drift: 0.003 + Math.random() * 0.004 }
+    scene.add(g); thunderheads.push(g)
+  }
+}
 
 // ── カメラ（既定は斜め見下ろし。視点はユーザーが回せる/寄れる） ──
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
@@ -2003,8 +2017,15 @@ function update(dt) {
   if (grassShader) grassShader.uniforms.uTime.value = tsec // 草が風になびく
   waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
-  // 入道雲がゆっくり流れる
+  // 雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
+  // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる
+  thMat.opacity = 0.97 * (1 - nightFactor(tday))
+  for (const t of thunderheads) {
+    const u = t.userData; u.az += dt * u.drift
+    t.position.set(camera.position.x + Math.cos(u.az) * u.dist, u.baseY, camera.position.z + Math.sin(u.az) * u.dist)
+    t.rotation.y = Math.atan2(camera.position.x - t.position.x, camera.position.z - t.position.z)
+  }
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
   for (const tex of barberPoles) { tex.offset.y -= dt * 0.4 }
