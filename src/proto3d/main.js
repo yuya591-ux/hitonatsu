@@ -266,10 +266,14 @@ function makeTree(x, z, s = 1) {
   trunk.position.y = 1.7 * s
   trunk.castShadow = true
   g.add(trunk)
-  const greens = [0x6f9a47, 0x79a44e, 0x5f8b3c]
-  for (let i = 0; i < 3; i++) {
-    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry((1.7 - i * 0.3) * s, 0), toon(greens[i % 3]))
-    blob.position.set((Math.random() - 0.5) * 1.4 * s, (3.4 + i * 0.9) * s, (Math.random() - 0.5) * 1.4 * s)
+  // 葉のかたまり：少し多めに重ね、上のひとかたまりは陽が当たって明るい＝立体感。
+  // detail=1 のイコサヘドロンで、カクカクのまま角だけやわらげる。
+  const greens = [0x6f9a47, 0x79a44e, 0x5f8b3c, 0x86b257]
+  const blobs = [[1.85, 3.3, 0], [1.5, 4.0, 0], [1.25, 4.7, 1], [1.3, 3.8, 0], [1.05, 4.4, 0]]
+  for (let i = 0; i < blobs.length; i++) {
+    const [r, by, light] = blobs[i]
+    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), toon(light ? 0x9ec06c : greens[i % greens.length]))
+    blob.position.set((Math.random() - 0.5) * 1.8 * s, by * s, (Math.random() - 0.5) * 1.8 * s)
     blob.castShadow = true
     g.add(blob)
   }
