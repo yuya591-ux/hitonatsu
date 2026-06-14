@@ -76,6 +76,7 @@ try {
   await page.evaluate(() => window.__proto3d.aimSky(0.74))
   await new Promise((r) => setTimeout(r, 1000))
   const crowN = await page.evaluate(() => window.__proto3d.crowsVisible())
+  await page.evaluate(() => window.__proto3d._caw()) // 鳴き声が例外なく合成されるか
   console.log(`カラステスト: 画面内のカラス=${crowN}`)
   if (crowN < 1) errors.push('夕方のカラスが空に見えていない')
   await page.screenshot({ path: join(outDir, 'proto3d-crow.png') })

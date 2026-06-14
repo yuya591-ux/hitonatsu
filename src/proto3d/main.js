@@ -647,6 +647,7 @@ function spawnDust(x, y, z) {
   dustLife[i] = 0.55
 }
 let lastStepS = 0
+let cawCd = 3 // カラスの鳴き声の間隔タイマー
 
 // ── 虫採り（つかまえる遊び）：蝶・カブトムシ・セミ ──
 const caught = { count: 0, kinds: {} }
@@ -1064,6 +1065,63 @@ function playChime() {
     })
   } catch (e) {}
 }
+// ── 効果音の自前合成（外部素材ゼロ。AudioContextで都度つくる）──
+let noiseBuf = null
+function getNoise() {
+  if (noiseBuf) return noiseBuf
+  const ctx = listener.context
+  noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate)
+  const d = noiseBuf.getChannelData(0)
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+  return noiseBuf
+}
+function playStep(vol, town) { // 足音：草はやわらかい低音、舗装は少し明るい擦れ
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, now = ctx.currentTime
+    const src = ctx.createBufferSource(); src.buffer = getNoise(); src.playbackRate.value = 0.8 + Math.random() * 0.35
+    const bp = ctx.createBiquadFilter()
+    bp.type = town ? 'bandpass' : 'lowpass'; bp.frequency.value = town ? 1300 + Math.random() * 500 : 360 + Math.random() * 140; bp.Q.value = town ? 0.9 : 0.6
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + (town ? 0.10 : 0.15))
+    src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(now); src.stop(now + 0.25)
+  } catch (e) {}
+}
+function playThunk() { // 自販機のガコン＋カラン
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, now = ctx.currentTime
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(155, now); o.frequency.exponentialRampToValueAtTime(58, now + 0.12)
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.22, now + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2)
+    o.connect(g); g.connect(ctx.destination); o.start(now); o.stop(now + 0.22)
+    const t1 = now + 0.14 // 瓶/缶の高い余韻＝カラン
+    for (const f of [900, 1340]) {
+      const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = f
+      const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t1); g2.gain.exponentialRampToValueAtTime(0.05, t1 + 0.005); g2.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.26)
+      o2.connect(g2); g2.connect(ctx.destination); o2.start(t1); o2.stop(t1 + 0.3)
+    }
+  } catch (e) {}
+}
+function playCaw() { // 夕方のカラス「カァー」（遠く・かすれた下降音）
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, now = ctx.currentTime
+    const n = Math.random() < 0.5 ? 2 : 1
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2100; lp.connect(ctx.destination) // 遠くの空気
+    for (let c = 0; c < n; c++) {
+      const t0 = now + c * 0.52
+      const src = ctx.createBufferSource(); src.buffer = getNoise(); src.loop = true
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 5
+      bp.frequency.setValueAtTime(1150, t0); bp.frequency.linearRampToValueAtTime(720, t0 + 0.33)
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(430, t0); o.frequency.linearRampToValueAtTime(300, t0 + 0.33)
+      const og = ctx.createGain(); og.gain.value = 0.4
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.05, t0 + 0.05); g.gain.setValueAtTime(0.05, t0 + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4)
+      src.connect(bp); bp.connect(g); o.connect(og); og.connect(g); g.connect(lp)
+      src.start(t0); src.stop(t0 + 0.45); o.start(t0); o.stop(t0 + 0.45)
+    }
+  } catch (e) {}
+}
 
 // 縁側の風鈴（軒先・立体音響）。近づくとちりんと聞こえる
 const windchime = new THREE.Group()
@@ -1254,6 +1312,7 @@ function buyRamune() {
   if (lamuneCd > 0) return
   lamuneCd = 2.2
   facing = Math.atan2(VENDING.x - boy.position.x, VENDING.z - boy.position.z); boy.rotation.y = facing // 自販機の方を向く
+  playThunk()
   showToast(todayFlags.lamune ? 'もう一本。やっぱり つめたい。' : 'ガコン。つめたい ラムネ。100円なり。')
   todayFlags.lamune = true
 }
@@ -1645,6 +1704,7 @@ function update(dt) {
   }
   // 夕方のカラス（夕焼け〜宵に かけて 空を横切る）
   const crowF = THREE.MathUtils.smoothstep(tday, 0.60, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.80, 0.90))
+  if (crowF > 0.3) { cawCd -= dt; if (cawCd <= 0) { playCaw(); cawCd = 5 + Math.random() * 7 } } else cawCd = 2 + Math.random() * 3
   for (const c of crows) {
     const u = c.userData
     c.visible = crowF > 0.02
@@ -1721,8 +1781,11 @@ function update(dt) {
     const run = THREE.MathUtils.clamp(speedNow / 7, 0, 1) // 0=そろり 1=全力
     const amp = 0.35 + run * 0.9
     const sw = Math.sin(phase) * amp
-    // 走っている時、足が着くたび（sin(phase)の符号が変わる瞬間）に砂ぼこり
-    if (moving && run > 0.4 && sw * lastStepS < 0) spawnDust(boy.position.x, boy.position.y + 0.05, boy.position.z)
+    // 足が着くたび（sin(phase)の符号が変わる瞬間）に足音、走っていれば砂ぼこりも
+    if (moving && sw * lastStepS < 0) {
+      playStep(0.04 + run * 0.06, area === 'town')
+      if (run > 0.4) spawnDust(boy.position.x, boy.position.y + 0.05, boy.position.z)
+    }
     lastStepS = sw
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     boy.userData.armL.rotation.x = -sw - run * 0.25; boy.userData.armR.rotation.x = sw - run * 0.25 // 走ると肘を前に振る
@@ -1874,6 +1937,7 @@ window.__proto3d = {
     seatLook.yaw = Math.atan2(dir.x, dir.z)
     seatLook.pitch = Math.asin(THREE.MathUtils.clamp(dir.y / dir.length(), -1, 1))
   },
+  _caw() { playCaw() }, // 検証用：カラスの鳴き声が例外なく鳴るか
   crowsVisible() { // 検証用：画面内に見えているカラスの数
     const v = new THREE.Vector3(); let n = 0
     for (const c of crows) {
