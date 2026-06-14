@@ -388,16 +388,20 @@ function makeTree(x, z, s = 1) {
   trunk.position.y = 1.7 * s
   trunk.castShadow = true
   g.add(trunk)
-  // 葉のかたまり：少し多めに重ね、上のひとかたまりは陽が当たって明るい＝立体感。
+  // 葉＝こんもり繁った樹冠。多数のかたまりを1ジオメトリに統合＝わさっと茂って軽い。
   // detail=1 のイコサヘドロンで、カクカクのまま角だけやわらげる。
-  const greens = [0x6f9a47, 0x79a44e, 0x5f8b3c, 0x86b257]
-  const blobs = [[1.85, 3.3, 0], [1.5, 4.0, 0], [1.25, 4.7, 1], [1.3, 3.8, 0], [1.05, 4.4, 0]]
-  for (let i = 0; i < blobs.length; i++) {
-    const [r, by, light] = blobs[i]
-    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), toon(light ? 0x9ec06c : greens[i % greens.length]))
-    blob.position.set((Math.random() - 0.5) * 1.8 * s, by * s, (Math.random() - 0.5) * 1.8 * s)
-    blob.castShadow = true
-    g.add(blob)
+  const crown = [
+    [1.7, 0, 3.2, 0], [1.45, 1.15, 3.45, 0.3], [1.45, -1.05, 3.5, -0.35], [1.4, 0.3, 3.5, 1.15], [1.4, -0.4, 3.55, -1.15],
+    [1.55, 0.15, 4.05, -0.1], [1.3, 1.05, 4.2, 0.5], [1.3, -0.95, 4.25, -0.5], [1.25, 0.4, 4.0, 1.0], [1.2, -0.5, 4.1, -1.0],
+    [1.3, 0.1, 4.75, 0.25], [1.05, 0.7, 4.9, -0.3], [1.15, 0.0, 3.85, 0.0],
+  ]
+  const geos = []
+  for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 1); ge.translate(bx * s, by * s, bz * s); geos.push(ge) }
+  const canopy = new THREE.Mesh(mergeGeometries(geos), toon(0x6f9a47)); canopy.castShadow = true; g.add(canopy)
+  geos.forEach((ge) => ge.dispose())
+  // 陽の当たる上の明るい房（立体感・木漏れ日の素）
+  for (const [r, bx, by, bz] of [[1.15, 0.35, 4.8, 0.25], [0.98, -0.35, 5.05, -0.1], [1.05, 1.0, 4.5, 0.5], [0.9, -0.8, 4.7, -0.55]]) {
+    const hb = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), toon(0x9ec06c)); hb.position.set(bx * s, by * s, bz * s); hb.castShadow = true; g.add(hb)
   }
   g.position.set(x, heightAt(x, z), z)
   mergedOutline(g, 0.08)
@@ -407,6 +411,22 @@ function makeTree(x, z, s = 1) {
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.02 })
 }
 for (const [x, z, s] of [[14, 6, 1.1], [-16, 2, 1.0], [22, -10, 1.2], [-22, -14, 1.1], [9, -22, 0.9], [-10, -24, 0.95], [30, 12, 1.0], [-30, 14, 1.1]]) makeTree(x, z, s)
+// 木立を増やして“わさっと”茂らせる（原っぱの縁・木かげを増やす）
+for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25, 1.05], [29, 29, 1.0], [-13, 33, 0.9], [34, 22, 1.05], [-37, -26, 1.0], [40, 8, 1.15], [-40, -8, 1.1]]) makeTree(x, z, s)
+// ── 低木・茂み（下草。木の根元や縁に点々と＝葉の密度を上げる）──
+function makeBush(x, z, s = 1) {
+  const g = new THREE.Group()
+  const blobs = [[0.7, 0, 0.36, 0], [0.56, 0.5, 0.32, 0.2], [0.56, -0.46, 0.34, -0.2], [0.5, 0.12, 0.52, 0.4], [0.48, -0.22, 0.5, -0.36], [0.46, 0.42, 0.5, -0.3]]
+  const geos = []
+  for (const [r, bx, by, bz] of blobs) { const ge = new THREE.IcosahedronGeometry(r * s, 1); ge.translate(bx * s, by * s, bz * s); geos.push(ge) }
+  const m = new THREE.Mesh(mergeGeometries(geos), toon([0x5f8b3c, 0x6f9a47, 0x79a44e][Math.floor(Math.random() * 3)])); m.castShadow = true; g.add(m)
+  geos.forEach((ge) => ge.dispose())
+  g.position.set(x, heightAt(x, z), z)
+  mergedOutline(g, 0.05); addContactShadow(g, 0.75 * s)
+  scene.add(g)
+  swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.035 })
+}
+for (const [x, z, s] of [[16, 9, 1.0], [-14, 5, 0.9], [24, -7, 1.1], [-20, -11, 1.0], [11, -19, 0.85], [-8, -21, 0.9], [32, 14, 1.0], [-28, 16, 1.05], [38, -2, 0.95], [-32, 9, 1.0], [21, 23, 0.9], [-23, 27, 1.0], [-15, 30, 0.85], [33, 25, 0.95], [7, 26, 0.9], [-35, -22, 1.0]]) makeBush(x, z, s)
 
 // ── 昭和の田舎家（縁側・瓦屋根・障子）＝時代の空気の核。麦わら帽子の少年の“おばあちゃんち”的な原風景 ──
 function makeHouse(x, z, rot, roofHex) {
@@ -1664,27 +1684,32 @@ for (const [dx, col, sp, boyP] of pedDefs) {
 
 // ── 夜の演出：月・星・蛍（夜になるほど現れる）──
 const nightFactor = (t) => THREE.MathUtils.smoothstep(t, 0.72, 0.99)
-const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 24, 24),
+const moon = new THREE.Mesh(new THREE.SphereGeometry(9, 24, 24),
   new THREE.MeshBasicMaterial({ color: 0xeef0ff, fog: false, transparent: true, opacity: 0 }))
 moon.position.set(70, 95, -90); scene.add(moon)
-const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(13, 24, 24),
+const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(20, 24, 24),
   new THREE.MeshBasicMaterial({ color: 0xbcd0ff, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending }))
 moonGlow.position.copy(moon.position); scene.add(moonGlow)
 const stars = (() => {
   const g = new THREE.BufferGeometry(); const p = []
-  for (let i = 0; i < 170; i++) {
-    const u = Math.random() * Math.PI * 2, v = Math.random() * 0.55 + 0.15, r = 380
+  // 天頂までびっしり＝満天の星。低い空ほど薄く、天の川あたりは少し密に
+  for (let i = 0; i < 360; i++) {
+    const u = Math.random() * Math.PI * 2, v = Math.random() * 0.72 + 0.12, r = 380
+    p.push(Math.cos(u) * Math.cos(v) * r, Math.sin(v) * r, Math.sin(u) * Math.cos(v) * r)
+  }
+  for (let i = 0; i < 120; i++) { // 天の川の帯（一筋に集める）
+    const u = Math.random() * Math.PI * 2, v = 0.5 + (Math.random() - 0.5) * 0.18, r = 380
     p.push(Math.cos(u) * Math.cos(v) * r, Math.sin(v) * r, Math.sin(u) * Math.cos(v) * r)
   }
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }))
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }))
   scene.add(pts); return pts
 })()
 const fireflies = (() => {
   const g = new THREE.BufferGeometry(); const p = []
-  for (let i = 0; i < 55; i++) p.push((Math.random() - 0.5) * 80, 0.6 + Math.random() * 3.5, (Math.random() - 0.5) * 80)
+  for (let i = 0; i < 130; i++) p.push((Math.random() - 0.5) * 92, 0.5 + Math.random() * 4.0, (Math.random() - 0.5) * 92)
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 0.34, transparent: true, opacity: 0, depthWrite: false, fog: true, blending: THREE.AdditiveBlending }))
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 0.4, transparent: true, opacity: 0, depthWrite: false, fog: true, blending: THREE.AdditiveBlending }))
   scene.add(pts); return pts
 })()
 // 提灯（家の軒先・夜にあかりが灯る）
@@ -1695,6 +1720,15 @@ for (let i = 0; i < 5; i++) {
   m.scale.y = 1.25
   m.position.set(HOUSE.x - 3 + i * 1.5, heightAt(HOUSE.x, HOUSE.z) + 3.3, HOUSE.z + 4.1)
   scene.add(m); lanterns.push(m)
+}
+// 田舎家の窓あかり（夕方〜夜にともる＝遠くの「灯のついた家」で夜の寂しさを和らげる）
+const houseGlows = []
+for (const off of [-1.15, 1.15]) {
+  const gx = HOUSE.x + Math.sin(0.35) * 3.25 + Math.cos(0.35) * off
+  const gz = HOUSE.z + Math.cos(0.35) * 3.25 - Math.sin(0.35) * off
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.82), new THREE.MeshBasicMaterial({ color: 0xffcb7e, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide }))
+  m.position.set(gx, heightAt(HOUSE.x, HOUSE.z) + 1.55, gz); m.rotation.y = 0.35
+  scene.add(m); houseGlows.push(m)
 }
 // 夏の夜の花火（夜に空へ開く。3日目はおまつりで多め）
 const fireworksGroup = new THREE.Group(); scene.add(fireworksGroup)
@@ -2636,10 +2670,13 @@ function update(dt) {
   // 夜の演出
   const nf = nightFactor(tday)
   moon.material.opacity = nf
-  moonGlow.material.opacity = nf * 0.45
+  moonGlow.material.opacity = nf * 0.5
   stars.material.opacity = nf
   fireflies.material.opacity = nf * (0.45 + 0.4 * (0.5 + 0.5 * Math.sin(tsec * 3)))
   fireflies.rotation.y = tsec * 0.05
+  // 田舎家の窓あかり（夕方からともり、夜も灯る＝遠くの灯）
+  const homeLit = THREE.MathUtils.smoothstep(tday, 0.6, 0.74)
+  for (let i = 0; i < houseGlows.length; i++) houseGlows[i].material.opacity = homeLit * (0.85 + 0.08 * Math.sin(tsec * 2.4 + i * 2)) // ほのかな揺らぎ
   // 提灯のあかり（夜に灯る・ゆらぐ）
   for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
   // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
