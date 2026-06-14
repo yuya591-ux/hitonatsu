@@ -1388,7 +1388,7 @@ outlineObj(boy, 0.03)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
-const boyShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), shadowMat)
+const boyShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), shadowMat)
 boyShadow.rotation.x = -Math.PI / 2
 scene.add(boyShadow)
 
@@ -1460,11 +1460,11 @@ function makeVillager(x, z, opt) {
     const torso = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), shirtM); torso.scale.set(0.98, 1.0, 0.82); torso.position.y = 1.06; g.add(torso)
   }
   // 首
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.12, 9), skin); neck.position.y = 1.4; g.add(neck)
-  // あたま（小さめ＝人形っぽさを消す）
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 18, 16), skin); head.scale.set(1, 1.04, 0.97); head.position.y = 1.58; g.add(head)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.61; hair.rotation.x = -0.25; g.add(hair)
-  if (!opt.boy && !opt.simple) for (const hx of [-0.27, 0.27]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.52, -0.04); g.add(pt) }
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.076, 0.12, 9), skin); neck.position.y = 1.38; g.add(neck)
+  // あたま（さらに小さめ＝主人公と同じ自然な頭身に）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.225, 18, 16), skin); head.scale.set(1, 1.05, 0.97); head.position.y = 1.54; g.add(head)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.252, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.565; hair.rotation.x = -0.25; g.add(hair)
+  if (!opt.boy && !opt.simple) for (const hx of [-0.225, 0.225]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.49, -0.04); g.add(pt) }
   // 腕（肩ピボット=1.2＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル
   let elbowL = null, elbowR = null
   function makeArm(side) {
@@ -1486,17 +1486,22 @@ function makeVillager(x, z, opt) {
   g.position.set(x, heightAt(x, z), z)
   g.rotation.y = opt.face || 0
   outlineObj(g, 0.028)
-  // 顔（輪郭線の後・頭の子に付ける＝見回しで一緒に動く・フチ無し）
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
+  // 顔（輪郭線の後・頭の子に付ける＝見回しで一緒に動く・フチ無し）。主人公と同じ親しみやすい作りに統一
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x4a3526 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.4 })
-  for (const ex of [-0.1, 0.1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 10), eyeMat); e.scale.set(0.86, 1.14, 0.5); e.position.set(ex, 0.035, 0.244); head.add(e)
-    if (opt.simple) continue // 背景の通行人は瞳だけ（軽量化）
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 6), hiMat); hi.position.set(ex + 0.017, 0.066, 0.278); head.add(hi)
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.058, 10, 8), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.06 : -0.06), -0.058, 0.218); head.add(bl)
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf3a59a, transparent: true, opacity: 0.5 })
+  const browMat = new THREE.MeshBasicMaterial({ color: 0x6a4a34 })
+  for (const ex of [-0.088, 0.088]) {
+    if (opt.simple) { // 背景の通行人＝瞳だけ（軽量）
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), eyeMat); e.scale.set(0.86, 1.14, 0.5); e.position.set(ex, 0.03, 0.2); head.add(e); continue
+    }
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.046, 14, 12), hiMat); sclera.scale.set(0.78, 1.05, 0.42); sclera.position.set(ex, 0.035, 0.188); head.add(sclera) // 白目
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.032, 14, 12), eyeMat); iris.scale.set(0.92, 1.0, 0.42); iris.position.set(ex, 0.03, 0.205); head.add(iris) // 瞳
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.013, 8, 8), hiMat); hi.position.set(ex + 0.013, 0.058, 0.222); head.add(hi) // きらり
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.011, 0.018), browMat); brow.position.set(ex, 0.092, 0.21); brow.rotation.z = ex > 0 ? 0.1 : -0.1; head.add(brow) // 眉
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.054 : -0.054), -0.04, 0.18); head.add(bl) // ほっぺ
   }
-  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.012, 6, 10, Math.PI), eyeMat); mouth.rotation.z = Math.PI; mouth.position.set(0, -0.11, 0.252); head.add(mouth) }
+  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 6, 12, Math.PI * 0.9), browMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.07, 0.205); head.add(mouth) }
   addContactShadow(g, 0.6)
   g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4 }
   scene.add(g)
