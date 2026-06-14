@@ -111,6 +111,8 @@ try {
   if (!talking) errors.push('村の人と会話できていない')
   await page.screenshot({ path: join(outDir, 'proto3d-talk.png') })
   console.log('撮影: proto3d-talk.png')
+  // 会話を閉じる（以降のテストに残さない）
+  for (let i = 0; i < 4; i++) { await page.evaluate(() => document.getElementById('dialogue').click()); await new Promise((r) => setTimeout(r, 120)) }
   // 虫採り（カブトムシのそばで つかまえる）
   await page.evaluate(() => { window.__proto3d.standUp(); window.__proto3d.placeBoy(14, 8) })
   await new Promise((r) => setTimeout(r, 700))
@@ -134,6 +136,17 @@ try {
   if (!inTown) errors.push('街エリアへ移動できない')
   await page.screenshot({ path: join(outDir, 'proto3d-town.png') })
   console.log('撮影: proto3d-town.png')
+  // 自販機でラムネを買う
+  await page.evaluate(() => window.__proto3d.placeBoy(1003, 16))
+  await new Promise((r) => setTimeout(r, 500))
+  const buyBtn = await page.evaluate(() => { const n = document.getElementById('npc'); return n.style.display === 'block' ? n.textContent : '' })
+  await page.evaluate(() => document.getElementById('npc').click())
+  await new Promise((r) => setTimeout(r, 300))
+  const bought = await page.evaluate(() => document.getElementById('toast').textContent.includes('ラムネ'))
+  console.log(`ラムネ購入テスト: ボタン=「${buyBtn}」 買えた=${bought ? 'OK' : 'NG'}`)
+  if (buyBtn !== 'ラムネを買う' || !bought) errors.push('自販機でラムネを買えない')
+  await page.screenshot({ path: join(outDir, 'proto3d-vending.png') })
+  console.log('撮影: proto3d-vending.png')
   // 空き地の土管＋近所の子
   await page.evaluate(() => { window.__proto3d.placeBoy(972, 21) })
   await new Promise((r) => setTimeout(r, 900))

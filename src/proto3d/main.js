@@ -466,9 +466,12 @@ function makeShop(x, z, rot, opt) {
     const vg = new THREE.Group()
     const vb = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.9), toon(0xc23a2c)); vb.position.y = 1.1; vg.add(vb)
     const vp = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.25, 0.06), new THREE.MeshBasicMaterial({ color: 0xfff3c8 })); vp.position.set(0, 1.45, 0.46); vg.add(vp)
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const can = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, 0.02), toon([0xd24a3a, 0x3a6a9a, 0x3e8a4a][(i + j) % 3])); can.position.set(-0.3 + i * 0.3, 1.05 + j * 0.4, 0.5); vg.add(can) }
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.04), toon(0x241712)); slot.position.set(0.4, 0.7, 0.46); vg.add(slot) // 取り出し口
     placeProp(vg, T.x + 4.5, T.z + 16, -Math.PI / 2, 0.04, 1.0)
   }
 }
+const VENDING = new THREE.Vector3(TOWN.x + 4.5, 0, TOWN.z + 16) // 街の自販機（ラムネを買える）
 
 // ── 小さな草花（赤・白・黄の点。場を生き生きと）──
 {
@@ -1101,7 +1104,7 @@ function startDialogue() {
   npcEl.style.display = 'none'
   endPuni()
   if (who === villager) todayFlags.metGirl = true
-  if (who === townLady) todayFlags.lamune = true
+  if (who === townLady) todayFlags.metShop = true
   who.rotation.y = Math.atan2(boy.position.x - who.position.x, boy.position.z - who.position.z) // こちらを向く
 }
 
@@ -1109,7 +1112,7 @@ function startDialogue() {
 let day = 1
 const dayEvents = { radio: false, dinner: false } // 昭和の日課（1日1回）
 let diaryOpen = false
-const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false, petCat: false, lamune: false }
+const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false, petCat: false, lamune: false, metShop: false }
 try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= 3) day = s } catch (e) {}
 const sleepEl = document.getElementById('sleep')
 const diaryEl = document.getElementById('diary')
@@ -1155,7 +1158,8 @@ function openDiary() {
   if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。')
   if (todayFlags.petCat) body.push('ねこを なでた。ごろごろ いっていた。')
   if (todayFlags.wentTown) body.push('街の 商店街まで あるいた。')
-  if (todayFlags.lamune) body.push('商店街で ラムネを のんだ。すずしかった。')
+  if (todayFlags.metShop) body.push('商店街の おばさんと はなした。')
+  if (todayFlags.lamune) body.push('自販機で ラムネを 買った。すずしかった。')
   if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
   if (todayFlags.satHill) body.push('高台で ぼーっと した。')
   if (todayFlags.layDown) body.push('草の上で ねころんで 空を ながめた。')
@@ -1212,13 +1216,26 @@ function advanceDialogue() {
   if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none' }
   else dlgTextEl.textContent = dialogue.lines[dialogue.idx]
 }
-npcEl.addEventListener('click', () => { if (npcEl.dataset.pet === '1') petCat(); else startDialogue() })
+npcEl.addEventListener('click', () => {
+  const act = npcEl.dataset.act
+  if (act === 'pet') petCat()
+  else if (act === 'buy') buyRamune()
+  else startDialogue()
+})
 dialogueEl.addEventListener('click', advanceDialogue)
 function petCat() {
   showToast('ねこは ごろごろ いっている。')
   cat.userData.rest = Math.max(cat.userData.rest, 3000)
   cat.rotation.y = Math.atan2(boy.position.x - cat.position.x, boy.position.z - cat.position.z)
   todayFlags.petCat = true
+}
+let lamuneCd = 0
+function buyRamune() {
+  if (lamuneCd > 0) return
+  lamuneCd = 2.2
+  facing = Math.atan2(VENDING.x - boy.position.x, VENDING.z - boy.position.z); boy.rotation.y = facing // 自販機の方を向く
+  showToast(todayFlags.lamune ? 'もう一本。やっぱり つめたい。' : 'ガコン。つめたい ラムネ。100円なり。')
+  todayFlags.lamune = true
 }
 
 // 虫採りの「つかまえる」とお知らせ（トースト）
@@ -1629,6 +1646,7 @@ function update(dt) {
     if (dustLife[i] <= 0) dustPos[i * 3 + 1] = -9999
   }
   dustGeo.attributes.position.needsUpdate = true
+  if (lamuneCd > 0) lamuneCd -= dt
   // 木漏れ日：太陽の画面位置と強さ（昼に強く・画面内のときだけ）
   sunProj.copy(sunBall.position).project(camera)
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
@@ -1702,9 +1720,11 @@ function update(dt) {
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
     const nearCat = area === 'field' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2
+    const nearVending = area === 'town' && Math.hypot(boy.position.x - VENDING.x, boy.position.z - VENDING.z) < 2.8
     const nearNpc = !!talkTarget
-    if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.pet = ''; npcEl.style.display = 'block' }
-    else if (nearCat && !dialogue) { npcEl.textContent = 'なでる'; npcEl.dataset.pet = '1'; npcEl.style.display = 'block' }
+    if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.act = 'talk'; npcEl.style.display = 'block' }
+    else if (nearCat && !dialogue) { npcEl.textContent = 'なでる'; npcEl.dataset.act = 'pet'; npcEl.style.display = 'block' }
+    else if (nearVending && !dialogue) { npcEl.textContent = 'ラムネを買う'; npcEl.dataset.act = 'buy'; npcEl.style.display = 'block' }
     else npcEl.style.display = 'none'
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
