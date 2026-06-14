@@ -18,9 +18,17 @@ const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
 const HOUSE = { x: -17, z: 13 } // 昭和の田舎家（縁側）の位置
 const TOWN = { x: 1000, z: 0 } // 住宅街エリアは遠くにオフセット（霧で野原と分離）。x>500=街
 const MOUNT = { x: TOWN.x + 6, z: TOWN.z + 92, h: 34, w: 40, d: 18 } // 町の北にそびえる裏山（頂上で街を一望）
+const SHRINE = { x: 2000, z: 0 } // 鎮守の杜（神社）エリア。x>1500=神社。石段の先の小高い杜
+const SHR_HILL = { x: SHRINE.x, z: SHRINE.z + 40, h: 14, w: 30, d: 26 } // 社のある小山
 const SWING = { x: TOWN.x - 16, z: TOWN.z + 37, py: 3.0, L: 2.2 } // 裏山ふもとのブランコ（乗ると街を見おろすブランコ視点）
 let swingSeat = null, swingPhase = 0, swingAmp = 0.3 // 振り子の状態
 function heightAt(x, z) {
+  if (x > 1500) {
+    // 神社エリア：石段の先（+z奥）に社の小山がせり上がる
+    const dx = x - SHR_HILL.x, dz = z - SHR_HILL.z
+    const h = SHR_HILL.h * Math.exp(-(dx * dx / (2 * SHR_HILL.w * SHR_HILL.w) + dz * dz / (2 * SHR_HILL.d * SHR_HILL.d)))
+    return h + (h > 0.5 ? 0.4 * Math.sin(x * 0.1) * Math.cos(z * 0.1) : 0)
+  }
   if (x > 500) {
     // 住宅街は平地。北（+z奥）へ行くほど裏山がせり上がる
     const mdx = x - MOUNT.x, mdz = z - MOUNT.z
@@ -402,6 +410,25 @@ function makeGate(p, rot) {
 }
 makeGate(GATE_FIELD, 0)
 makeGate(GATE_TOWN, 0)
+const GATE_SHRINE_F = new THREE.Vector3(-40, 0, 38)              // 野原側の出入口（→神社へ）
+const GATE_SHRINE = new THREE.Vector3(SHRINE.x, 0, SHRINE.z - 24) // 神社側の出入口（→はらっぱへ）
+// 鳥居（神社への入口の目印）
+function makeTorii(x, z, rot, s = 1) {
+  const g = new THREE.Group(); const red = toon(0xc0432f)
+  for (const px of [-1.5 * s, 1.5 * s]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * s, 0.2 * s, 3.6 * s, 8), red); post.position.set(px, 1.8 * s, 0); g.add(post) }
+  const kasagi = new THREE.Mesh(new THREE.BoxGeometry(4.4 * s, 0.3 * s, 0.5 * s), red); kasagi.position.y = 3.7 * s; g.add(kasagi) // 笠木
+  const shimagi = new THREE.Mesh(new THREE.BoxGeometry(4.0 * s, 0.22 * s, 0.36 * s), toon(0x8a2a20)); shimagi.position.y = 3.36 * s; g.add(shimagi) // 島木
+  const nuki = new THREE.Mesh(new THREE.BoxGeometry(3.5 * s, 0.22 * s, 0.3 * s), red); nuki.position.y = 2.7 * s; g.add(nuki) // 貫
+  placeProp(g, x, z, rot || 0, 0.04, 1.6)
+}
+makeTorii(GATE_SHRINE_F.x, GATE_SHRINE_F.z, 0) // 野原に立つ鳥居（神社への入口）
+// エリアをつなぐ門（複数エリア対応）。area=今いる所, to=行き先, t*=到着位置/向き
+const GATES = [
+  { area: 'field', x: GATE_FIELD.x, z: GATE_FIELD.z, label: '町へ →', to: 'town', tx: GATE_TOWN.x, tz: GATE_TOWN.z + 2.2, tf: 0 },
+  { area: 'town', x: GATE_TOWN.x, z: GATE_TOWN.z, label: 'はらっぱへ →', to: 'field', tx: GATE_FIELD.x, tz: GATE_FIELD.z - 2.2, tf: Math.PI },
+  { area: 'field', x: GATE_SHRINE_F.x, z: GATE_SHRINE_F.z, label: '神社へ →', to: 'shrine', tx: GATE_SHRINE.x, tz: GATE_SHRINE.z + 2.2, tf: 0 },
+  { area: 'shrine', x: GATE_SHRINE.x, z: GATE_SHRINE.z, label: 'はらっぱへ →', to: 'field', tx: GATE_SHRINE_F.x, tz: GATE_SHRINE_F.z - 2.2, tf: Math.PI },
+]
 // 野原から門へ続く土の道（往来の導線＝門が「町への道」だと分かる）
 {
   const pgeo = new THREE.PlaneGeometry(5, 38); pgeo.rotateX(-Math.PI / 2)
@@ -1219,21 +1246,38 @@ composer.addPass(godrayPass)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.14 }, amount: { value: 1.0 } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.14 }, amount: { value: 1.0 }, wc: { value: 1.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount;
+  // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform vec2 texel;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, f.x), mix(cc, d, f.x), f.y); }
+    float L(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
     void main(){
-      vec3 c = texture2D(tDiffuse, vUv).rgb;
-      float lum = dot(c, vec3(0.299, 0.587, 0.114));
+      // にじみのゆらぎ：低周波ノイズでサンプル位置を微妙に歪める＝手描きのよれ
+      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (2.4 * wc);
+      vec2 uv = vUv + wob;
+      vec3 c = texture2D(tDiffuse, uv).rgb;
+      float lum = L(c);
+      // 顔料だまり：周囲との明度差（エッジ）でフチを暗く＝水彩の縁取り
+      float e = abs(L(texture2D(tDiffuse, uv + vec2(texel.x, 0.0)).rgb) - lum)
+              + abs(L(texture2D(tDiffuse, uv + vec2(0.0, texel.y)).rgb) - lum)
+              + abs(L(texture2D(tDiffuse, uv - vec2(texel.x, 0.0)).rgb) - lum)
+              + abs(L(texture2D(tDiffuse, uv - vec2(0.0, texel.y)).rgb) - lum);
+      c *= 1.0 - clamp(e * 1.7 * wc, 0.0, 0.34);
       vec3 graded = c;
       graded += vec3(-0.018, 0.010, 0.030) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
       graded += vec3(0.030, 0.014, -0.020) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
-      graded = mix(vec3(lum), graded, 0.90);                                    // 退色（彩度を少し落とす）
-      graded = graded * 0.975 + 0.018;                                          // フィルムの黒浮き
+      graded = mix(vec3(lum), graded, 0.90 - 0.05 * wc);                        // 退色（水彩のくすみ）
+      graded = graded * 0.975 + 0.018;
       c = mix(c, graded, amount);
-      // 紙のグレイン（水彩紙のような微かなザラつき）
+      // 紙の質感：低周波の紙むら＋細かいザラ。明るい所にも残す＝水彩紙
+      float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.5 + vnoise(vUv * vec2(38.0, 36.0)) * 0.5;
+      c *= 1.0 - wc * (0.06 - paper * 0.12);
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
-      c += (grain - 0.5) * 0.022;
+      c += (grain - 0.5) * 0.02;
       float d = distance(vUv, vec2(0.5));
       c *= 1.0 - vig * smoothstep(0.5, 0.95, d);                                // 周辺減光
       gl_FragColor = vec4(c, 1.0);
@@ -1246,6 +1290,7 @@ function resize() {
   renderer.setSize(w, h)
   composer.setSize(w, h)
   bloom.setSize(w / 3, h / 3) // ブルームは1/3解像度を維持（発熱対策）
+  gradePass.uniforms.texel.value.set(1 / w, 1 / h) // 水彩のエッジ/にじみ用の1テクセル幅
   camera.aspect = w / h
   camera.updateProjectionMatrix()
 }
@@ -2245,6 +2290,7 @@ window.__proto3d = {
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
   villager, cat, // 検証用
+  _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
