@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { loadAudioUrls } from '../data/audioAssets.js'
 
 const canvas = document.getElementById('c')
@@ -1406,19 +1407,51 @@ const clouds = []
     scene.add(g); clouds.push(g)
   }
 }
-// ── 入道雲（夏の空のシンボル。地平から もくもくと そびえる。どのエリアからも見える背景）──
+// ── 入道雲（夏の空のシンボル）。多数の球を有機的に詰めて1ジオメトリに統合＝軽い。
+// 法線の上向きで「上は白く下は陰る」独自シェーダ＝もくもくの立体感。複数を各所に配置 ──
 const thunderheads = []
-// トゥーン材で太陽に照らし、上は白く下は陰る＝もくもくした立体感（Basicだと白い壁になる）
-const thMat = new THREE.MeshToonMaterial({ color: 0xf6f6ee, gradientMap: GRAD, fog: false, transparent: true, opacity: 0.97 })
-{
-  const lobes = [[0, 0, 16], [-8, 8, 13], [9, 9, 12], [0, 15, 13], [-6, 21, 10], [6, 22, 9], [0, 27, 9], [-3, 32, 7], [4, 33, 6], [0, 38, 6], [0, 43, 4.5]]
-  for (let i = 0; i < 4; i++) {
-    const g = new THREE.Group()
-    for (const [lx, ly, r] of lobes) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), thMat); m.position.set(lx + (Math.random() - 0.5) * 3, ly, (Math.random() - 0.5) * 5); m.scale.setScalar(0.92 + Math.random() * 0.2); g.add(m) }
-    g.scale.setScalar(1.5 + Math.random() * 0.8)
-    g.userData = { az: (i / 4) * Math.PI * 2 + Math.random(), dist: 300 + Math.random() * 80, baseY: -8 - Math.random() * 6, drift: 0.003 + Math.random() * 0.004 }
-    scene.add(g); thunderheads.push(g)
+const cloudMat = new THREE.ShaderMaterial({
+  uniforms: {
+    opacity: { value: 0.96 },
+    topCol: { value: new THREE.Color(0xfffdf6) },
+    botCol: { value: new THREE.Color(0xb6c2d6) },
+    sunDir: { value: sunDir },
+    sunCol: { value: new THREE.Color(0xfff0d4) },
+  },
+  vertexShader: 'varying vec3 vN; void main(){ vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `varying vec3 vN; uniform float opacity; uniform vec3 topCol; uniform vec3 botCol; uniform vec3 sunDir; uniform vec3 sunCol;
+    void main(){
+      float up = clamp(vN.y * 0.5 + 0.5, 0.0, 1.0);
+      vec3 col = mix(botCol, topCol, smoothstep(0.16, 0.82, up)); // 上面は白く、下面は陰って青みがかる
+      col += sunCol * max(0.0, dot(vN, normalize(sunDir))) * 0.16; // 太陽の当たる面を暖かく
+      gl_FragColor = vec4(col, opacity);
+    }`,
+  transparent: true, fog: false,
+})
+const unitSphere = new THREE.SphereGeometry(1, 10, 8)
+function buildCumulonimbus() {
+  // 多数の球を、ふくらんだ塊状の体積に密に詰める＝もくもくのカリフラワー（積み上げ感を消す）
+  const geos = []
+  const push = (x, y, z, rx, ry) => { const g = unitSphere.clone(); g.scale(rx, ry, rx); g.translate(x, y, z); geos.push(g) }
+  const H = 26, baseW = 13
+  for (let i = 0; i < 64; i++) {
+    const t = Math.pow(Math.random(), 0.85)              // 下に偏らせる（下がもくもく）
+    const y = t * H
+    const prof = Math.sin(Math.min(1, t * 1.1 + 0.12) * Math.PI) // 下〜中ふくらみ、上すぼまり
+    const maxr = baseW * (0.4 + 0.6 * prof)
+    const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * maxr
+    const sr = (1 - t * 0.55) * 3.0 + 1.9 + Math.random() * 1.4
+    push(Math.cos(a) * rr, y, Math.sin(a) * rr * 0.78, sr, sr * (0.86 + Math.random() * 0.24))
   }
+  // てっぺんの丸い盛り上がり（塔の頭）
+  for (const [dx, dy, sr] of [[0, 0.96, 4.6], [-3.5, 0.84, 3.6], [3.4, 0.86, 3.4], [0.5, 1.04, 3.2]]) push(dx, H * dy, (Math.random() - 0.5) * 2, sr, sr)
+  const merged = mergeGeometries(geos); geos.forEach((g) => g.dispose()); return merged
+}
+for (let i = 0; i < 7; i++) {
+  const mesh = new THREE.Mesh(buildCumulonimbus(), cloudMat)
+  mesh.scale.setScalar(1.3 + Math.random() * 1.1)
+  mesh.userData = { az: (i / 7) * Math.PI * 2 + Math.random() * 0.6, dist: 250 + Math.random() * 130, baseY: -14 - Math.random() * 9, drift: 0.0025 + Math.random() * 0.004 }
+  scene.add(mesh); thunderheads.push(mesh)
 }
 
 // ── カメラ（既定は斜め見下ろし。視点はユーザーが回せる/寄れる） ──
@@ -2110,12 +2143,11 @@ function update(dt) {
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
-  // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる
-  thMat.opacity = 0.97 * (1 - nightFactor(tday))
+  // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
+  cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   for (const t of thunderheads) {
     const u = t.userData; u.az += dt * u.drift
     t.position.set(camera.position.x + Math.cos(u.az) * u.dist, u.baseY, camera.position.z + Math.sin(u.az) * u.dist)
-    t.rotation.y = Math.atan2(camera.position.x - t.position.x, camera.position.z - t.position.z)
   }
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
