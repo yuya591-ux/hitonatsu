@@ -15,17 +15,10 @@ const page = await browser.newPage()
 await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 })
 await page.goto(`http://127.0.0.1:${port}${BASE}proto3d.html`, { waitUntil: 'networkidle0', timeout: 30000 })
 await new Promise((r) => setTimeout(r, 2000))
-await page.evaluate(() => { document.getElementById('title')?.classList.add('hidden'); const H = window.__proto3d; H.setDay(0.42); H.goArea('town') })
-// 交差点
-await page.evaluate(() => window.__proto3d.placeBoy(1000, 24))
-await new Promise((r) => setTimeout(r, 600))
-await page.screenshot({ path: join(ROOT, '.verify', 'proto3d-hood.png') })
-// 鳥瞰：山の上から（高めにカメラ固定）
-await page.evaluate(() => {
-  const H = window.__proto3d; window.__freezeCam = true; H.placeBoy(1006, 40)
-  H.camera.position.set(1006, 50, 120); H.camera.lookAt(1006, 4, 20)
-})
-await new Promise((r) => setTimeout(r, 500))
-await page.screenshot({ path: join(ROOT, '.verify', 'proto3d-hood-aerial.png') })
+await page.evaluate(() => { document.getElementById('title')?.classList.add('hidden'); const H = window.__proto3d; H.setDay(0.5); H.goArea('town') })
+// 頂上のベンチに座って街を一望
+await page.evaluate(() => window.__proto3d.sitDown('mtview'))
+await new Promise((r) => setTimeout(r, 1500))
+await page.screenshot({ path: join(ROOT, '.verify', 'proto3d-overlook.png') })
 console.log('done')
 await browser.close(); server.close()

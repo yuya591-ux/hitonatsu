@@ -1591,18 +1591,34 @@ function lieDown() {
 // 縁側の座る位置（家の前・外を向く）
 const ENGAWA = new THREE.Vector3(HOUSE.x + Math.sin(0.35) * 3.4, 0, HOUSE.z + Math.cos(0.35) * 3.4)
 ENGAWA.y = heightAt(ENGAWA.x, ENGAWA.z)
+// 裏山の頂上の見晴らしベンチ（座ると街を一望）
+const MOUNT_SEAT = new THREE.Vector3(TOWN.x + 4, 0, TOWN.z + 86)
+MOUNT_SEAT.y = heightAt(MOUNT_SEAT.x, MOUNT_SEAT.z)
+{
+  const g = new THREE.Group(); const w = toon(0x9a6a3a)
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.14, 0.72), w); top.position.y = 0.52; g.add(top)
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.12), w); back.position.set(0, 0.8, 0.3); g.add(back) // 背もたれは北(山側)
+  for (const lx of [-1.0, 1.0]) for (const lz of [-0.26, 0.26]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.52, 0.12), toon(0x7a5230)); leg.position.set(lx, 0.26, lz); g.add(leg) }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.copy(MOUNT_SEAT); outlineObj(g, 0.03); addContactShadow(g, 1.5); scene.add(g)
+}
 const curSitEye = new THREE.Vector3()
 function sitDown(which) {
   mode = 'sit'
   todayFlags.satHill = true
   endPuni()
-  let eye, yaw
+  let eye, yaw, pitch = -0.05
   if (which === 'engawa') {
     boy.position.set(ENGAWA.x, ENGAWA.y + 0.6, ENGAWA.z)
     boy.rotation.y = 0.35
     // 目線は縁側の少し前・上（支柱に遮られず庭を見渡す）
     eye = curSitEye.set(ENGAWA.x + Math.sin(0.35) * 1.7, ENGAWA.y + 1.55, ENGAWA.z + Math.cos(0.35) * 1.7)
     yaw = 0.35 // 庭と空の方（外）を向く
+  } else if (which === 'mtview') {
+    boy.position.copy(MOUNT_SEAT); boy.position.y = MOUNT_SEAT.y + 0.55
+    boy.rotation.y = Math.PI // 街（-z）の方を向いて座る
+    eye = curSitEye.set(MOUNT_SEAT.x, MOUNT_SEAT.y + 2.0, MOUNT_SEAT.z - 0.95)
+    yaw = Math.PI; pitch = -0.28 // 眼下の街を見おろす
   } else {
     boy.position.copy(SEAT); boy.position.y = SEAT.y + 0.55
     boy.rotation.y = Math.PI
@@ -1612,7 +1628,7 @@ function sitDown(which) {
   boy.rotation.x = 0
   boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢
   moving = false
-  seatLook.yaw = yaw; seatLook.pitch = -0.05
+  seatLook.yaw = yaw; seatLook.pitch = pitch
   const cp = Math.cos(seatLook.pitch)
   camera.position.copy(eye)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
@@ -1928,8 +1944,9 @@ function update(dt) {
     boy.userData.head.rotation.x = -lookUp * 1.6 // 空を見上げる
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012 // ぴょこぴょこ跳ねる/立つ呼吸
 
-    const nearBench = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
-    const nearEngawa = Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
+    const nearBench = area === 'field' && Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
+    const nearEngawa = area === 'field' && Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
+    const nearMtSeat = area === 'town' && Math.hypot(boy.position.x - MOUNT_SEAT.x, boy.position.z - MOUNT_SEAT.z) < 3.4
     // いちばん近い人を話し相手に
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
@@ -1942,6 +1959,7 @@ function update(dt) {
     else npcEl.style.display = 'none'
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
+    else if (!nearNpc && !dialogue && nearMtSeat) { actBtn.textContent = '街を ながめる'; actBtn.dataset.spot = 'mtview'; actBtn.style.display = 'block' }
     else actBtn.style.display = 'none'
     lieBtn.style.display = dialogue ? 'none' : 'block'
     // 門に近づくと往来ボタン
