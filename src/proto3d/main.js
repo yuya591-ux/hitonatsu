@@ -1861,6 +1861,7 @@ let idleTime = 0 // 立ち止まっている時間（“間”の演出用）
 let lookUp = 0 // 立ち止まると少し空を見上げる量(0..1)
 const BASE_FOV = 45
 const BASE_DIST = 19
+let camDistTarget = BASE_DIST // ユーザーのズーム基準（立ち止まり時の自動引きはこれを基準にする）
 const lieBtn = document.getElementById('lie')
 const npcEl = document.getElementById('npc')
 const dialogueEl = document.getElementById('dialogue')
@@ -2110,7 +2111,7 @@ const STICK_R = 60
 const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1..1
 const pointers = new Map() // 多点タッチ（2本指で視点操作）
 let orbit = null // { mx, my, d }
-let cam2 = -1, cam2Moved = false // 歩きながら視点を回す“2本目の指”（ドラッグ=回転／タップ=ジャンプ）
+let cam2 = -1, cam2Moved = false, pinchD = 0 // 歩きながら視点を回す“2本目の指”（ドラッグ=回転／タップ=ジャンプ）。pinchD=2本指の距離（つまむとズーム）
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 let jumpY = 0, jumpV = 0 // ジャンプ（地面からの高さと上下速度）
 function doJump() { if (jumpY <= 0.02 && mode === 'walk') { jumpV = 7.0; playStep(0.05, area === 'town'); todayFlags.jumped = true } } // 接地時だけ跳ねる
@@ -2133,7 +2134,7 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId)
   if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
   if (pointers.size === 1) startPuni(e.pointerId, e.clientX, e.clientY)
-  else if (puni.active && cam2 < 0) { cam2 = e.pointerId; cam2Moved = false } // 歩きながら：2本目の指は視点回転/ジャンプ（歩きは止めない）
+  else if (puni.active && cam2 < 0) { cam2 = e.pointerId; cam2Moved = false; const f1 = pointers.get(puni.id); pinchD = f1 ? Math.hypot(e.clientX - f1.x, e.clientY - f1.y) : 0 } // 歩きながら：2本目の指は視点回転/ジャンプ＋つまむとズーム
   else if (pointers.size === 2) { orbit = midDist() } // 歩いていない時だけ2本指オービット/ズーム
 })
 canvas.addEventListener('pointermove', (e) => {
@@ -2154,12 +2155,15 @@ canvas.addEventListener('pointermove', (e) => {
     camCtl.yaw -= (e.clientX - prevX) * 0.006
     camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005, camCtl.minPitch, camCtl.maxPitch)
     if (Math.abs(e.clientX - prev.sx) + Math.abs(e.clientY - prev.sy) > 12) cam2Moved = true
+    // つまむ＝ズーム（指1と指2の距離の変化）。歩行スティックの微動はデッドゾーンで無視
+    const f1 = pointers.get(puni.id)
+    if (f1) { const d = Math.hypot(prev.x - f1.x, prev.y - f1.y); if (pinchD > 0 && Math.abs(d - pinchD) > 1.0) camDistTarget = THREE.MathUtils.clamp(camDistTarget * (1 - (d - pinchD) * 0.006), camCtl.minDist, camCtl.maxDist); pinchD = d }
   } else if (pointers.size >= 2 && orbit && !puni.active) {
     // 2本指（歩いていない時）：視点を回す・つまんで寄る
     const m = midDist()
     camCtl.yaw -= (m.mx - orbit.mx) * 0.006
     camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (m.my - orbit.my) * 0.005, camCtl.minPitch, camCtl.maxPitch)
-    if (m.d > 0) camCtl.dist = THREE.MathUtils.clamp(camCtl.dist * (orbit.d / m.d), camCtl.minDist, camCtl.maxDist)
+    if (m.d > 0) camDistTarget = THREE.MathUtils.clamp(camDistTarget * (orbit.d / m.d), camCtl.minDist, camCtl.maxDist)
     orbit = m
   } else if (puni.active && e.pointerId === puni.id) {
     let dx = e.clientX - puni.ox, dy = e.clientY - puni.oy
@@ -2181,7 +2185,7 @@ function onUp(e) {
   // 2本目の指を離した：ドラッグせず軽いタップだったらジャンプ
   if (e.pointerId === cam2) {
     if (!cam2Moved && performance.now() - p.t < 250 && Math.abs(p.x - p.sx) + Math.abs(p.y - p.sy) < 14) doJump()
-    cam2 = -1; return
+    cam2 = -1; pinchD = 0; return
   }
   // 1本指の軽いタップでジャンプ（立ち止まりからでも）
   if (p && performance.now() - p.t < 230 && Math.abs(p.x - p.sx) + Math.abs(p.y - p.sy) < 14) doJump()
@@ -2794,7 +2798,7 @@ function update(dt) {
     if (fishState === 'bite') floatMesh.position.y = WATER_Y + 0.15 + Math.sin(tsec * 30) * 0.08
 
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
-    camCtl.dist += (BASE_DIST * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
+    camCtl.dist += (camDistTarget * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
     camera.fov += ((BASE_FOV - calm * 4) - camera.fov) * Math.min(1, dt * 1.5)
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
