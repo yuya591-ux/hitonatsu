@@ -767,25 +767,35 @@ const cat = makeCat()
 cat.position.set(-10, heightAt(-10, 18), 18)
 Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
 
-// ── 主人公（低ポリの少年・麦わら帽子）──
+// ── 主人公（丸っこく立体的な少年・麦わら帽子。あどけない頭でっかちの体つき）──
+// ※特定作品のキャラ・顔の模倣はしない。素朴で可愛い普遍的なトゥーン顔。
 function makeBoy() {
   const g = new THREE.Group()
-  const skin = toon(0xe9bb8e), shirt = toon(0xf4f1e8), pants = toon(0x3f5a77), hat = toon(0xe0bc72)
-  // 足の裏が原点(y=0)に来るように全体を下げる＝地面にぴったり接地（浮き防止）
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.38), shirt); torso.position.y = 0.98; g.add(torso)
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), skin); head.position.y = 1.6; g.add(head)
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 16), hat); brim.position.y = 1.78; g.add(brim)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 1.78; g.add(cap)
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.7, 0.24), pants); legL.position.set(-0.16, 0.38, 0); g.add(legL)
-  const legR = legL.clone(); legR.position.x = 0.16; g.add(legR)
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.18), skin); armL.position.set(-0.42, 0.98, 0); g.add(armL)
-  const armR = armL.clone(); armR.position.x = 0.42; g.add(armR)
+  const skin = toon(0xf2c6a0), shirt = toon(0xdfe3ea), pants = toon(0x3f5a77), hat = toon(0xe6c178)
+  // 脚＝カプセルで丸みのある立体。足裏が原点(y=0)に来るよう配置（接地）
+  const legGeo = new THREE.CapsuleGeometry(0.135, 0.4, 4, 10)
+  const legL = new THREE.Mesh(legGeo, pants); legL.position.set(-0.15, 0.33, 0); g.add(legL)
+  const legR = legL.clone(); legR.position.x = 0.15; g.add(legR)
+  // くつ（丸い足先）
+  for (const sx of [-0.15, 0.15]) { const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), toon(0x6a4a32)); shoe.scale.set(1, 0.62, 1.35); shoe.position.set(sx, 0.075, 0.06); g.add(shoe) }
+  // 胴＝たまご型でぷっくり立体的に
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 16), shirt); torso.scale.set(0.94, 1.08, 0.82); torso.position.y = 1.02; g.add(torso)
+  // 腕＝カプセル。肩から下げる
+  const armGeo = new THREE.CapsuleGeometry(0.1, 0.42, 4, 10)
+  const armL = new THREE.Mesh(armGeo, skin); armL.position.set(-0.4, 1.04, 0); g.add(armL)
+  const armR = armL.clone(); armR.position.x = 0.4; g.add(armR)
+  // あたま＝大きめの球であどけなく
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 22, 20), skin); head.scale.set(1, 0.98, 0.96); head.position.y = 1.78; g.add(head)
+  // むぎわら帽子
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.05, 22), hat); brim.position.y = 2.04; g.add(brim)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 2.04; g.add(cap)
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.365, 0.365, 0.09, 22), toon(0xb8893f)); band.position.y = 2.07; g.add(band) // 帽子のリボン
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 6, 14), toon(0x8a6b3a)); ring.position.y = 1.3; ring.rotation.x = Math.PI / 2; net.add(ring)
   const bag = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.28, side: THREE.DoubleSide })); bag.position.y = 1.3; bag.rotation.x = Math.PI; net.add(bag)
-  net.position.set(0.34, 0.10, -0.05); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ（本体を下げたぶん網も下げる）
+  net.position.set(0.33, 1.0, -0.12); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ
   g.add(net)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.userData = { legL, legR, armL, armR, head, net, swing: 0 }
@@ -793,15 +803,20 @@ function makeBoy() {
 }
 const boy = makeBoy()
 boy.position.set(0, heightAt(0, 6), 6)
-outlineObj(boy, 0.035)
-// 顔（輪郭線の後に付ける＝目はフチ無し）。少年は+z方向を向く。
+outlineObj(boy, 0.03)
+// 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
 {
-  const eye = new THREE.MeshBasicMaterial({ color: 0x2a2018 })
-  for (const ex of [-0.12, 0.12]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eye)
-    e.position.set(ex, 0.04, 0.29)
-    boy.userData.head.add(e)
+  const head = boy.userData.head
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
+  const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.5 })
+  for (const ex of [-0.14, 0.14]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 12), eyeMat); e.scale.set(0.82, 1.18, 0.5); e.position.set(ex, 0.05, 0.345); head.add(e) // ぱっちりした瞳
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), hiMat); hi.position.set(ex + 0.025, 0.1, 0.4); head.add(hi) // ハイライト＝いきいき
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), blushMat); bl.scale.set(1, 0.62, 0.4); bl.position.set(ex + (ex > 0 ? 0.08 : -0.08), -0.07, 0.31); head.add(bl) // ほっぺの赤み
   }
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.016, 6, 12, Math.PI), eyeMat) // 小さな笑み
+  mouth.rotation.z = Math.PI; mouth.position.set(0, -0.14, 0.36); head.add(mouth)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
@@ -1936,6 +1951,7 @@ function update(dt) {
     lookGoal.copy(lookTo)
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
+  if (window.__freezeCam) return // 検証用：カメラ固定（顔の確認など）
   // カメラを目標へなめらかに寄せる
   camera.position.lerp(camGoal, Math.min(1, dt * (mode !== 'walk' ? 6 : 5)))
   // 注視点もなめらかに
