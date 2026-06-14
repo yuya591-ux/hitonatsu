@@ -1789,6 +1789,15 @@ function update(dt) {
     if (area === 'field') {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, -92, 92)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, -92, 92)
+      // 池には入らない：水ぎわでとまる（岸に沿って押し戻す）
+      let pdx = boy.position.x - POND.x, pdz = boy.position.z - POND.z
+      const pdist = Math.hypot(pdx, pdz), SHORE = POND.r - 0.6
+      if (pdist < SHORE) {
+        if (pdist < 0.001) { pdx = 1; pdz = 0 } // 中心ちょうどでも向きを決める
+        const k = SHORE / (pdist || 1)
+        boy.position.x = POND.x + pdx * k; boy.position.z = POND.z + pdz * k
+        vel.x *= 0.15; vel.z *= 0.15 // 水際で勢いを止める
+      }
     } else {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 44, TOWN.x + 44)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 30, TOWN.z + 30)

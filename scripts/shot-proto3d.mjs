@@ -85,6 +85,12 @@ try {
   await new Promise((r) => setTimeout(r, 1200))
   await page.screenshot({ path: join(outDir, 'proto3d-pond.png') })
   console.log('撮影: proto3d-pond.png')
+  // 池に入れない：中心へ置いても岸へ押し戻される
+  await page.evaluate(() => window.__proto3d.placeBoy(26, 18))
+  await new Promise((r) => setTimeout(r, 400))
+  const pondDist = await page.evaluate(() => { const b = window.__proto3d.boy.position; return Math.round(Math.hypot(b.x - 26, b.z - 18) * 10) / 10 })
+  console.log(`池ブロックテスト: 中心からの距離=${pondDist}（>=9なら岸でとまっている）`)
+  if (pondDist < 9) errors.push('池に入れてしまう（岸でとまらない）')
   // 昭和の田舎家（縁側）
   await page.evaluate(() => { window.__proto3d.setDay(0.6); window.__proto3d.placeBoy(-17, 23) })
   await new Promise((r) => setTimeout(r, 1200))
