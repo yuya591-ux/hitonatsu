@@ -2716,11 +2716,13 @@ function update(dt) {
     idleTime = moving ? 0 : idleTime + dt
     const calm = THREE.MathUtils.clamp((idleTime - 1.2) / 3, 0, 1) // 1.2秒後から3秒かけて
     lookUp += ((moving ? 0 : calm * 0.18) - lookUp) * Math.min(1, dt * 2)
-    boy.userData.head.rotation.x = -lookUp * 1.6 // 空を見上げる
-    // 立ち止まると あたりを見回し、重心がわずかに揺れる＝生きた所作
+    boy.userData.head.rotation.x = -lookUp * 1.6 + (moving ? Math.sin(phase * 2) * 0.03 : 0) // 見上げる＋歩くと小さくうなずく
+    // 立ち止まると あたりを見回す。歩くと踏み込んだ足の方へ重心が傾く（ローリング）＝人らしい歩き
     const idleLook = moving ? 0 : calm
     boy.userData.head.rotation.y += ((Math.sin(tsec * 0.34) * 0.45 + Math.sin(tsec * 0.13) * 0.2) * idleLook - boy.userData.head.rotation.y) * Math.min(1, dt * 3)
-    boy.rotation.z += (Math.sin(tsec * 0.5) * 0.02 * idleLook - boy.rotation.z) * Math.min(1, dt * 3)
+    const targetRoll = moving ? Math.sin(phase) * (0.05 + run * 0.06) : Math.sin(tsec * 0.5) * 0.02 * idleLook
+    boy.rotation.z += (targetRoll - boy.rotation.z) * Math.min(1, dt * 9)
+    boy.userData.head.rotation.z = -boy.rotation.z * 0.55 // 頭は体ほど傾けず視線を水平に保つ（自然）
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012 // ぴょこぴょこ跳ねる/立つ呼吸
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
