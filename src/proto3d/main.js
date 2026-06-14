@@ -177,7 +177,28 @@ for (let i = 0; i < gPos.count; i++) {
 }
 gGeo.setAttribute('color', new THREE.Float32BufferAttribute(gCol, 3))
 gGeo.computeVertexNormals()
-const ground = new THREE.Mesh(gGeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }))
+// 水彩風のムラ（無地の面に手描きの濃淡を足す＝のっぺり感を消す）
+const watercolorTex = (() => {
+  const s = 256
+  const c = document.createElement('canvas'); c.width = c.height = s
+  const x = c.getContext('2d')
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
+  for (let i = 0; i < 300; i++) {
+    const r = 6 + Math.random() * 46
+    const v = 188 + Math.random() * 60 // 薄いグレーの濃淡
+    x.globalAlpha = 0.05
+    x.fillStyle = `rgb(${v|0},${v|0},${v|0})`
+    const px = Math.random() * s, py = Math.random() * s
+    for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { // 継ぎ目をまたいで描く
+      x.beginPath(); x.arc(px + ox, py + oy, r, 0, Math.PI * 2); x.fill()
+    }
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(7, 7)
+  return t
+})()
+const ground = new THREE.Mesh(gGeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex }))
 ground.receiveShadow = true
 scene.add(ground)
 
@@ -228,12 +249,23 @@ for (let i = 0; i < 10; i++) {
   scene.add(hill)
 }
 
-// ── 草むら（低い茂みのかたまり。InstancedMeshで安く密に）──
+// ── 草むら（低い茂みのかたまり。InstancedMeshで安く密に・風になびく）──
+let grassShader = null
 {
   const tuft = new THREE.IcosahedronGeometry(0.5, 0)
   tuft.scale(1, 0.45, 1) // ぺたっと平たく＝草むらのかたまり
   const N = 520
-  const grass = new THREE.InstancedMesh(tuft, toon(0x76a249), N)
+  const grassMat = toon(0x76a249)
+  grassMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = { value: 0 }
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float gw = sin(uTime * 1.3 + (instanceMatrix[3].x + instanceMatrix[3].z) * 0.25);
+        transformed.x += gw * 0.18 * max(position.y, 0.0);`)
+    grassShader = sh
+  }
+  const grass = new THREE.InstancedMesh(tuft, grassMat, N)
   const m = new THREE.Matrix4(); const q = new THREE.Quaternion(); const p = new THREE.Vector3(); const s2 = new THREE.Vector3()
   let n = 0
   while (n < N) {
@@ -676,6 +708,7 @@ function update(dt) {
   // 風で草木をゆらす・光の粒を漂わせる（生気）
   const tsec = clock.elapsedTime
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp
+  if (grassShader) grassShader.uniforms.uTime.value = tsec // 草が風になびく
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 入道雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
