@@ -296,6 +296,21 @@ function makeHouse(x, z, rot) {
   return g
 }
 makeHouse(HOUSE.x, HOUSE.z, 0.35)
+// 縁側の生活感：蚊取り線香（煙がゆらぐ）。風鈴は音とともに後段で。
+const HENG = { x: HOUSE.x + Math.sin(0.35) * 3.0, y: heightAt(HOUSE.x, HOUSE.z), z: HOUSE.z + Math.cos(0.35) * 3.0 }
+{
+  const katori = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.05, 8, 18), toon(0x3a5a3a))
+  katori.rotation.x = -Math.PI / 2; katori.position.set(HENG.x + 1.4, HENG.y + 0.62, HENG.z); katori.castShadow = true
+  scene.add(katori)
+}
+const smokeN = 14
+const smoke = (() => {
+  const g = new THREE.BufferGeometry(); const sp = new Float32Array(smokeN * 3)
+  for (let i = 0; i < smokeN; i++) { sp[i * 3] = HENG.x + 1.4; sp[i * 3 + 1] = HENG.y + 0.7 + i * 0.16; sp[i * 3 + 2] = HENG.z }
+  g.setAttribute('position', new THREE.BufferAttribute(sp, 3))
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xeceae2, size: 0.13, transparent: true, opacity: 0.3, depthWrite: false, fog: true }))
+  scene.add(pts); return pts
+})()
 
 // ── 時代の生活痕（昭和後期〜平成初期）：丸ポスト・物干し・電柱と電線・自販機 ──
 function placeProp(g, x, z, rot, outline, shadowR) {
@@ -898,6 +913,7 @@ let chimeArmed = true
     ambients[id] = a
   }
 })()
+let chimeAudio = null // 縁側の風鈴（立体音響）
 function startAudio() {
   if (audioStarted) return
   audioStarted = true
@@ -905,6 +921,7 @@ function startAudio() {
     const ctx = listener.context
     if (ctx.state === 'suspended') ctx.resume()
     for (const id in ambients) { const a = ambients[id]; if (a.buffer && !a.isPlaying) a.play() }
+    if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
   } catch (e) {}
 }
 function ambientWeights(t) {
@@ -938,6 +955,25 @@ function playChime() {
       g.connect(lp); lp.connect(ctx.destination)
     })
   } catch (e) {}
+}
+
+// 縁側の風鈴（軒先・立体音響）。近づくとちりんと聞こえる
+const windchime = new THREE.Group()
+{
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 4), toon(0x999999)); str.position.y = 0.25; windchime.add(str)
+  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), new THREE.MeshToonMaterial({ color: 0xcfe6ee, gradientMap: GRAD, transparent: true, opacity: 0.85 })); windchime.add(bell)
+  const tan = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.3), new THREE.MeshToonMaterial({ color: 0xf4f0e2, gradientMap: GRAD, side: THREE.DoubleSide })); tan.position.y = -0.32; windchime.add(tan)
+  windchime.userData = { tan }
+  windchime.position.set(HENG.x - 1.2, HENG.y + 3.0, HENG.z + 0.3)
+  scene.add(windchime)
+}
+chimeAudio = new THREE.PositionalAudio(listener)
+windchime.add(chimeAudio)
+if (audioUrls.windchime) {
+  new THREE.AudioLoader().load(audioUrls.windchime, (buf) => {
+    chimeAudio.setBuffer(buf); chimeAudio.setLoop(true); chimeAudio.setRefDistance(5); chimeAudio.setRolloffFactor(1.6); chimeAudio.setVolume(0.7)
+    if (audioStarted) try { chimeAudio.play() } catch (e) {}
+  }, undefined, () => {})
 }
 
 // ── 入力・状態 ──
@@ -1301,6 +1337,20 @@ function update(dt) {
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 入道雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
+  // 蚊取り線香の煙がゆらゆら昇る
+  {
+    const pa = smoke.geometry.attributes.position
+    for (let i = 0; i < smokeN; i++) {
+      let y = pa.getY(i) + dt * 0.4
+      let x = pa.getX(i) + Math.sin(tsec * 1.5 + i) * dt * 0.18
+      if (y > HENG.y + 3.0) { y = HENG.y + 0.7; x = HENG.x + 1.4 }
+      pa.setX(i, x); pa.setY(i, y)
+    }
+    pa.needsUpdate = true
+  }
+  // 風鈴の短冊がそよぐ
+  windchime.userData.tan.rotation.z = Math.sin(tsec * 2.2) * 0.3
+  windchime.rotation.z = Math.sin(tsec * 1.7) * 0.05
   // 主人公の接地影は地面に沿わせる
   boyShadow.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.05, boy.position.z)
   boyShadow.visible = boy.visible
