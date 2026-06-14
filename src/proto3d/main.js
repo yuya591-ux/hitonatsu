@@ -110,8 +110,11 @@ sun.shadow.camera.far = 260
 const sc = sun.shadow.camera
 sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70
 sun.shadow.bias = -0.0004
+sun.shadow.autoUpdate = false // 影は手動更新（毎フレームではなく間引く＝軽量化）
+sun.shadow.needsUpdate = true
 scene.add(sun)
 scene.add(sun.target) // 影カメラと光の向きを主人公に追従させるため
+let shadowTick = 0
 const hemi = new THREE.HemisphereLight(0xcfeaf6, 0x86a05a, 1.15) // 空色↔草色の柔らかい環境光（明るめ）
 scene.add(hemi)
 // 逆光のリムライト（太陽の反対側から低く差す暖色。輪郭をふちどり、夕方は特に強く）。影は落とさない。
@@ -1709,9 +1712,14 @@ function update(dt) {
   stars.position.copy(camera.position)
   moon.position.set(camera.position.x + 70, 95, camera.position.z - 90)
   moonGlow.position.copy(moon.position)
-  sun.position.copy(boy.position).addScaledVector(sunDir, 120)
-  sun.target.position.copy(boy.position)
-  // リム＝太陽の水平反対側から低く。後ろ上から輪郭をふちどる
+  // 影は静止物（家・木）が主役なので、影カメラの追従＋影レンダを3フレームに1回へ間引く（軽量化・見た目はほぼ不変）
+  shadowTick = (shadowTick + 1) % 3
+  if (shadowTick === 0) {
+    sun.position.copy(boy.position).addScaledVector(sunDir, 120)
+    sun.target.position.copy(boy.position); sun.target.updateMatrixWorld()
+    sun.shadow.needsUpdate = true
+  }
+  // リム＝太陽の水平反対側から低く。後ろ上から輪郭をふちどる（影なしなので毎フレームでも軽い）
   rim.position.set(boy.position.x - sunDir.x * 80, boy.position.y + 26, boy.position.z - sunDir.z * 80)
   rim.target.position.copy(boy.position)
   // 風で草木をゆらす・光の粒を漂わせる（生気）

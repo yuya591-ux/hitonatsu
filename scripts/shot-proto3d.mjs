@@ -181,12 +181,15 @@ try {
   await new Promise((r) => setTimeout(r, 400))
   const swingBtn = await page.evaluate(() => { const a = document.getElementById('act'); return a.style.display === 'block' ? a.textContent : '' })
   await page.evaluate(() => window.__proto3d.rideSwing())
-  await new Promise((r) => setTimeout(r, 300))
-  const swingY1 = await page.evaluate(() => window.__proto3d.camera.position.y)
-  await new Promise((r) => setTimeout(r, 700))
-  const swingState = await page.evaluate(() => ({ m: window.__proto3d.modeNow, y: window.__proto3d.camera.position.y }))
-  const swung = swingState.m === 'swing' && Math.abs(swingState.y - swingY1) > 0.05
-  console.log(`ブランコテスト: ボタン=「${swingBtn}」 揺れ=${swung ? 'OK' : 'NG'}`)
+  let yMin = Infinity, yMax = -Infinity, modeOk = true
+  for (let i = 0; i < 12; i++) { // 1.8秒かけて高さの振れ幅を測る
+    await new Promise((r) => setTimeout(r, 150))
+    const s = await page.evaluate(() => ({ m: window.__proto3d.modeNow, y: window.__proto3d.camera.position.y }))
+    if (s.m !== 'swing') modeOk = false
+    yMin = Math.min(yMin, s.y); yMax = Math.max(yMax, s.y)
+  }
+  const swung = modeOk && (yMax - yMin) > 0.1 // 視点が上下にあおられている
+  console.log(`ブランコテスト: ボタン=「${swingBtn}」 揺れ幅=${(yMax - yMin).toFixed(2)} ${swung ? 'OK' : 'NG'}`)
   if (swingBtn !== 'ブランコに のる' || !swung) errors.push('ブランコに乗って揺れない')
   await page.screenshot({ path: join(outDir, 'proto3d-swing.png') })
   await page.evaluate(() => window.__proto3d.standUp())
