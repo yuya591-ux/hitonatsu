@@ -1226,6 +1226,7 @@ function makeDragonfly(cx, cz) {
   scene.add(g); dragonflies.push(g)
 }
 for (const [x, z] of [[7, 4], [-6, 6], [10, -6], [-12, -2]]) makeDragonfly(x, z)
+if (dragonflies[0]) dragonflies[0].userData.visitor = true // 夕方に立ち止まると 近くへ寄ってくる一匹（間のごほうび）
 
 // ── 夕方のカラス（夕焼け空を ねぐらへ帰っていく＝「そろそろ帰る時間」）──
 const crows = []
@@ -2738,6 +2739,12 @@ function update(dt) {
         n.userData.uchiwa.rotation.x += (-0.5 - n.userData.uchiwa.rotation.x) * Math.min(1, dt * 4)
       }
     }
+    // 近所の子の小芝居：話していない時は 土管をのぞき込む（前かがみ＋うつむき）。話しかけると顔を上げる
+    if (n === townKid) {
+      const peeking = !near
+      n.userData.head.rotation.x += ((peeking ? 0.42 : 0) - n.userData.head.rotation.x) * Math.min(1, dt * 3)
+      n.rotation.x += ((peeking ? 0.18 : 0) - n.rotation.x) * Math.min(1, dt * 3) // 足元を軸に前かがみ
+    }
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
@@ -2762,9 +2769,17 @@ function update(dt) {
   const eveningF = THREE.MathUtils.smoothstep(tday, 0.42, 0.58) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.92))
   for (const d of dragonflies) {
     const u = d.userData
+    if (u.visitor) { // 立ち止まると ふわりと近づいて、肩先で小さく舞う＝夏の終わりの “間”
+      if (u.cx0 === undefined) { u.cx0 = u.cx; u.cz0 = u.cz; u.rr = u.r }
+      const visiting = !moving && idleTime > 2.0 && area === 'field' && mode === 'walk' && eveningF > 0.1
+      const tx = visiting ? boy.position.x : u.cx0, tz = visiting ? boy.position.z : u.cz0
+      u.cx += (tx - u.cx) * Math.min(1, dt * 0.5); u.cz += (tz - u.cz) * Math.min(1, dt * 0.5)
+      u.rr += ((visiting ? 0.45 : u.r) - u.rr) * Math.min(1, dt * 0.6) // 近づくと旋回半径を小さく
+    } else u.rr = u.r
     const a = tsec * u.sp + u.ph
-    const dx = u.cx + Math.cos(a) * u.r, dz = u.cz + Math.sin(a * 1.3) * u.r
-    d.position.set(dx, heightAt(dx, dz) + 1.9 + Math.sin(a * 2) * 0.4, dz)
+    const close = u.visitor && u.rr < 1.4
+    const dx = u.cx + Math.cos(a) * u.rr, dz = u.cz + Math.sin(a * 1.3) * u.rr
+    d.position.set(dx, heightAt(dx, dz) + (close ? 1.45 : 1.9) + Math.sin(a * 2) * (close ? 0.1 : 0.4), dz)
     d.rotation.y = -a * 1.3 + Math.PI / 2
     u.body.opacity = eveningF; u.wing.opacity = eveningF * 0.5
     d.visible = eveningF > 0.02
