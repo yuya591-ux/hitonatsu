@@ -164,7 +164,7 @@ function setTimeOfDay(t) {
   lc(hemi.color, from.hsky, to.hsky, u)
   lc(hemi.groundColor, from.hgnd, to.hgnd, u)
 }
-let tday = 0.22 // 朝から始める
+let tday = 0.18 // 朝から始める
 let dayAuto = true // ゆっくり一日が流れる
 setTimeOfDay(tday)
 
@@ -1041,6 +1041,7 @@ function startDialogue() {
 
 // ── 「3日だけの夏」＋絵日記（その日やったこと→翌日への予告／夏の終わり）──
 let day = 1
+const dayEvents = { radio: false, dinner: false } // 昭和の日課（1日1回）
 let diaryOpen = false
 const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false, petCat: false, lamune: false }
 try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= 3) day = s } catch (e) {}
@@ -1110,6 +1111,7 @@ function nextDay() {
   day = day >= 3 ? 1 : day + 1 // プロトなので3日のあとは1日目へ
   for (const k in todayFlags) todayFlags[k] = false
   tday = 0.18; dayAuto = true; setTimeOfDay(tday)
+  dayEvents.radio = false; dayEvents.dinner = false
   try { localStorage.setItem('hn3d_day', day) } catch (e) {}
   refreshBadge()
 }
@@ -1364,6 +1366,9 @@ function update(dt) {
     const prev = tday
     tday = Math.min(0.97, tday + dt / 240)
     setTimeOfDay(tday)
+    // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
+    if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast('ラジオ体操の じかんだ。') }
+    if (!dayEvents.dinner && prev < 0.7 && tday >= 0.7) { dayEvents.dinner = true; showToast('「ごはんよー」と よばれた。') }
     if (prev < 0.9 && tday >= 0.9 && !diaryOpen) showToast('そろそろ ねる じかんだ…')
   }
   // 空・太陽・星・月を主人公/カメラに追従（遠くの街エリアでも空が正しく回り、影も届く）
