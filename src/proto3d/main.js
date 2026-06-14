@@ -277,6 +277,32 @@ const watercolorTex = (() => {
   t.repeat.set(7, 7)
   return t
 })()
+// ── 質感テクスチャ（低ポリ＋トゥーンのまま“底上げ”：瓦・土壁・木目）──
+const toonMap = (color, map) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD, map })
+// 瓦屋根：流れ方向の筋＋段の重なり
+const roofTex = (() => {
+  const s = 64, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
+  const cols = 8, cw = s / cols
+  for (let i = 0; i < cols; i++) { const g = x.createLinearGradient(i * cw, 0, (i + 1) * cw, 0); g.addColorStop(0, 'rgba(80,80,80,0.30)'); g.addColorStop(0.5, 'rgba(255,255,255,0.04)'); g.addColorStop(0.86, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(70,70,70,0.34)'); x.fillStyle = g; x.fillRect(i * cw, 0, cw, s) }
+  x.strokeStyle = 'rgba(60,60,60,0.28)'; x.lineWidth = 1.4
+  for (let y = 0; y <= s; y += s / 5) { x.beginPath(); x.moveTo(0, y + 1); x.lineTo(s, y); x.stroke() }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(9, 3); return t
+})()
+// 土壁/モルタル：細かな濃淡のむら
+const plasterTex = (() => {
+  const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
+  for (let i = 0; i < 280; i++) { x.globalAlpha = 0.045; const v = 198 + Math.random() * 56; x.fillStyle = `rgb(${v | 0},${v | 0},${(v - 12) | 0})`; const px = Math.random() * s, py = Math.random() * s, r = 2 + Math.random() * 9; for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, Math.PI * 2); x.fill() } }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 2); return t
+})()
+// 木目：縦に流れる筋
+const woodTex = (() => {
+  const s = 64, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
+  for (let i = 0; i < 46; i++) { x.globalAlpha = 0.07; const v = 110 + Math.random() * 110; x.strokeStyle = `rgb(${v | 0},${(v * 0.78) | 0},${(v * 0.58) | 0})`; x.lineWidth = 1 + Math.random() * 2; const px = Math.random() * s; x.beginPath(); x.moveTo(px, 0); for (let y = 0; y <= s; y += 8) x.lineTo(px + Math.sin(y * 0.1 + i) * 2, y); x.stroke() }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 2); return t
+})()
 const ground = new THREE.Mesh(gGeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex }))
 ground.receiveShadow = true
 scene.add(ground)
@@ -436,7 +462,7 @@ for (const [dx, dz, s] of [[14, 18, 1.1], [-14, 20, 1.05], [10, 30, 1.0], [-12, 
 // ── 昭和の田舎家（縁側・瓦屋根・障子）＝時代の空気の核。麦わら帽子の少年の“おばあちゃんち”的な原風景 ──
 function makeHouse(x, z, rot, roofHex) {
   const g = new THREE.Group()
-  const wall = toon(0xe6dcc4), wood = toon(0x8a6a44), roofC = toon(roofHex || 0x586472), woodDark = toon(0x6a4e30)
+  const wall = toonMap(0xe6dcc4, plasterTex), wood = toonMap(0x8a6a44, woodTex), roofC = toonMap(roofHex || 0x586472, roofTex), woodDark = toonMap(0x6a4e30, woodTex)
   const body = new THREE.Mesh(new THREE.BoxGeometry(7, 3.1, 5), wall); body.position.y = 1.75; g.add(body)
   // 縁側（前面の木の床）と支柱
   const engawa = new THREE.Mesh(new THREE.BoxGeometry(7, 0.28, 1.5), wood); engawa.position.set(0, 0.62, 3.2); g.add(engawa)
