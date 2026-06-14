@@ -319,6 +319,35 @@ const ripples = []
 let ripHead = 0
 function spawnRipple(x, z) { const r = ripples[ripHead]; ripHead = (ripHead + 1) % ripples.length; r.m.position.set(x, CREEK.y + 0.02, z); r.m.scale.setScalar(0.25); r.m.visible = true; r.life = 1 }
 
+// ── メダカの群れ（池の中。近づくと さっと散る＝見ると見つかる小さな命）──
+const medaka = []
+const medakaC = { x: POND.x, z: POND.z } // 群れの中心
+{
+  const fmat = toon(0x4a4636)
+  const fgeo = (() => { const b = new THREE.SphereGeometry(0.06, 6, 5); b.scale(1, 0.6, 2.2); return b })()
+  for (let i = 0; i < 11; i++) {
+    const g = new THREE.Mesh(fgeo, fmat)
+    g.userData = { ox: (Math.random() - 0.5) * 3.2, oz: (Math.random() - 0.5) * 3.2, ph: Math.random() * 6.28, sp: 0.8 + Math.random() * 0.5 }
+    scene.add(g); medaka.push(g)
+  }
+}
+// ── カエル（池や小川のほとり。じっとして時おり ぴょこっと跳ねる）──
+const frogs = []
+function makeFrog(x, z) {
+  const g = new THREE.Group(); const green = toon(0x6f9a48), belly = toon(0xccd89c)
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), green); body.scale.set(1, 0.72, 1.2); body.position.y = 0.17; g.add(body)
+  const bel = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), belly); bel.scale.set(1, 0.55, 0.9); bel.position.set(0, 0.11, 0.1); g.add(bel)
+  for (const ex of [-0.1, 0.1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), green); eye.position.set(ex, 0.31, 0.04); g.add(eye)
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), new THREE.MeshBasicMaterial({ color: 0x18180f })); pup.position.set(ex, 0.32, 0.09); g.add(pup)
+  }
+  for (const lx of [-0.17, 0.17]) { const leg = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), green); leg.scale.set(0.55, 0.45, 1.5); leg.position.set(lx, 0.07, -0.13); g.add(leg) }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); outlineObj(g, 0.018); addContactShadow(g, 0.3)
+  g.position.set(x, heightAt(x, z), z); scene.add(g)
+  frogs.push({ obj: g, t: 1 + Math.random() * 4, hopT: 0, dir: Math.random() * 6.28 })
+}
+makeFrog(POND.x - 9, POND.z + 4); makeFrog(POND.x + 7, POND.z - 6); makeFrog(-16, 32) // 池のほとり×2・小川のほとり
+
 // ── 低ポリの木（幹＋葉のかたまり）──
 function makeTree(x, z, s = 1) {
   const g = new THREE.Group()
@@ -2350,6 +2379,37 @@ function update(dt) {
     const f = Math.sin(tsec * u.flap + u.fph) * 0.7
     u.wl.rotation.z = f; u.wr.rotation.z = -f // はばたき
     u.mat.opacity = crowF
+  }
+  // メダカの群れ：池の中をゆるく回遊し、近づくと さっと散る
+  {
+    const mc = medakaC
+    mc.x += Math.sin(tsec * 0.27) * dt * 0.5; mc.z += Math.cos(tsec * 0.21 + 1) * dt * 0.5 // 徘徊
+    const pd = Math.hypot(boy.position.x - POND.x, boy.position.z - POND.z)
+    if (area === 'field' && pd < POND.r + 3) { const dx = mc.x - boy.position.x, dz = mc.z - boy.position.z, l = Math.hypot(dx, dz) || 1; mc.x += (dx / l) * dt * 4.5; mc.z += (dz / l) * dt * 4.5 } // 近づくと逃げる
+    const cd = Math.hypot(mc.x - POND.x, mc.z - POND.z); if (cd > POND.r - 2.5) { const k = (POND.r - 2.5) / cd; mc.x = POND.x + (mc.x - POND.x) * k; mc.z = POND.z + (mc.z - POND.z) * k } // 池の中に収める
+    for (const f of medaka) {
+      f.visible = area === 'field'; if (!f.visible) continue
+      const u = f.userData, a = tsec * 0.4 * u.sp + u.ph
+      const tx = mc.x + u.ox + Math.cos(a) * 0.5, tz = mc.z + u.oz + Math.sin(a) * 0.5, px = f.position.x, pz = f.position.z
+      f.position.x += (tx - px) * Math.min(1, dt * 2.6); f.position.z += (tz - pz) * Math.min(1, dt * 2.6)
+      f.position.y = WATER_Y - 0.03 + Math.sin(tsec * 3 + u.ph) * 0.012
+      if (Math.abs(f.position.x - px) + Math.abs(f.position.z - pz) > 0.0005) f.rotation.y = Math.atan2(f.position.x - px, f.position.z - pz)
+    }
+  }
+  // カエル：じっとして時おり ぴょこっと跳ねる
+  for (const f of frogs) {
+    f.obj.visible = area === 'field'; if (!f.obj.visible) continue
+    if (f.hopT > 0) {
+      f.hopT -= dt
+      f.obj.position.x += Math.sin(f.dir) * f.hopDist * (dt / 0.42); f.obj.position.z += Math.cos(f.dir) * f.hopDist * (dt / 0.42)
+      f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z) + Math.sin(Math.max(0, 1 - f.hopT / 0.42) * Math.PI) * 0.45
+      f.obj.rotation.y = f.dir
+      if (f.hopT <= 0) f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z)
+    } else {
+      f.t -= dt
+      f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z) + Math.abs(Math.sin(tsec * 2 + f.dir)) * 0.014 // 息づかい
+      if (f.t <= 0) { f.t = 2.5 + Math.random() * 5; f.hopT = 0.42; f.dir = Math.random() * 6.28; f.hopDist = 0.6 + Math.random() * 0.9 }
+    }
   }
   // すずめ：地面をついばみ、近づくと いっせいに飛び立つ（反応する世界）
   for (const s of sparrows) {
