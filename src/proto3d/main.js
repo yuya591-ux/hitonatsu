@@ -1467,7 +1467,7 @@ composer.addPass(godrayPass)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.14 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.05 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
   fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform vec2 texel;
@@ -1499,13 +1499,13 @@ const gradePass = new ShaderPass({
         c += golden * vec3(0.10, 0.045, -0.05) * (0.35 + lum);          // 光の当たる所ほど金色に
         c += golden * vec3(0.05, 0.0, 0.02) * smoothstep(0.45, 1.0, vUv.y); // 上空は茜色がかる
       }
-      // 紙の質感：低周波の紙むら＋細かいザラ。明るい所にも残す＝水彩紙
+      // 紙の質感：低周波の紙むら＋細かいザラ（暗くしすぎず、白い紙の上の淡いムラに）
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.5 + vnoise(vUv * vec2(38.0, 36.0)) * 0.5;
-      c *= 1.0 - wc * (0.10 - paper * 0.2);
+      c *= 1.0 - wc * (0.03 - paper * 0.12);
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
-      c += (grain - 0.5) * 0.02;
+      c += (grain - 0.5) * 0.018;
       float d = distance(vUv, vec2(0.5));
-      c *= 1.0 - vig * smoothstep(0.5, 0.95, d);                                // 周辺減光
+      c *= 1.0 - vig * smoothstep(0.62, 0.98, d);                              // 周辺減光（ごく控えめ・四隅だけ）
       gl_FragColor = vec4(c, 1.0);
     }`,
 })
