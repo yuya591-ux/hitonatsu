@@ -317,14 +317,15 @@ const HENG = { x: HOUSE.x + Math.sin(0.35) * 3.0, y: heightAt(HOUSE.x, HOUSE.z),
   katori.rotation.x = -Math.PI / 2; katori.position.set(HENG.x + 1.4, HENG.y + 0.62, HENG.z); katori.castShadow = true
   scene.add(katori)
 }
-const smokeN = 14
-const smoke = (() => {
-  const g = new THREE.BufferGeometry(); const sp = new Float32Array(smokeN * 3)
-  for (let i = 0; i < smokeN; i++) { sp[i * 3] = HENG.x + 1.4; sp[i * 3 + 1] = HENG.y + 0.7 + i * 0.16; sp[i * 3 + 2] = HENG.z }
+const smokers = [] // 蚊取り線香などの細い煙。複数の発生源を持てる
+function makeSmoke(x, y, z, n = 14) {
+  const g = new THREE.BufferGeometry(); const sp = new Float32Array(n * 3)
+  for (let i = 0; i < n; i++) { sp[i * 3] = x; sp[i * 3 + 1] = y + i * 0.16; sp[i * 3 + 2] = z }
   g.setAttribute('position', new THREE.BufferAttribute(sp, 3))
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xeceae2, size: 0.13, transparent: true, opacity: 0.3, depthWrite: false, fog: true }))
-  scene.add(pts); return pts
-})()
+  scene.add(pts); smokers.push({ pts, x, y, z, n })
+}
+makeSmoke(HENG.x + 1.4, HENG.y + 0.7, HENG.z) // 縁側の蚊取り線香
 
 // ── 時代の生活痕（昭和後期〜平成初期）：丸ポスト・物干し・電柱と電線・自販機 ──
 function placeProp(g, x, z, rot, outline, shadowR) {
@@ -494,6 +495,27 @@ function makeShop(x, z, rot, opt) {
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const can = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, 0.02), toon([0xd24a3a, 0x3a6a9a, 0x3e8a4a][(i + j) % 3])); can.position.set(-0.3 + i * 0.3, 1.05 + j * 0.4, 0.5); vg.add(can) }
     const slot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.04), toon(0x241712)); slot.position.set(0.4, 0.7, 0.46); vg.add(slot) // 取り出し口
     placeProp(vg, T.x + 4.5, T.z + 16, -Math.PI / 2, 0.04, 1.0)
+  }
+  // 夕涼みの縁台＋蚊取り線香（商店街の軒先）
+  {
+    const en = new THREE.Group(); const w = toon(0x9a6a3a)
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.66), w); top.position.y = 0.46; en.add(top)
+    for (const lx of [-0.9, 0.9]) for (const lz of [-0.22, 0.22]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 0.12), toon(0x7a5230)); leg.position.set(lx, 0.23, lz); en.add(leg) }
+    placeProp(en, T.x - 6.5, T.z + 2, Math.PI / 2, 0.03, 1.3) // 道と平行に置く
+    const ey = heightAt(T.x - 6.5, T.z + 3)
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 12), toon(0x3a6a8a)); dish.position.set(T.x - 6.5, ey + 0.55, T.z + 3); dish.castShadow = true; scene.add(dish)
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.045, 8, 16), toon(0x3a5a3a)); coil.rotation.x = -Math.PI / 2; coil.position.set(T.x - 6.5, ey + 0.59, T.z + 3); coil.castShadow = true; scene.add(coil)
+    makeSmoke(T.x - 6.5, ey + 0.66, T.z + 3)
+  }
+  // 簾（すだれ）＝八百屋の軒先に掛ける。横筋のテクスチャで葦の感じ
+  {
+    const c = document.createElement('canvas'); c.width = 8; c.height = 80; const x = c.getContext('2d')
+    x.fillStyle = '#c9b079'; x.fillRect(0, 0, 8, 80)
+    x.strokeStyle = '#9a7f4c'; x.lineWidth = 1
+    for (let i = 2; i < 80; i += 3) { x.beginPath(); x.moveTo(0, i); x.lineTo(8, i); x.stroke() }
+    const tex = new THREE.CanvasTexture(c)
+    const sud = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.5), new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, side: THREE.DoubleSide }))
+    sud.position.set(T.x - 9.1, 2.7, T.z - 18); sud.rotation.y = Math.PI / 2; scene.add(sud)
   }
 }
 const VENDING = new THREE.Vector3(TOWN.x + 4.5, 0, TOWN.z + 16) // 街の自販機（ラムネを買える）
@@ -1572,13 +1594,13 @@ function update(dt) {
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 入道雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
-  // 蚊取り線香の煙がゆらゆら昇る
-  {
-    const pa = smoke.geometry.attributes.position
-    for (let i = 0; i < smokeN; i++) {
+  // 蚊取り線香の煙がゆらゆら昇る（複数の発生源）
+  for (const sm of smokers) {
+    const pa = sm.pts.geometry.attributes.position
+    for (let i = 0; i < sm.n; i++) {
       let y = pa.getY(i) + dt * 0.4
       let x = pa.getX(i) + Math.sin(tsec * 1.5 + i) * dt * 0.18
-      if (y > HENG.y + 3.0) { y = HENG.y + 0.7; x = HENG.x + 1.4 }
+      if (y > sm.y + 2.3) { y = sm.y; x = sm.x }
       pa.setX(i, x); pa.setY(i, y)
     }
     pa.needsUpdate = true
