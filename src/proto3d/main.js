@@ -1091,6 +1091,7 @@ function makeButterfly(cx, cz) {
   butterflies.push(g)
 }
 for (const [x, z] of [[5, 2], [-8, -4], [12, -8]]) makeButterfly(x, z)
+if (butterflies[0]) butterflies[0].userData.visitor = true // 立ち止まると寄ってくる一匹（間の演出）
 
 // ── 赤とんぼ（夕方に飛ぶ＝夏の終わりの象徴）──
 const dragonflies = []
@@ -2376,6 +2377,12 @@ function update(dt) {
   for (const b of butterflies) {
     const u = b.userData
     if (u.done) { b.visible = false; continue } // つかまえた蝶は出さない
+    if (u.visitor) { // 立ち止まると ふわりと寄ってきて まわりを舞う＝“間”のごほうび
+      if (u.cx0 === undefined) { u.cx0 = u.cx; u.cz0 = u.cz }
+      const visiting = !moving && idleTime > 2.5 && area === 'field' && mode === 'walk'
+      const tx = visiting ? boy.position.x : u.cx0, tz = visiting ? boy.position.z : u.cz0
+      u.cx += (tx - u.cx) * Math.min(1, dt * 0.45); u.cz += (tz - u.cz) * Math.min(1, dt * 0.45)
+    }
     const a = tsec * u.sp + u.ph
     const bx = u.cx + Math.cos(a) * u.r, bz = u.cz + Math.sin(a) * u.r
     b.position.set(bx, heightAt(bx, bz) + 1.6 + Math.sin(a * 3) * 0.3, bz)
