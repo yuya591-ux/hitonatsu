@@ -997,7 +997,7 @@ camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.5, 0.86) // 強さ・半径・しきい値（控えめ）。半解像度で軽量化（ぼかしなので見た目は変わらない）
 composer.addPass(bloom)
 
 // 木漏れ日（ゴッドレイ）：太陽の画面位置から、明るい所を放射状に伸ばす光条
@@ -1056,6 +1056,7 @@ function resize() {
   const w = innerWidth, h = innerHeight
   renderer.setSize(w, h)
   composer.setSize(w, h)
+  bloom.setSize(w / 2, h / 2) // ブルームは半解像度を維持（発熱対策）
   camera.aspect = w / h
   camera.updateProjectionMatrix()
 }
@@ -1773,6 +1774,7 @@ function update(dt) {
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.5 : 0
+  godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
 
   if (mode === 'walk') {
     // カメラ基準の前/右（地面上）。指のスライド方向を世界の向きへ変換。
