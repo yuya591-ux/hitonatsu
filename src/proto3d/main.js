@@ -100,6 +100,29 @@ function outlineObj(obj, thickness = 0.05) {
   obj.traverse((m) => { if (m.isMesh) meshes.push(m) })
   for (const m of meshes) addOutline(m, thickness)
 }
+// 静止オブジェクト用：全パーツの反転ハル輪郭を1ジオメトリに統合＝輪郭が1ドローに（描画コール削減）。
+// ※腕脚が動くキャラには使わない（統合すると輪郭が手足に追従しないため outlineObj を使う）
+function mergedOutline(group, thickness = 0.05) {
+  const geos = []
+  group.traverse((m) => {
+    if (!m.isMesh || m === group || m.material === OUTLINE_MAT) return
+    const g = m.geometry.clone().toNonIndexed() // 全て非インデックス化＝統合可能に
+    g.deleteAttribute('normal'); g.deleteAttribute('uv'); g.deleteAttribute('color') // 反転ハルは position だけでよい
+    g.computeBoundingSphere()
+    const r = (g.boundingSphere && g.boundingSphere.radius) || 1
+    g.applyMatrix4(new THREE.Matrix4().makeScale(1 + thickness / r, 1 + thickness / r, 1 + thickness / r)) // 幾何中心まわりに膨らます
+    // m の group 基準の相対変換を合成（armなどネストにも対応）
+    const chain = new THREE.Matrix4().identity()
+    let cur = m
+    while (cur && cur !== group) { cur.updateMatrix(); chain.premultiply(cur.matrix); cur = cur.parent }
+    g.applyMatrix4(chain)
+    geos.push(g)
+  })
+  if (!geos.length) return
+  const merged = mergeGeometries(geos, false)
+  geos.forEach((g) => g.dispose())
+  if (merged) group.add(new THREE.Mesh(merged, OUTLINE_MAT))
+}
 
 // ── 接地影（やわらかい丸影）：物が地面から浮いて見える低ポリの安っぽさを消す ──
 const SHADOW_TEX = (() => {
@@ -126,7 +149,9 @@ sun.shadow.mapSize.set(1024, 1024)
 sun.shadow.camera.near = 10
 sun.shadow.camera.far = 260
 const sc = sun.shadow.camera
-sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70
+sc.left = -42; sc.right = 42; sc.top = 42; sc.bottom = -42 // 主人公まわりに絞る＝影パスの対象が減り軽い＋影が精細に
+sun.shadow.autoUpdate = false; sun.shadow.needsUpdate = true // 影は必要な時だけ手動再描画（下のループで制御）
+const shadowAnchor = new THREE.Vector3(9999, 0, 9999); let lastShadowTday = -1
 sun.shadow.bias = -0.0004
 scene.add(sun)
 scene.add(sun.target) // 影カメラと光の向きを主人公に追従させるため
@@ -342,7 +367,7 @@ function makeFrog(x, z) {
     const pup = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), new THREE.MeshBasicMaterial({ color: 0x18180f })); pup.position.set(ex, 0.32, 0.09); g.add(pup)
   }
   for (const lx of [-0.17, 0.17]) { const leg = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), green); leg.scale.set(0.55, 0.45, 1.5); leg.position.set(lx, 0.07, -0.13); g.add(leg) }
-  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); outlineObj(g, 0.018); addContactShadow(g, 0.3)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); mergedOutline(g, 0.018); addContactShadow(g, 0.3)
   g.position.set(x, heightAt(x, z), z); scene.add(g)
   frogs.push({ obj: g, t: 1 + Math.random() * 4, hopT: 0, dir: Math.random() * 6.28 })
 }
@@ -367,7 +392,7 @@ function makeTree(x, z, s = 1) {
     g.add(blob)
   }
   g.position.set(x, heightAt(x, z), z)
-  outlineObj(g, 0.08)
+  mergedOutline(g, 0.08)
   addContactShadow(g, 2.0 * s)
   addCollider(x, z, 0.7 * s) // 幹だけ当たる（枝葉の下は通れる）
   scene.add(g)
@@ -394,7 +419,7 @@ function makeHouse(x, z, rot, roofHex) {
   const roof = new THREE.Mesh(new THREE.ConeGeometry(6.1, 2.7, 4), roofC); roof.position.y = 4.7; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.76); g.add(roof)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
-  outlineObj(g, 0.06)
+  mergedOutline(g, 0.06)
   addContactShadow(g, 5.2)
   addCollider(x, z, 2.8) // 家の本体は通り抜けない（縁側の前には立てる）
   scene.add(g)
@@ -422,7 +447,7 @@ makeSmoke(HENG.x + 1.4, HENG.y + 0.7, HENG.z) // 縁側の蚊取り線香
 function placeProp(g, x, z, rot, outline, shadowR) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
-  outlineObj(g, outline); addContactShadow(g, shadowR); scene.add(g)
+  mergedOutline(g, outline); addContactShadow(g, shadowR); scene.add(g)
   return g
 }
 // 丸ポスト
@@ -549,7 +574,7 @@ const GATES = [
     const base = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 4), toon(0x7a5230)); base.position.y = 0.25; g.add(base)
     const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.4, 3.4), toon(0xc9402f)); body.position.y = 1.7; g.add(body)
     const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 1.6, 4), toon(0x37474f)); roof.position.y = 3.6; roof.rotation.y = Math.PI / 4; g.add(roof)
-    g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(S.x, sy, sz); outlineObj(g, 0.04); addContactShadow(g, 3.5); addCollider(S.x, sz, 2.8); scene.add(g)
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(S.x, sy, sz); mergedOutline(g, 0.04); addContactShadow(g, 3.5); addCollider(S.x, sz, 2.8); scene.add(g)
     const sai = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 0.85), toon(0x6a4a30)); sai.position.set(S.x, sy + 0.35, sz - 3); sai.castShadow = true; addOutline(sai, 0.02); scene.add(sai)
   }
   // 鎮守の杜（社のまわりの木立）
@@ -615,7 +640,7 @@ function makeShop(x, z, rot, opt) {
   }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
-  outlineObj(g, 0.05); addContactShadow(g, 4)
+  mergedOutline(g, 0.05); addContactShadow(g, 4)
   addCollider(x, z, 2.6) // 店の本体は通り抜けない
   scene.add(g)
   return g
@@ -819,7 +844,7 @@ function makeSuperMarket(x, z, rot) {
   const ent = new THREE.Mesh(new THREE.BoxGeometry(5.5, 3, 0.3), new THREE.MeshToonMaterial({ color: 0xbcd4d8, transparent: true, opacity: 0.55, gradientMap: GRAD })); ent.position.set(0, 1.5, 6.16); g.add(ent)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
-  outlineObj(g, 0.05); addContactShadow(g, 11); addCollider(x, z, 8); scene.add(g)
+  mergedOutline(g, 0.05); addContactShadow(g, 11); addCollider(x, z, 8); scene.add(g)
 }
 // 団地（中層住宅・窓とベランダはテクスチャで1ドローに・屋上の給水塔）
 function makeDanchi(x, z, rot, floors) {
@@ -832,7 +857,7 @@ function makeDanchi(x, z, rot, floors) {
   const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 1.5, 8), toon(0x9aa0a4)); tank.position.set(2.5, h + 1.2, 0); g.add(tank)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
-  outlineObj(g, 0.04); addContactShadow(g, 6); addCollider(x, z, 4.2); scene.add(g)
+  mergedOutline(g, 0.04); addContactShadow(g, 6); addCollider(x, z, 4.2); scene.add(g)
 }
 // 床屋のサインポール（赤白青の斜め縞が回る）
 function makeBarberPole(x, z) {
@@ -870,7 +895,7 @@ function makeCar(x, z, rot, color, truck) {
   for (const lx of [0.55, -0.55]) { const l = new THREE.Mesh(new THREE.CircleGeometry(0.12, 10), new THREE.MeshBasicMaterial({ color: 0xf0ecc8 })); l.position.set(lx, 0.62, 2.01); g.add(l) }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
-  outlineObj(g, 0.025); addContactShadow(g, 2.2); scene.add(g)
+  mergedOutline(g, 0.025); addContactShadow(g, 2.2); scene.add(g)
 }
 makeCar(TOWN.x - 34, TOWN.z - 9, 0, 0xc4c8cc, false)   // スーパーの駐車場
 makeCar(TOWN.x - 28.5, TOWN.z - 9, 0, 0x9a6a4a, false)
@@ -915,7 +940,7 @@ function makeSento(x, z, rot) {
   const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.68, 7.5, 10), toon(0xa05a48)); chimney.position.set(3.6, 6.2, -3); g.add(chimney)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
-  outlineObj(g, 0.04); addContactShadow(g, 6.5); addCollider(x, z, 5); scene.add(g)
+  mergedOutline(g, 0.04); addContactShadow(g, 6.5); addCollider(x, z, 5); scene.add(g)
   // 煙突の先から煙（回転を考慮した世界座標）
   const cw = new THREE.Vector3(3.6, 10, -3).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot || 0)
   makeSmoke(x + cw.x, heightAt(x, z) + 10, z + cw.z, 18)
@@ -998,7 +1023,7 @@ function makeSunflower(x, z) {
   const core = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.16, 12), toon(0x7a4a22)); core.position.set(0, 2.55, 0.04); core.rotation.x = 0.5; g.add(core)
   g.position.set(x, heightAt(x, z), z)
   g.children.forEach((c) => (c.castShadow = true))
-  outlineObj(g, 0.05)
+  mergedOutline(g, 0.05)
   addContactShadow(g, 0.7)
   scene.add(g)
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.05 })
@@ -1081,7 +1106,7 @@ function makeBench() {
   g.children.forEach((c) => (c.castShadow = true))
   g.position.copy(SEAT)
   g.rotation.y = Math.PI // 背を-Z側に＝座ると景色(-Z, 外側)を向く
-  outlineObj(g, 0.05)
+  mergedOutline(g, 0.05)
   addContactShadow(g, 1.8)
   scene.add(g)
 }
@@ -1283,7 +1308,7 @@ function makeVillager(x, z, opt) {
   // あたま（大きめ・丸い）
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 18, 16), skin); head.scale.set(1, 0.98, 0.96); head.position.y = 1.52; g.add(head)
   const hair = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.56; hair.rotation.x = -0.25; g.add(hair)
-  if (!opt.boy) for (const hx of [-0.32, 0.32]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.46, -0.04); g.add(pt) }
+  if (!opt.boy && !opt.simple) for (const hx of [-0.32, 0.32]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.46, -0.04); g.add(pt) }
   // 腕（肩ピボット＝手を振る）。カプセルで丸く
   const armGeo = new THREE.CapsuleGeometry(0.085, 0.38, 4, 8)
   const armL = new THREE.Group(); armL.position.set(-0.32, 1.16, 0); g.add(armL)
@@ -1300,10 +1325,11 @@ function makeVillager(x, z, opt) {
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a09a, transparent: true, opacity: 0.5 })
   for (const ex of [-0.12, 0.12]) {
     const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), eyeMat); e.scale.set(0.85, 1.15, 0.5); e.position.set(ex, 0.04, 0.29); head.add(e)
+    if (opt.simple) continue // 背景の通行人は瞳だけ（軽量化）
     const hi = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 6), hiMat); hi.position.set(ex + 0.02, 0.08, 0.33); head.add(hi)
     const bl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.07 : -0.07), -0.07, 0.26); head.add(bl)
   }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.013, 6, 10, Math.PI), eyeMat); mouth.rotation.z = Math.PI; mouth.position.set(0, -0.13, 0.3); head.add(mouth)
+  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.013, 6, 10, Math.PI), eyeMat); mouth.rotation.z = Math.PI; mouth.position.set(0, -0.13, 0.3); head.add(mouth) }
   addContactShadow(g, 0.6)
   g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, armL, armR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4 }
   scene.add(g)
@@ -1380,13 +1406,12 @@ let talkTarget = null
 // 商店街の通行人（道を行き来＝賑わい。会話はしない）
 const pedestrians = []
 const pedDefs = [
-  [-2.8, 0x7a8a9a, 1.2, false], [2.8, 0x9a7a6a, 1.0, true], [-3.6, 0x6f8a6a, 1.5, false], [3.4, 0x8a6a8a, 1.3, true],
-  [-3.2, 0xb07a5a, 0.9, true], [3.0, 0x5a7a9a, 1.1, false], [-2.5, 0x8a9a6a, 1.4, false], [3.6, 0xa05a6a, 1.0, true],
-  [-3.8, 0x6a6a8a, 1.25, true], [2.4, 0x9a8a5a, 1.15, false], // ＝計10人。お父さん風・子ども風を混ぜて
+  [-3.4, 0x7a8a9a, 1.0, false], [3.2, 0x9a7a6a, 0.85, true], [-2.6, 0x6f8a6a, 1.15, false],
+  [3.6, 0xb07a5a, 0.95, true], [-3.0, 0x5a7a9a, 1.05, false], // ＝計5人（控えめに・速さもばらけ）
 ]
 for (const [dx, col, sp, boyP] of pedDefs) {
   const hair = boyP ? 0x2a2218 : [0x3a2e22, 0x4a3a2e, 0x5a4a3a][Math.floor(Math.random() * 3)]
-  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, simple: true, face: 0, info: { name: '', byPhase: { noon: [''] } } })
   p.userData.ped = { sp, dir: Math.random() < 0.5 ? 1 : -1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
   p.position.z = TOWN.z - 28 + Math.random() * 56; p.rotation.y = p.userData.ped.dir > 0 ? 0 : Math.PI // 散らばった初期位置・向き
   pedestrians.push(p)
@@ -2160,7 +2185,7 @@ MOUNT_SEAT.y = heightAt(MOUNT_SEAT.x, MOUNT_SEAT.z)
   const back = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.12), w); back.position.set(0, 0.8, 0.3); g.add(back) // 背もたれは北(山側)
   for (const lx of [-1.0, 1.0]) for (const lz of [-0.26, 0.26]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.52, 0.12), toon(0x7a5230)); leg.position.set(lx, 0.26, lz); g.add(leg) }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-  g.position.copy(MOUNT_SEAT); outlineObj(g, 0.03); addContactShadow(g, 1.5); scene.add(g)
+  g.position.copy(MOUNT_SEAT); mergedOutline(g, 0.03); addContactShadow(g, 1.5); scene.add(g)
 }
 const curSitEye = new THREE.Vector3()
 function sitDown(which) {
@@ -2246,10 +2271,15 @@ function update(dt) {
   stars.position.copy(camera.position)
   moon.position.set(camera.position.x + 70, 95, camera.position.z - 90)
   moonGlow.position.copy(moon.position)
-  // 影カメラを主人公に追従させ、毎フレーム更新（間引くと歩行時に影がカクつき＝チカチカの原因になるため）
-  sun.position.copy(boy.position).addScaledVector(sunDir, 120)
-  sun.target.position.copy(boy.position); sun.target.updateMatrixWorld()
-  sun.shadow.needsUpdate = true
+  // 影：主役の建物・木は静止物なので、影マップは「主人公が一定以上動いた／時刻が変わった」時だけ再描画。
+  // 動く主人公やNPCは別の接地影ブロブで表現しているので、これで毎フレームの影パス全描画を省ける（軽量化）。
+  // 再描画は止まると0回・歩行中もたまにだけ＝3フレーム間引きのようなチカチカは出ない。
+  if (boy.position.distanceTo(shadowAnchor) > 5 || Math.abs(tday - lastShadowTday) > 0.004) {
+    sun.position.copy(boy.position).addScaledVector(sunDir, 120)
+    sun.target.position.copy(boy.position); sun.target.updateMatrixWorld()
+    sun.shadow.needsUpdate = true
+    shadowAnchor.copy(boy.position); lastShadowTday = tday
+  }
   // リム＝太陽の水平反対側から低く。後ろ上から輪郭をふちどる（影なしなので毎フレームでも軽い）
   rim.position.set(boy.position.x - sunDir.x * 80, boy.position.y + 26, boy.position.z - sunDir.z * 80)
   rim.target.position.copy(boy.position)
@@ -2818,6 +2848,13 @@ window.__proto3d = {
   villager, cat, // 検証用
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
   _jump() { doJump() }, // 検証用
+  _info() { // 検証用：シーン1回描画の実コスト
+    renderer.info.autoReset = false; renderer.info.reset()
+    renderer.render(scene, camera)
+    const r = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries }
+    renderer.info.autoReset = true
+    return r
+  },
   _weather(v) { weather = v; weatherTarget = v; weatherTimer = 999 }, // 検証用：夕立 0=晴 1=雨
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
