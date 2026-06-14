@@ -359,6 +359,39 @@ function makeGate(p, rot) {
 }
 makeGate(GATE_FIELD, 0)
 makeGate(GATE_TOWN, 0)
+// 商店街の一軒（昭和の店構え：店先・縞テント・看板・袖看板・品物）
+function makeShop(x, z, rot, opt) {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(6, 4.2, 5), toon(0xe2d6bc)); body.position.y = 2.1; g.add(body)
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.3), new THREE.MeshBasicMaterial({ color: 0x2a221a })); front.position.set(0, 1.35, 2.51); g.add(front)
+  // 縞テント（白×店色）
+  const tent = new THREE.Group()
+  const stripes = 6
+  for (let i = 0; i < stripes; i++) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(6.2 / stripes, 0.18, 1.7), toon(i % 2 ? 0xf2efe6 : opt.awn))
+    s.position.set(-3.1 + (i + 0.5) * (6.2 / stripes), 0, 0); tent.add(s)
+  }
+  tent.position.set(0, 2.75, 3.2); tent.rotation.x = -0.18; g.add(tent)
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(5, 0.9, 0.2), toon(opt.sign)); sign.position.set(0, 3.55, 2.5); g.add(sign)
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.7, 0.72), toon(opt.sign)); blade.position.set(-3.05, 2.7, 2.7); g.add(blade)
+  // 品物
+  if (opt.kind === 'yaoya') {
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(4, 0.5, 1.1), toon(0x9c6b3a)); crate.position.set(0, 0.5, 3.4); g.add(crate)
+    const veg = [0xd2542a, 0xe0a030, 0x5a8a3a, 0xc03030, 0xe8c040]
+    for (let i = 0; i < 5; i++) { const v = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), toon(veg[i])); v.position.set(-1.6 + i * 0.8, 0.85, 3.4); g.add(v) }
+  } else if (opt.kind === 'denki') {
+    for (let i = 0; i < 2; i++) { const tv = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 0.6), toon(0x2a2a30)); tv.position.set(-1 + i * 2, 1.2, 2.7); g.add(tv); const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), new THREE.MeshBasicMaterial({ color: [0x88c8e0, 0xe0c060][i] })); sc.position.set(-1 + i * 2, 1.25, 3.01); g.add(sc) }
+  } else if (opt.kind === 'dagashi') {
+    for (let i = 0; i < 4; i++) { const jar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.5), toon([0xe05a6a, 0x5aa0e0, 0xe0c040, 0x7ac060][i])); jar.position.set(-1.5 + i * 1, 0.85, 3.3); g.add(jar) }
+  } else if (opt.kind === 'niku') {
+    const caseM = new THREE.Mesh(new THREE.BoxGeometry(4, 0.7, 1.1), new THREE.MeshToonMaterial({ color: 0xdadfe2, gradientMap: GRAD, transparent: true, opacity: 0.7 })); caseM.position.set(0, 0.6, 3.4); g.add(caseM)
+  }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
+  outlineObj(g, 0.05); addContactShadow(g, 4)
+  scene.add(g)
+  return g
+}
 {
   const T = TOWN
   // 地面（土）と道（アスファルト）
@@ -368,16 +401,22 @@ makeGate(GATE_TOWN, 0)
   road.rotation.x = -Math.PI / 2; road.position.set(T.x, 0.02, T.z); scene.add(road)
   const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0xeeeae0 }))
   cl.rotation.x = -Math.PI / 2; cl.position.set(T.x, 0.03, T.z); scene.add(cl)
-  // 両側に家＋ブロック塀（道を向く）
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 3; i++) {
-      const hx = T.x + side * 12, hz = T.z - 14 + i * 15
-      makeHouse(hx, hz, side > 0 ? -Math.PI / 2 : Math.PI / 2)
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 1.0, 0.4), toon(0xbcb6a4))
-      wall.position.set(hx - side * 4.4, 0.5, hz); wall.rotation.y = Math.PI / 2; wall.castShadow = true
-      addOutline(wall, 0.03); scene.add(wall)
-    }
+  // 右側：家＋ブロック塀（道を向く）
+  for (let i = 0; i < 4; i++) {
+    const hx = T.x + 12, hz = T.z - 18 + i * 13
+    makeHouse(hx, hz, -Math.PI / 2)
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 1.0, 0.4), toon(0xbcb6a4))
+    wall.position.set(hx - 4.4, 0.5, hz); wall.rotation.y = Math.PI / 2; wall.castShadow = true
+    addOutline(wall, 0.03); scene.add(wall)
   }
+  // 左側：商店街（八百屋・肉屋・電器屋・駄菓子屋）
+  const shopDefs = [
+    { awn: 0x3e8a4a, sign: 0x2e7a3e, kind: 'yaoya' },
+    { awn: 0xc0492f, sign: 0xb03020, kind: 'niku' },
+    { awn: 0x3a6a9a, sign: 0x2a5080, kind: 'denki' },
+    { awn: 0xc85a95, sign: 0xa84080, kind: 'dagashi' },
+  ]
+  for (let i = 0; i < shopDefs.length; i++) makeShop(T.x - 12, T.z - 18 + i * 13, Math.PI / 2, shopDefs[i])
   // 電柱＋電線
   const tp = []
   for (let i = 0; i < 4; i++) tp.push(makePole(T.x + 5.5, T.z - 22 + i * 15))
@@ -393,6 +432,17 @@ makeGate(GATE_TOWN, 0)
     const wx = lx - 7 + Math.random() * 18, wz = lz - 9 + Math.random() * 16
     const w = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), toon(0x88a250)); w.scale.set(1, 0.4, 1)
     w.position.set(wx, 0.1, wz); scene.add(w)
+  }
+  // 街かどの生活痕：丸ポスト・当時の自販機
+  {
+    const pg = new THREE.Group(); const red = toon(0xc0392b)
+    const pbody = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 2.2, 12), red); pbody.position.y = 1.1; pg.add(pbody)
+    const ptop = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), red); ptop.position.y = 2.2; pg.add(ptop)
+    placeProp(pg, T.x + 5.5, T.z - 25, 0, 0.04, 0.7)
+    const vg = new THREE.Group()
+    const vb = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.9), toon(0xc23a2c)); vb.position.y = 1.1; vg.add(vb)
+    const vp = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.25, 0.06), new THREE.MeshBasicMaterial({ color: 0xfff3c8 })); vp.position.set(0, 1.45, 0.46); vg.add(vp)
+    placeProp(vg, T.x + 4.5, T.z + 16, -Math.PI / 2, 0.04, 1.0)
   }
 }
 
@@ -594,6 +644,22 @@ villager.userData.spots = {
   evening: new THREE.Vector3(-13, 0, 17),
   night: new THREE.Vector3(-15.5, 0, 15),
 }
+// 街の店のおばさん（商店街の八百屋の前。会話は時間帯で変わる）
+const townLady = makeVillager(TOWN.x - 7.5, TOWN.z - 18, {
+  shirt: 0xd8c0a0, skirt: 0x9a7a5a, hair: 0x8c8c86, face: Math.PI / 2,
+  info: {
+    name: '店のおばさん',
+    byPhase: {
+      morning: ['あら、おはよう。はやいねえ。', 'トマト、いいのが 入ってるよ。'],
+      noon: ['いらっしゃい。暑いから 気をつけてね。', 'ラムネ、ひやしてあるよ。'],
+      evening: ['そろそろ 店じまいだねえ。', 'おまけ しとくよ。もってきな。'],
+      night: ['もう しまっちゃったよ。', '気をつけて お帰り。'],
+    },
+  },
+})
+// 会話できる人たち（いちばん近い人に話しかける）
+const npcs = [villager, townLady]
+let talkTarget = null
 
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
@@ -845,7 +911,8 @@ const dlgTextEl = document.getElementById('dlg-text')
 let dialogue = null // { lines, idx }
 const phaseOf = (t) => (t < 0.18 ? 'morning' : t < 0.5 ? 'noon' : t < 0.78 ? 'evening' : 'night')
 function startDialogue() {
-  const info = villager.userData.info
+  const who = talkTarget || villager
+  const info = who.userData.info
   // その日の関係の台詞（あれば）→ なければ時間帯の台詞
   const lines = (info.arcByDay && info.arcByDay[day]) || info.byPhase[phaseOf(tday)] || info.byPhase.noon
   dialogue = { lines, idx: 0 }
@@ -854,8 +921,8 @@ function startDialogue() {
   dialogueEl.style.display = 'block'
   npcEl.style.display = 'none'
   endPuni()
-  todayFlags.metGirl = true
-  villager.rotation.y = Math.atan2(boy.position.x - villager.position.x, boy.position.z - villager.position.z) // こちらを向く
+  if (who === villager) todayFlags.metGirl = true
+  who.rotation.y = Math.atan2(boy.position.x - who.position.x, boy.position.z - who.position.z) // こちらを向く
 }
 
 // ── 「3日だけの夏」＋絵日記（その日やったこと→翌日への予告／夏の終わり）──
@@ -1216,7 +1283,10 @@ function update(dt) {
 
     const nearBench = Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
     const nearEngawa = Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
-    const nearNpc = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z) < 3
+    // いちばん近い人を話し相手に
+    talkTarget = null; let nd = 3
+    for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
+    const nearNpc = !!talkTarget
     npcEl.style.display = (nearNpc && !dialogue) ? 'block' : 'none'
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
