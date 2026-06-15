@@ -3354,7 +3354,15 @@ addEventListener('pointerdown', function lockOnce() {
 // タイトル画面：「はじめる」で消えて、音を立ち上げる（iOSの自動再生制限への先回り）
 const titleEl = document.getElementById('title')
 const startBtn = document.getElementById('t-start')
-if (startBtn) startBtn.addEventListener('click', () => { startAudio(); if (titleEl) titleEl.classList.add('hidden') })
+// 初回だけ「あそびかた」を出す（操作の入口をやさしく）。2回目以降は出さない。
+const guideEl = document.getElementById('guide')
+const guideOk = document.getElementById('guide-ok')
+let seenGuide = false; try { seenGuide = localStorage.getItem('hn3d_guide') === '1' } catch (e) {}
+if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} })
+if (startBtn) startBtn.addEventListener('click', () => {
+  startAudio(); if (titleEl) titleEl.classList.add('hidden')
+  if (!seenGuide && guideEl) { guideEl.classList.add('on'); seenGuide = true }
+})
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {
