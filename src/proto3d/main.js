@@ -2370,8 +2370,22 @@ const townKid = makeVillager(TOWN.x - 30, TOWN.z + 16, {
     },
   },
 })
+// 畑のおじさん（東の田んぼのそば。麦わら帽子で野良仕事。夏の田舎の人の気配）
+const farmer = makeVillager(63, 13, {
+  scale: 1.16, adult: true,
+  shirt: 0x7a936a, skirt: 0x4a4236, hair: 0x5a5048, skin: 0xddb088, face: Math.PI * 0.82, hat: 'straw', band: 0x8a6a4a,
+  info: {
+    name: 'はたけの おじさん',
+    byPhase: {
+      morning: ['お、はやいな。朝の うちが すずしくて 仕事が はかどるんだ。', 'この 田んぼ、もうすぐ 穂が 出るぞ。'],
+      noon: ['暑いのう。麦わらぼうし、わすれるなよ。', 'のどが かわいたら、井戸の 水を のんでいきな。'],
+      evening: ['夕やけ こやけだ。そろそろ おしまいに するか。', 'カエルが 鳴きだしたな。ひと雨 くるかもしれんな。'],
+      night: ['こんな 時間まで、感心だな。', '夜は ひえる。かぜを ひくなよ。'],
+    },
+  },
+})
 // 会話できる人たち（いちばん近い人に話しかける）
-const npcs = [villager, townLady, townKid]
+const npcs = [villager, townLady, townKid, farmer]
 
 // NPC共通：腕は基本だらんと下げ、近づくと たまに手を振る。
 function npcArms(n, near, dt, tsec) {
