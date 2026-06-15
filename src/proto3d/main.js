@@ -2206,6 +2206,12 @@ function makeVillager(x, z, opt) {
   }
   const AL = makeArm(-1), AR = makeArm(1)
   const armL = AL.sh, armR = AR.sh; elbowL = AL.elbow; elbowR = AR.elbow
+  if (opt.bag) { // 買い物袋（手提げ）＝町に生活感
+    const bg = new THREE.Group()
+    const sack = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.28, 0.13), toon(opt.bag === true ? 0xc8a060 : opt.bag)); sack.position.y = -0.12; bg.add(sack)
+    const hndl = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.013, 4, 10, Math.PI), toon(0x8a6a4a)); hndl.position.y = 0.04; bg.add(hndl)
+    bg.traverse((o) => { if (o.isMesh) o.castShadow = true }); bg.position.set(0.27, 0.74, 0.06); g.add(bg)
+  }
   g.scale.setScalar(opt.scale || 0.95) // 主人公(0.85)の大きさ帯へ寄せる。大人はopt.scaleで少し大きく
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く村人/通行人も残像防止（接地は丸影ブロブ）
   g.position.set(x, heightAt(x, z), z)
@@ -2286,7 +2292,7 @@ const townLady = makeVillager(TOWN.x - 7.5, TOWN.z - 18, {
 }
 // 近所の子（空き地の土管のそば＝ひみつきち。昭和の原風景）
 const townKid = makeVillager(TOWN.x - 30, TOWN.z + 16, {
-  boy: true, shirt: 0x6aa0d8, skirt: 0x3f5a77, hair: 0x3a2e22, face: -0.6,
+  boy: true, shirt: 0x6aa0d8, skirt: 0x3f5a77, hair: 0x3a2e22, face: -0.6, hat: 'straw', band: 0x3a6a9a, // 麦わら帽子（青いリボン）
   info: {
     name: '近所の子',
     byPhase: {
@@ -2323,7 +2329,8 @@ const pedDefs = [
 for (const [dx, col, sp, boyP] of pedDefs) {
   const hair = boyP ? 0x2a2218 : [0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86][Math.floor(Math.random() * 4)] // 白髪も混ぜる
   const adult = Math.random() < 0.55 // 大人と子どもを混在（年齢の幅）
-  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, simple: true, adult, scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const bag = adult && Math.random() < 0.5 ? [0xc8a060, 0x9a7a5a, 0xb0563f, 0x6a8a9a][Math.floor(Math.random() * 4)] : false // 大人の半分は買い物袋
+  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, simple: true, adult, bag, scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
   p.userData.ped = { sp, dir: Math.random() < 0.5 ? 1 : -1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
   p.position.z = TOWN.z - 28 + Math.random() * 56; p.rotation.y = p.userData.ped.dir > 0 ? 0 : Math.PI // 散らばった初期位置・向き
   pedestrians.push(p)
