@@ -1,8 +1,13 @@
 // 開発時のみ実行するテクスチャ生成スクリプト（本番のゲームはこれを読み込まない＝外部API非依存）
-// Pollinations の Flux モデル（無料）でシームレステクスチャを生成し src/assets/textures/ に保存する。
-// 鍵は .pollinations_key ファイル（.gitignore 済み）または環境変数 POLLINATIONS_KEY から読む。鍵はGitに上げない。
-// 使い方:  node scripts/gen-textures.mjs           … 全テクスチャ生成
-//          node scripts/gen-textures.mjs roof wall … 指定テクスチャのみ
+// Pollinations の Flux モデルでシームレステクスチャを生成し public/textures/ に保存する。
+// 既定＝無料レガシーEP（image.pollinations.ai・鍵不要・Pollenを1ポレンも消費しない）。
+//   ただしレート制限が厳しいIPでは時間がかかる/失敗することがある（その場合は時間を空けて再実行）。
+//   --api …… 認証ホスト(gen.pollinations.ai)を使う。レート制限を回避できるが flux でも微量のPollen
+//            （カード未登録なら無料の日次付与分のみ・購入残高には食い込まない）を消費。鍵が必要。
+// 鍵（--api時のみ）は .pollinations_key（.gitignore済）か 環境変数 POLLINATIONS_KEY。鍵はGitに上げない。
+// 使い方:  node scripts/gen-textures.mjs            … 全部（無料EP・Pollen非消費）
+//          node scripts/gen-textures.mjs roof wood  … 指定のみ（無料EP）
+//          node scripts/gen-textures.mjs --api roof … 認証ホスト（微量Pollen消費・要鍵）
 import { writeFile, readFile, mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -24,19 +29,22 @@ const TEX = {
     prompt: `old weathered wooden planks, warm brown vertical wood grain, faded timber boards, ${STYLE}` },
 }
 
+const PAID = process.argv.includes('--api') || process.env.POLLINATIONS_PAID === '1' // 既定 false ＝ 無料EP（Pollen非消費）
 const KEY = (process.env.POLLINATIONS_KEY || (await readFile(join(ROOT, '.pollinations_key'), 'utf8').catch(() => ''))).trim()
-if (!KEY) { console.error('鍵がありません。enter.pollinations.ai で無料の publishable key(pk_) を作り、\n  リポジトリ直下に  .pollinations_key  として保存するか、環境変数 POLLINATIONS_KEY に入れてください。'); process.exit(1) }
+if (PAID && !KEY) { console.error('--api には鍵が必要です。enter.pollinations.ai で鍵(sk_推奨)を作り .pollinations_key に保存するか POLLINATIONS_KEY に入れてください。'); process.exit(1) }
+console.log(PAID ? '◆ 認証ホスト（gen.pollinations.ai・微量Pollen消費）' : '◆ 無料レガシーEP（image.pollinations.ai・Pollen非消費／レート制限あり）')
 
-const pick = process.argv.slice(2)
-const targets = pick.length ? pick : Object.keys(TEX)
+const targets = process.argv.slice(2).filter((a) => !a.startsWith('--'))
+const list = targets.length ? targets : Object.keys(TEX)
 await mkdir(OUT, { recursive: true })
 
 async function gen(name) {
   const t = TEX[name]; if (!t) { console.log('未知のテクスチャ:', name); return }
-  const url = `https://gen.pollinations.ai/image/${encodeURIComponent(t.prompt)}?model=flux&width=${t.w}&height=${t.h}&seed=${t.seed}` // 認証付き新ホスト（sk_キーでIP制限を回避）
+  const host = PAID ? 'https://gen.pollinations.ai/image/' : 'https://image.pollinations.ai/prompt/' // 既定は無料レガシーEP
+  const url = `${host}${encodeURIComponent(t.prompt)}?model=flux&width=${t.w}&height=${t.h}&seed=${t.seed}${PAID ? '' : '&nologo=true'}`
   for (let attempt = 1; attempt <= 8; attempt++) {
     try {
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${KEY}` } })
+      const res = await fetch(url, PAID ? { headers: { Authorization: `Bearer ${KEY}` } } : {})
       const ct = res.headers.get('content-type') || ''
       if (res.ok && ct.startsWith('image/')) {
         const buf = Buffer.from(await res.arrayBuffer())
@@ -51,5 +59,5 @@ async function gen(name) {
   console.log(`❌ ${name} 生成できず（レート制限/キー要確認）`)
 }
 
-for (const name of targets) await gen(name)
+for (const name of list) await gen(name)
 console.log('完了。出力先:', OUT)
