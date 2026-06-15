@@ -2661,6 +2661,22 @@ resize()
 // 音は癒しの半分。2D版の素材(MP3)を流用し、時刻で滑らかにクロスフェード。
 const listener = new THREE.AudioListener()
 camera.add(listener)
+// ── マスターリミッター：環境音(listener)＋効果音(sfxBus)の“合計”を必ず0dB以下に抑える。
+//   これが無いと夏の蝉時雨＋効果音が重なって出力がクリップし、特にiPhoneの画面録画で音が全部「ザザザ」と歪む。
+let masterChain = null
+function getMaster() {
+  const ctx = listener.context
+  if (masterChain && masterChain.context === ctx) return masterChain.input
+  const lim = ctx.createDynamicsCompressor()
+  lim.threshold.value = -2.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12 // ブリックウォール（歪み防止）
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 11000; lp.Q.value = 0.3 // 耳に刺さる超高域を少しだけ丸める
+  const mg = ctx.createGain(); mg.gain.value = 0.82 // 全体を少し下げてヘッドルーム確保
+  lim.connect(lp); lp.connect(mg); mg.connect(ctx.destination)
+  try { listener.gain.disconnect() } catch (e) {} // 環境音の出力をマスターへ通し直す（既定の直結を解除）
+  listener.gain.connect(lim)
+  masterChain = { input: lim, context: ctx }
+  return lim
+}
 const audioUrls = loadAudioUrls()
 const ambients = {} // id -> THREE.Audio
 let audioStarted = false
@@ -2683,6 +2699,7 @@ function startAudio() {
   try {
     const ctx = listener.context
     if (ctx.state === 'suspended') ctx.resume()
+    getMaster() // ★環境音を鳴らす前にマスターリミッターへ繋ぎ直す（合計クリップ＝録画の“ザザザ”防止）
     for (const id in ambients) { const a = ambients[id]; if (a.buffer && !a.isPlaying) a.play() }
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
     initRainAudio()
@@ -2785,7 +2802,7 @@ function getSfxOut() {
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6200; lp.Q.value = 0.4 // 耳に刺さる高域を丸める
   const comp = ctx.createDynamicsCompressor()
   comp.threshold.value = -16; comp.knee.value = 26; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.22 // 急なピークを抑える＝歪み/異音防止
-  g.connect(lp); lp.connect(comp); comp.connect(ctx.destination)
+  g.connect(lp); lp.connect(comp); comp.connect(getMaster()) // 効果音もマスターリミッター経由＝合計でクリップさせない
   sfxBus = g
   return sfxBus
 }
