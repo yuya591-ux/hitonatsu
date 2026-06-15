@@ -525,6 +525,7 @@ for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25,
     ch.traverse((o) => { if (o.isMesh) o.castShadow = true })
     const cx2 = -14 + (i % 2) * 4 + Math.random() * 2, cz2 = 17 + Math.floor(i / 2) * 3 + Math.random() * 2
     ch.position.set(cx2, heightAt(cx2, cz2), cz2); ch.rotation.y = Math.random() * 6.28; mergedOutline(ch, 0.02); addContactShadow(ch, 0.35); scene.add(ch)
+    for (const ez of [-0.052, 0.052]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), new THREE.MeshBasicMaterial({ color: 0x161210 })); e.position.set(0.225, 0.4, ez); ch.add(e) } // つぶらな点目
     swayables.push({ obj: ch, ph: Math.random() * 6.28, amp: 0.06 }) // ついばむような小さな揺れ
   }
   // 牛（畑のそばでのんびり草を食む＝夏の田舎の風物詩）
@@ -536,6 +537,7 @@ for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25,
     const headc = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.46), toon(0xf0ece2)); headc.position.set(1.3, 0.6, 0); cow.add(headc)
     const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.42), toon(0xd0a890)); muzzle.position.set(1.5, 0.5, 0); cow.add(muzzle)
     for (const hx of [-0.18, 0.18]) { const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 5), toon(0xe8e0cc)); horn.position.set(1.28, 0.86, hx); cow.add(horn); const ear = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), toon(0xf0ece2)); ear.scale.set(1, 0.5, 0.6); ear.position.set(1.18, 0.74, hx * 1.9); cow.add(ear) }
+    for (const ez of [-0.17, 0.17]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.062, 10, 8), new THREE.MeshBasicMaterial({ color: 0x2a241e })); e.scale.set(0.66, 1, 0.85); e.position.set(1.47, 0.66, ez); cow.add(e); const hi = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffffff })); hi.position.set(1.5, 0.69, ez + 0.02); cow.add(hi) } // つぶらな目（ぼーっと草を食む愛嬌）
     for (const lx of [-0.5, 0.5]) for (const lz of [-0.32, 0.32]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.9, 6), toon(0xe8e2d6)); leg.position.set(lx, 0.45, lz); cow.add(leg) }
     const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 0.9, 5), toon(0xe8e2d6)); tail.position.set(-0.95, 0.7, 0); tail.rotation.z = -0.3; cow.add(tail)
     cow.traverse((o) => { if (o.isMesh) o.castShadow = true })
@@ -2021,8 +2023,12 @@ function makeCat() {
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く猫も残像防止で影マップへ焼かない
   outlineObj(g, 0.022); addContactShadow(g, 0.7)
   // 顔（輪郭線の後・フチ無し）：目・鼻
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2e2a22 })
-  for (const ez of [-0.1, 0.1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.046, 8, 8), eyeMat); e.scale.set(0.7, 1, 0.6); e.position.set(0.71, 0.62, ez); g.add(e) }
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x394a2c }) // 猫の目＝少し緑がかった琥珀
+  const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+  for (const ez of [-0.1, 0.1]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.052, 10, 8), eyeMat); e.scale.set(0.74, 1, 0.62); e.position.set(0.71, 0.62, ez); g.add(e)
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.019, 8, 8), hiMat); hi.position.set(0.742, 0.658, ez + (ez > 0 ? 0.012 : -0.012)); g.add(hi) // きらり（うるうる）
+  }
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.036, 8, 6), new THREE.MeshBasicMaterial({ color: 0xd98a9a })); nose.position.set(0.78, 0.52, 0); g.add(nose)
   g.userData.tail = tail
   scene.add(g)
@@ -3853,9 +3859,11 @@ function update(dt) {
     if (f.hopT > 0) {
       f.hopT -= dt
       f.obj.position.x += Math.sin(f.dir) * f.hopDist * (dt / 0.42); f.obj.position.z += Math.cos(f.dir) * f.hopDist * (dt / 0.42)
-      f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z) + Math.sin(Math.max(0, 1 - f.hopT / 0.42) * Math.PI) * 0.45
+      const arc = Math.sin(Math.max(0, 1 - f.hopT / 0.42) * Math.PI)
+      f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z) + arc * 0.45
+      f.obj.scale.set(1 - arc * 0.14, 1 + arc * 0.26, 1 - arc * 0.14) // ぴょーん：跳ぶと縦に伸びる（着地でぺたん）
       f.obj.rotation.y = f.dir
-      if (f.hopT <= 0) f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z)
+      if (f.hopT <= 0) { f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z); f.obj.scale.set(1, 1, 1) }
     } else {
       f.t -= dt
       f.obj.position.y = heightAt(f.obj.position.x, f.obj.position.z) + Math.abs(Math.sin(tsec * 2 + f.dir)) * 0.014 // 息づかい
