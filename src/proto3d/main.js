@@ -2063,6 +2063,15 @@ for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) makeCorn(-13.5 + c * 1.3
   const zaru = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.44, 0.08, 16), toon(0xb89a64)); zaru.position.y = 0.54; g.add(zaru)
   for (let i = 0; i < 18; i++) { const a = Math.random() * 6.28, rr = Math.random() * 0.4; const u = new THREE.Mesh(new THREE.SphereGeometry(0.06, 7, 6), toon(0xc0463a)); u.position.set(Math.cos(a) * rr, 0.61, Math.sin(a) * rr); g.add(u) }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(g, HOUSE.x - 5.5, HOUSE.z + 5.5, 0.35, 0.02, 0.7) }
+// 鶏小屋（放し飼いニワトリの帰る家：木の小屋＋踏み板＋金網の運動場）＝屋敷の仕上げ
+{ const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.1, 1.3), toonMap(0x9a7a52, woodTex)); body.position.y = 0.55; g.add(body)
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 1.6), toonMap(0x8a6a4a, roofTex)); roof.position.set(0, 1.2, -0.08); roof.rotation.x = -0.2; g.add(roof)
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(0.26, 12), toon(0x241c14)); hole.position.set(0.3, 0.45, 0.66); g.add(hole)
+  const ramp = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.9), toonMap(0x8a6a44, woodTex)); ramp.position.set(0.3, 0.16, 1.16); ramp.rotation.x = 0.42; g.add(ramp)
+  for (const [cx2, cz2] of [[-1.0, 1.0], [1.0, 1.0], [1.0, 2.6], [-1.0, 2.6]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 5), toon(0x9a958c)); p.position.set(cx2, 0.5, cz2); g.add(p) }
+  const run = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.95, 1.6), new THREE.MeshToonMaterial({ color: 0xcfcabe, transparent: true, opacity: 0.1, gradientMap: GRAD })); run.position.set(0, 0.5, 1.8); g.add(run)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(-24, heightAt(-24, 5), 5); g.rotation.y = 0.6; mergedOutline(g, 0.03); addContactShadow(g, 1.6); addBox(-24, 5, 0.95, 0.75, 0.6); scene.add(g) }
 // 水やりの水しぶき（じょうろから落ちる水の粒）
 const WDROPN = 20
 const wdropPos = new Float32Array(WDROPN * 3).fill(-9999)
