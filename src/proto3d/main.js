@@ -2835,6 +2835,7 @@ function maybeThunder(dt) {
 // 短いオリジナルの旋律をペンタトニックで“まばらに”奏でる。getMaster()経由でクリップ防止、
 // おとOFF(ctx.suspend)で自動的に止まる。蝉やヒグラシの“すきま”にそっと置く＝出しゃばらない癒し。
 let bgmGain = null
+let bgmEnabled = true // 設定でオルゴールBGMだけON/OFF（環境音は残せる）
 function getBgmOut() {
   const ctx = listener.context
   if (bgmGain && bgmGain.context === ctx) return bgmGain
@@ -2869,7 +2870,7 @@ const MB_MOTIFS = [
 ]
 let bgmWait = 5.0 // 開始までの“間”（最初の数秒は環境音だけ）
 function updateMusicBox(dt) {
-  if (!audioStarted) return
+  if (!audioStarted || !bgmEnabled) return
   const ctx = listener.context
   if (ctx.state !== 'running') return
   bgmWait -= dt
@@ -4317,22 +4318,30 @@ if (startBtn) startBtn.addEventListener('click', () => {
 const settingsEl = document.getElementById('settings')
 const setBtn = document.getElementById('set-btn')
 const setSoundBtn = document.getElementById('set-sound')
+const setBgmBtn = document.getElementById('set-bgm')
 const setMotionBtn = document.getElementById('set-motion')
-const settings = { sound: true, motion: false }
+const settings = { sound: true, bgm: true, motion: false }
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
 function applySound() {
   if (setSoundBtn) { setSoundBtn.textContent = settings.sound ? 'ON' : 'OFF'; setSoundBtn.classList.toggle('on', settings.sound) }
   try { const ctx = listener.context; if (settings.sound) { if (audioStarted) ctx.resume() } else ctx.suspend() } catch (e) {}
 }
+function applyBgm() { // オルゴールBGMだけON/OFF（環境音は残せる）
+  bgmEnabled = settings.bgm
+  if (setBgmBtn) { setBgmBtn.textContent = settings.bgm ? 'ON' : 'OFF'; setBgmBtn.classList.toggle('on', settings.bgm) }
+}
 function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { setMotionBtn.textContent = settings.motion ? 'ON' : 'OFF'; setMotionBtn.classList.toggle('on', settings.motion) } }
 window.__applySound = applySound // startAudio から呼べるように
 if (setBtn) setBtn.addEventListener('click', () => settingsEl && settingsEl.classList.add('on'))
 const setCloseEl = document.getElementById('set-close')
 if (setCloseEl) setCloseEl.addEventListener('click', () => settingsEl && settingsEl.classList.remove('on'))
+const setGuideEl = document.getElementById('set-guide')
+if (setGuideEl) setGuideEl.addEventListener('click', () => { if (settingsEl) settingsEl.classList.remove('on'); if (guideEl) guideEl.classList.add('on') }) // あそびかたを もう一度みる
 if (setSoundBtn) setSoundBtn.addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); applySound() })
+if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !settings.bgm; saveSettings(); applyBgm() })
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
-applyMotion(); applySound()
+applyMotion(); applySound(); applyBgm()
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {

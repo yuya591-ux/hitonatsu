@@ -119,6 +119,8 @@
       .set-toggle.on { background: #7aa86a; }
       #set-close { margin-top: 1.2em; appearance: none; border: none; cursor: pointer; padding: 0.55em 2.2em;
         font-size: clamp(15px,3vw,20px); font-family: inherit; color: #fdf7ec; background: #6a7088; border-radius: 999px; }
+      #set-guide { margin-top: 0.7em; appearance: none; border: none; cursor: pointer; padding: 0.45em 1.8em; display: block; margin-left: auto; margin-right: auto;
+        font-size: clamp(13px,2.6vw,17px); font-family: inherit; color: #5a4a36; background: rgba(150,170,120,0.22); border-radius: 999px; }
       /* はじめてのあそびかた（初回だけ・やさしく） */
       #guide { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 27; }
@@ -177,8 +179,10 @@
       <div class="set-card">
         <h2>せってい</h2>
         <div class="set-row"><span>おと（環境音・効果音）</span><button class="set-toggle" id="set-sound">ON</button></div>
+        <div class="set-row"><span>おんがく（オルゴール）</span><button class="set-toggle" id="set-bgm">ON</button></div>
         <div class="set-row"><span>画面のゆれを へらす</span><button class="set-toggle" id="set-motion">OFF</button></div>
         <button id="set-close">とじる</button>
+        <button id="set-guide">あそびかたを みる</button>
       </div>
     </div>
     <div id="guide">
