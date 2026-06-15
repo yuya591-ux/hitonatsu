@@ -2334,10 +2334,12 @@ function openDiary() {
     else { body.push('たのしい 夏休みだった。…また 来年。') }
   } else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? '明日は もっと 話せるかな。' : 'もうすぐ おまつりらしい。') }
   diaryBodyEl.innerHTML = body.map((l) => `<div class="line">${l}</div>`).join('')
-  // その日の眺めを「絵」として貼る
+  // その日の眺めを「絵」として貼る。今日カメラで撮っていたら、その一枚を絵日記に貼る（＝思い出の写真）
   if (diaryPicEl) {
-    const pic = makeDiaryPicture()
     diaryPicEl.innerHTML = ''
+    let pic = null
+    try { if (photoMode && photoMode.newCount > 0) { pic = photoMode.latestPhoto(); photoMode.clearNew() } } catch (e) {}
+    if (!pic) pic = makeDiaryPicture()
     if (pic) { const im = new Image(); im.src = pic; diaryPicEl.appendChild(im); diaryPicEl.style.display = 'block' }
     else diaryPicEl.style.display = 'none'
   }

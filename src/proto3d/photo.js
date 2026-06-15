@@ -156,8 +156,10 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
       const url = processRetro(renderer.domElement)
       if (!url) return
       photos.push(url); while (photos.length > cfg.maxPhotos) photos.shift(); saveAlbum()
+      newCount++ // その日の絵日記に使えるよう「新しく撮った枚数」を数える
     })
   }
+  let newCount = 0
   // レトロ強度プリセット切替＆日付スタンプON/OFF
   const presetNames = Object.keys(PHOTO_PRESETS)
   let presetIdx = 1 // 標準
@@ -190,5 +192,11 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   viewDel.addEventListener('click', () => { if (viewIdx >= 0) { photos.splice(viewIdx, 1); saveAlbum(); view.classList.remove('on'); openAlbum() } })
   addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if (k === 'p') { on ? exit() : enter() } else if (on && k === ' ') takePhoto() })
 
-  return { enter, exit, takePhoto, get count() { return photos.length } }
+  return {
+    enter, exit, takePhoto,
+    get count() { return photos.length },
+    get newCount() { return newCount }, // その日 新しく撮った枚数（絵日記用）
+    clearNew() { newCount = 0 },
+    latestPhoto() { return photos.length ? photos[photos.length - 1] : null },
+  }
 }
