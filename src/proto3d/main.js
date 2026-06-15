@@ -1945,10 +1945,13 @@ function makeButterfly(cx, cz) {
   const g = new THREE.Group()
   const col = [0xf2c84a, 0xe8743c, 0xf0f0f0, 0x8a6ed0][Math.floor(Math.random() * 4)]
   const wmat = new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true })
-  const wing = new THREE.PlaneGeometry(0.34, 0.46)
+  const wmat2 = new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(0.5), side: THREE.DoubleSide, transparent: true }) // 翅の模様（濃い斑）
+  const wing = new THREE.PlaneGeometry(0.34, 0.46), spot = new THREE.CircleGeometry(0.1, 10)
   const wl = new THREE.Mesh(wing, wmat); wl.position.x = -0.18; g.add(wl)
   const wr = new THREE.Mesh(wing, wmat); wr.position.x = 0.18; g.add(wr)
-  g.userData = { wl, wr, cx, cz, r: 4 + Math.random() * 6, ph: Math.random() * 6.28, sp: 0.5 + Math.random() * 0.5, mat: wmat }
+  const sl = new THREE.Mesh(spot, wmat2); sl.position.set(0.03, -0.1, 0.004); wl.add(sl) // 斑は翅にぶら下げて一緒に羽ばたく
+  const sr = new THREE.Mesh(spot, wmat2); sr.position.set(-0.03, -0.1, 0.004); wr.add(sr)
+  g.userData = { wl, wr, cx, cz, r: 4 + Math.random() * 6, ph: Math.random() * 6.28, sp: 0.5 + Math.random() * 0.5, mat: wmat, mat2: wmat2 }
   scene.add(g)
   butterflies.push(g)
 }
@@ -3908,7 +3911,7 @@ function update(dt) {
     b.rotation.y = -a + Math.PI / 2
     const flap = Math.sin(tsec * 14 + u.ph) * 0.9
     u.wl.rotation.y = flap; u.wr.rotation.y = -flap
-    u.mat.opacity = 1 - nf
+    u.mat.opacity = 1 - nf; if (u.mat2) u.mat2.opacity = 1 - nf // 斑も翅と一緒にフェード
     b.visible = nf < 0.96
   }
   // 赤とんぼ（夕方に飛ぶ）
@@ -3983,9 +3986,11 @@ function update(dt) {
     s.visible = true
     const pd = Math.hypot(boy.position.x - s.position.x, boy.position.z - s.position.z)
     if (u.state === 'ground') {
+      u.t += dt
       s.position.y = heightAt(s.position.x, s.position.z) + 0.1 + Math.abs(Math.sin(tsec * 4 + u.ph)) * 0.04 // ついばむ上下
       s.rotation.y = Math.sin(tsec * 0.4 + u.ph) * 0.9
       u.wl.rotation.z = 0.12; u.wr.rotation.z = -0.12
+      if (u.t > (u.hopCd || 2.4)) { u.hopCd = 1.8 + Math.random() * 2.6; u.t = 0; s.position.x += (Math.random() - 0.5) * 0.7; s.position.z += (Math.random() - 0.5) * 0.7 } // ぴょこっと近くへ移動（地面を跳ねる）
       if (pd < 5.5) { u.state = 'fly'; u.t = 0; const dx = s.position.x - boy.position.x, dz = s.position.z - boy.position.z, l = Math.hypot(dx, dz) || 1; u.vx = dx / l; u.vz = dz / l }
     } else {
       u.t += dt
