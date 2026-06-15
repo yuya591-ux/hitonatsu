@@ -2546,9 +2546,10 @@ canvas.addEventListener('pointermove', (e) => {
     if (lookIds.size >= 2) { // 2本指ピンチ＝ズーム
       const a = [...lookIds].map((id) => pointers.get(id)).filter(Boolean)
       if (a.length === 2) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (pinchD > 0 && d > 0) camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist); pinchD = d }
-    } else { // 1本指＝視点を回す
+    } else { // 1本指＝視点を回す（手で回したら自動追従を一時停止＝マリオ式の手動優先）
       camCtl.yaw -= (e.clientX - prevX) * 0.006
       camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005, camCtl.minPitch, camCtl.maxPitch)
+      camManualTimer = 1.8
     }
   }
 })
@@ -2697,6 +2698,7 @@ const lookTo = new THREE.Vector3()
 const camGoal = new THREE.Vector3()
 const lookGoal = new THREE.Vector3()
 const tmp = new THREE.Vector3()
+let camManualTimer = 0 // 手動でカメラを回した直後は自動追従を止める秒数（マリオ式：手で回すと優先）
 const camFwd = new THREE.Vector3()
 const camRight = new THREE.Vector3()
 const sunProj = new THREE.Vector3()
@@ -3272,6 +3274,14 @@ function update(dt) {
     fishEl.style.display = ((nearPond || fishState !== 'idle') && !dialogue && !catchTarget) ? 'block' : 'none'
     if (fishState === 'bite') floatMesh.position.y = WATER_Y + 0.15 + Math.sin(tsec * 30) * 0.08
 
+    // マリオ64/サンシャイン式の追従：歩くとカメラが進行方向の真後ろへゆっくり回り込む。
+    // 指で視点を回した直後(camManualTimer)は自動追従を止めて手動を優先する。
+    if (camManualTimer > 0) camManualTimer -= dt
+    else if (moving && speedNow > 0.8) {
+      let dyaw = (facing + Math.PI) - camCtl.yaw
+      while (dyaw > Math.PI) dyaw -= Math.PI * 2; while (dyaw < -Math.PI) dyaw += Math.PI * 2
+      camCtl.yaw += dyaw * Math.min(1, dt * 1.0) // ゆっくり（ラグ感＝レイクツーカメラ風）
+    }
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
     camCtl.dist += (camDistTarget * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
     camera.fov += ((BASE_FOV - calm * 4) - camera.fov) * Math.min(1, dt * 1.5)
@@ -3405,6 +3415,7 @@ window.__proto3d = {
   get _rainVol() { return rainGain ? rainGain.gain.value : -1 }, // 検証用：雨音の音量
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
+  get _camYaw() { return camCtl.yaw }, get _facing() { return facing }, // 検証用：カメラ追従
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
