@@ -16,8 +16,8 @@ const STYLE = 'seamless tileable texture, flat top-down orthographic view, soft 
 const TEX = {
   roof: { file: 'roof_kawara.jpg', w: 768, h: 768, seed: 71,
     prompt: `traditional Japanese kawara roof tiles in neat horizontal rows, weathered dark blue-grey ceramic, gentle highlights, ${STYLE}` },
-  wall: { file: 'wall_plaster.jpg', w: 768, h: 768, seed: 72,
-    prompt: `aged Showa-era mortar plaster wall, warm cream-beige, subtle water stains and fine hairline cracks, slightly weathered, ${STYLE}` },
+  wall: { file: 'wall_plaster.jpg', w: 768, h: 768, seed: 88,
+    prompt: `aged Showa-era sand-plaster stucco wall, uniform fine sandy grain covering the whole image evenly, gentle mottled cream-beige, faint even weathering, NO large cracks, NO single features, allover even texture, ${STYLE}` },
   ground: { file: 'ground_grass.jpg', w: 768, h: 768, seed: 73,
     prompt: `summer countryside lawn, short soft grass with small patches of dry earth, gentle low-contrast variation so it blends under terrain colors, ${STYLE}` },
   wood: { file: 'wood_plank.jpg', w: 768, h: 768, seed: 74,
@@ -33,7 +33,7 @@ await mkdir(OUT, { recursive: true })
 
 async function gen(name) {
   const t = TEX[name]; if (!t) { console.log('未知のテクスチャ:', name); return }
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt)}?model=flux&width=${t.w}&height=${t.h}&seed=${t.seed}&nologo=true`
+  const url = `https://gen.pollinations.ai/image/${encodeURIComponent(t.prompt)}?model=flux&width=${t.w}&height=${t.h}&seed=${t.seed}` // 認証付き新ホスト（sk_キーでIP制限を回避）
   for (let attempt = 1; attempt <= 8; attempt++) {
     try {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${KEY}` } })

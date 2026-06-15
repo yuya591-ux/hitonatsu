@@ -388,6 +388,17 @@ const woodTex = (() => {
 const ground = new THREE.Mesh(gGeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex }))
 ground.receiveShadow = true
 scene.add(ground)
+// ── 外部AI(Flux)生成テクスチャの差し替え（public/textures/。開発時に焼いた画像をランタイムで読む＝本番は外部API非依存）──
+// 同じテクスチャ参照(roofTex等)の .image を差し替えるので、それを使う全マテリアルに一括反映。地面(watercolorTex)は土道・布と共有のため対象外。
+{
+  const BASE = (import.meta.env && import.meta.env.BASE_URL) || '/'
+  const swaps = [['roof_kawara.jpg', roofTex, 9, 3], ['wall_plaster.jpg', plasterTex, 3, 2], ['wood_plank.jpg', woodTex, 1, 2]]
+  for (const [file, tex, ru, rv] of swaps) {
+    fetch(BASE + 'textures/' + file).then((r) => (r.ok ? r.blob() : null)).then((b) => b && createImageBitmap(b, { imageOrientation: 'flipY' }).then((bmp) => {
+      tex.image = bmp; tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(ru, rv); tex.anisotropy = 4; tex.needsUpdate = true
+    })).catch(() => {})
+  }
+}
 
 // ── 池（様式化したトゥーン水面：さざ波＋きらめき）──
 const waterMat = new THREE.ShaderMaterial({
