@@ -2010,6 +2010,29 @@ let wateringT = 0 // 水やり中の残り時間
   mergedOutline(k, 0.03); addContactShadow(k, 0.9); scene.add(k)
   swayables.push({ obj: k, ph: 1.0, amp: 0.014 }) // 風でわずかに傾ぐ
 }
+// ── 田んぼ群＋畦道＋用水路（中央集中を解いて「家→畦道→田んぼ→門」の回遊を作る）──
+function makeRicePaddy(cx, cz, w, d) {
+  const by = heightAt(cx, cz), hw = w / 2, hd = d / 2
+  const paddy = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshToonMaterial({ color: 0x7faa4e, gradientMap: GRAD, map: watercolorTex }))
+  paddy.rotation.x = -Math.PI / 2; paddy.position.set(cx, by + 0.06, cz); paddy.receiveShadow = true; scene.add(paddy)
+  for (const [ax, az, sw, sd] of [[cx, cz - hd, w + 1, 1], [cx, cz + hd, w + 1, 1], [cx - hw, cz, 1, d + 1], [cx + hw, cz, 1, d + 1]]) { const aze = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.3, sd), toon(0xb09a72)); aze.position.set(ax, by + 0.12, az); scene.add(aze) }
+  const cols = Math.max(2, Math.floor((w - 2) / 1.4)), rows = Math.max(2, Math.floor((d - 2) / 1.6))
+  const rice = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.5, 4), toon(0x6f9a3e), cols * rows)
+  const m4 = new THREE.Matrix4(); let n = 0
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { m4.makeTranslation(cx - hw + 1.2 + c * 1.4, by + 0.32, cz - hd + 1.2 + r * 1.6); rice.setMatrixAt(n++, m4) }
+  rice.count = n; rice.instanceMatrix.needsUpdate = true; rice.castShadow = false; scene.add(rice)
+}
+makeRicePaddy(48, -14, 18, 15) // 西どなりの田
+makeRicePaddy(50, 26, 20, 13)  // 門の手前の田
+// 用水路（コンクリ三面＋水＝田の南を走る人工水路。小川とは別）
+{ const uy = heightAt(51, -22)
+  const trough = new THREE.Mesh(new THREE.BoxGeometry(24, 0.4, 1.2), toon(0xb8b4a8)); trough.position.set(51, uy + 0.18, -22.3); trough.castShadow = true; addOutline(trough, 0.02); scene.add(trough)
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(23.4, 0.72), waterMat); water.rotation.x = -Math.PI / 2; water.position.set(51, uy + 0.33, -22.3); scene.add(water)
+  const plank = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.55), toonMap(0x8a6a44, woodTex)); plank.position.set(56, uy + 0.45, -22.3); plank.castShadow = true; addOutline(plank, 0.02); scene.add(plank) } // 渡しの板
+// 畦道（あぜを歩いて田を巡る小径）＝家・門と田んぼをつなぐ回遊路
+makeRoadRibbon(40, 34, 38, 18, 1.3, false)     // 門ぎわ→田の西を南下
+makeRoadRibbon(38, 18, 57, 17, 1.3, false)     // 既存田の南あぜ沿いに東へ
+makeRoadRibbon(57, 17, 57.5, -20, 1.3, false)  // 田の間（西どなりの田と既存田の境）を南下
 // すずめ（地面をついばみ、近づくと いっせいに飛び立つ＝反応する世界）
 const sparrows = []
 function makeSparrow(hx, hz) {
