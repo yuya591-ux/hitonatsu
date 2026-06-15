@@ -522,6 +522,21 @@ for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25,
     ch.position.set(cx2, heightAt(cx2, cz2), cz2); ch.rotation.y = Math.random() * 6.28; mergedOutline(ch, 0.02); addContactShadow(ch, 0.35); scene.add(ch)
     swayables.push({ obj: ch, ph: Math.random() * 6.28, amp: 0.06 }) // ついばむような小さな揺れ
   }
+  // 牛（畑のそばでのんびり草を食む＝夏の田舎の風物詩）
+  {
+    const cow = new THREE.Group()
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.55, 1.1, 6, 10), toon(0xf0ece2)); body.rotation.z = Math.PI / 2; body.position.y = 1.0; cow.add(body)
+    for (let i = 0; i < 4; i++) { const sp = new THREE.Mesh(new THREE.SphereGeometry(0.22 + Math.random() * 0.1, 8, 6), toon(0x3a322c)); sp.scale.set(1, 0.7, 0.5); sp.position.set(-0.7 + Math.random() * 1.4, 1.05 + (Math.random() - 0.5) * 0.5, 0.5 * (i % 2 ? 1 : -1)); cow.add(sp) } // ぶち模様
+    const neck = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.4, 5, 8), toon(0xf0ece2)); neck.position.set(0.95, 0.9, 0); neck.rotation.z = 0.7; cow.add(neck)
+    const headc = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.46), toon(0xf0ece2)); headc.position.set(1.3, 0.6, 0); cow.add(headc)
+    const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.42), toon(0xd0a890)); muzzle.position.set(1.5, 0.5, 0); cow.add(muzzle)
+    for (const hx of [-0.18, 0.18]) { const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 5), toon(0xe8e0cc)); horn.position.set(1.28, 0.86, hx); cow.add(horn); const ear = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), toon(0xf0ece2)); ear.scale.set(1, 0.5, 0.6); ear.position.set(1.18, 0.74, hx * 1.9); cow.add(ear) }
+    for (const lx of [-0.5, 0.5]) for (const lz of [-0.32, 0.32]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.9, 6), toon(0xe8e2d6)); leg.position.set(lx, 0.45, lz); cow.add(leg) }
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 0.9, 5), toon(0xe8e2d6)); tail.position.set(-0.95, 0.7, 0); tail.rotation.z = -0.3; cow.add(tail)
+    cow.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    const cwx = -33, cwz = 19; cow.position.set(cwx, heightAt(cwx, cwz), cwz); cow.rotation.y = 1.2; mergedOutline(cow, 0.03); addContactShadow(cow, 1.5); addCollider(cwx, cwz, 1.2); scene.add(cow)
+    swayables.push({ obj: cow, ph: Math.random() * 6.28, amp: 0.015 })
+  }
 }
 // ── 低木・茂み（下草。木の根元や縁に点々と＝葉の密度を上げる）──
 function makeBush(x, z, s = 1) {
