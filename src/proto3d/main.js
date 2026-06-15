@@ -1838,15 +1838,25 @@ makePhoneBox(TOWN.x + 6, TOWN.z - 23, -0.4)
   }
 }
 
-// ── 遠くの丘（360度の景色のため、周囲に低い丘をぐるりと）──
-for (let i = 0; i < 10; i++) {
-  const a = (i / 10) * Math.PI * 2 + 0.3
-  const r = 150 + Math.random() * 40
-  const hx = Math.cos(a) * r, hz = Math.sin(a) * r
-  const hill = new THREE.Mesh(new THREE.SphereGeometry(30 + Math.random() * 24, 16, 10), toon(0x86b06a))
-  hill.position.set(hx, -10 + Math.random() * 4, hz)
-  hill.scale.y = 0.4
-  scene.add(hill)
+// ── 遠くの山なみ（低ポリの稜線を多層に重ねて“山”に見せる＝潰れた球の置換。1層1ドローに集約）──
+{
+  const ring = (count, rad, vary, baseY, hMin, hMax, rMin, rMax, zsq, col, seg) => {
+    const geos = []
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.18
+      const r = rad + (Math.random() - 0.5) * vary
+      const h = hMin + Math.random() * (hMax - hMin), br = rMin + Math.random() * (rMax - rMin)
+      const ge = new THREE.ConeGeometry(br, h, seg)
+      ge.rotateY(Math.random() * Math.PI); ge.scale(1, 1, zsq + Math.random() * 0.3)
+      ge.translate(Math.cos(a) * r, baseY + h / 2 - 4, Math.sin(a) * r)
+      geos.push(ge)
+    }
+    const mesh = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD }))
+    geos.forEach((g) => g.dispose()); scene.add(mesh)
+  }
+  ring(34, 182, 26, -13, 36, 64, 30, 46, 0.7, 0x93a7ad, 6) // 遠景＝青くかすむ高い山なみ
+  ring(30, 158, 22, -11, 22, 42, 28, 40, 0.75, 0x86a26a, 7) // 中景＝緑の山
+  ring(24, 146, 16, -9, 16, 28, 24, 34, 0.85, 0x7c9a58, 7)  // 近景の丘（裾が霧にとける）
 }
 
 // ── 草むら（低い茂みのかたまり。InstancedMeshで安く密に・風になびく）──
