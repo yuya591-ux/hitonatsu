@@ -2865,26 +2865,23 @@ actBtn.addEventListener('click', () => {
 })
 lieBtn.addEventListener('click', () => { if (mode === 'walk') lieDown() })
 
+let lieT = 0 // 横になる所作のタイマー（mode='lying' の進行）
 function lieDown() {
-  mode = 'lie'
+  if (mode !== 'walk') return
+  mode = 'lying'; lieT = 0 // まず「よいしょ」と横になる所作を見せる→終わったら空の視点へ
   todayFlags.layDown = true
-  endPuni()
-  vel.set(0, 0, 0)
+  endPuni(); vel.set(0, 0, 0)
+  boy.scale.setScalar(BOY_SCALE); landSquash = 0; airborne = false
+  boy.rotation.z = 0; boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0; boy.userData.ankleL.rotation.x = 0; boy.userData.ankleR.rotation.x = 0
+  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'; lookHint.style.display = 'none'
+}
+function enterLieView() { // 一人称で空を見る視点へ（カメラは追従lerpでなめらかに移る＝スナップしない）
+  mode = 'lie'
   boy.position.y = heightAt(boy.position.x, boy.position.z) + 0.25
-  boy.rotation.x = -1.35 // あおむけ
-  boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
-  boy.userData.kneeL.rotation.x = 0.2; boy.userData.kneeR.rotation.x = 0.2
-  boy.userData.ankleL.rotation.x = 0; boy.userData.ankleR.rotation.x = 0
-  boy.visible = false // 一人称で空を見る（自分の体は映さない）
-  seatLook.yaw = boy.rotation.y; seatLook.pitch = 1.2 // 空を見上げる
-  // カメラを地面すぐ上へ置き、空へ向ける（スナップ）
+  boy.rotation.x = -1.35
+  boy.visible = false
+  seatLook.yaw = boy.rotation.y; seatLook.pitch = 1.2
   camera.fov = BASE_FOV; camera.updateProjectionMatrix()
-  const ex = boy.position.x, ey = heightAt(boy.position.x, boy.position.z) + 0.55, ez = boy.position.z
-  const cp = Math.cos(seatLook.pitch)
-  camera.position.set(ex, ey, ez)
-  camera.userData._look = camera.userData._look || new THREE.Vector3()
-  camera.userData._look.set(ex + Math.sin(seatLook.yaw) * cp, ey + Math.sin(seatLook.pitch), ez + Math.cos(seatLook.yaw) * cp)
-  actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   lookHint.style.display = 'block'
 }
 
@@ -3591,6 +3588,19 @@ function update(dt) {
       if (ct < 1) { camGoal.x = hx + (camGoal.x - hx) * ct; camGoal.z = hz + (camGoal.z - hz) * ct; camGoal.y = hyc + (camGoal.y - hyc) * ct }
     }
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
+  } else if (mode === 'lying') {
+    // 「よいしょ」と その場に横になる所作（約1.05秒）。3/4の低い視点で見せ、終わりに空の視点へ移る
+    lieT += dt
+    const p = Math.min(1, lieT / 1.05), e = p * p * (3 - 2 * p)
+    const gy = heightAt(boy.position.x, boy.position.z)
+    boy.rotation.x = -1.35 * e // 立つ→あおむけ
+    boy.position.y = gy + 0.25 * e + Math.sin(p * Math.PI) * 0.05 // よいしょ（一度すこし腰を落として）
+    const kb = Math.sin(p * Math.PI) * 0.9
+    boy.userData.kneeL.rotation.x = kb; boy.userData.kneeR.rotation.x = kb
+    boy.userData.armR.rotation.x = -Math.sin(p * Math.PI) * 0.7; boy.userData.armL.rotation.x = -Math.sin(p * Math.PI) * 0.45 // 手を後ろについて倒れる
+    camGoal.set(boy.position.x + Math.sin(boy.rotation.y + 1.3) * 2.7, gy + 1.5, boy.position.z + Math.cos(boy.rotation.y + 1.3) * 2.7)
+    lookGoal.set(boy.position.x, gy + 0.55, boy.position.z)
+    if (lieT >= 1.05) enterLieView()
   } else if (mode === 'lie') {
     // 寝ころんで空を見る：目線は地面すぐ上、上を向く
     seatEye.set(boy.position.x, heightAt(boy.position.x, boy.position.z) + 0.55, boy.position.z)
