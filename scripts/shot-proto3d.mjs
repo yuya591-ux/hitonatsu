@@ -192,7 +192,7 @@ try {
   await new Promise((r) => setTimeout(r, 300))
   const bought = await page.evaluate(() => document.getElementById('toast').textContent.includes('ラムネ'))
   console.log(`ラムネ購入テスト: ボタン=「${buyBtn}」 買えた=${bought ? 'OK' : 'NG'}`)
-  if (buyBtn !== 'ラムネを買う' || !bought) errors.push('自販機でラムネを買えない')
+  if (buyBtn !== 'ラムネを 一本' || !bought) errors.push('自販機でラムネを買えない')
   await page.screenshot({ path: join(outDir, 'proto3d-vending.png') })
   console.log('撮影: proto3d-vending.png')
   // 見晴らしベンチ／ブランチ：頂上で「街を ながめる」、ブランコで「のる」

@@ -2715,6 +2715,7 @@ composer.addPass(gradePass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき）
   renderer.setSize(w, h)
   composer.setSize(w, h)
   bloom.setSize(w / 2, h / 2) // ブルームは半解像度を維持
@@ -4161,7 +4162,7 @@ function update(dt) {
     const nearNpc = !!talkTarget
     if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.act = 'talk'; npcEl.style.display = 'block' }
     else if (nearCat && !dialogue) { npcEl.textContent = 'なでる'; npcEl.dataset.act = 'pet'; npcEl.style.display = 'block' }
-    else if (nearVending && !dialogue) { npcEl.textContent = 'ラムネを買う'; npcEl.dataset.act = 'buy'; npcEl.style.display = 'block' }
+    else if (nearVending && !dialogue) { npcEl.textContent = 'ラムネを 一本'; npcEl.dataset.act = 'buy'; npcEl.style.display = 'block' }
     else if (nearGarden && !dialogue) { npcEl.textContent = '水をやる'; npcEl.dataset.act = 'water'; npcEl.style.display = 'block' }
     else npcEl.style.display = 'none'
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
