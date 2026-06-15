@@ -302,6 +302,15 @@ const plasterTex = (() => {
   const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
   x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
   for (let i = 0; i < 280; i++) { x.globalAlpha = 0.045; const v = 198 + Math.random() * 56; x.fillStyle = `rgb(${v | 0},${v | 0},${(v - 12) | 0})`; const px = Math.random() * s, py = Math.random() * s, r = 2 + Math.random() * 9; for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, Math.PI * 2); x.fill() } }
+  // 雨だれの筋（昭和の壁のくたびれ＝上から下へ薄く流れる縦の汚れ）。控えめにして“新築感”を消す
+  x.globalAlpha = 1
+  for (let i = 0; i < 20; i++) {
+    const sx = Math.random() * s, sy = Math.random() * s * 0.35, len = s * (0.3 + Math.random() * 0.55), w = 1 + Math.random() * 2.4
+    const g = x.createLinearGradient(0, sy, 0, sy + len)
+    g.addColorStop(0, 'rgba(116,104,88,0)'); g.addColorStop(0.3, `rgba(116,104,88,${(0.05 + Math.random() * 0.06).toFixed(3)})`); g.addColorStop(1, 'rgba(108,98,82,0)')
+    x.fillStyle = g
+    for (const ox of [-s, 0, s]) x.fillRect(sx + ox - w / 2, sy, w, len)
+  }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 2); return t
 })()
 // 木目：縦に流れる筋
@@ -3361,7 +3370,8 @@ function update(dt) {
     const dx = sp.x - villager.position.x, dz = sp.z - villager.position.z
     const dd = Math.hypot(dx, dz)
     const vu = villager.userData
-    if (dd > 0.3) {
+    if (window.__poseFreeze) { villager.rotation.y = 0; vu.head.rotation.set(0, 0, 0) } // 検証用：正面で固定
+    else if (dd > 0.3) {
       const step = Math.min(1.6 * dt, dd)
       villager.position.x += (dx / dd) * step
       villager.position.z += (dz / dd) * step
@@ -3391,7 +3401,8 @@ function update(dt) {
     n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
     const pd = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z)
     const near = pd < 4.5 && area === 'town'
-    if (near) {
+    if (window.__poseFreeze) { n.rotation.y = 0; n.userData.head.rotation.set(0, 0, 0) } // 検証用：正面で固定
+    else if (near) {
       let dd = Math.atan2(boy.position.x - n.position.x, boy.position.z - n.position.z) - n.rotation.y
       while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2
       n.rotation.y += dd * Math.min(1, dt * 4)
