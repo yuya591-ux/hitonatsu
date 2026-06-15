@@ -2375,7 +2375,9 @@ for (const [dx, col, sp, boyP] of pedDefs) {
   const bag = adult && Math.random() < 0.5 ? [0xc8a060, 0x9a7a5a, 0xb0563f, 0x6a8a9a][Math.floor(Math.random() * 4)] : false // 大人の半分は買い物袋
   const hr = Math.random(), hat = hr < 0.34 ? 'cap' : hr < 0.56 ? (adult ? 'bucket' : 'straw') : false // 約半数が帽子（平成初期＝野球帽/バケハ/麦わら）。残りは髪をしっかり
   const band = [0x3a5a8a, 0xc0392b, 0x2a6a4a, 0xe0a030, 0x6a5a8a, 0x4a4a4a, 0xd0d0c8][Math.floor(Math.random() * 7)]
-  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, simple: true, adult, bag, hat, band, scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const skin = [0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xddb088][Math.floor(Math.random() * 5)] // 肌色の個体差
+  const pants = [0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0xccc4b4][Math.floor(Math.random() * 6)] // ズボン/スカートの色幅（平成初期：紺/ベージュ/デニム/白など）
+  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: pants, skin, hair, boy: boyP, simple: true, adult, bag, hat, band, scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
   p.userData.ped = { sp, dir: Math.random() < 0.5 ? 1 : -1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
   p.position.z = TOWN.z - 28 + Math.random() * 56; p.rotation.y = p.userData.ped.dir > 0 ? 0 : Math.PI // 散らばった初期位置・向き
   pedestrians.push(p)
@@ -2383,7 +2385,7 @@ for (const [dx, col, sp, boyP] of pedDefs) {
 // 屋台のお客（夕方〜夜にだけ現れて、カウンターに立つ＝縁日の賑わい）
 const yataiPatrons = []
 for (const [px, pz, fc, col, boyP] of [[TOWN.x - 7.7, TOWN.z + 20.7, 2.7, 0x8a6a9a, false], [TOWN.x - 8.9, TOWN.z + 19.9, 2.4, 0x5a7a9a, true], [TOWN.x - 6.4, TOWN.z + 21.0, 3.0, 0xb07a5a, false]]) {
-  const p = makeVillager(px, pz, { shirt: col, skirt: 0x4a4038, hair: boyP ? 0x2a2218 : 0x4a3a2e, boy: boyP, simple: true, face: fc, info: { name: '', byPhase: { noon: [''] } } })
+  const p = makeVillager(px, pz, { shirt: col, skirt: [0x3a4a6a, 0x8a6a4a, 0x46688a][Math.floor(Math.random() * 3)], skin: [0xf0c49c, 0xe8b890, 0xeab584][Math.floor(Math.random() * 3)], hair: boyP ? 0x2a2218 : 0x4a3a2e, boy: boyP, simple: true, adult: !boyP, face: fc, info: { name: '', byPhase: { noon: [''] } } })
   p.visible = false; yataiPatrons.push(p)
 }
 
