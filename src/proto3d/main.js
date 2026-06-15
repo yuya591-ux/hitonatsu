@@ -3720,10 +3720,14 @@ function update(dt) {
     const w = ambientWeights(tday)
     // 蝉しぐれ：ゆっくり寄せては返すように音量がうねる（一様でない＝本物の夏の気配）
     const cicadaSwell = (0.68 + 0.32 * (0.5 + 0.5 * Math.sin(tsec * 0.12)) + 0.06 * Math.sin(tsec * 0.5 + 1.0)) * (1 - weather * 0.75) // 夕立で蝉が静かに
+    // エリアで音の表情を変える：神社の杜は静けさ際立つ／町は蝉が控えめ（生活音の気配）。場所の個性＝散策の没入。
+    const areaAmb = area === 'shrine' ? { cicada: 1.18, higurashi: 1.18, morning: 1.3, night: 1.12 }
+                  : area === 'town' ? { cicada: 0.62, higurashi: 0.72, morning: 0.85, night: 0.92 } : null
     for (const id in ambients) {
       const a = ambients[id]; if (!a.buffer) continue
       let v = Math.min(1, w[id] || 0) * 0.6
       if (id === 'cicada' || id === 'higurashi') v *= cicadaSwell
+      if (areaAmb && areaAmb[id]) v *= areaAmb[id]
       a.setVolume(Math.max(0, v))
     }
     if (tday < 0.4) chimeArmed = true
