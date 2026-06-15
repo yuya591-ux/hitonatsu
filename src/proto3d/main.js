@@ -1936,6 +1936,36 @@ const gardenCrops = []
   }
   for (const [sx, sz] of [[gx - 2, gz + 5.4], [gx + 1.6, gz + 5.7]]) { const wm = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), toon(0x2f6b34)); wm.scale.set(1.1, 0.9, 1.1); wm.position.set(sx, heightAt(sx, sz) + 0.36, sz); wm.castShadow = true; addOutline(wm, 0.03); addContactShadow(wm, 0.5); scene.add(wm) }
 }
+// ── 家の屋敷まわり（納屋・生垣・薪）＝「ポツンと一軒家」を「人の住む屋敷」に ──
+// 納屋（トタン片流れ屋根の物置＝農具・薪。家のとなりに）
+function makeShed(x, z, rot) {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.4, 2.8), toonMap(0x8a6f4a, woodTex)); body.position.y = 1.2; g.add(body)
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.16, 3.3), toonMap(0x9a8266, roofTex)); roof.position.set(0, 2.52, -0.18); roof.rotation.x = -0.17; g.add(roof) // 片流れトタン
+  const door = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.9), toon(0x44362a)); door.position.set(-0.5, 0.96, 1.41); g.add(door)
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.58), toon(0x5a707a)); win.position.set(1.1, 1.5, 1.41); g.add(win)
+  for (const [dx, c] of [[1.7, 0x8a6a44], [1.86, 0xbfae6e]]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.95, 5), toon(c)); t.position.set(dx, 0.97, 1.45); t.rotation.z = 0.16; g.add(t) } // 立てかけた鍬・竹箒
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, heightAt(x, z), z); g.rotation.y = rot
+  mergedOutline(g, 0.04); addContactShadow(g, 2.4); addBox(x, z, 1.8, 1.4, rot)
+  scene.add(g)
+}
+makeShed(-26, 9, 1.15)
+// 生垣（敷地をゆるく囲う＝「住んでる」気配。胴は箱・天は刈り込みの塊をまとめて1ドロー）
+function makeHedge(x0, z0, x1, z1, hh = 0.95) {
+  const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), ang = Math.atan2(dx, dz)
+  const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, my = heightAt(mx, mz)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.75, hh, len), toon(0x44702f)); body.position.set(mx, my + hh / 2, mz); body.rotation.y = ang; body.castShadow = true; addOutline(body, 0.03); scene.add(body)
+  const geos = []; const n = Math.max(2, Math.round(len / 0.7))
+  for (let i = 0; i <= n; i++) { const t = i / n; const ge = new THREE.IcosahedronGeometry(0.5, 0); ge.scale(1, 0.6, 1); ge.translate((x0 + dx * t) - mx, hh + 0.06, (z0 + dz * t) - mz); geos.push(ge) }
+  const top = new THREE.Mesh(mergeGeometries(geos), toon(0x52823f)); top.position.set(mx, my, mz); geos.forEach((g) => g.dispose()); top.castShadow = true; scene.add(top)
+}
+makeHedge(-29, 4, -29, 21)   // 西の生垣
+makeHedge(-29, 21, -11, 22.5) // 北の生垣（家の背戸）
+// 薪の山（納屋のわき）
+{ const wp = new THREE.Group(), wood = toon(0x9a7a4a)
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const lg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.1, 7), wood); lg.rotation.x = Math.PI / 2; lg.position.set(-0.55 + c * 0.28, 0.14 + r * 0.25, (r % 2) * 0.05); wp.add(lg) }
+  wp.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(wp, -23.5, 11, 0.5, 0.03, 1.2) }
 // 水やりの水しぶき（じょうろから落ちる水の粒）
 const WDROPN = 20
 const wdropPos = new Float32Array(WDROPN * 3).fill(-9999)
