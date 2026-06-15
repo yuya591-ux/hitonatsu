@@ -2920,27 +2920,29 @@ function ambientWeights(t) {
     night: ss(0.82, 0.93) + (t < 0.02 ? 0.3 : 0),
   }
 }
-function playChime() {
-  // 完全オリジナルの素朴な5音（特定の防災チャイム旋律は使わない）。遠くから聞こえるよう強めにLPF。
+function playChime(echo) {
+  // 完全オリジナルの素朴な5音（特定の防災チャイム旋律は使わない）。鐘らしい倍音＋長い残響、遠くから返るエコー。
   try {
     const ctx = listener.context
     const now = ctx.currentTime
     const base = 523.25 // C5
     const notes = [0, 2, 4, 7, 4]
+    const vol = echo ? 0.06 : 0.13
     notes.forEach((n, i) => {
-      const t0 = now + i * 0.5
+      const t0 = now + i * 0.52
       const f = base * Math.pow(2, n / 12)
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = echo ? 920 : 1250 // エコーはより遠く（こもる）
       const g = ctx.createGain()
       g.gain.setValueAtTime(0.0001, t0)
-      g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.02)
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.7)
-      for (const mul of [1, 2.01]) {
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02)
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.6) // 残響を長く＝夕暮れの余韻
+      for (const [mul, amp] of [[1, 1.0], [2.01, 0.5], [3.02, 0.22]]) { // 3倍音で鐘らしく
         const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = f * mul
-        osc.connect(g); osc.start(t0); osc.stop(t0 + 1.8)
+        const og = ctx.createGain(); og.gain.value = amp; osc.connect(og); og.connect(g); osc.start(t0); osc.stop(t0 + 2.7)
       }
       g.connect(lp); lp.connect(getSfxOut())
     })
+    if (!echo) setTimeout(() => { try { playChime(true) } catch (e) {} }, 3400) // 遠くから返ってくる山びこ
   } catch (e) {}
 }
 // ── 効果音の自前合成（外部素材ゼロ。AudioContextで都度つくる）──
