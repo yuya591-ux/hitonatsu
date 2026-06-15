@@ -1969,13 +1969,8 @@ function makeVillager(x, z, opt) {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 9), skin); neck.position.y = 1.22; g.add(neck)
   // あたま＝相対的に大きく（主人公と同じ幼児頭身に統一）。geometry0.185＋scaleで実効を大きく
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 16), skin); head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.35; g.add(head)
-  // 髪＝頭をきれいに包むボブ。前髪のフチは額（目の上）で止め、目に被らないようにする（怖さ解消）。
-  // 浅いキャップ(0.50π)＝前は額、横は耳、後ろはうなじまで。少しの前傾で自然な被り。
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.226, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), toon(opt.hair)); hair.position.y = 1.385; hair.rotation.x = -0.2; g.add(hair)
-  // 前髪（額の生え際を少しだけ前へ。目の上で止まる薄い庇）
-  if (!opt.boy) { const bang = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8, 0, Math.PI * 2, Math.PI * 0.34, Math.PI * 0.18), toon(opt.hair)); bang.position.set(0, 1.4, 0.03); bang.rotation.x = 0.3; g.add(bang) }
-  // 横の毛束（耳の脇。低すぎない位置に）
-  if (!opt.boy && !opt.simple) for (const hx of [-0.2, 0.2]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.072, 10, 10), toon(opt.hair)); pt.scale.set(0.8, 1.2, 0.8); pt.position.set(hx, 1.36, -0.02); g.add(pt) }
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.37; hair.rotation.x = -0.25; g.add(hair)
+  if (!opt.boy && !opt.simple) for (const hx of [-0.21, 0.21]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.078, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.31, -0.04); g.add(pt) }
   // 腕（肩ピボット＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル。短めでむちっと。
   let elbowL = null, elbowR = null
   function makeArm(side) {
@@ -3379,8 +3374,7 @@ function update(dt) {
     const dx = sp.x - villager.position.x, dz = sp.z - villager.position.z
     const dd = Math.hypot(dx, dz)
     const vu = villager.userData
-    if (window.__poseFreeze) { villager.rotation.y = 0; vu.head.rotation.set(0, 0, 0) } // 検証用：正面で固定
-    else if (dd > 0.3) {
+    if (dd > 0.3) {
       const step = Math.min(1.6 * dt, dd)
       villager.position.x += (dx / dd) * step
       villager.position.z += (dz / dd) * step
@@ -3410,8 +3404,7 @@ function update(dt) {
     n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
     const pd = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z)
     const near = pd < 4.5 && area === 'town'
-    if (window.__poseFreeze) { n.rotation.y = 0; n.userData.head.rotation.set(0, 0, 0) } // 検証用：正面で固定
-    else if (near) {
+    if (near) {
       let dd = Math.atan2(boy.position.x - n.position.x, boy.position.z - n.position.z) - n.rotation.y
       while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2
       n.rotation.y += dd * Math.min(1, dt * 4)
