@@ -2861,11 +2861,13 @@ function getBgmOut() {
   return bgmGain
 }
 const MB_SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98] // Cメジャー・ペンタトニック（約2オクターブ）
+const MB_SCALE_NIGHT = [440.0, 523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51] // Aマイナー・ペンタ＝夜のしみじみ
+let mbScale = MB_SCALE // updateMusicBoxが時間帯で切り替える
 // オルゴールの1音：基音＋わずかに外れた倍音（金属の響き）＋カチッと速い立ち上がり＋長い余韻
 function mbNote(degree, when, vel, oct) {
   const ctx = listener.context, out = getBgmOut()
-  const idx = Math.max(0, Math.min(MB_SCALE.length - 1, degree + (oct || 0) * 5))
-  const freq = MB_SCALE[idx]
+  const idx = Math.max(0, Math.min(mbScale.length - 1, degree + (oct || 0) * 5))
+  const freq = mbScale[idx]
   const g = ctx.createGain()
   g.gain.setValueAtTime(0.0001, when)
   g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vel), when + 0.005)
@@ -2892,8 +2894,9 @@ function updateMusicBox(dt) {
   if (ctx.state !== 'running') return
   bgmWait -= dt
   if (bgmWait > 0) return
-  // 時間帯で表情：昼は明るめ、夜はとても控えめ＆低音域。夕立では一段やわらかく。
+  // 時間帯で表情：昼は明るめ(メジャー)、夜はしみじみ(マイナー・低音域)。夕立では一段やわらかく。
   const nf = nightFactor(tday)
+  mbScale = nf > 0.45 ? MB_SCALE_NIGHT : MB_SCALE // 夜はAマイナー・ペンタで哀愁を
   const vel = (0.058 - 0.022 * nf) * (1 - weather * 0.35)
   const octBias = tday > 0.78 ? -1 : 0
   const motif = MB_MOTIFS[(Math.random() * MB_MOTIFS.length) | 0]
