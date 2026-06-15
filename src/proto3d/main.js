@@ -2481,7 +2481,7 @@ function spawnFirework() {
 // ── 入道雲（高くにゆっくり流れる。寝ころんで空を見ると気持ちいい）──
 const clouds = []
 {
-  const cmat = new THREE.MeshBasicMaterial({ color: 0xfbfbf6, fog: false, transparent: true, opacity: 0.95 })
+  const cmat = new THREE.MeshToonMaterial({ color: 0xf6f7f3, gradientMap: GRAD, fog: false }) // トゥーン陰影で上は白く下はやわらかく陰る＝入道雲と様式をそろえる(のっぺり解消)
   for (let i = 0; i < 6; i++) {
     const g = new THREE.Group()
     const n = 3 + Math.floor(Math.random() * 3)
