@@ -10,6 +10,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { loadAudioUrls } from '../data/audioAssets.js'
 import boyImgUrl from './boy.png' // 主人公＝手描き水彩画（作者オリジナル）をビルボードで立てる
+import { initPhotoMode } from './photo.js' // 写真モード（平成レトロ画質）＝独立モジュール（足すだけ）
 
 const canvas = document.getElementById('c')
 const actBtn = document.getElementById('act')
@@ -3271,6 +3272,10 @@ renderer.setAnimationLoop(() => {
   update(dt)
   composer.render()
 })
+
+// 写真モード（平成レトロ画質）を起動。既存には触れず、上に乗せるだけ。
+const photoMode = initPhotoMode({ renderer, getDay: () => day })
+window.__photo = photoMode // 検証用
 
 // 横画面のおすすめ（縦持ちのスマホにだけ、やさしく一度。閉じれる/数秒で消える）
 const rotateEl = document.getElementById('rotate')
