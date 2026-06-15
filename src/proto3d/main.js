@@ -1891,6 +1891,7 @@ for (let i = 0; i < 7; i++) {
 
 // ── 夕立（時おり通り雨。空が陰り、雨が降って すぐ晴れる＝夏の通り雨）──
 let weather = 0, weatherTarget = 0, weatherTimer = 50 + Math.random() * 50 // 0=快晴 1=本降り
+let rainGain = null, rainStarted = false, thunderCd = 12 // 雨音（自前合成）・遠雷のクールダウン
 const RAINN = 280, RAIN_BOX = 15, RAIN_H = 17
 const rainGeo = new THREE.BufferGeometry()
 const rainPos = new Float32Array(RAINN * 6)
@@ -2040,6 +2041,38 @@ function startAudio() {
     if (ctx.state === 'suspended') ctx.resume()
     for (const id in ambients) { const a = ambients[id]; if (a.buffer && !a.isPlaying) a.play() }
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
+    initRainAudio()
+  } catch (e) {}
+}
+// 雨音＝自前合成（外部素材ゼロ）。ノイズをループしてLPF/HPFで「夏のやわらかい雨」に。音量は weather で動かす。
+function initRainAudio() {
+  if (rainStarted) return
+  try {
+    const ctx = listener.context
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 2), ctx.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 340
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2300; lp.Q.value = 0.4
+    rainGain = ctx.createGain(); rainGain.gain.value = 0
+    src.connect(hp); hp.connect(lp); lp.connect(rainGain); rainGain.connect(ctx.destination)
+    src.start()
+    rainStarted = true
+  } catch (e) {}
+}
+// 遠雷＝低いランブル（本降りのときだけ、たまに）
+function maybeThunder(dt) {
+  if (!audioStarted || weather < 0.55) return
+  thunderCd -= dt
+  if (thunderCd > 0) return
+  thunderCd = 9 + Math.random() * 18
+  try {
+    const ctx = listener.context, now = ctx.currentTime
+    const src = ctx.createBufferSource(); src.buffer = getNoise(); src.loop = true; src.playbackRate.value = 0.5
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(420, now); lp.frequency.exponentialRampToValueAtTime(85, now + 1.9)
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.11, now + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, now + 2.5)
+    src.connect(lp); lp.connect(g); g.connect(ctx.destination); src.start(now); src.stop(now + 2.7)
   } catch (e) {}
 }
 function ambientWeights(t) {
@@ -2680,6 +2713,9 @@ function update(dt) {
     for (let i = 0; i < RAINN; i++) { rainY[i] -= fall; if (rainY[i] < 0) rainY[i] += RAIN_H; pa.array[i * 6 + 1] = rainY[i] + 0.85; pa.array[i * 6 + 4] = rainY[i] }
     pa.needsUpdate = true
   }
+  // 雨音：weather に合わせて音量を上げ下げ（クリックしないよう setTargetAtTime でなめらかに）。遠雷もたまに
+  if (rainGain) { const tgt = THREE.MathUtils.clamp((weather - 0.04) * 0.27, 0, 0.23); rainGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 0.6) }
+  maybeThunder(dt)
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
   for (const tex of barberPoles) { tex.offset.y -= dt * 0.4 }
@@ -3290,6 +3326,8 @@ window.__proto3d = {
     return r
   },
   _weather(v) { weather = v; weatherTarget = v; weatherTimer = 999 }, // 検証用：夕立 0=晴 1=雨
+  get _rainVol() { return rainGain ? rainGain.gain.value : -1 }, // 検証用：雨音の音量
+  get _rainStarted() { return rainStarted },
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
