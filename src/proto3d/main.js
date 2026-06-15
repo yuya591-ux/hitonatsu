@@ -202,7 +202,7 @@ scene.add(sunBall)
 const PAL = {
   morn: { light: 0xffe9c8, li: 1.95, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.45, hsky: 0xcfe6f4, hgnd: 0x95a766, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 },
   noon: { light: 0xfff6e8, li: 2.3, sky: 0x84bce2, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.58, hsky: 0xdaf0fb, hgnd: 0x95a766, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
-  dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xee7438, bot: 0xf7b262, fog: 0xe7a074, hi: 1.15, hsky: 0xe89a72, hgnd: 0x7e7250, ball: 0xff8f48, rim: 0xff8038, ri: 1.05 },
+  dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xee7438, bot: 0xf7b262, fog: 0xe7a074, hi: 1.15, hsky: 0xe89a72, hgnd: 0x7e7250, ball: 0xff8f48, rim: 0xff7a30, ri: 1.32 },
   night: { light: 0x97abdc, li: 1.18, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x35466a, hi: 1.05, hsky: 0x4e6398, hgnd: 0x4a5e72, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 },
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
