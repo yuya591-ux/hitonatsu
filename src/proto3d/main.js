@@ -134,7 +134,8 @@ const SHADOW_TEX = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 64
   const x = c.getContext('2d')
   const g = x.createRadialGradient(32, 32, 2, 32, 32, 30)
-  g.addColorStop(0, 'rgba(24,28,18,0.5)'); g.addColorStop(1, 'rgba(24,28,18,0)')
+  // 中心を濃く＝伸ばしても接地点直下に密度が残り“浮き”を防ぐ
+  g.addColorStop(0, 'rgba(20,24,16,0.62)'); g.addColorStop(0.4, 'rgba(20,24,16,0.34)'); g.addColorStop(1, 'rgba(20,24,16,0)')
   x.fillStyle = g; x.fillRect(0, 0, 64, 64)
   return new THREE.CanvasTexture(c)
 })()
@@ -191,18 +192,18 @@ scene.add(skyDome)
 
 // 太陽（明るい球。ブルームでにじむ）
 const sunBall = new THREE.Mesh(
-  new THREE.SphereGeometry(9, 24, 24),
-  new THREE.MeshBasicMaterial({ color: 0xfff4cf, fog: false }),
+  new THREE.SphereGeometry(6, 24, 24), // 小さめ＝白飛びの種を減らす
+  new THREE.MeshBasicMaterial({ color: 0xffeec0, fog: false }), // 純白を避けたやわらかい黄
 )
 sunBall.position.copy(sunDir.clone().multiplyScalar(300))
 scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe9c8, li: 2.0, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.5, hsky: 0xcfe6f4, hgnd: 0x9ab468, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 },
-  noon: { light: 0xfff6e8, li: 2.5, sky: 0x7fbce6, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.7, hsky: 0xdaf0fb, hgnd: 0x9ab468, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
+  morn: { light: 0xffe9c8, li: 1.95, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.45, hsky: 0xcfe6f4, hgnd: 0x95a766, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 },
+  noon: { light: 0xfff6e8, li: 2.3, sky: 0x84bce2, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.58, hsky: 0xdaf0fb, hgnd: 0x95a766, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
   dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xee7438, bot: 0xf7b262, fog: 0xe7a074, hi: 1.15, hsky: 0xe89a72, hgnd: 0x7e7250, ball: 0xff8f48, rim: 0xff8038, ri: 1.05 },
-  night: { light: 0x8fa3d6, li: 0.95, sky: 0x121a30, mid: 0x24304f, bot: 0x3a4a6e, fog: 0x2c3a5a, hi: 0.85, hsky: 0x44588c, hgnd: 0x3c4e5e, ball: 0xcdd6ff, rim: 0x7d93cc, ri: 0.28 },
+  night: { light: 0x97abdc, li: 1.18, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x35466a, hi: 1.05, hsky: 0x4e6398, hgnd: 0x4a5e72, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 },
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
 const lc = (out, ha, hb, u) => out.copy(_a.set(ha)).lerp(_b.set(hb), u)
@@ -244,18 +245,21 @@ const gGeo = new THREE.PlaneGeometry(240, 240, 90, 90)
 gGeo.rotateX(-Math.PI / 2)
 const gPos = gGeo.attributes.position
 const gCol = []
-const cGrassLo = new THREE.Color(0x84b252)
-const cGrassHi = new THREE.Color(0xb6d97a)
-const cGrassDry = new THREE.Color(0xb0ac6e) // 夏の日に焼けた乾いた草＝大きなムラで点在
+const cGrassLo = new THREE.Color(0x86a256) // 彩度を少し落としたオリーブ寄りの夏草（鮮やかすぎる“ゲーム緑”を避け記憶の色へ）
+const cGrassHi = new THREE.Color(0xb0cb7c)
+const cGrassDry = new THREE.Color(0xbcb076) // 夏の日に焼けた乾いた草＝大きなムラで点在
 for (let i = 0; i < gPos.count; i++) {
   const x = gPos.getX(i), z = gPos.getZ(i)
   const y = heightAt(x, z)
   gPos.setY(i, y)
   const t = THREE.MathUtils.clamp(0.4 + y * 0.06 + 0.5 * Math.sin(x * 0.3) * Math.cos(z * 0.3) * 0.2, 0, 1)
   const c = cGrassLo.clone().lerp(cGrassHi, t)
-  // 低い周波数の大きなパッチで、ところどころ乾いた色へ寄せる（のっぺり単一緑を崩す）
+  // 低い周波数の大きなパッチで、ところどころ乾いた色へ寄せる（のっぺり単一緑を崩す＝乾いたムラを増やす）
   const dry = 0.5 + 0.5 * Math.sin(x * 0.045 + 1.3) * Math.cos(z * 0.05 - 0.7)
-  c.lerp(cGrassDry, THREE.MathUtils.smoothstep(dry, 0.74, 1.0) * 0.55)
+  c.lerp(cGrassDry, THREE.MathUtils.smoothstep(dry, 0.62, 1.0) * 0.62)
+  // さらに細かい斑（小さなムラ）で“絨毯のような均一”を崩す
+  const fleck = 0.5 + 0.5 * Math.sin(x * 0.7 + 2.1) * Math.cos(z * 0.66 - 1.1)
+  c.lerp(cGrassDry, THREE.MathUtils.smoothstep(fleck, 0.85, 1.0) * 0.3)
   gCol.push(c.r, c.g, c.b)
 }
 gGeo.setAttribute('color', new THREE.Float32BufferAttribute(gCol, 3))
@@ -1762,68 +1766,68 @@ Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
 function makeBoy() {
   const g = new THREE.Group()
   const skin = toon(0xf6cda3), shirt = toon(0xf2f3ee), pants = toon(0xcaa86a), hat = toon(0xe9c67e) // 明るい肌・白シャツ・ベージュ半ズボン
-  // ── 日本の小学2〜4年生（7〜9歳）の体つきに忠実に：手足は細く・すらり。肩は狭い。
-  //    胴は薄くて小さい。頭が相対的に大きく見えることで“子ども”に見える（＝ゴリラ/筋肉質を避ける鍵）。
+  // ── 日本の小学2〜4年生（7〜9歳）の“幼児寄り”体型に忠実に：頭が相対的に大きく（約3.5〜4頭身）、
+  //    胴は短くぽってり、手足は短めでむちっと、脚は短く重心は低い。これが「ゴリラ/ひょろ長い」を同時に避ける鍵。
   //    関節は継ぎ目を“同径”の丸で隠して人形感を消す（太いコブを作らない）。──
   function makeLeg(side) {
-    const hip = new THREE.Group(); hip.position.set(0.115 * side, 0.74, 0) // 腰幅は狭め
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.082, 0.2, 6, 12), skin); thigh.position.y = -0.16; hip.add(thigh) // 細くてすらりとした太もも
-    const knee = new THREE.Group(); knee.position.y = -0.34; hip.add(knee)
-    const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.078, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目（太ももと同径＝コブを作らない）
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.2, 6, 12), skin); shin.position.y = -0.16; knee.add(shin) // すね（細い）
+    const hip = new THREE.Group(); hip.position.set(0.115 * side, 0.68, 0) // 腰は低め＝重心を下げて幼く
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.13, 6, 12), skin); thigh.position.y = -0.155; hip.add(thigh) // 短めでむちっとした太もも
+    const knee = new THREE.Group(); knee.position.y = -0.31; hip.add(knee)
+    const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.088, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目（太ももと同径＝コブを作らない）
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.078, 0.13, 6, 12), skin); shin.position.y = -0.15; knee.add(shin) // すね（短め）
     // 足首ピボット＝歩いても足裏が地面に沿う（スケートのように爪先が突き出ない）
-    const ankle = new THREE.Group(); ankle.position.y = -0.33; knee.add(ankle)
-    // サンダル：素足の甲＋革のソール＋甲ストラップ（子どもサイズに小さく）
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.08, 0.23), skin); foot.position.set(0, -0.02, 0.05); ankle.add(foot)
-    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.04, 0.28), toon(0x7a5436)); sole.position.set(0, -0.07, 0.06); ankle.add(sole)
-    const strapF = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.03, 0.08), toon(0x6a4830)); strapF.position.set(0, 0.02, 0.09); ankle.add(strapF)
+    const ankle = new THREE.Group(); ankle.position.y = -0.3; knee.add(ankle)
+    // サンダル：素足の甲＋革のソール＋甲ストラップ（子どもサイズ・ちょっと大きめの足）
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.08, 0.23), skin); foot.position.set(0, -0.02, 0.05); ankle.add(foot)
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.04, 0.28), toon(0x7a5436)); sole.position.set(0, -0.07, 0.06); ankle.add(sole)
+    const strapF = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.03, 0.08), toon(0x6a4830)); strapF.position.set(0, 0.02, 0.09); ankle.add(strapF)
     g.add(hip)
     return { hip, knee, ankle }
   }
   const L = makeLeg(-1), R = makeLeg(1)
   const legL = L.hip, legR = R.hip, kneeL = L.knee, kneeR = R.knee, ankleL = L.ankle, ankleR = R.ankle
-  // 半ズボン（腰まわり・股の継ぎ目を覆う）。小さくすっきり。
-  const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.205, 16, 12), pants); shorts.scale.set(1.0, 0.66, 0.8); shorts.position.y = 0.77; g.add(shorts)
-  // 胴＝薄くて細い（子どものすっきり体型・おなかを出さない）。縦に少し長くして“すらり”。
-  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 14), shirt); torso.scale.set(1.04, 1.5, 0.74); torso.position.y = 1.02; g.add(torso)
-  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), shirt); chest.scale.set(1.06, 0.8, 0.78); chest.position.y = 1.2; g.add(chest) // 肩まわり（狭い）
-  // 腕（肩ピボット→肘）。細くてすらり。半袖から素手。肘は同径の丸で継ぎ目を隠す
+  // 半ズボン（腰まわり・股の継ぎ目を覆う）。低めの腰に合わせる。
+  const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.205, 16, 12), pants); shorts.scale.set(1.05, 0.7, 0.82); shorts.position.y = 0.7; g.add(shorts)
+  // 胴＝短くぽってり（子どもの丸いおなか）。縦を詰めて幼児体型に。
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 14), shirt); torso.scale.set(1.14, 1.2, 0.84); torso.position.y = 0.95; g.add(torso)
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.165, 16, 12), shirt); chest.scale.set(1.08, 0.82, 0.8); chest.position.y = 1.08; g.add(chest) // 肩まわり（なで肩・狭い）
+  // 腕（肩ピボット→肘）。短めでむちっと。半袖から素手。肘は同径の丸で継ぎ目を隠す
   function makeArm(side) {
-    const sh = new THREE.Group(); sh.position.set(0.195 * side, 1.2, 0); sh.rotation.z = -0.08 * side // 肩は狭い・腕はほぼ下ろす
-    const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.078, 12, 10), shirt); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.02; sh.add(sleeve) // 半袖
-    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.16, 6, 10), skin); upper.position.y = -0.15; sh.add(upper) // 細い二の腕
-    const elbow = new THREE.Group(); elbow.position.y = -0.28; sh.add(elbow)
-    const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), skin); elbow.add(elbowCap)
-    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.046, 0.15, 6, 10), skin); fore.position.y = -0.13; elbow.add(fore) // 細い前腕
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 9), skin); hand.scale.set(1, 1.1, 0.7); hand.position.y = -0.26; elbow.add(hand) // 小さな手
+    const sh = new THREE.Group(); sh.position.set(0.19 * side, 1.08, 0); sh.rotation.z = -0.13 * side // なで肩・腕は体から少し離してだらっと
+    const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.082, 12, 10), shirt); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.02; sh.add(sleeve) // 半袖
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.11, 6, 10), skin); upper.position.y = -0.13; sh.add(upper) // 短めの二の腕
+    const elbow = new THREE.Group(); elbow.position.y = -0.235; sh.add(elbow)
+    const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(0.056, 10, 8), skin); elbow.add(elbowCap)
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.1, 6, 10), skin); fore.position.y = -0.11; elbow.add(fore) // 短めの前腕
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.066, 10, 9), skin); hand.scale.set(1, 1.05, 0.72); hand.position.y = -0.22; elbow.add(hand) // ぷっくりした手
     g.add(sh)
     return { sh, elbow }
   }
   const AL = makeArm(-1), AR = makeArm(1)
   const armL = AL.sh, armR = AR.sh, elbowL = AL.elbow, elbowR = AR.elbow
-  // 首（細く・短い）
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.066, 0.1, 10), skin); neck.position.y = 1.36; g.add(neck)
-  // あたま＝さらに小さく（顔だけ一段小さく）
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 22, 20), skin); head.scale.set(1, 1.05, 0.98); head.position.y = 1.5; g.add(head)
-  // むぎわら帽子
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.03, 22), hat); brim.position.y = 1.66; g.add(brim)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.185, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 1.66; g.add(cap)
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.05, 22), toon(0x5b7a9c)); band.position.y = 1.68; g.add(band) // 帽子のリボン（青）
+  // 首（細く・短い・ほぼ隠れる）
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 10), skin); neck.position.y = 1.24; g.add(neck)
+  // あたま＝相対的に大きく（幼児の王道）。geometryは0.185のまま、scaleで実効を大きく＝顔(子)も一緒に拡大される
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 22, 20), skin); head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.37; g.add(head)
+  // むぎわら帽子（大きい頭に合わせる）
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.03, 22), hat); brim.position.y = 1.47; g.add(brim)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.21, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 1.47; g.add(cap)
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.05, 22), toon(0x5b7a9c)); band.position.y = 1.49; g.add(band) // 帽子のリボン（青）
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 6, 14), toon(0x8a6b3a)); ring.position.y = 1.3; ring.rotation.x = Math.PI / 2; net.add(ring)
   const bag = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.28, side: THREE.DoubleSide })); bag.position.y = 1.3; bag.rotation.x = Math.PI; net.add(bag)
-  net.position.set(0.3, 0.82, -0.1); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ
+  net.position.set(0.28, 0.7, -0.1); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ（低くなった肩に合わせる）
   g.add(net)
   // 斜めがけのかばん（夏の探検バッグ）。胴に付くので歩いても自然
   const bagBody = toon(0xb98a52), bagStrap = toon(0x8a6a3a)
-  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.74, 0.08), bagStrap)
-  strap.position.set(0.02, 0.98, 0.2); strap.rotation.set(0.16, 0, 0.58); g.add(strap) // 左肩→右腰へ斜めに
-  const satchel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.14), bagBody)
-  satchel.position.set(0.25, 0.66, 0.2); satchel.rotation.z = 0.07; g.add(satchel)
-  const flap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.11, 0.16), toon(0xa6794a))
-  flap.position.set(0.25, 0.73, 0.2); flap.rotation.z = 0.07; g.add(flap) // ふた
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.64, 0.08), bagStrap)
+  strap.position.set(0.02, 0.86, 0.19); strap.rotation.set(0.16, 0, 0.58); g.add(strap) // 左肩→右腰へ斜めに
+  const satchel = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.13), bagBody)
+  satchel.position.set(0.23, 0.58, 0.19); satchel.rotation.z = 0.07; g.add(satchel)
+  const flap = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 0.15), toon(0xa6794a))
+  flap.position.set(0.23, 0.64, 0.19); flap.rotation.z = 0.07; g.add(flap) // ふた
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く主人公を固定影マップに焼くと“残像(ゴースト)”が残るので落とさない＝接地は専用の丸影で表現
   g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, swing: 0 }
   return g
@@ -1901,54 +1905,55 @@ function makeVillager(x, z, opt) {
   const g = new THREE.Group()
   const skin = toon(0xf0c49c), shirtM = toon(opt.shirt)
   const full = !opt.simple // 会話する村人＝関節あり／背景の通行人＝軽量（股ピボットのみ）
-  // 脚（股ピボット=0.8。会話する村人は膝で曲がる。背景の人は1本カプセルで軽量・足裏≒地面）
+  // 主人公と同じ“幼児寄り”の頭身に統一（頭大きめ・胴短く・脚短め・重心低い）。大人はopt.scaleで少し背を高く。
   let kneeL = null, kneeR = null
   function makeLeg(side) {
-    const hip = new THREE.Group(); hip.position.set(0.12 * side, 0.8, 0); g.add(hip)
+    const hip = new THREE.Group(); hip.position.set(0.11 * side, 0.66, 0); g.add(hip)
     if (full) {
-      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.22, 4, 8), skin); thigh.position.y = -0.18; hip.add(thigh)
-      const knee = new THREE.Group(); knee.position.y = -0.38; hip.add(knee)
-      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.088, 0.2, 4, 8), skin); shin.position.y = -0.17; knee.add(shin)
-      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.35); shoe.position.set(0, -0.36, 0.04); knee.add(shoe)
+      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.13, 4, 8), skin); thigh.position.y = -0.155; hip.add(thigh)
+      const knee = new THREE.Group(); knee.position.y = -0.31; hip.add(knee)
+      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.13, 4, 8), skin); shin.position.y = -0.15; knee.add(shin)
+      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.3, 0.04); knee.add(shoe)
       return { hip, knee }
     }
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.56, 4, 8), skin); leg.position.y = -0.4; hip.add(leg)
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.46, 4, 8), skin); leg.position.y = -0.32; hip.add(leg)
     return { hip, knee: null }
   }
   const LL = makeLeg(-1), LR = makeLeg(1)
   const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
-  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 10), toon(opt.skirt)); shorts.scale.set(1, 0.62, 0.82); shorts.position.y = 0.78; g.add(shorts) }
-  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 14), toon(opt.skirt)); skirt.position.y = 0.7; g.add(skirt) }
-  // 胴。会話する村人は円筒＋丸い肩、背景の人はたまご型（軽量）
+  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.205, 14, 10), toon(opt.skirt)); shorts.scale.set(1.05, 0.66, 0.82); shorts.position.y = 0.62; g.add(shorts) }
+  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.42, 14), toon(opt.skirt)); skirt.position.y = 0.6; g.add(skirt) }
+  // 胴。会話する村人は円筒＋丸い肩、背景の人はたまご型（軽量）。短くぽってり。
   if (full) {
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.18, 0.4, 14), shirtM); torso.position.y = 1.04; g.add(torso)
-    const chest = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 12), shirtM); chest.scale.set(1.1, 0.74, 0.82); chest.position.y = 1.22; g.add(chest)
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.24, 14), shirtM); torso.position.y = 0.92; g.add(torso)
+    const chest = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), shirtM); chest.scale.set(1.08, 0.82, 0.8); chest.position.y = 1.04; g.add(chest)
   } else {
-    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), shirtM); torso.scale.set(0.98, 1.0, 0.82); torso.position.y = 1.06; g.add(torso)
+    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.255, 14, 12), shirtM); torso.scale.set(1.04, 1.0, 0.82); torso.position.y = 0.95; g.add(torso)
   }
   // 首
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.076, 0.12, 9), skin); neck.position.y = 1.38; g.add(neck)
-  // あたま（さらに小さめ＝主人公と同じ自然な頭身に）
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.225, 18, 16), skin); head.scale.set(1, 1.05, 0.97); head.position.y = 1.54; g.add(head)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.252, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.565; hair.rotation.x = -0.25; g.add(hair)
-  if (!opt.boy && !opt.simple) for (const hx of [-0.225, 0.225]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.49, -0.04); g.add(pt) }
-  // 腕（肩ピボット=1.2＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 9), skin); neck.position.y = 1.22; g.add(neck)
+  // あたま＝相対的に大きく（主人公と同じ幼児頭身に統一）。geometry0.185＋scaleで実効を大きく
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 16), skin); head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.35; g.add(head)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.37; hair.rotation.x = -0.25; g.add(hair)
+  if (!opt.boy && !opt.simple) for (const hx of [-0.21, 0.21]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.078, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.31, -0.04); g.add(pt) }
+  // 腕（肩ピボット＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル。短めでむちっと。
   let elbowL = null, elbowR = null
   function makeArm(side) {
-    const sh = new THREE.Group(); sh.position.set(0.27 * side, 1.2, 0); sh.rotation.z = -0.12 * side; g.add(sh)
+    const sh = new THREE.Group(); sh.position.set(0.19 * side, 1.06, 0); sh.rotation.z = -0.13 * side; g.add(sh)
     if (full) {
-      const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.105, 12, 9), shirtM); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.03; sh.add(sleeve)
-      const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.14, 4, 8), skin); upper.position.y = -0.14; sh.add(upper)
-      const elbow = new THREE.Group(); elbow.position.y = -0.27; elbow.rotation.x = -0.2; sh.add(elbow) // 肘を軽く曲げて自然に
-      const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.15, 4, 8), skin); fore.position.y = -0.12; elbow.add(fore)
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.08, 9, 8), skin); hand.position.y = -0.25; elbow.add(hand)
+      const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 9), shirtM); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.02; sh.add(sleeve)
+      const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.1, 4, 8), skin); upper.position.y = -0.12; sh.add(upper)
+      const elbow = new THREE.Group(); elbow.position.y = -0.22; elbow.rotation.x = -0.2; sh.add(elbow) // 肘を軽く曲げて自然に
+      const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.1, 4, 8), skin); fore.position.y = -0.1; elbow.add(fore)
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.066, 9, 8), skin); hand.position.y = -0.2; elbow.add(hand)
       return { sh, elbow }
     }
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.082, 0.36, 4, 8), skin); arm.position.y = -0.27; sh.add(arm)
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.26, 4, 8), skin); arm.position.y = -0.22; sh.add(arm)
     return { sh, elbow: null }
   }
   const AL = makeArm(-1), AR = makeArm(1)
   const armL = AL.sh, armR = AR.sh; elbowL = AL.elbow; elbowR = AR.elbow
+  g.scale.setScalar(opt.scale || 0.95) // 主人公(0.85)の大きさ帯へ寄せる。大人はopt.scaleで少し大きく
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く村人/通行人も残像防止（接地は丸影ブロブ）
   g.position.set(x, heightAt(x, z), z)
   g.rotation.y = opt.face || 0
@@ -1957,18 +1962,20 @@ function makeVillager(x, z, opt) {
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x4a3526 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xf3a59a, transparent: true, opacity: 0.5 })
-  const browMat = new THREE.MeshBasicMaterial({ color: 0x6a4a34 })
-  for (const ex of [-0.088, 0.088]) {
-    if (opt.simple) { // 背景の通行人＝瞳だけ（軽量）
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), eyeMat); e.scale.set(0.86, 1.14, 0.5); e.position.set(ex, 0.03, 0.2); head.add(e); continue
+  // ※主人公と完全に同じ作りに統一（大きい丸い瞳＋うるうる2ハイライト・眉なし・ふんわり頬）＝同じ世界の住人に
+  for (const ex of [-0.078, 0.078]) {
+    if (opt.simple) { // 背景の通行人＝白目＋瞳＋きらり（軽量だが主人公と同じ親しみ）
+      const sc = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), hiMat); sc.scale.set(0.82, 1.12, 0.4); sc.position.set(ex, 0.025, 0.151); head.add(sc)
+      const ir = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), eyeMat); ir.scale.set(0.94, 1, 0.42); ir.position.set(ex, 0.02, 0.164); head.add(ir)
+      const h0 = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 8), hiMat); h0.position.set(ex + 0.014, 0.044, 0.178); head.add(h0); continue
     }
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.046, 14, 12), hiMat); sclera.scale.set(0.78, 1.05, 0.42); sclera.position.set(ex, 0.035, 0.188); head.add(sclera) // 白目
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.032, 14, 12), eyeMat); iris.scale.set(0.92, 1.0, 0.42); iris.position.set(ex, 0.03, 0.205); head.add(iris) // 瞳
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.013, 8, 8), hiMat); hi.position.set(ex + 0.013, 0.058, 0.222); head.add(hi) // きらり
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.011, 0.018), browMat); brow.position.set(ex, 0.092, 0.21); brow.rotation.z = ex > 0 ? 0.1 : -0.1; head.add(brow) // 眉
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.054 : -0.054), -0.04, 0.18); head.add(bl) // ほっぺ
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.053, 16, 14), hiMat); sclera.scale.set(0.82, 1.12, 0.4); sclera.position.set(ex, 0.025, 0.151); head.add(sclera) // 白目（大）
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.042, 16, 14), eyeMat); iris.scale.set(0.94, 1.0, 0.42); iris.position.set(ex, 0.02, 0.166); head.add(iris) // 瞳（大）
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.019, 10, 10), hiMat); hi.position.set(ex + 0.015, 0.046, 0.18); head.add(hi) // きらり大
+    const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 8), hiMat); hi2.position.set(ex - 0.012, -0.004, 0.18); head.add(hi2) // きらり小（うるうる）
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 10), blushMat); bl.scale.set(1, 0.64, 0.4); bl.position.set(ex + (ex > 0 ? 0.05 : -0.05), -0.046, 0.143); head.add(bl) // ふんわりほっぺ
   }
-  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 6, 12, Math.PI * 0.9), browMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.07, 0.205); head.add(mouth) }
+  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0085, 6, 14, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.064, 0.168); head.add(mouth) }
   addContactShadow(g, 0.6)
   g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4 }
   scene.add(g)
@@ -2001,6 +2008,7 @@ villager.userData.spots = {
 }
 // 街の店のおばさん（商店街の八百屋の前。会話は時間帯で変わる）
 const townLady = makeVillager(TOWN.x - 7.5, TOWN.z - 18, {
+  scale: 1.12, // 大人なので少し背を高く（同じ幼児トゥーン様式のまま大きめ）
   shirt: 0xd8c0a0, skirt: 0x9a7a5a, hair: 0x8c8c86, face: Math.PI / 2,
   info: {
     name: '店のおばさん',
@@ -2275,10 +2283,9 @@ camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.35, 0.5, 0.92) // 強さ控えめ・しきい値高め＝白飛び/ちらつきを抑える。半解像度
-composer.addPass(bloom)
 
-// 木漏れ日（ゴッドレイ）：太陽の画面位置から、明るい所を放射状に伸ばす光条
+// 木漏れ日（ゴッドレイ）：太陽の画面位置から、明るい所を放射状に伸ばす光条。
+// ※Bloomの“前”に置く＝既に滲んだ巨大ハイライトを再度引き伸ばして画面が白飛びする正帰還を防ぐ。
 const godrayPass = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, lightPos: { value: new THREE.Vector2(0.5, 0.8) }, strength: { value: 0.0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
@@ -2288,22 +2295,24 @@ const godrayPass = new ShaderPass({
       if (strength > 0.001) {
         const int N = 18;
         vec2 uv = vUv;
-        vec2 delta = (uv - lightPos) * (0.55 / float(N));
+        vec2 delta = (uv - lightPos) * (0.5 / float(N));
         float illum = 1.0;
         vec3 ray = vec3(0.0);
         for (int i = 0; i < N; i++) {
           uv -= delta;
           vec3 s = texture2D(tDiffuse, uv).rgb;
-          float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.75); // 明るい所だけ
+          float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.82); // よりピーキー＝飛んだ巨大ハイライトを拾わない
           ray += s * b * illum;
           illum *= 0.92;
         }
-        col += ray * (strength / float(N)) * 6.0;
+        col += ray * (strength / float(N)) * 3.0; // 増幅を6→3に。光条はBloomで自然に滲ませる
       }
       gl_FragColor = vec4(col, 1.0);
     }`,
 })
 composer.addPass(godrayPass)
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.35, 0.5, 0.92) // 強さ控えめ・しきい値高め＝白飛び/ちらつきを抑える。半解像度
+composer.addPass(bloom)
 
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
@@ -2332,7 +2341,7 @@ const gradePass = new ShaderPass({
       vec3 graded = c;
       graded += vec3(-0.020, 0.012, 0.034) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
       graded += vec3(0.032, 0.016, -0.022) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
-      graded = mix(vec3(lum), graded, 0.90 - 0.10 * wc);                        // 退色（水彩のくすみ）
+      graded = mix(vec3(lum), graded, 0.87 - 0.10 * wc);                        // 退色（水彩のくすみ・記憶の色＝少し強める）
       graded = graded * 0.975 + 0.018;
       c = mix(c, graded, amount);
       // 夕立：降っている間は全体を少し暗く・青く・くすませる（曇って雨が来た空気）
@@ -3215,12 +3224,12 @@ function update(dt) {
   // 主人公の接地影は地面に沿わせる（跳ぶと小さくなって浮遊感を出す）
   // 接地影：太陽の反対側へ伸ばし、夕方ほど長く・薄く（朝夕の長い影で空気が出る）
   const elev = Math.max(0.16, sunDir.y) // 太陽高度（低いほど影が長い）
-  const slen = THREE.MathUtils.clamp(1 / elev, 1, 3.0)
+  const slen = THREE.MathUtils.clamp(1 / elev, 1, 2.2) // 伸ばしすぎない（核が薄れて浮くのを防ぐ）
   const jShrink = Math.min(0.5, jumpY * 0.42) // 跳ぶと影が小さく
-  const sgy = heightAt(boy.position.x, boy.position.z) + 0.05
-  boyShadow.position.set(boy.position.x - sunDir.x * 0.28 * slen, sgy, boy.position.z - sunDir.z * 0.28 * slen)
+  const sgy = heightAt(boy.position.x, boy.position.z) + 0.03
+  boyShadow.position.set(boy.position.x - sunDir.x * 0.16 * slen, sgy, boy.position.z - sunDir.z * 0.16 * slen) // 足元から離しすぎない
   boyShadow.rotation.set(-Math.PI / 2, 0, Math.atan2(-sunDir.x, -sunDir.z)) // 影が伸びる向き
-  boyShadow.scale.set(1.1 * (1 - jShrink), 1.1 * slen * (1 - jShrink), 1)
+  boyShadow.scale.set(0.92 * (1 - jShrink), 0.92 * slen * (1 - jShrink), 1)
   boyShadowMat.opacity = THREE.MathUtils.clamp(0.18 + 0.42 * sunDir.y, 0.07, 0.6) * (1 - jShrink * 0.6)
   boyShadow.visible = boy.visible
   // 虫取り網を振る（採取時）
@@ -3528,7 +3537,7 @@ function update(dt) {
   sunProj.copy(sunBall.position).project(camera)
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
-  godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.5 : 0
+  godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.32 : 0 // 控えめ＝光条であって閃光事故にしない
   gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.6, 0.74) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.93)) // 夕方の黄金色
   godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
 
@@ -3838,9 +3847,6 @@ const setCloseEl = document.getElementById('set-close')
 if (setCloseEl) setCloseEl.addEventListener('click', () => settingsEl && settingsEl.classList.remove('on'))
 if (setSoundBtn) setSoundBtn.addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); applySound() })
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
-// ※今だけの機能：設定から すぐに「はらっぱ（野原）」へ移動。後で消せるよう独立ブロックに（TEMP）
-const setFieldBtn = document.getElementById('set-field')
-if (setFieldBtn) setFieldBtn.addEventListener('click', () => { try { const H = window.__proto3d; H.goArea('field'); H.placeBoy(0, 6) } catch (e) {} if (settingsEl) settingsEl.classList.remove('on') })
 applyMotion(); applySound()
 
 // 自己検証用の最小ハンドル

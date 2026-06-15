@@ -27,7 +27,14 @@ try {
     for (let i = 0; i < 10; i++) document.getElementById('zin')?.click() // ゲーム本来のズームで寄る
   })
   await new Promise((r) => setTimeout(r, 1400))
-  await page.screenshot({ path: join(ROOT, 'char.png') })
+  await page.screenshot({ path: join(ROOT, '.verify', 'eval-boy.png') })
+  // 村人（女の子）に寄る：話しかけ位置へ移動してズーム
+  await page.evaluate(() => {
+    const H = window.__proto3d; H.placeBoy(11.5, 9); H.boy.rotation.y = 0
+    for (let i = 0; i < 4; i++) document.getElementById('zout')?.click()
+  })
+  await new Promise((r) => setTimeout(r, 1200))
+  await page.screenshot({ path: join(ROOT, '.verify', 'eval-villager.png') })
   await page.close()
-  console.log('char.png 撮影完了')
+  console.log('eval-boy.png / eval-villager.png 撮影完了')
 } finally { await browser.close(); server.close() }
