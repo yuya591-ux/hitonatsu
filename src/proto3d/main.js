@@ -2773,6 +2773,65 @@ function maybeThunder(dt) {
     src.connect(lp); lp.connect(g); g.connect(getSfxOut()); src.start(now); src.stop(now + 2.7)
   } catch (e) {}
 }
+// ── BGM：オルゴール（自前合成・原作の模倣なし・控えめ）──
+// 短いオリジナルの旋律をペンタトニックで“まばらに”奏でる。getMaster()経由でクリップ防止、
+// おとOFF(ctx.suspend)で自動的に止まる。蝉やヒグラシの“すきま”にそっと置く＝出しゃばらない癒し。
+let bgmGain = null
+function getBgmOut() {
+  const ctx = listener.context
+  if (bgmGain && bgmGain.context === ctx) return bgmGain
+  bgmGain = ctx.createGain(); bgmGain.gain.value = 0.9
+  bgmGain.connect(getMaster())
+  return bgmGain
+}
+const MB_SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98] // Cメジャー・ペンタトニック（約2オクターブ）
+// オルゴールの1音：基音＋わずかに外れた倍音（金属の響き）＋カチッと速い立ち上がり＋長い余韻
+function mbNote(degree, when, vel, oct) {
+  const ctx = listener.context, out = getBgmOut()
+  const idx = Math.max(0, Math.min(MB_SCALE.length - 1, degree + (oct || 0) * 5))
+  const freq = MB_SCALE[idx]
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0.0001, when)
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vel), when + 0.005)
+  g.gain.exponentialRampToValueAtTime(0.0001, when + 2.4) // 長い余韻＝オルゴール
+  for (const [mul, amp] of [[1, 1.0], [2.0, 0.4], [3.84, 0.15], [5.4, 0.06]]) {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = freq * mul
+    const pg = ctx.createGain(); pg.gain.value = amp
+    o.connect(pg); pg.connect(g); o.start(when); o.stop(when + 2.5)
+  }
+  g.connect(out)
+}
+// オリジナルの短い旋律（ペンタトニックの度数, 秒）。素朴な上下のかたち＝特定の曲に似せない。
+const MB_MOTIFS = [
+  [[2, 0.0], [3, 0.62], [4, 1.4], [3, 2.5], [1, 3.5], [0, 4.9]],
+  [[4, 0.0], [5, 0.58], [4, 1.35], [2, 2.2], [3, 3.3], [1, 4.7]],
+  [[0, 0.0], [2, 0.9], [4, 1.85], [5, 3.0], [4, 4.3], [2, 5.7]],
+  [[3, 0.0], [4, 0.8], [6, 1.8], [5, 3.1], [3, 4.6]],
+  [[1, 0.0], [0, 0.9], [2, 1.9], [4, 3.1]],
+]
+let bgmWait = 5.0 // 開始までの“間”（最初の数秒は環境音だけ）
+function updateMusicBox(dt) {
+  if (!audioStarted) return
+  const ctx = listener.context
+  if (ctx.state !== 'running') return
+  bgmWait -= dt
+  if (bgmWait > 0) return
+  // 時間帯で表情：昼は明るめ、夜はとても控えめ＆低音域。夕立では一段やわらかく。
+  const nf = nightFactor(tday)
+  const vel = (0.058 - 0.022 * nf) * (1 - weather * 0.35)
+  const octBias = tday > 0.78 ? -1 : 0
+  const motif = MB_MOTIFS[(Math.random() * MB_MOTIFS.length) | 0]
+  const now = ctx.currentTime + 0.05
+  let last = 0
+  for (const [d, t] of motif) {
+    if (Math.random() < 0.14) continue // ときどき音を抜く＝まばら・人の手の温度
+    const oct = octBias + (Math.random() < 0.15 ? 1 : 0)
+    mbNote(d, now + t, vel * (0.82 + Math.random() * 0.3), oct)
+    last = t
+  }
+  // 次のフレーズまでの“間”を長めに：昼6〜10秒、夜10〜18秒。世界の静けさを壊さない。
+  bgmWait = last + 1.6 + (tday > 0.78 ? 10 + Math.random() * 8 : 6 + Math.random() * 4)
+}
 function ambientWeights(t) {
   const ss = (a, b) => THREE.MathUtils.smoothstep(t, a, b)
   return {
@@ -3567,6 +3626,7 @@ function update(dt) {
     }
     if (tday < 0.4) chimeArmed = true
     if (chimeArmed && tday > 0.69) { chimeArmed = false; playChime() }
+    updateMusicBox(dt) // オルゴールBGM（控えめ・まばら）
   }
   // 夜の演出
   const nf = nightFactor(tday)
@@ -4191,6 +4251,8 @@ window.__proto3d = {
   get caught() { return caught.count },
   villager, townLady, townKid, cat, // 検証用
   heightAt(x, z) { return heightAt(x, z) }, // 検証用：地形の高さを問い合わせ（接地点検）
+  _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
+
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
   _jump() { doJump() }, // 検証用
   _info() { // 検証用：シーン1回描画の実コスト
