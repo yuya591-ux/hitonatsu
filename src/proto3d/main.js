@@ -2055,9 +2055,9 @@ function makeBoy() {
     // 足首ピボット＝歩いても足裏が地面に沿う（スケートのように爪先が突き出ない）
     const ankle = new THREE.Group(); ankle.position.y = -0.26; knee.add(ankle)
     // サンダル：素足の甲＋革のソール＋甲ストラップ（子どもサイズ・ちょっと大きめの足）
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.08, 0.23), skin); foot.position.set(0, -0.02, 0.05); ankle.add(foot)
-    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.04, 0.28), toon(0x7a5436)); sole.position.set(0, -0.07, 0.06); ankle.add(sole)
-    const strapF = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.03, 0.08), toon(0x6a4830)); strapF.position.set(0, 0.02, 0.09); ankle.add(strapF)
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.08, 0.185), skin); foot.position.set(0, -0.02, 0.035); ankle.add(foot) // 足を少し小さく＝頭でっかちの可愛さを強調
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.04, 0.225), toon(0x7a5436)); sole.position.set(0, -0.07, 0.045); ankle.add(sole)
+    const strapF = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.03, 0.08), toon(0x6a4830)); strapF.position.set(0, 0.02, 0.07); ankle.add(strapF)
     g.add(hip)
     return { hip, knee, ankle }
   }
@@ -3454,6 +3454,8 @@ function sitDown(which) {
   boy.userData.legL.rotation.x = -1.4; boy.userData.legR.rotation.x = -1.4 // 座り姿勢（太ももは前へ）
   boy.userData.kneeL.rotation.x = 1.5; boy.userData.kneeR.rotation.x = 1.5 // すねは下へ＝膝を曲げて腰かける
   boy.userData.ankleL.rotation.x = 0.2; boy.userData.ankleR.rotation.x = 0.2 // 足先を前へ
+  boy.userData.armL.rotation.x = -0.52; boy.userData.armR.rotation.x = -0.52 // 腕を前へ
+  boy.userData.elbowL.rotation.x = 0.95; boy.userData.elbowR.rotation.x = 0.95 // 肘を曲げてひざに手を置く（だらんと下げない）
   moving = false
   seatLook.yaw = yaw; seatLook.pitch = pitch
   const cp = Math.cos(seatLook.pitch)
@@ -3469,6 +3471,7 @@ function standUp() {
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
   boy.userData.kneeL.rotation.x = 0.12; boy.userData.kneeR.rotation.x = 0.12
   boy.userData.ankleL.rotation.x = 0; boy.userData.ankleR.rotation.x = 0
+  boy.userData.elbowL.rotation.x = 0; boy.userData.elbowR.rotation.x = 0 // 座りの肘曲げを戻す
   boy.rotation.x = 0; boy.rotation.order = 'XYZ' // 歩行は通常のXYZへ戻す（寝そべりでYXZに変えていたのを復帰）
   boy.visible = true
   boy.position.y = heightAt(boy.position.x, boy.position.z)
