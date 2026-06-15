@@ -873,6 +873,67 @@ const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自�
     scene.add(g)
     for (let i = 0; i < neons.length; i++) townNightLights.push({ m: neons[i], base: 0.95, ph: i * 0.7 })
   }
+  // ── 昭和の小学校（獅子ヶ谷小学校のオマージュ＝普遍的な昭和の校舎。実在の名称/校章は使わない）──
+  function makeSakura(x, z, s = 1) {
+    const g = new THREE.Group()
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * s, 0.4 * s, 3.0 * s, 6), toonMap(0x7a5a4a, woodTex)); trunk.position.y = 1.5 * s; g.add(trunk)
+    const crown = [[1.5, 0, 3.0, 0], [1.2, 1.0, 3.3, 0.3], [1.2, -0.9, 3.3, -0.3], [1.15, 0.3, 3.3, 1.0], [1.1, -0.3, 3.5, -0.9], [1.2, 0.1, 3.8, 0.2]]
+    const geos = []
+    for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 1); ge.translate(bx * s, by * s, bz * s); geos.push(ge) }
+    const cz = new THREE.Mesh(mergeGeometries(geos), toon(0xf3c6d2)); cz.castShadow = true; g.add(cz) // 桜のピンク
+    geos.forEach((ge) => ge.dispose())
+    g.position.set(x, heightAt(x, z), z); mergedOutline(g, 0.06); addContactShadow(g, 1.8 * s); addCollider(x, z, 0.6 * s)
+    scene.add(g); swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.02 })
+  }
+  function makeSchool(cx, cz) {
+    const grp = new THREE.Group()
+    const floors = 3, units = 8, W = units * 2.6, H = floors * 2.4 + 0.6, D = 6.5
+    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), toonMap(0xe9e1cd, plasterTex)); body.position.y = H / 2; grp.add(body)
+    const winGlows = []
+    for (let f = 0; f < floors; f++) for (let u = 0; u < units; u++) {
+      const wx = -W / 2 + 1.3 + u * 2.6, wy = 1.7 + f * 2.4
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.35), toon(0x8fb0c0)); win.position.set(wx, wy, -D / 2 - 0.03); grp.add(win) // 南向き(-z)の窓
+      const sill = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.12, 0.32), toon(0xcfc6b0)); sill.position.set(wx, wy - 0.76, -D / 2 - 0.12); grp.add(sill)
+      if (Math.random() < 0.35) { const gl = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.25), new THREE.MeshBasicMaterial({ color: 0xffe7a0, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide })); gl.position.set(wx, wy, -D / 2 - 0.05); grp.add(gl); winGlows.push(gl) }
+    }
+    const ent = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.0, 2.2), toonMap(0xddd4be, plasterTex)); ent.position.set(0, 1.5, -D / 2 - 1.0); grp.add(ent) // 昇降口
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.2), toon(0x3a4a52)); door.position.set(0, 1.1, -D / 2 - 2.11); grp.add(door)
+    const para = new THREE.Mesh(new THREE.BoxGeometry(W + 0.2, 0.5, D + 0.2), toon(0xd8cfb6)); para.position.y = H + 0.2; grp.add(para)
+    const clock = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.18, 20), new THREE.MeshBasicMaterial({ color: 0xfaf6ea })); clock.rotation.x = Math.PI / 2; clock.position.set(0, H + 1.5, -D / 2 - 0.05); grp.add(clock) // 屋上の時計
+    for (const [a, len] of [[1.0, 0.55], [-1.9, 0.8]]) { const hand = new THREE.Mesh(new THREE.BoxGeometry(0.07, len, 0.04), new THREE.MeshBasicMaterial({ color: 0x333333 })); hand.position.set(Math.sin(a) * len / 2, H + 1.5 + Math.cos(a) * len / 2, -D / 2 - 0.15); hand.rotation.z = -a; grp.add(hand) }
+    grp.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    grp.position.set(cx, heightAt(cx, cz), cz)
+    mergedOutline(grp, 0.05); addContactShadow(grp, W * 0.55); addCollider(cx, cz, Math.max(W, D) * 0.45); scene.add(grp)
+    for (const gl of winGlows) townNightLights.push({ m: gl, base: 0.7, ph: Math.random() * 6 })
+    // ── 校庭（砂地）＋設備 ──
+    const yz = cz - D / 2 - 15
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(W + 7, 24), new THREE.MeshToonMaterial({ color: 0xcdb389, gradientMap: GRAD, map: watercolorTex })); yard.rotation.x = -Math.PI / 2; yard.position.set(cx, heightAt(cx, yz) + 0.04, yz); yard.receiveShadow = true; scene.add(yard)
+    // フェンス（低いコンクリ基礎＋支柱）
+    const fy = heightAt(cx, yz)
+    for (let i = -1; i <= 1; i += 2) { const wall = new THREE.Mesh(new THREE.BoxGeometry(W + 7, 0.6, 0.2), toon(0xc8c0b0)); wall.position.set(cx, fy + 0.3, yz + i * 12); scene.add(wall) }
+    for (let i = 0; i <= 10; i++) { const px = cx - (W + 7) / 2 + i * (W + 7) / 10; for (const zz of [yz - 12, yz + 12]) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 5), toon(0xa8a89c)); pole.position.set(px, fy + 0.8, zz); scene.add(pole) } }
+    // 鉄棒（高さ違い）
+    for (const [bx, bh] of [[cx - W * 0.32, 1.1], [cx - W * 0.32 + 1.4, 1.4]]) {
+      for (const sx of [-0.7, 0.7]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, bh, 6), toon(0x8a9aa2)); p.position.set(bx + sx, fy + bh / 2, yz + 6); p.castShadow = true; scene.add(p) }
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 6), toon(0xb0bcc2)); bar.rotation.z = Math.PI / 2; bar.position.set(bx, fy + bh, yz + 6); scene.add(bar)
+    }
+    // 朝礼台
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 1.6), toon(0xbcae96)); dais.position.set(cx + W * 0.3, fy + 0.25, yz - 5); dais.castShadow = true; addOutline(dais, 0.02); scene.add(dais)
+    // 二宮金次郎像（薪を背負い本を読む少年・台座。緑青色のブロンズ）。原作不問のオリジナル造形
+    {
+      const st = new THREE.Group(); const bronze = toon(0x6e7a5e)
+      const ped = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.8), toon(0xb8b0a0)); ped.position.y = 0.5; st.add(ped)
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.3, 4, 8), bronze); torso.position.set(0, 1.3, 0); torso.rotation.x = 0.3; st.add(torso)
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), bronze); head.position.set(0, 1.62, 0.12); st.add(head)
+      const book = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.2), bronze); book.position.set(0, 1.42, 0.28); book.rotation.x = -0.5; st.add(book)
+      for (let i = 0; i < 4; i++) { const fw = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 5), toon(0x5a6a4e)); fw.position.set(-0.08 + i * 0.05, 1.35, -0.2); fw.rotation.x = 0.3; st.add(fw) } // 背中の薪
+      st.traverse((o) => { if (o.isMesh) o.castShadow = true })
+      st.position.set(cx - W * 0.42, fy, yz - 8); mergedOutline(st, 0.02); addContactShadow(st, 0.7); scene.add(st)
+    }
+    // 桜（門の両脇）
+    makeSakura(cx - (W + 7) / 2 - 1.5, yz + 10, 1.1); makeSakura(cx + (W + 7) / 2 + 1.5, yz + 10, 1.0)
+  }
+  makeSchool(T.x - 60, T.z + 56)
   // 配置：西側に団地2棟（道を向く）、入口東側にパチンコ屋、空き地に住宅を増設
   makeApartment(T.x - 46, T.z + 6, -Math.PI / 2, 4, 4)
   makeApartment(T.x - 46, T.z + 26, -Math.PI / 2, 5, 5)
