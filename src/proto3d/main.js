@@ -614,6 +614,25 @@ for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25,
     en.traverse((o) => { if (o.isMesh && o.material.transparent !== true) o.castShadow = true })
     const enx = -13, enz = 9; en.position.set(enx, heightAt(enx, enz), enz); en.rotation.y = -0.4; mergedOutline(en, 0.02); addContactShadow(en, 1.0); scene.add(en)
   }
+  // 子どもの自転車（田舎家のそばに立てかけ＝僕の夏休みの定番の風景。前かご付き）
+  {
+    const bk = new THREE.Group()
+    const metal = toon(0x4a6a90), tire = toon(0x2a2a28), seatM = toon(0x7a4a36)
+    for (const wz of [-0.5, 0.5]) {
+      const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 18), tire); wheel.position.set(0, 0.3, wz); bk.add(wheel)
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 8), metal); hub.rotation.x = Math.PI / 2; hub.position.set(0, 0.3, wz); bk.add(hub)
+    }
+    const bar1 = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.92, 6), metal); bar1.rotation.x = Math.PI / 2; bar1.position.set(0, 0.36, 0); bk.add(bar1) // 下フレーム
+    const bar2 = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.55, 6), metal); bar2.position.set(0, 0.52, -0.22); bar2.rotation.x = 0.6; bk.add(bar2) // シートチューブ
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), metal); stem.position.set(0, 0.56, 0.46); stem.rotation.x = -0.2; bk.add(stem)
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.44, 6), metal); handle.rotation.z = Math.PI / 2; handle.position.set(0, 0.77, 0.5); bk.add(handle)
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.24), seatM); seat.position.set(0, 0.72, -0.42); bk.add(seat)
+    const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.18, 8, 1, true), new THREE.MeshToonMaterial({ color: 0xcfc0a0, gradientMap: GRAD, side: THREE.DoubleSide })); basket.position.set(0, 0.64, 0.6); bk.add(basket) // 前かご
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.34, 4), metal); stand.position.set(0.1, 0.15, -0.12); stand.rotation.z = 0.45; bk.add(stand) // スタンド
+    bk.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    bk.rotation.z = -0.1 // スタンドで立てかけた傾き
+    placeProp(bk, -19.5, 10.5, 1.1, 0.02, 0.7)
+  }
 }
 // ── 低木・茂み（下草。木の根元や縁に点々と＝葉の密度を上げる）──
 function makeBush(x, z, s = 1) {
