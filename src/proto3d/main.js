@@ -2186,12 +2186,21 @@ function makeVillager(x, z, opt) {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 9), skin); neck.position.y = 1.22; g.add(neck)
   // あたま＝相対的に大きく（主人公と同じ幼児頭身に統一）。geometry0.185＋scaleで実効を大きく
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 16), skin); if (opt.adult) { head.scale.set(1.0, 1.06, 0.98); head.position.y = 1.4 } else { head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.35 } g.add(head) // 大人は頭を小さめ＝幼児体型から大人びた頭身へ
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.37; hair.rotation.x = -0.25; g.add(hair)
+  // 髪＝額までしっかり覆う（前傾を弱め・カバー範囲を広げて“禿げ/怖い”を解消）。前髪も付ける。
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.218, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.76), toon(opt.hair)); hair.position.y = 1.38; hair.rotation.x = -0.1; g.add(hair)
+  const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.22), toon(opt.hair)); bangs.position.set(0, 1.42, 0.02); bangs.rotation.x = 0.32; g.add(bangs) // 前髪（額の生え際）
   if (!opt.boy && !opt.simple) for (const hx of [-0.21, 0.21]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.078, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.31, -0.04); g.add(pt) }
   if (opt.hat === 'straw') { // 麦わら帽子（夏らしさ＋主人公と統一）。髪の上に乗るよう少し高め。
     const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.03, 20), toon(0xe9c67e)); brim.position.y = 1.52; g.add(brim)
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.205, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), toon(0xe9c67e)); cap.position.y = 1.52; g.add(cap)
     const band = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.04, 20), toon(opt.band || 0xd2698a)); band.position.y = 1.54; g.add(band)
+  } else if (opt.hat === 'cap') { // 野球帽（平成初期の定番）
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.212, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), toon(opt.band || 0x3a5a8a)); dome.position.y = 1.45; g.add(dome)
+    const peak = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.24), toon(opt.band || 0x3a5a8a)); peak.position.set(0, 1.43, 0.21); peak.rotation.x = -0.16; g.add(peak)
+    const btn = new THREE.Mesh(new THREE.SphereGeometry(0.026, 6, 6), toon(opt.band || 0x3a5a8a)); btn.position.y = 1.565; g.add(btn)
+  } else if (opt.hat === 'bucket') { // バケットハット（平成初期）
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.03, 18), toon(opt.band || 0x6a7a5a)); br.position.y = 1.46; g.add(br)
+    const cr = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.22, 18), toon(opt.band || 0x6a7a5a)); cr.position.y = 1.55; g.add(cr)
   }
   // 腕（肩ピボット＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル。短めでむちっと。
   let elbowL = null, elbowR = null
@@ -2239,7 +2248,7 @@ function makeVillager(x, z, opt) {
     const bl = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 10), blushMat); bl.scale.set(1, 0.64, 0.4); bl.position.set(ex + (ex > 0 ? 0.05 : -0.05), -0.046, 0.143); head.add(bl) // ふんわりほっぺ
     if (opt.adult) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.013, 0.02), new THREE.MeshBasicMaterial({ color: 0x5a4636 })); brow.position.set(ex, 0.094, 0.176); brow.rotation.z = ex > 0 ? 0.08 : -0.08; head.add(brow) } // 大人＝やわらかい眉で年齢を出す（子どもは眉なしのまま）
   }
-  if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0085, 6, 14, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.064, 0.168); head.add(mouth) }
+  { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0085, 6, 14, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.064, 0.168); head.add(mouth) } // 口は通行人にも付ける（無いと怖い）
   addContactShadow(g, 0.6)
   g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult }
   scene.add(g)
@@ -2334,7 +2343,9 @@ for (const [dx, col, sp, boyP] of pedDefs) {
   const hair = boyP ? 0x2a2218 : [0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86][Math.floor(Math.random() * 4)] // 白髪も混ぜる
   const adult = Math.random() < 0.55 // 大人と子どもを混在（年齢の幅）
   const bag = adult && Math.random() < 0.5 ? [0xc8a060, 0x9a7a5a, 0xb0563f, 0x6a8a9a][Math.floor(Math.random() * 4)] : false // 大人の半分は買い物袋
-  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, simple: true, adult, bag, scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const hr = Math.random(), hat = hr < 0.34 ? 'cap' : hr < 0.56 ? (adult ? 'bucket' : 'straw') : false // 約半数が帽子（平成初期＝野球帽/バケハ/麦わら）。残りは髪をしっかり
+  const band = [0x3a5a8a, 0xc0392b, 0x2a6a4a, 0xe0a030, 0x6a5a8a, 0x4a4a4a, 0xd0d0c8][Math.floor(Math.random() * 7)]
+  const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: 0x4a4038, hair, boy: boyP, simple: true, adult, bag, hat, band, scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
   p.userData.ped = { sp, dir: Math.random() < 0.5 ? 1 : -1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
   p.position.z = TOWN.z - 28 + Math.random() * 56; p.rotation.y = p.userData.ped.dir > 0 ? 0 : Math.PI // 散らばった初期位置・向き
   pedestrians.push(p)
