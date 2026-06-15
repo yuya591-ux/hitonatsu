@@ -2033,6 +2033,31 @@ makeRicePaddy(50, 26, 20, 13)  // 門の手前の田
 makeRoadRibbon(40, 34, 38, 18, 1.3, false)     // 門ぎわ→田の西を南下
 makeRoadRibbon(38, 18, 57, 17, 1.3, false)     // 既存田の南あぜ沿いに東へ
 makeRoadRibbon(57, 17, 57.5, -20, 1.3, false)  // 田の間（西どなりの田と既存田の境）を南下
+// ── バス停（門のそば＝外の町とつながる気配。標識＋ベンチ＋時刻表）──
+function makeBusStop(x, z, rot) {
+  const g = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.7, 8), toon(0xcfcabe)); pole.position.y = 1.35; g.add(pole)
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.07, 18), new THREE.MeshBasicMaterial({ color: 0xf4f1e6 })); disc.rotation.x = Math.PI / 2; disc.position.y = 2.55; g.add(disc)
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 22), toon(0xcf7a2a)); ring.position.set(0, 2.55, 0.04); g.add(ring)
+  for (const sz of [0.06, -0.06]) { const tx = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.5), new THREE.MeshBasicMaterial({ map: textTex('バス', '#2a6a4a', '#f4f1e6', false), transparent: true })); tx.position.set(0, 2.55, sz); if (sz < 0) tx.rotation.y = Math.PI; g.add(tx) }
+  const bench = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.5), toonMap(0x8a6a44, woodTex)); bench.position.set(1.5, 0.46, 0); g.add(bench)
+  for (const bx of [0.75, 2.25]) for (const bz of [-0.18, 0.18]) { const lg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.46, 0.08), toon(0x6a5238)); lg.position.set(bx, 0.23, bz); g.add(lg) }
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.72, 0.05), toon(0xeee9d8)); board.position.set(-0.55, 1.55, 0); board.rotation.y = 0.2; g.add(board) // 時刻表
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, heightAt(x, z), z); g.rotation.y = rot
+  mergedOutline(g, 0.03); addContactShadow(g, 1.6); addCollider(x, z, 0.4); addCollider(x + Math.cos(rot) * 1.5, z - Math.sin(rot) * 1.5, 0.9)
+  scene.add(g)
+}
+makeBusStop(46, 29, -0.5) // 町への門のそば
+// ── 道祖神（辻の石仏＝歩く道の分かれ目に。普遍的な石の造形）──
+{ const g = new THREE.Group()
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.24, 0.7), toon(0x8e8a7e)); base.position.y = 0.12; g.add(base)
+  const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 1.0, 6), toon(0x9a978c)); stone.position.y = 0.72; g.add(stone)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), toon(0x8e8b80)); cap.position.y = 1.2; g.add(cap)
+  const bib = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.34), new THREE.MeshToonMaterial({ color: 0xc0463a, gradientMap: GRAD, side: THREE.DoubleSide })); bib.position.set(0, 0.8, 0.34); bib.rotation.x = 0.12; g.add(bib) // 赤い前掛け
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(g, 12, 22, 0.4, 0.03, 0.6); addCollider(12, 22, 0.45) }
+// ── 雑木林（外周の虚無を埋める木の塊＝木陰の目的地）──
+for (const [gx, gz, gn] of [[-60, -34, 9], [70, -42, 8], [-66, 32, 7]]) for (let i = 0; i < gn; i++) { const a = Math.random() * 6.28, r = Math.random() * 8; makeTree(gx + Math.cos(a) * r, gz + Math.sin(a) * r, 1.0 + Math.random() * 0.5) }
 // すずめ（地面をついばみ、近づくと いっせいに飛び立つ＝反応する世界）
 const sparrows = []
 function makeSparrow(hx, hz) {
