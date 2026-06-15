@@ -1609,7 +1609,7 @@ function makeVillager(x, z, opt) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z)
   g.rotation.y = opt.face || 0
-  outlineObj(g, 0.028)
+  if (!opt.simple) outlineObj(g, 0.028) // 背景の通行人は輪郭線を省略＝描画コール削減（小さく遠いので影響小）
   // 顔（輪郭線の後・頭の子に付ける＝見回しで一緒に動く・フチ無し）。主人公と同じ親しみやすい作りに統一
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x4a3526 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -3404,6 +3404,7 @@ window.__proto3d = {
   _weather(v) { weather = v; weatherTarget = v; weatherTimer = 999 }, // 検証用：夕立 0=晴 1=雨
   get _rainVol() { return rainGain ? rainGain.gain.value : -1 }, // 検証用：雨音の音量
   get _rainStarted() { return rainStarted },
+  _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
