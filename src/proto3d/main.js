@@ -1742,6 +1742,8 @@ function makeSunflower(x, z) {
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.05 })
 }
 for (const [x, z] of [[6, 8], [7.2, 9], [-5, 7], [4, -4]]) makeSunflower(x, z)
+// ひまわり畑（密集パッチ＝夏の象徴。畑の一角に背高く並ぶ。歩いて抜けられる）
+for (let i = 0; i < 14; i++) { const hx = 32 + (i % 5) * 1.6 + (Math.random() - 0.5) * 0.6, hz = -20 + Math.floor(i / 5) * 1.7 + (Math.random() - 0.5) * 0.6; makeSunflower(hx, hz) }
 
 // ── 野原(エリア1)の充実：家の畑・田んぼ・すずめ ──
 // 家のとなりの畑（うね＋作物＋スイカ）＝暮らしの気配。水やりの“過ごす行動”の場
