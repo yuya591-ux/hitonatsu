@@ -327,12 +327,14 @@ const watercolorTex = (() => {
   t.repeat.set(7, 7)
   return t
 })()
+// 土道専用テクスチャ（田舎道の主役。布/社の参道と共有しないよう独立。白初期＝画像が来るまでは無地）
+const dirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 4; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 4, 4); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t })()
 // ── 地形に沿う道路リボン（坂でも浮かない帯）。p0→p1 を結ぶ。グローバル＝野原も町も使える。──
 // concrete=コンクリ舗装(縁石+白破線)／false=田舎の土道(水彩のなじむ路面)。
 function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = false) {
   const len = Math.hypot(x1 - x0, z1 - z0), segs = Math.max(8, Math.round(len / 3))
   const dx = (x1 - x0) / len, dz = (z1 - z0) / len, px = -dz, pz = dx // 進行方向と垂直
-  const mk = (w, yoff, col, useMap, dash) => {
+  const mk = (w, yoff, col, mapTex, dash) => {
     const verts = [], uvs = [], idx = []
     for (let i = 0; i <= segs; i++) {
       const t = i / segs, cx = x0 + (x1 - x0) * t, cz = z0 + (z1 - z0) * t
@@ -340,16 +342,16 @@ function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = fal
     }
     for (let i = 0; i < segs; i++) { if (dash && i % 2 === 1) continue; const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3) } // 破線は1セグおき
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); geo.setIndex(idx); geo.computeVertexNormals()
-    const mat = new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: useMap ? watercolorTex : null })
+    const mat = new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: mapTex || null })
     const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m); return m
   }
   if (concrete) { // しっかりしたコンクリート舗装＝はっきり見える・地面より十分高く浮かせてZ-fightと“消える”を防ぐ
-    mk(width + 0.7, 0.1, 0x6f6f6a, false)   // 路肩/縁石（濃いめ）
-    mk(width, 0.14, 0xa2a29c, false)         // コンクリート舗装（無地で明るめ）
-    if (centerline) mk(0.34, 0.17, 0xeeeae0, false, true) // 白の破線センターライン
+    mk(width + 0.7, 0.1, 0x6f6f6a, null)   // 路肩/縁石（濃いめ）
+    mk(width, 0.14, 0xa2a29c, null)         // コンクリート舗装（無地で明るめ）
+    if (centerline) mk(0.34, 0.17, 0xeeeae0, null, true) // 白の破線センターライン
   } else {
-    mk(width, 0.06, 0x8f8d88, true)          // 田舎道（水彩のなじむ路面）
-    if (centerline) mk(0.3, 0.09, 0xcfc9bb, true)
+    mk(width, 0.06, 0xb0a488, dirtTex)       // 田舎道（土のテクスチャ＝歩く主役）
+    if (centerline) mk(0.3, 0.09, 0xcfc9bb, dirtTex)
   }
 }
 // ── 質感テクスチャ（低ポリ＋トゥーンのまま“底上げ”：瓦・土壁・木目）──
@@ -394,7 +396,7 @@ scene.add(ground)
 // 同じテクスチャ参照(roofTex等)の .image を差し替えるので、それを使う全マテリアルに一括反映。地面(watercolorTex)は土道・布と共有のため対象外。
 {
   const BASE = (import.meta.env && import.meta.env.BASE_URL) || '/'
-  const swaps = [['roof_kawara.jpg', roofTex, 9, 3], ['wall_plaster.jpg', plasterTex, 3, 2], ['wood_plank.jpg', woodTex, 1, 2]]
+  const swaps = [['roof_kawara.jpg', roofTex, 9, 3], ['wall_plaster.jpg', plasterTex, 3, 2], ['wood_plank.jpg', woodTex, 1, 2], ['dirt_road.jpg', dirtTex, 1, 1]]
   for (const [file, tex, ru, rv] of swaps) {
     fetch(BASE + 'textures/' + file).then((r) => (r.ok ? r.blob() : null)).then((b) => b && createImageBitmap(b, { imageOrientation: 'flipY' }).then((bmp) => {
       tex.image = bmp; tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(ru, rv); tex.anisotropy = 4; tex.needsUpdate = true

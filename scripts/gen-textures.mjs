@@ -27,6 +27,10 @@ const TEX = {
     prompt: `subtle fine short grass blade detail, NEARLY GREYSCALE desaturated soft grey-green, very low contrast, even allover fine grass texture only, NO rocks NO flowers NO features NO color patches, gentle, ${STYLE}` },
   wood: { file: 'wood_plank.jpg', w: 768, h: 768, seed: 74,
     prompt: `old weathered wooden planks, warm brown vertical wood grain, faded timber boards, ${STYLE}` },
+  dirt: { file: 'dirt_road.jpg', w: 768, h: 768, seed: 118,
+    prompt: `countryside packed-earth ground, uniform warm muted brown soil with a fine even scatter of tiny pebbles and grains spread evenly all over, NO cracks NO ruts NO lines NO large rocks, very low contrast, allover even texture, ${STYLE}` },
+  concrete: { file: 'concrete_road.jpg', w: 768, h: 768, seed: 119,
+    prompt: `old Showa-era concrete surface, uniform pale weathered grey with a fine even speckle spread evenly all over, NO prominent cracks NO lines NO seams, very low contrast, allover even texture, ${STYLE}` },
 }
 
 const PAID = process.argv.includes('--api') || process.env.POLLINATIONS_PAID === '1' // 既定 false ＝ 無料EP（Pollen非消費）
