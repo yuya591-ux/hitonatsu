@@ -486,6 +486,43 @@ function makeTree(x, z, s = 1) {
 for (const [x, z, s] of [[14, 6, 1.1], [-16, 2, 1.0], [22, -10, 1.2], [-22, -14, 1.1], [9, -22, 0.9], [-10, -24, 0.95], [30, 12, 1.0], [-30, 14, 1.1]]) makeTree(x, z, s)
 // 木立を増やして“わさっと”茂らせる（原っぱの縁・木かげを増やす）
 for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25, 1.05], [29, 29, 1.0], [-13, 33, 0.9], [34, 22, 1.05], [-37, -26, 1.0], [40, 8, 1.15], [-40, -8, 1.1]]) makeTree(x, z, s)
+// ── 夏の田舎の生活感（僕の夏休み風の素朴な要素。完全オリジナル造形・原作の模倣はしない）──
+{
+  // 井戸（石組み＋木の屋根＋滑車とつるべ）＝家の庭先
+  const well = new THREE.Group()
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.78, 0.95, 14), toonMap(0x9a948a, plasterTex)); ring.position.y = 0.47; well.add(ring)
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(0.6, 16), toon(0x141618)); hole.rotation.x = -Math.PI / 2; hole.position.y = 0.95; well.add(hole)
+  for (const sx of [-0.7, 0.7]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.7, 6), toonMap(0x7a5a3a, woodTex)); post.position.set(sx, 1.35, 0); well.add(post) }
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.15, 0.55, 4), toonMap(0x6a5a4a, roofTex)); roof.position.y = 2.45; roof.rotation.y = Math.PI / 4; well.add(roof)
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 6), toon(0x5a4a3a)); bar.rotation.z = Math.PI / 2; bar.position.y = 2.0; well.add(bar)
+  const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.26, 8), toonMap(0x8a6a4a, woodTex)); bucket.position.set(0.32, 1.45, 0); well.add(bucket)
+  well.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  const wx = -8, wz = 21; well.position.set(wx, heightAt(wx, wz), wz); mergedOutline(well, 0.03); addContactShadow(well, 1.0); addCollider(wx, wz, 0.85); scene.add(well)
+  // お地蔵さん（赤いよだれかけ・笠。3体並ぶ）＝道ばたの郷愁
+  for (let i = 0; i < 3; i++) {
+    const jz = new THREE.Group()
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.34, 4, 8), toon(0x9a9890)); body.position.y = 0.36; jz.add(body)
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), toon(0x9a9890)); hd.position.y = 0.68; jz.add(hd)
+    const bib = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.28, 12), toon(0xc0392b)); bib.position.set(0, 0.44, 0.07); bib.rotation.x = 0.18; jz.add(bib)
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), toon(0xb83a2c)); cap.position.y = 0.76; jz.add(cap)
+    jz.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    const jx = 32 + i * 0.62, jzz = 2 + i * 0.1; jz.position.set(jx, heightAt(jx, jzz), jzz); jz.rotation.y = -0.5; mergedOutline(jz, 0.02); addContactShadow(jz, 0.4); scene.add(jz)
+  }
+  // ニワトリ（家の庭先に数羽・そよぐ）
+  for (let i = 0; i < 4; i++) {
+    const ch = new THREE.Group()
+    const cb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), toon(i === 1 ? 0xe8c8a0 : 0xf2efe6)); cb.scale.set(1.25, 1, 0.9); cb.position.y = 0.22; ch.add(cb)
+    const chd = new THREE.Mesh(new THREE.SphereGeometry(0.092, 10, 8), toon(i === 1 ? 0xe8c8a0 : 0xf2efe6)); chd.position.set(0.17, 0.36, 0); ch.add(chd)
+    const beak = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 5), toon(0xe0a030)); beak.rotation.z = -Math.PI / 2; beak.position.set(0.27, 0.35, 0); ch.add(beak)
+    const comb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), toon(0xd23a3a)); comb.scale.set(1, 1.3, 0.6); comb.position.set(0.16, 0.45, 0); ch.add(comb)
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.2, 6), toon(i === 1 ? 0xd8b890 : 0xe8e4d8)); tail.rotation.z = 0.9; tail.position.set(-0.17, 0.3, 0); ch.add(tail)
+    for (const lx of [-0.05, 0.05]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.18, 5), toon(0xe0a030)); leg.position.set(lx, 0.09, 0); ch.add(leg) }
+    ch.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    const cx2 = -14 + (i % 2) * 4 + Math.random() * 2, cz2 = 17 + Math.floor(i / 2) * 3 + Math.random() * 2
+    ch.position.set(cx2, heightAt(cx2, cz2), cz2); ch.rotation.y = Math.random() * 6.28; mergedOutline(ch, 0.02); addContactShadow(ch, 0.35); scene.add(ch)
+    swayables.push({ obj: ch, ph: Math.random() * 6.28, amp: 0.06 }) // ついばむような小さな揺れ
+  }
+}
 // ── 低木・茂み（下草。木の根元や縁に点々と＝葉の密度を上げる）──
 function makeBush(x, z, s = 1) {
   const g = new THREE.Group()
