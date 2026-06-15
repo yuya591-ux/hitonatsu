@@ -2166,6 +2166,7 @@ function makeBusStop(x, z, rot) {
   scene.add(g)
 }
 makeBusStop(46, 29, -0.5) // 町への門のそば
+makeBusStop(TOWN.x + 18, TOWN.z + 20, 0) // 町の本通り沿い（外の町とつながる気配）
 // ── 道祖神（辻の石仏＝歩く道の分かれ目に。普遍的な石の造形）──
 { const g = new THREE.Group()
   const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.24, 0.7), toon(0x8e8a7e)); base.position.y = 0.12; g.add(base)
