@@ -315,20 +315,34 @@ const waterMat = new THREE.ShaderMaterial({
     uTime: { value: 0 },
     deep: { value: new THREE.Color(0x2f6f86) },
     shallow: { value: new THREE.Color(0x7fc0c8) },
+    sky: { value: new THREE.Color(0xcfe8f0) }, // 水面が映す空の色
+    tint: { value: new THREE.Color(0xffffff) }, // 時間帯の色（夕=橙, 夜=紺）
+    bright: { value: 1.0 }, // 時間帯の明るさ
+    glint: { value: new THREE.Color(0xfffaf0) }, // 太陽のきらめき色
   },
   vertexShader: `varying vec2 vUv; varying vec3 vW;
     void main(){ vUv = uv; vW = (modelMatrix * vec4(position,1.0)).xyz;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `varying vec2 vUv; varying vec3 vW; uniform float uTime; uniform vec3 deep; uniform vec3 shallow;
+  fragmentShader: `varying vec2 vUv; varying vec3 vW; uniform float uTime; uniform vec3 deep; uniform vec3 shallow; uniform vec3 sky; uniform vec3 tint; uniform float bright; uniform vec3 glint;
     void main(){
       float d = distance(vUv, vec2(0.5)) * 2.0;
-      vec3 col = mix(deep, shallow, smoothstep(0.45, 1.0, d)); // 岸ほど淡く
-      float w = sin(vW.x * 0.7 + uTime * 0.9) * sin(vW.z * 0.7 - uTime * 0.7); // さざ波
-      col += vec3(0.07, 0.11, 0.11) * smoothstep(0.35, 0.95, w);
-      float sp = sin(vW.x * 6.0 + uTime * 3.0) * sin(vW.z * 5.3 + uTime * 2.1); // きらめき
-      col += vec3(0.95, 0.98, 1.0) * 0.22 * smoothstep(0.93, 1.0, sp);
-      float edge = smoothstep(0.85, 1.0, d); // 岸ぎわは少し透ける
-      gl_FragColor = vec4(col, 0.9 - edge * 0.35);
+      vec3 col = mix(deep, shallow, smoothstep(0.4, 1.0, d)); // 岸ほど淡く
+      // 2層のさざ波（向きと速さを変えて重ねる＝のっぺりしない）
+      float w1 = sin(vW.x * 0.7 + uTime * 0.9) * sin(vW.z * 0.7 - uTime * 0.7);
+      float w2 = sin(vW.x * 1.7 - uTime * 1.3 + 1.7) * sin(vW.z * 1.4 + uTime * 1.1);
+      col += vec3(0.06, 0.10, 0.10) * smoothstep(0.30, 0.95, w1);
+      col += vec3(0.05, 0.08, 0.09) * smoothstep(0.45, 0.98, w2);
+      // 空の映り込み（横じまの帯＝水面の反射のゆらぎ）
+      float band = sin(vW.z * 0.9 + uTime * 0.5 + sin(vW.x * 0.6) * 0.8);
+      col = mix(col, sky, 0.18 * smoothstep(0.2, 1.0, band));
+      // 太陽のきらめき（細かい点滅）
+      float sp = sin(vW.x * 6.0 + uTime * 3.0) * sin(vW.z * 5.3 + uTime * 2.1);
+      col += glint * 0.26 * smoothstep(0.92, 1.0, sp);
+      // 岸ぎわの泡（白い縁取り）＋透け
+      float foam = smoothstep(0.86, 0.99, d) * (0.6 + 0.4 * sin(vW.x * 3.0 + vW.z * 3.0 + uTime * 2.0));
+      col = mix(col, vec3(0.96, 0.99, 1.0), foam * 0.5);
+      float edge = smoothstep(0.9, 1.0, d);
+      gl_FragColor = vec4(col * tint * bright, 0.92 - edge * 0.4);
     }`,
 })
 const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 48), waterMat)
@@ -2743,6 +2757,14 @@ function update(dt) {
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp * (0.5 + wind)
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
+  { // 水面を時間帯になじませる（空を映し、夕は橙、夜は紺・暗く）
+    const wnf = nightFactor(tday)
+    const duskF = THREE.MathUtils.smoothstep(tday, 0.58, 0.74) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.92))
+    waterMat.uniforms.sky.value.copy(skyMat.uniforms.mid.value)
+    waterMat.uniforms.glint.value.copy(sunBall.material.color)
+    waterMat.uniforms.tint.value.setRGB(1, 1, 1).lerp(_a.set(0xffc59a), duskF * 0.55).lerp(_b.set(0x6a7cb0), wnf * 0.85)
+    waterMat.uniforms.bright.value = 1.0 - wnf * 0.52
+  }
   if (window.__motes) window.__motes.rotation.y = tsec * 0.02
   // 雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
