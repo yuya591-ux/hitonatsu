@@ -22,16 +22,17 @@
       #badge { right: 3%; top: 3.5%; padding: 0.3em 0.8em; font-size: clamp(11px,2vw,14px);
         color: #fdf7ec; background: rgba(74,64,50,0.7); border-radius: 999px; }
       /* ジャンプ＝右下の専用ボタン（親指が届く位置）。ズーム＝右側に＋／－ */
-      #jump { right: 5%; bottom: 11%; appearance: none; border: none; cursor: pointer;
-        width: 84px; height: 84px; border-radius: 50%; font-size: clamp(14px,2.6vw,18px); font-family: inherit;
+      /* 右下の操作クラスタ：ジャンプ（大）の上に ＋／－ を等間隔で重ならないよう固定配置 */
+      #jump { right: 5%; bottom: 9%; appearance: none; border: none; cursor: pointer;
+        width: 80px; height: 80px; border-radius: 50%; font-size: clamp(14px,2.6vw,18px); font-family: inherit;
         color: #3b4a2e; font-weight: 600; background: rgba(244,250,236,0.86);
         box-shadow: 0 4px 14px rgba(90,120,70,0.32); border: 2px solid rgba(150,180,120,0.6); display: none; }
       #jump:active { background: rgba(228,244,214,0.96); transform: scale(0.94); }
-      .zbtn { right: 5%; appearance: none; border: none; cursor: pointer; width: 52px; height: 52px;
+      .zbtn { right: calc(5% + 14px); appearance: none; border: none; cursor: pointer; width: 52px; height: 52px;
         border-radius: 50%; font-size: 26px; line-height: 1; font-family: inherit; color: #4a4032;
-        background: rgba(255,250,240,0.82); box-shadow: 0 3px 10px rgba(120,100,70,0.28); display: none; }
-      #zin { bottom: 34%; }
-      #zout { bottom: 26%; }
+        background: rgba(255,250,240,0.86); box-shadow: 0 3px 10px rgba(120,100,70,0.28); display: none; }
+      #zout { bottom: calc(9% + 90px); }
+      #zin { bottom: calc(9% + 150px); }
       .zbtn:active { background: rgba(240,232,218,0.95); transform: scale(0.94); }
       #look { left: 50%; bottom: 9%; transform: translateX(-50%); padding: 0.4em 1.1em;
         font-size: clamp(12px,2.2vw,16px); color: #fdf7ec; background: rgba(60,66,98,0.8);
