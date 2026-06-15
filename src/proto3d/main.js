@@ -3312,6 +3312,18 @@ function update(dt) {
     // ごく微かな“息”の揺れ
     camGoal.x += Math.sin(tsec * 0.6) * 0.06
     camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05
+    // カメラの遮蔽回避（マリオ式）：主人公とカメラの間に建物/木があれば手前へ寄せる
+    {
+      const hx = boy.position.x, hyc = boy.position.y + 1.3, hz = boy.position.z
+      let ct = 1
+      for (let s = 0.25; s <= 0.95; s += 0.1) {
+        const px = hx + (camGoal.x - hx) * s, pz = hz + (camGoal.z - hz) * s
+        let blocked = false
+        for (const c of colliders) { const rr = c.r + 0.7; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } }
+        if (blocked) { ct = Math.max(0.22, s - 0.1); break }
+      }
+      if (ct < 1) { camGoal.x = hx + (camGoal.x - hx) * ct; camGoal.z = hz + (camGoal.z - hz) * ct; camGoal.y = hyc + (camGoal.y - hyc) * ct }
+    }
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
   } else if (mode === 'lie') {
     // 寝ころんで空を見る：目線は地面すぐ上、上を向く
