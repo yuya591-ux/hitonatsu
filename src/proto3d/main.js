@@ -562,6 +562,26 @@ for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25,
     gd.traverse((o) => { if (o.isMesh) o.castShadow = true })
     const gx = -25, gz = 7; gd.position.set(gx, heightAt(gx, gz), gz); gd.rotation.y = 0.3; mergedOutline(gd, 0.02); scene.add(gd)
   }
+  // 木の橋（小川をまたぐ＝渡って遊べる素朴な板橋）
+  {
+    const br = new THREE.Group()
+    for (let i = -4; i <= 4; i++) { const pl = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 0.42), toonMap(0x8a6a4a, woodTex)); pl.position.set(0, 0.32, i * 0.44); br.add(pl) } // 板のデッキ
+    for (const sx of [-0.95, 0.95]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 3.9), toonMap(0x7a5a3a, woodTex)); rail.position.set(sx, 0.62, 0); br.add(rail); for (const rz of [-1.7, 0, 1.7]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.62, 5), toonMap(0x7a5a3a, woodTex)); post.position.set(sx, 0.43, rz); br.add(post) } } // 手すり
+    for (const sz of [-1.4, 1.4]) for (const sx of [-0.8, 0.8]) { const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.4, 6), toonMap(0x6a5a4a, woodTex)); pier.position.set(sx, -0.4, sz); br.add(pier) } // 橋脚（流れの中へ）
+    br.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    const bx = -12, bz = 32.5; br.position.set(bx, 0.42, bz); br.rotation.y = 0.245; mergedOutline(br, 0.025); scene.add(br) // 流れを横切る向き
+  }
+  // 縁台＋蚊取り線香（夏の夕涼み）＝家の縁側そば
+  {
+    const en = new THREE.Group()
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 0.6), toonMap(0x9a6a3a, woodTex)); seat.position.y = 0.42; en.add(seat)
+    for (const lx of [-0.75, 0.75]) for (const lz of [-0.22, 0.22]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, 0.1), toon(0x7a5230)); leg.position.set(lx, 0.21, lz); en.add(leg) }
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.08, 12), toon(0xb0c8d0)); plate.position.set(0.55, 0.5, 0); en.add(plate) // 蚊取り線香の皿
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.02, 6, 16), toon(0x2a5a2a)); coil.rotation.x = Math.PI / 2; coil.position.set(0.55, 0.55, 0); en.add(coil) // 渦巻き
+    for (let i = 0; i < 4; i++) { const sm = new THREE.Mesh(new THREE.SphereGeometry(0.03 + i * 0.012, 6, 5), new THREE.MeshBasicMaterial({ color: 0xeef0ee, transparent: true, opacity: 0.26 - i * 0.05, fog: false })); sm.position.set(0.55 + Math.sin(i) * 0.04, 0.62 + i * 0.18, Math.cos(i) * 0.03); en.add(sm) } // 細い煙
+    en.traverse((o) => { if (o.isMesh && o.material.transparent !== true) o.castShadow = true })
+    const enx = -13, enz = 9; en.position.set(enx, heightAt(enx, enz), enz); en.rotation.y = -0.4; mergedOutline(en, 0.02); addContactShadow(en, 1.0); scene.add(en)
+  }
 }
 // ── 低木・茂み（下草。木の根元や縁に点々と＝葉の密度を上げる）──
 function makeBush(x, z, s = 1) {
