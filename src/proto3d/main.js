@@ -213,7 +213,7 @@ scene.add(skyDome)
 
 // 太陽（明るい球。ブルームでにじむ）
 const sunBall = new THREE.Mesh(
-  new THREE.SphereGeometry(6, 24, 24), // 小さめ＝白飛びの種を減らす
+  new THREE.SphereGeometry(8.5, 24, 24), // 夕方に地平へ沈む“夕日”として見えるよう少し大きく（ブルームでにじむ）
   new THREE.MeshBasicMaterial({ color: 0xffeec0, fog: false }), // 純白を避けたやわらかい黄
 )
 sunBall.position.copy(sunDir.clone().multiplyScalar(300))
