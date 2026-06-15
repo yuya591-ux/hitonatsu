@@ -537,6 +537,17 @@ for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25,
     const cwx = -33, cwz = 19; cow.position.set(cwx, heightAt(cwx, cwz), cwz); cow.rotation.y = 1.2; mergedOutline(cow, 0.03); addContactShadow(cow, 1.5); addCollider(cwx, cwz, 1.2); scene.add(cow)
     swayables.push({ obj: cow, ph: Math.random() * 6.28, amp: 0.015 })
   }
+  // スイカとござ＋うちわ（木陰の夏の休憩スポット）
+  {
+    const ws = new THREE.Group()
+    const goza = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 1.4), toon(0xcdbb86)); goza.position.y = 0.03; ws.add(goza)
+    const melon = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), toon(0x357a35)); melon.scale.set(1, 0.94, 1); melon.position.set(0.35, 0.35, 0.15); ws.add(melon)
+    for (let k = 0; k < 5; k++) { const st = new THREE.Mesh(new THREE.TorusGeometry(0.322, 0.018, 4, 14, Math.PI), toon(0x183f18)); st.rotation.set(Math.PI / 2, k * 0.42, 0); st.position.copy(melon.position); ws.add(st) }
+    const uchiwa = new THREE.Mesh(new THREE.CircleGeometry(0.18, 16), new THREE.MeshToonMaterial({ color: 0xe8e2cc, gradientMap: GRAD, side: THREE.DoubleSide })); uchiwa.position.set(-0.5, 0.06, -0.2); uchiwa.rotation.x = -Math.PI / 2; ws.add(uchiwa)
+    const uh = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.22), toon(0x9a7b4a)); uh.position.set(-0.5, 0.06, -0.42); ws.add(uh)
+    ws.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    const wsx = -20, wsz = -11; ws.position.set(wsx, heightAt(wsx, wsz) + 0.02, wsz); ws.rotation.y = 0.5; mergedOutline(ws, 0.02); addContactShadow(ws, 1.2); scene.add(ws)
+  }
 }
 // ── 低木・茂み（下草。木の根元や縁に点々と＝葉の密度を上げる）──
 function makeBush(x, z, s = 1) {
