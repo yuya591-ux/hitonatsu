@@ -3633,14 +3633,14 @@ function update(dt) {
     }
     boy.position.y = heightAt(boy.position.x, boy.position.z)
     if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
-    phase += dt * 1.3 * speedNow // 歩調は実速度に連動
+    phase += dt * 1.55 * speedNow // 歩調は実速度に連動（短い脚に合わせて少し速いパタパタ歩き＝幼児らしさ）
     // 向きをなめらかに
     let d = facing - boy.rotation.y
     while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2
     boy.rotation.y += d * Math.min(1, dt * 10)
     // 歩行/走行アニメ（速いほど大きく振り、前傾し、ぴょこぴょこ跳ねる）
     const run = THREE.MathUtils.clamp(speedNow / 7, 0, 1) // 0=そろり 1=全力
-    const amp = 0.35 + run * 0.9
+    const amp = 0.3 + run * 0.72 // 短い脚＝歩幅は控えめ（大股だと不自然）
     const sw = Math.sin(phase) * amp
     // 足が着くたび：水の中なら「ぽちゃ」＋波紋、そうでなければ足音（走ると砂ぼこり）
     const inCreek = area === 'field' && distToCreek(boy.position.x, boy.position.z) < CREEK.half
@@ -3680,7 +3680,7 @@ function update(dt) {
     // 立ち止まると あたりを見回す。歩くと踏み込んだ足の方へ重心が傾く（ローリング）＝人らしい歩き
     const idleLook = moving ? 0 : calm
     boy.userData.head.rotation.y += ((Math.sin(tsec * 0.34) * 0.45 + Math.sin(tsec * 0.13) * 0.2) * idleLook - boy.userData.head.rotation.y) * Math.min(1, dt * 3)
-    const targetRoll = moving ? Math.sin(phase) * (0.05 + run * 0.06) : Math.sin(tsec * 0.5) * 0.02 * idleLook
+    const targetRoll = moving ? Math.sin(phase) * (0.08 + run * 0.05) : Math.sin(tsec * 0.5) * 0.02 * idleLook // 歩くと左右にとことこ揺れる（幼児のよちよち）
     boy.rotation.z += (targetRoll - boy.rotation.z) * Math.min(1, dt * 9)
     boy.userData.head.rotation.z = -boy.rotation.z * 0.55 // 頭は体ほど傾けず視線を水平に保つ（自然）
     boy.position.y += moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012 // ぴょこぴょこ跳ねる/立つ呼吸
