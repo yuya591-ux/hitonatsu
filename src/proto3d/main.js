@@ -2027,6 +2027,27 @@ makeHedge(-29, 21, -11, 22.5) // 北の生垣（家の背戸）
 { const wp = new THREE.Group(), wood = toon(0x9a7a4a)
   for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const lg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.1, 7), wood); lg.rotation.x = Math.PI / 2; lg.position.set(-0.55 + c * 0.28, 0.14 + r * 0.25, (r % 2) * 0.05); wp.add(lg) }
   wp.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(wp, -23.5, 11, 0.5, 0.03, 1.2) }
+// ── 畑の拡張（トウモロコシの列・キュウリの支柱ネット・梅干しのザル）＝野良仕事の気配を厚く ──
+function makeCorn(x, z) {
+  const g = new THREE.Group()
+  const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 2.1, 5), toon(0x6f8a3a)); stalk.position.y = 1.05; g.add(stalk)
+  for (let i = 0; i < 4; i++) { const lf = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.18), new THREE.MeshToonMaterial({ color: 0x5f8a37, gradientMap: GRAD, side: THREE.DoubleSide })); lf.position.set(0, 0.7 + i * 0.36, 0); lf.rotation.set(0.3, i * 1.9, 0.55); g.add(lf) }
+  const cob = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.42, 6), toon(0xe2c64a)); cob.position.set(0.13, 1.35, 0); cob.rotation.z = 0.3; g.add(cob)
+  const silk = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 5), toon(0xc6a85a)); silk.position.set(0.13, 1.62, 0); g.add(silk)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(g, x, z, Math.random() * 6, 0.03, 0.5); swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.035 })
+}
+for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) makeCorn(-13.5 + c * 1.3, 3.4 + r * 1.2)
+{ const g = new THREE.Group(), bamboo = toon(0xbfae6e), leaf = toon(0x4a7a3a) // キュウリの支柱ネット
+  for (const px of [-2, -0.67, 0.67, 2]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.0, 5), bamboo); p.position.set(px, 1, 0); g.add(p) }
+  for (const py of [0.8, 1.5]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 4.2, 5), bamboo); h.rotation.z = Math.PI / 2; h.position.set(0, py, 0); g.add(h) }
+  const net = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.5), new THREE.MeshToonMaterial({ color: 0x6a8a4a, transparent: true, opacity: 0.22, side: THREE.DoubleSide, gradientMap: GRAD })); net.position.set(0, 1.2, 0); g.add(net)
+  for (let i = 0; i < 16; i++) { const lx = -2 + Math.random() * 4, ly = 0.5 + Math.random() * 1.5; const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.17, 0), leaf); lf.position.set(lx, ly, 0.05); g.add(lf); if (i % 3 === 0) { const cu = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.42, 6), toon(0x4f7a30)); cu.position.set(lx, ly - 0.32, 0.09); cu.rotation.x = 0.25; g.add(cu) } }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(g, -4.5, 9, 0.25, 0.03, 2.0); swayables.push({ obj: g, ph: 2.2, amp: 0.02 }) }
+{ const g = new THREE.Group() // 軒先の梅干しのザル（赤い実が干されている）
+  const stand = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.7), toonMap(0x8a6a44, woodTex)); stand.position.y = 0.25; g.add(stand)
+  const zaru = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.44, 0.08, 16), toon(0xb89a64)); zaru.position.y = 0.54; g.add(zaru)
+  for (let i = 0; i < 18; i++) { const a = Math.random() * 6.28, rr = Math.random() * 0.4; const u = new THREE.Mesh(new THREE.SphereGeometry(0.06, 7, 6), toon(0xc0463a)); u.position.set(Math.cos(a) * rr, 0.61, Math.sin(a) * rr); g.add(u) }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(g, HOUSE.x - 5.5, HOUSE.z + 5.5, 0.35, 0.02, 0.7) }
 // 水やりの水しぶき（じょうろから落ちる水の粒）
 const WDROPN = 20
 const wdropPos = new Float32Array(WDROPN * 3).fill(-9999)
