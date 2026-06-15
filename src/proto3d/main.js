@@ -1766,10 +1766,10 @@ function makeBoy() {
   //    関節は継ぎ目を丸で隠して「人形/マネキン」感を消す。legL/legR=股, armL/armR=肩, 膝/肘は子グループ。──
   function makeLeg(side) {
     const hip = new THREE.Group(); hip.position.set(0.145 * side, 0.75, 0)
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.115, 0.13, 5, 12), skin); thigh.position.y = -0.14; hip.add(thigh) // ほどよく細く・短め
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.135, 0.12, 6, 14), skin); thigh.position.y = -0.14; hip.add(thigh) // ぷにっと太め＝木の人形っぽさを消す
     const knee = new THREE.Group(); knee.position.y = -0.32; hip.add(knee)
-    const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.108, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目を丸で埋める＝人形っぽさ消し
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.103, 0.15, 5, 12), skin); shin.position.y = -0.16; knee.add(shin)
+    const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.132, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目を丸で埋める＝人形っぽさ消し（太め）
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.122, 0.14, 6, 14), skin); shin.position.y = -0.16; knee.add(shin)
     // 足首ピボット＝歩いても足裏が地面に沿う（スケートのように爪先が突き出ない）
     const ankle = new THREE.Group(); ankle.position.y = -0.32; knee.add(ankle)
     // サンダル：素足の甲＋革のソール＋甲ストラップ
@@ -1790,10 +1790,10 @@ function makeBoy() {
   function makeArm(side) {
     const sh = new THREE.Group(); sh.position.set(0.26 * side, 1.22, 0); sh.rotation.z = -0.12 * side
     const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), shirt); sleeve.scale.set(1, 0.92, 1); sleeve.position.y = -0.02; sh.add(sleeve) // 半袖
-    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.08, 5, 10), skin); upper.position.y = -0.13; sh.add(upper)
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.105, 0.07, 6, 12), skin); upper.position.y = -0.13; sh.add(upper)
     const elbow = new THREE.Group(); elbow.position.y = -0.24; sh.add(elbow)
-    const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), skin); elbow.add(elbowCap)
-    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.084, 0.09, 5, 10), skin); fore.position.y = -0.12; elbow.add(fore)
+    const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(0.102, 10, 8), skin); elbow.add(elbowCap)
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.097, 0.08, 6, 12), skin); fore.position.y = -0.12; elbow.add(fore)
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.094, 10, 9), skin); hand.position.y = -0.24; elbow.add(hand)
     g.add(sh)
     return { sh, elbow }
@@ -1839,17 +1839,17 @@ outlineObj(boy, 0.03)
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xf3a59a, transparent: true, opacity: 0.5 })
   const browMat = new THREE.MeshBasicMaterial({ color: 0x6a4a34 })
-  // 目＝白目＋丸い茶色の瞳＋ハイライト（やさしく親しみやすい。頭0.21に合わせる）
-  for (const ex of [-0.083, 0.083]) {
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 12), hiMat); sclera.scale.set(0.78, 1.05, 0.42); sclera.position.set(ex, 0.035, 0.176); head.add(sclera) // 白目
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.031, 14, 12), eyeMat); iris.scale.set(0.92, 1.0, 0.42); iris.position.set(ex, 0.03, 0.192); head.add(iris) // 瞳（茶）
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.013, 8, 8), hiMat); hi.position.set(ex + 0.013, 0.056, 0.206); head.add(hi) // きらり
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.011, 0.016), browMat); brow.position.set(ex, 0.088, 0.196); brow.rotation.z = ex > 0 ? 0.12 : -0.12; head.add(brow) // やわらかい眉
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.043, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.4); bl.position.set(ex + (ex > 0 ? 0.051 : -0.051), -0.039, 0.169); head.add(bl) // ほっぺ
+  // 目＝大きく丸い瞳＋うるうるハイライト2つ＝世界共通の“かわいい”。眉は出さない（やさしい印象）
+  for (const ex of [-0.088, 0.088]) {
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 14), hiMat); sclera.scale.set(0.82, 1.12, 0.4); sclera.position.set(ex, 0.028, 0.171); head.add(sclera) // 白目（大）
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.047, 16, 14), eyeMat); iris.scale.set(0.94, 1.0, 0.42); iris.position.set(ex, 0.023, 0.187); head.add(iris) // 瞳（大・茶）
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 10), hiMat); hi.position.set(ex + 0.017, 0.052, 0.203); head.add(hi) // きらり大
+    const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 8), hiMat); hi2.position.set(ex - 0.013, -0.005, 0.203); head.add(hi2) // きらり小（うるうる）
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.052, 12, 10), blushMat); bl.scale.set(1, 0.64, 0.4); bl.position.set(ex + (ex > 0 ? 0.056 : -0.056), -0.052, 0.162); head.add(bl) // ふんわりほっぺ
   }
   // 口＝小さなにっこり（線だけ・暗い穴は作らない＝怖くならない）
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.01, 6, 14, Math.PI * 0.9), browMat)
-  mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.065, 0.192); head.add(mouth)
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.034, 0.0095, 6, 14, Math.PI * 0.9), eyeMat)
+  mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.072, 0.19); head.add(mouth)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
