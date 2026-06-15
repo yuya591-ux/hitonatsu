@@ -51,15 +51,16 @@ try {
   console.log(`環境音: started=${audio.started} ctx=${audio.ctx} loaded=${audio.loaded} playing=[${audio.playing.join(',')}]`)
   if (audio.loaded < 4) errors.push(`環境音の読み込み不足（loaded=${audio.loaded}）`)
   if (!audio.playing.length) errors.push('環境音が再生されていない')
-  // ジャンプ：タップ相当で跳ねて、地面より高くなる
+  // ジャンプ：跳ねて地面より高くなる。固定180ms snapshotは重いシーンで描画が遅いと1フレームしか進まず
+  // 誤検知するため、時間方向にサンプルして「ピーク高さ」で判定する（堅牢化）。
   await page.evaluate(() => { window.__proto3d.setDay(0.4); window.__proto3d.placeBoy(8, 8) })
   await new Promise((r) => setTimeout(r, 300))
   const y0 = await page.evaluate(() => window.__proto3d.boy.position.y)
   await page.evaluate(() => window.__proto3d._jump())
-  await new Promise((r) => setTimeout(r, 180))
-  const y1 = await page.evaluate(() => window.__proto3d.boy.position.y)
-  console.log(`ジャンプテスト: 地上=${y0.toFixed(2)} → 跳躍中=${y1.toFixed(2)} ${y1 - y0 > 0.4 ? 'OK' : 'NG'}`)
-  if (y1 - y0 < 0.4) errors.push('ジャンプで跳ねていない')
+  let yPeak = y0
+  for (let i = 0; i < 14; i++) { await new Promise((r) => setTimeout(r, 50)); const y = await page.evaluate(() => window.__proto3d.boy.position.y); if (y > yPeak) yPeak = y }
+  console.log(`ジャンプテスト: 地上=${y0.toFixed(2)} → ピーク=${yPeak.toFixed(2)} ${yPeak - y0 > 0.5 ? 'OK' : 'NG'}`)
+  if (yPeak - y0 < 0.5) errors.push('ジャンプで跳ねていない')
   for (const [t, tag] of [[0.22, 'asa'], [0.5, 'hiru'], [0.74, 'yu'], [0.97, 'yoru']]) {
     await page.evaluate((tt) => window.__proto3d.setDay(tt), t)
     await new Promise((r) => setTimeout(r, 700))
