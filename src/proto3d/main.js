@@ -2183,7 +2183,7 @@ function makeVillager(x, z, opt) {
   }
   if (!opt.simple) { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0085, 6, 14, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.064, 0.168); head.add(mouth) }
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4 }
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult }
   scene.add(g)
   return g
 }
@@ -3520,10 +3520,11 @@ function update(dt) {
     } else {
       p.position.z += u.sp * u.dir * dt
       if (p.position.z > u.z1) { u.dir = -1; p.rotation.y = Math.PI } else if (p.position.z < u.z0) { u.dir = 1; p.rotation.y = 0 }
-      p.position.x = u.x; p.userData.wph += dt * 7
-      p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * 0.05
-      const sw = Math.sin(p.userData.wph) * 0.5; p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
-      p.userData.armL.rotation.x = -sw; p.userData.armR.rotation.x = sw
+      const ad = p.userData.adult // 大人は落ち着いた歩き（よちよちしない）
+      p.position.x = u.x; p.userData.wph += dt * (ad ? 5.2 : 7)
+      p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * (ad ? 0.022 : 0.05)
+      const sw = Math.sin(p.userData.wph) * (ad ? 0.4 : 0.5); p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
+      p.userData.armL.rotation.x = -sw * (ad ? 0.7 : 1); p.userData.armR.rotation.x = sw * (ad ? 0.7 : 1)
       p.userData.head.rotation.y *= 0.9
     }
   }
