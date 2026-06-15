@@ -18,8 +18,8 @@ const TEX = {
     prompt: `traditional Japanese kawara roof tiles in neat horizontal rows, weathered dark blue-grey ceramic, gentle highlights, ${STYLE}` },
   wall: { file: 'wall_plaster.jpg', w: 768, h: 768, seed: 88,
     prompt: `aged Showa-era sand-plaster stucco wall, uniform fine sandy grain covering the whole image evenly, gentle mottled cream-beige, faint even weathering, NO large cracks, NO single features, allover even texture, ${STYLE}` },
-  ground: { file: 'ground_grass.jpg', w: 768, h: 768, seed: 73,
-    prompt: `summer countryside lawn, short soft grass with small patches of dry earth, gentle low-contrast variation so it blends under terrain colors, ${STYLE}` },
+  ground: { file: 'ground_grass.jpg', w: 768, h: 768, seed: 91,
+    prompt: `subtle fine short grass blade detail, NEARLY GREYSCALE desaturated soft grey-green, very low contrast, even allover fine grass texture only, NO rocks NO flowers NO features NO color patches, gentle, ${STYLE}` },
   wood: { file: 'wood_plank.jpg', w: 768, h: 768, seed: 74,
     prompt: `old weathered wooden planks, warm brown vertical wood grain, faded timber boards, ${STYLE}` },
 }

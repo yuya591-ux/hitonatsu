@@ -398,6 +398,11 @@ scene.add(ground)
       tex.image = bmp; tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(ru, rv); tex.anisotropy = 4; tex.needsUpdate = true
     })).catch(() => {})
   }
+  // 地面は土道/布と共有の watercolorTex を汚さないよう、地面メッシュ専用に新テクスチャを差す（頂点色×淡い草の穂）
+  fetch(BASE + 'textures/ground_grass.jpg').then((r) => (r.ok ? r.blob() : null)).then((b) => b && createImageBitmap(b, { imageOrientation: 'flipY' }).then((bmp) => {
+    const gt = new THREE.Texture(bmp); gt.flipY = false; gt.colorSpace = THREE.SRGBColorSpace; gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(9, 9); gt.anisotropy = 4; gt.needsUpdate = true
+    ground.material.map = gt; ground.material.needsUpdate = true
+  })).catch(() => {})
 }
 
 // ── 池（様式化したトゥーン水面：さざ波＋きらめき）──
