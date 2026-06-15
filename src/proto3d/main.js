@@ -799,15 +799,17 @@ function placeProp(g, x, z, rot, outline, shadowR) {
   for (let i = 0; i < 4; i++) { const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.85), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cloth.position.set(-1.3 + i * 0.86, 1.4, 0); g.add(cloth) }
   placeProp(g, -22, 18, 0.4, 0.03, 1.6)
 }
-// 当時の自販機（前面が光る）
-{
+// 当時の自販機（前面が光る）。色違いで並べられるよう関数化
+function makeVending(x, z, rot, col = 0xc23a2c) {
   const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.9), toon(0xc23a2c)); body.position.y = 1.1; g.add(body)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.9), toon(col)); body.position.y = 1.1; g.add(body)
   const panel = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.25, 0.06), new THREE.MeshBasicMaterial({ color: 0xfff3c8 })); panel.position.set(0, 1.45, 0.46); g.add(panel)
   const canCols = [0xd24a3a, 0x3a6a9a, 0x3e8a4a, 0xe0a838, 0xc04888, 0x5a5a5a, 0xe06a2a, 0x40a0a0] // 平成初期＝缶ジュースの色とりどり
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const can = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, 0.02), toon(canCols[(i * 3 + j) % canCols.length])); can.position.set(-0.3 + i * 0.3, 1.05 + j * 0.4, 0.5); g.add(can) }
-  placeProp(g, -2, 24, 0.2, 0.04, 1.0)
+  placeProp(g, x, z, rot, 0.04, 1.0)
 }
+makeVending(-2, 24, 0.2) // 野原の道ばた
+makeVending(TOWN.x + 46, TOWN.z - 6, 0, 0x2a7ab0); makeVending(TOWN.x + 47.6, TOWN.z - 6, 0, 0xe0a838) // 銭湯わきの並び（風呂上がりの一杯）
 // 電柱２本＋電線（drooping）
 function makePole(x, z) {
   const g = new THREE.Group(); const pole = toon(0x9a958c)
