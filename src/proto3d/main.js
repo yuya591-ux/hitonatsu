@@ -1790,13 +1790,13 @@ function makeBoy() {
   //    胴は短くぽってり、手足は短めでむちっと、脚は短く重心は低い。これが「ゴリラ/ひょろ長い」を同時に避ける鍵。
   //    関節は継ぎ目を“同径”の丸で隠して人形感を消す（太いコブを作らない）。──
   function makeLeg(side) {
-    const hip = new THREE.Group(); hip.position.set(0.115 * side, 0.68, 0) // 腰は低め＝重心を下げて幼く
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.13, 6, 12), skin); thigh.position.y = -0.155; hip.add(thigh) // 短めでむちっとした太もも
-    const knee = new THREE.Group(); knee.position.y = -0.31; hip.add(knee)
-    const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.088, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目（太ももと同径＝コブを作らない）
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.078, 0.13, 6, 12), skin); shin.position.y = -0.15; knee.add(shin) // すね（短め）
+    const hip = new THREE.Group(); hip.position.set(0.115 * side, 0.62, 0) // 腰をさらに低く＝脚を短く・重心を下げて幼児体型に
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.1, 6, 12), skin); thigh.position.y = -0.13; hip.add(thigh) // 短くむちっとした太もも
+    const knee = new THREE.Group(); knee.position.y = -0.27; hip.add(knee)
+    const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.094, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目（太ももと同径＝コブを作らない）
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.084, 0.1, 6, 12), skin); shin.position.y = -0.13; knee.add(shin) // すね（短い）
     // 足首ピボット＝歩いても足裏が地面に沿う（スケートのように爪先が突き出ない）
-    const ankle = new THREE.Group(); ankle.position.y = -0.3; knee.add(ankle)
+    const ankle = new THREE.Group(); ankle.position.y = -0.26; knee.add(ankle)
     // サンダル：素足の甲＋革のソール＋甲ストラップ（子どもサイズ・ちょっと大きめの足）
     const foot = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.08, 0.23), skin); foot.position.set(0, -0.02, 0.05); ankle.add(foot)
     const sole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.04, 0.28), toon(0x7a5436)); sole.position.set(0, -0.07, 0.06); ankle.add(sole)
@@ -1807,7 +1807,7 @@ function makeBoy() {
   const L = makeLeg(-1), R = makeLeg(1)
   const legL = L.hip, legR = R.hip, kneeL = L.knee, kneeR = R.knee, ankleL = L.ankle, ankleR = R.ankle
   // 半ズボン（腰まわり・股の継ぎ目を覆う）。低めの腰に合わせる。
-  const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.205, 16, 12), pants); shorts.scale.set(1.05, 0.7, 0.82); shorts.position.y = 0.7; g.add(shorts)
+  const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.205, 16, 12), pants); shorts.scale.set(1.08, 0.72, 0.84); shorts.position.y = 0.64; g.add(shorts)
   // 胴＝短くぽってり（子どもの丸いおなか）。縦を詰めて幼児体型に。
   const torso = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 14), shirt); torso.scale.set(1.14, 1.2, 0.84); torso.position.y = 0.95; g.add(torso)
   const chest = new THREE.Mesh(new THREE.SphereGeometry(0.165, 16, 12), shirt); chest.scale.set(1.08, 0.82, 0.8); chest.position.y = 1.08; g.add(chest) // 肩まわり（なで肩・狭い）
@@ -1815,11 +1815,11 @@ function makeBoy() {
   function makeArm(side) {
     const sh = new THREE.Group(); sh.position.set(0.19 * side, 1.08, 0); sh.rotation.z = -0.13 * side // なで肩・腕は体から少し離してだらっと
     const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.082, 12, 10), shirt); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.02; sh.add(sleeve) // 半袖
-    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.11, 6, 10), skin); upper.position.y = -0.13; sh.add(upper) // 短めの二の腕
-    const elbow = new THREE.Group(); elbow.position.y = -0.235; sh.add(elbow)
-    const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(0.056, 10, 8), skin); elbow.add(elbowCap)
-    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.1, 6, 10), skin); fore.position.y = -0.11; elbow.add(fore) // 短めの前腕
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.066, 10, 9), skin); hand.scale.set(1, 1.05, 0.72); hand.position.y = -0.22; elbow.add(hand) // ぷっくりした手
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.062, 0.075, 6, 10), skin); upper.position.y = -0.11; sh.add(upper) // 短くむちっとした二の腕
+    const elbow = new THREE.Group(); elbow.position.y = -0.185; sh.add(elbow)
+    const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), skin); elbow.add(elbowCap)
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.056, 0.07, 6, 10), skin); fore.position.y = -0.09; elbow.add(fore) // 短い前腕
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.068, 10, 9), skin); hand.scale.set(1, 1.05, 0.72); hand.position.y = -0.17; elbow.add(hand) // ぷっくりした手
     g.add(sh)
     return { sh, elbow }
   }
@@ -1928,21 +1928,21 @@ function makeVillager(x, z, opt) {
   // 主人公と同じ“幼児寄り”の頭身に統一（頭大きめ・胴短く・脚短め・重心低い）。大人はopt.scaleで少し背を高く。
   let kneeL = null, kneeR = null
   function makeLeg(side) {
-    const hip = new THREE.Group(); hip.position.set(0.11 * side, 0.66, 0); g.add(hip)
+    const hip = new THREE.Group(); hip.position.set(0.11 * side, 0.6, 0); g.add(hip) // 腰を下げて脚を短く（主人公と統一）
     if (full) {
-      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.13, 4, 8), skin); thigh.position.y = -0.155; hip.add(thigh)
-      const knee = new THREE.Group(); knee.position.y = -0.31; hip.add(knee)
-      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.13, 4, 8), skin); shin.position.y = -0.15; knee.add(shin)
-      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.3, 0.04); knee.add(shoe)
+      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.1, 4, 8), skin); thigh.position.y = -0.13; hip.add(thigh)
+      const knee = new THREE.Group(); knee.position.y = -0.27; hip.add(knee)
+      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.084, 0.1, 4, 8), skin); shin.position.y = -0.13; knee.add(shin)
+      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.26, 0.04); knee.add(shoe)
       return { hip, knee }
     }
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.46, 4, 8), skin); leg.position.y = -0.32; hip.add(leg)
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.42, 4, 8), skin); leg.position.y = -0.3; hip.add(leg)
     return { hip, knee: null }
   }
   const LL = makeLeg(-1), LR = makeLeg(1)
   const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
-  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.205, 14, 10), toon(opt.skirt)); shorts.scale.set(1.05, 0.66, 0.82); shorts.position.y = 0.62; g.add(shorts) }
-  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.42, 14), toon(opt.skirt)); skirt.position.y = 0.6; g.add(skirt) }
+  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.SphereGeometry(0.205, 14, 10), toon(opt.skirt)); shorts.scale.set(1.08, 0.68, 0.84); shorts.position.y = 0.56; g.add(shorts) }
+  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.4, 14), toon(opt.skirt)); skirt.position.y = 0.54; g.add(skirt) }
   // 胴。会話する村人は円筒＋丸い肩、背景の人はたまご型（軽量）。短くぽってり。
   if (full) {
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.24, 14), shirtM); torso.position.y = 0.92; g.add(torso)
@@ -1954,21 +1954,26 @@ function makeVillager(x, z, opt) {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 9), skin); neck.position.y = 1.22; g.add(neck)
   // あたま＝相対的に大きく（主人公と同じ幼児頭身に統一）。geometry0.185＋scaleで実効を大きく
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 16), skin); head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.35; g.add(head)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.37; hair.rotation.x = -0.25; g.add(hair)
-  if (!opt.boy && !opt.simple) for (const hx of [-0.21, 0.21]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.078, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.31, -0.04); g.add(pt) }
+  // 髪＝頭をきれいに包むボブ。前髪のフチは額（目の上）で止め、目に被らないようにする（怖さ解消）。
+  // 浅いキャップ(0.50π)＝前は額、横は耳、後ろはうなじまで。少しの前傾で自然な被り。
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.226, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), toon(opt.hair)); hair.position.y = 1.385; hair.rotation.x = -0.2; g.add(hair)
+  // 前髪（額の生え際を少しだけ前へ。目の上で止まる薄い庇）
+  if (!opt.boy) { const bang = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 8, 0, Math.PI * 2, Math.PI * 0.34, Math.PI * 0.18), toon(opt.hair)); bang.position.set(0, 1.4, 0.03); bang.rotation.x = 0.3; g.add(bang) }
+  // 横の毛束（耳の脇。低すぎない位置に）
+  if (!opt.boy && !opt.simple) for (const hx of [-0.2, 0.2]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.072, 10, 10), toon(opt.hair)); pt.scale.set(0.8, 1.2, 0.8); pt.position.set(hx, 1.36, -0.02); g.add(pt) }
   // 腕（肩ピボット＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル。短めでむちっと。
   let elbowL = null, elbowR = null
   function makeArm(side) {
     const sh = new THREE.Group(); sh.position.set(0.19 * side, 1.06, 0); sh.rotation.z = -0.13 * side; g.add(sh)
     if (full) {
       const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 9), shirtM); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.02; sh.add(sleeve)
-      const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.1, 4, 8), skin); upper.position.y = -0.12; sh.add(upper)
-      const elbow = new THREE.Group(); elbow.position.y = -0.22; elbow.rotation.x = -0.2; sh.add(elbow) // 肘を軽く曲げて自然に
-      const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.1, 4, 8), skin); fore.position.y = -0.1; elbow.add(fore)
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.066, 9, 8), skin); hand.position.y = -0.2; elbow.add(hand)
+      const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.062, 0.075, 4, 8), skin); upper.position.y = -0.1; sh.add(upper)
+      const elbow = new THREE.Group(); elbow.position.y = -0.185; elbow.rotation.x = -0.2; sh.add(elbow) // 肘を軽く曲げて自然に
+      const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.056, 0.07, 4, 8), skin); fore.position.y = -0.09; elbow.add(fore)
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.068, 9, 8), skin); hand.position.y = -0.17; elbow.add(hand)
       return { sh, elbow }
     }
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.26, 4, 8), skin); arm.position.y = -0.22; sh.add(arm)
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.062, 0.2, 4, 8), skin); arm.position.y = -0.19; sh.add(arm)
     return { sh, elbow: null }
   }
   const AL = makeArm(-1), AR = makeArm(1)
