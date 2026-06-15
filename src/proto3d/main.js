@@ -221,10 +221,10 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe9c8, li: 1.95, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe7eee6, hi: 1.45, hsky: 0xcfe6f4, hgnd: 0x95a766, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 },
+  morn: { light: 0xffe9c8, li: 1.62, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xdbe7f0, hi: 1.3, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 }, // 朝＝低照度・青白くひんやり・靄がかる
   noon: { light: 0xfff6e8, li: 2.3, sky: 0x84bce2, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.58, hsky: 0xdaf0fb, hgnd: 0x95a766, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
-  dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xee7438, bot: 0xf7b262, fog: 0xe7a074, hi: 1.15, hsky: 0xe89a72, hgnd: 0x7e7250, ball: 0xff8f48, rim: 0xff7a30, ri: 1.32 },
-  night: { light: 0x97abdc, li: 1.18, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x35466a, hi: 1.05, hsky: 0x4e6398, hgnd: 0x4a5e72, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 },
+  dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xee7438, bot: 0xf7b262, fog: 0xd98c5a, hi: 1.15, hsky: 0xe89a72, hgnd: 0x5a5e62, ball: 0xff8f48, rim: 0xff7a30, ri: 1.32 }, // 夕＝日陰に青を残す(hgnd青灰)・霧の彩度を少し落とす
+  night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
 const lc = (out, ha, hb, u) => out.copy(_a.set(ha)).lerp(_b.set(hb), u)
@@ -2653,7 +2653,7 @@ const gradePass = new ShaderPass({
       }
       // 黄金色の夕（ゴールデンアワー）：夕方は画面全体を温かく金色に染め、上空ほど茜色に
       if (golden > 0.001) {
-        c += golden * vec3(0.10, 0.045, -0.05) * (0.35 + lum);          // 光の当たる所ほど金色に
+        c += golden * vec3(0.10, 0.045, -0.05) * (0.12 + lum);          // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
         c += golden * vec3(0.05, 0.0, 0.02) * smoothstep(0.45, 1.0, vUv.y); // 上空は茜色がかる
       }
       // 紙の質感：低周波の紙むら＋細かいザラ（暗くしすぎず、白い紙の上の淡いムラに）
