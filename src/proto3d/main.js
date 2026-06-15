@@ -1792,6 +1792,18 @@ const fireflies = (() => {
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 0.4, transparent: true, opacity: 0, depthWrite: false, fog: true, blending: THREE.AdditiveBlending }))
   scene.add(pts); return pts
 })()
+// ── 雨上がりの虹（夏の夕立が上がると、空にそっと架かる）──
+const rainbow = new THREE.Group()
+{
+  const cols = [0xff6a6a, 0xff9a3a, 0xffe24a, 0x5ac85a, 0x4aa8e6, 0x4a5ad6, 0x9a5ad6]
+  for (let i = 0; i < cols.length; i++) {
+    const R = 150 + i * 2.4
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(R, 1.2, 5, 64, Math.PI), new THREE.MeshBasicMaterial({ color: cols[i], transparent: true, opacity: 0, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }))
+    rainbow.add(arc)
+  }
+  rainbow.visible = false; scene.add(rainbow)
+}
+let rainbowTimer = 0, rainbowF = 0
 // 提灯（家の軒先・夜にあかりが灯る）
 const lanterns = []
 for (let i = 0; i < 5; i++) {
@@ -1924,7 +1936,7 @@ rainMesh.frustumCulled = false; scene.add(rainMesh)
 // ── カメラ（既定は斜め見下ろし。視点はユーザーが回せる/寄れる） ──
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
 // 視点の制御値（球面）。yaw=水平角, pitch=見下ろし角, dist=距離。
-const camCtl = { yaw: 0.32, pitch: 0.62, dist: 19, minDist: 8, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 }
+const camCtl = { yaw: 0.32, pitch: 0.62, dist: 19, minDist: 4.5, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 } // minDistを下げて主人公にぐっと寄れるように
 function camOffset(out) {
   const cp = Math.cos(camCtl.pitch)
   out.set(Math.sin(camCtl.yaw) * cp, Math.sin(camCtl.pitch), Math.cos(camCtl.yaw) * cp).multiplyScalar(camCtl.dist)
@@ -2796,9 +2808,17 @@ function update(dt) {
   if (rainGain) { const tgt = THREE.MathUtils.clamp((weather - 0.04) * 0.27, 0, 0.23); rainGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 0.6) }
   maybeThunder(dt)
   maybeCricket(dt) // 夜の虫の音
-  // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）
-  if (lastWeatherForDrip > 0.4 && weather < 0.28) dripQueue = 8
+  // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
+  if (lastWeatherForDrip > 0.4 && weather < 0.28) { dripQueue = 8; if (nightFactor(tday) < 0.2) rainbowTimer = 26 }
   lastWeatherForDrip = weather
+  // 虹：雨上がりにそっと現れ、ゆっくり消える。太陽の反対側の空に架かる
+  if (rainbowTimer > 0) rainbowTimer -= dt
+  rainbowF += ((rainbowTimer > 0 ? 1 : 0) - rainbowF) * Math.min(1, dt * 0.6)
+  rainbow.visible = rainbowF > 0.01
+  if (rainbow.visible) {
+    rainbow.position.set(camera.position.x, -42, camera.position.z - 150) // 遠くの空に大きく架かる（カメラ追従）
+    for (const arc of rainbow.children) arc.material.opacity = rainbowF * 0.6
+  }
   if (dripQueue > 0) { dripTimer -= dt; if (dripTimer <= 0) { dripTimer = 0.35 + Math.random() * 1.0; playDrip(); dripQueue-- } }
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
