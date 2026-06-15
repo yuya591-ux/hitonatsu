@@ -14,6 +14,12 @@ dist/
 # 一時検証スクリプト（アンダースコア始まり＝使い捨て）
 scripts/_*.mjs
 
+# APIキー類（外部AI生成は開発時のみ。鍵は絶対にGitに上げない）
+.env
+.env.*
+.pollinations_key
+*.key
+
 # OS・エディタの作業ファイル
 .DS_Store
 Thumbs.db
