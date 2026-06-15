@@ -762,6 +762,11 @@ function drawWire(a, b, sag) {
 drawWire(poleA, poleB, 1.2)
 drawWire(poleB, new THREE.Vector3(HOUSE.x, heightAt(HOUSE.x, HOUSE.z) + 3.5, HOUSE.z), 0.8)
 
+// ── 野原の素朴な土道（家↔小川/池/門。原っぱの開けた感じは保ちつつ“歩いて味わう”踏み跡を足す。池は避けて通す）──
+makeRoadRibbon(-13, 13, -12, 29.5, 1.8, false) // 家→小川/太鼓橋（水あそびへの踏み跡）
+makeRoadRibbon(-12, 12, 14, 13, 1.8, false)    // 家→池の西岸（魚を見にいく道）
+makeRoadRibbon(41, 33, 38, 16, 2.2, false)     // 門→池の東岸（町からの来訪者の道）
+
 // ── 住宅街エリア（昭和の街並み：家・ブロック塀・電柱・空き地の土管）＝ドラえもん的な往来先 ──
 const GATE_FIELD = new THREE.Vector3(42, 0, 36)            // 野原側の出入口（→町へ）
 const GATE_TOWN = new THREE.Vector3(TOWN.x, 0, TOWN.z - 26) // 街側の出入口（→はらっぱへ）
