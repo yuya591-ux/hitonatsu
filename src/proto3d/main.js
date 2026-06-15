@@ -2114,8 +2114,29 @@ function startAudio() {
     for (const id in ambients) { const a = ambients[id]; if (a.buffer && !a.isPlaying) a.play() }
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
     initRainAudio()
+    unlockIOSAudio() // iOSのミュートスイッチ/画面収録対策
   } catch (e) {}
   try { if (window.__applySound) window.__applySound() } catch (e) {} // 設定で「おとOFF」なら止める
+}
+// iOS対策：無音のループ音源を <audio> で鳴らし、オーディオセッションを「再生(playback)」にする。
+// これでマナースイッチONでもWeb Audioが鳴り、画面収録にも音が入りやすくなる（iOSのWeb Audio既知の挙動）。
+let iosSilent = null
+function unlockIOSAudio() {
+  try {
+    if (!iosSilent) {
+      const rate = 8000, sec = 0.5, n = Math.floor(rate * sec)
+      const ab = new ArrayBuffer(44 + n); const dv = new DataView(ab)
+      const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)) }
+      ws(0, 'RIFF'); dv.setUint32(4, 36 + n, true); ws(8, 'WAVE'); ws(12, 'fmt '); dv.setUint32(16, 16, true)
+      dv.setUint16(20, 1, true); dv.setUint16(22, 1, true); dv.setUint32(24, rate, true); dv.setUint32(28, rate, true)
+      dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); ws(36, 'data'); dv.setUint32(40, n, true)
+      for (let i = 0; i < n; i++) dv.setUint8(44 + i, 128) // 8bit無音
+      let bin = ''; const by = new Uint8Array(ab); for (let i = 0; i < by.length; i++) bin += String.fromCharCode(by[i])
+      iosSilent = document.createElement('audio'); iosSilent.loop = true; iosSilent.setAttribute('playsinline', ''); iosSilent.playsInline = true
+      iosSilent.volume = 0.001; iosSilent.src = 'data:audio/wav;base64,' + btoa(bin)
+    }
+    iosSilent.play().catch(() => {})
+  } catch (e) {}
 }
 // 雨音＝自前合成（外部素材ゼロ）。ノイズをループしてLPF/HPFで「夏のやわらかい雨」に。音量は weather で動かす。
 function initRainAudio() {
@@ -2129,7 +2150,7 @@ function initRainAudio() {
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 340
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2300; lp.Q.value = 0.4
     rainGain = ctx.createGain(); rainGain.gain.value = 0
-    src.connect(hp); hp.connect(lp); lp.connect(rainGain); rainGain.connect(ctx.destination)
+    src.connect(hp); hp.connect(lp); lp.connect(rainGain); rainGain.connect(getSfxOut())
     src.start()
     rainStarted = true
   } catch (e) {}
@@ -2145,7 +2166,7 @@ function maybeThunder(dt) {
     const src = ctx.createBufferSource(); src.buffer = getNoise(); src.loop = true; src.playbackRate.value = 0.5
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(420, now); lp.frequency.exponentialRampToValueAtTime(85, now + 1.9)
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.11, now + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, now + 2.5)
-    src.connect(lp); lp.connect(g); g.connect(ctx.destination); src.start(now); src.stop(now + 2.7)
+    src.connect(lp); lp.connect(g); g.connect(getSfxOut()); src.start(now); src.stop(now + 2.7)
   } catch (e) {}
 }
 function ambientWeights(t) {
@@ -2176,12 +2197,26 @@ function playChime() {
         const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = f * mul
         osc.connect(g); osc.start(t0); osc.stop(t0 + 1.8)
       }
-      g.connect(lp); lp.connect(ctx.destination)
+      g.connect(lp); lp.connect(getSfxOut())
     })
   } catch (e) {}
 }
 // ── 効果音の自前合成（外部素材ゼロ。AudioContextで都度つくる）──
 let noiseBuf = null
+// SFX用マスターバス：ゆるいローパス＋リミッタ（コンプレッサ）で、効果音の耳ざわりなピーク/
+// クリップ（“異音”の主因）をまとめて抑える。全SFXはここに繋ぐ＝音が荒れない・歪まない。
+let sfxBus = null
+function getSfxOut() {
+  const ctx = listener.context
+  if (sfxBus && sfxBus.context === ctx) return sfxBus
+  const g = ctx.createGain(); g.gain.value = 0.82
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6200; lp.Q.value = 0.4 // 耳に刺さる高域を丸める
+  const comp = ctx.createDynamicsCompressor()
+  comp.threshold.value = -16; comp.knee.value = 26; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.22 // 急なピークを抑える＝歪み/異音防止
+  g.connect(lp); lp.connect(comp); comp.connect(ctx.destination)
+  sfxBus = g
+  return sfxBus
+}
 function getNoise() {
   if (noiseBuf) return noiseBuf
   const ctx = listener.context
@@ -2196,10 +2231,10 @@ function playStep(vol, town) { // 足音：草はやわらかい低音、舗装�
     const ctx = listener.context, now = ctx.currentTime
     const src = ctx.createBufferSource(); src.buffer = getNoise(); src.playbackRate.value = 0.8 + Math.random() * 0.35
     const bp = ctx.createBiquadFilter()
-    bp.type = town ? 'bandpass' : 'lowpass'; bp.frequency.value = town ? 1300 + Math.random() * 500 : 360 + Math.random() * 140; bp.Q.value = town ? 0.9 : 0.6
+    bp.type = town ? 'bandpass' : 'lowpass'; bp.frequency.value = town ? 900 + Math.random() * 360 : 360 + Math.random() * 140; bp.Q.value = town ? 0.7 : 0.6 // 舗装の足音をやわらかい“タッ”に（耳ざわりなチクチク音を抑える）
     const g = ctx.createGain()
     g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + (town ? 0.10 : 0.15))
-    src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(now); src.stop(now + 0.25)
+    src.connect(bp); bp.connect(g); g.connect(getSfxOut()); src.start(now); src.stop(now + 0.25)
   } catch (e) {}
 }
 // 夜の虫の音（鈴虫風の短いトリル）＝夜にまばらに鳴る。静けさに芯を出す。
@@ -2220,7 +2255,7 @@ function maybeCricket(dt) {
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 7
       const g = ctx.createGain()
       g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.03 * nf, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.06)
-      osc.connect(bp); bp.connect(g); g.connect(ctx.destination); osc.start(t0); osc.stop(t0 + 0.08)
+      osc.connect(bp); bp.connect(g); g.connect(getSfxOut()); osc.start(t0); osc.stop(t0 + 0.08)
     }
   } catch (e) {}
 }
@@ -2232,7 +2267,7 @@ function playDrip() {
     const osc = ctx.createOscillator(); osc.type = 'sine'
     osc.frequency.setValueAtTime(900 + Math.random() * 300, now); osc.frequency.exponentialRampToValueAtTime(360, now + 0.09)
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.05, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.13)
-    osc.connect(g); g.connect(ctx.destination); osc.start(now); osc.stop(now + 0.15)
+    osc.connect(g); g.connect(getSfxOut()); osc.start(now); osc.stop(now + 0.15)
   } catch (e) {}
 }
 let dripQueue = 0, dripTimer = 0, lastWeatherForDrip = 0
@@ -2246,7 +2281,7 @@ function playShutter() {
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 1.3
       const g = ctx.createGain(); const t0 = now + t
       g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
-      src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t0); src.stop(t0 + dur + 0.02)
+      src.connect(bp); bp.connect(g); g.connect(getSfxOut()); src.start(t0); src.stop(t0 + dur + 0.02)
     }
   } catch (e) {}
 }
@@ -2256,10 +2291,10 @@ function playPlop() { // 水を踏む「ぽちゃ」：下がるサイン＋小�
     const ctx = listener.context, now = ctx.currentTime
     const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(440 + Math.random() * 80, now); o.frequency.exponentialRampToValueAtTime(150, now + 0.09)
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.07, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.15)
-    o.connect(g); g.connect(ctx.destination); o.start(now); o.stop(now + 0.17)
+    o.connect(g); g.connect(getSfxOut()); o.start(now); o.stop(now + 0.17)
     const src = ctx.createBufferSource(); src.buffer = getNoise(); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1600; bp.Q.value = 0.8
     const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, now); g2.gain.exponentialRampToValueAtTime(0.04, now + 0.004); g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.08)
-    src.connect(bp); bp.connect(g2); g2.connect(ctx.destination); src.start(now); src.stop(now + 0.1)
+    src.connect(bp); bp.connect(g2); g2.connect(getSfxOut()); src.start(now); src.stop(now + 0.1)
   } catch (e) {}
 }
 function playThunk() { // 自販機のガコン＋カラン
@@ -2268,12 +2303,12 @@ function playThunk() { // 自販機のガコン＋カラン
     const ctx = listener.context, now = ctx.currentTime
     const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(155, now); o.frequency.exponentialRampToValueAtTime(58, now + 0.12)
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.22, now + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2)
-    o.connect(g); g.connect(ctx.destination); o.start(now); o.stop(now + 0.22)
+    o.connect(g); g.connect(getSfxOut()); o.start(now); o.stop(now + 0.22)
     const t1 = now + 0.14 // 瓶/缶の高い余韻＝カラン
     for (const f of [900, 1340]) {
       const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = f
       const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t1); g2.gain.exponentialRampToValueAtTime(0.05, t1 + 0.005); g2.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.26)
-      o2.connect(g2); g2.connect(ctx.destination); o2.start(t1); o2.stop(t1 + 0.3)
+      o2.connect(g2); g2.connect(getSfxOut()); o2.start(t1); o2.stop(t1 + 0.3)
     }
   } catch (e) {}
 }
