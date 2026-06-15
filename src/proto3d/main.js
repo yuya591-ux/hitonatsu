@@ -1799,6 +1799,28 @@ function makeSento(x, z, rot) {
   makeSmoke(x + cw.x, heightAt(x, z) + 10, z + cw.z, 18)
 }
 makeSento(TOWN.x + 40, TOWN.z - 8, -Math.PI / 2)
+// ── 火の見櫓（昭和の町の遠景ランドマーク。鉄骨やぐら＋見張り台＋半鐘）──
+function makeFireTower(x, z) {
+  const g = new THREE.Group(); const steel = toon(0x6f6356), H = 11, bR = 1.4, tR = 0.7
+  const strut = (ax, ay, az, bx, by, bz, r) => { const dx = bx - ax, dy = by - ay, dz = bz - az, len = Math.hypot(dx, dy, dz); const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 5), steel); m.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize()); m.castShadow = true; g.add(m) }
+  const corner = (lv) => { const y = lv * H / 3, r = bR + (tR - bR) * (lv / 3); return [[-r, y, -r], [r, y, -r], [r, y, r], [-r, y, r]] }
+  const c0 = corner(0), c3 = corner(3)
+  for (let i = 0; i < 4; i++) strut(c0[i][0], 0, c0[i][2], c3[i][0], H, c3[i][2], 0.09) // 脚
+  for (let lv = 0; lv < 3; lv++) { const a = corner(lv), b = corner(lv + 1); for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; strut(...a[i], ...a[j], 0.05); strut(...a[i], ...b[j], 0.04) } } // 横桟＋筋交い
+  { const t = corner(3); for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; strut(...t[i], ...t[j], 0.05) } }
+  const plat = new THREE.Mesh(new THREE.BoxGeometry(tR * 2 + 0.4, 0.1, tR * 2 + 0.4), steel); plat.position.y = H; plat.castShadow = true; g.add(plat)
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(tR + 0.6, 1.1, 4), toon(0x5a5048)); roof.rotation.y = Math.PI / 4; roof.position.y = H + 0.65; roof.castShadow = true; g.add(roof)
+  const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.5, 10, 1, true), toon(0x47564e)); bell.position.set(0, H - 0.55, 0); g.add(bell) // 半鐘
+  g.position.set(x, heightAt(x, z), z); mergedOutline(g, 0.03); addContactShadow(g, 2.2); addCollider(x, z, 1.6); scene.add(g)
+}
+makeFireTower(TOWN.x + 24, TOWN.z - 2)
+// ── プロパンガスのボンベ（家の脇＝昭和の生活必需。2本ずつ）──
+function makePropane(x, z, rot) {
+  const g = new THREE.Group()
+  for (const dx of [-0.23, 0.23]) { const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.05, 10), toon(0xb8a85a)); cyl.position.set(dx, 0.52, 0); g.add(cyl); const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.16, 8), toon(0x8a7a48)); cap.position.set(dx, 1.08, 0); g.add(cap) }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(g, x, z, rot, 0.025, 0.5)
+}
+makePropane(TOWN.x + 31, TOWN.z + 4, 0); makePropane(TOWN.x - 30, TOWN.z + 4, Math.PI / 2); makePropane(TOWN.x + 55, TOWN.z + 33, 0)
 // 商店街アーチ（入口をまたぐ門＋看板＋提灯）＝昭和の商店街の象徴
 function makeArcade(x, z, rot) {
   const g = new THREE.Group(); const post = toon(0x8a96a2), red = toon(0xc23a2c)
