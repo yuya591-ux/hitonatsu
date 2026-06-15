@@ -2059,6 +2059,7 @@ function startAudio() {
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
     initRainAudio()
   } catch (e) {}
+  try { if (window.__applySound) window.__applySound() } catch (e) {} // 設定で「おとOFF」なら止める
 }
 // 雨音＝自前合成（外部素材ゼロ）。ノイズをループしてLPF/HPFで「夏のやわらかい雨」に。音量は weather で動かす。
 function initRainAudio() {
@@ -2713,6 +2714,7 @@ const camGoal = new THREE.Vector3()
 const lookGoal = new THREE.Vector3()
 const tmp = new THREE.Vector3()
 let camManualTimer = 0 // 手動でカメラを回した直後は自動追従を止める秒数（マリオ式：手で回すと優先）
+let reduceMotion = false // 設定：画面のゆれを減らす（アクセシビリティ）
 const camFwd = new THREE.Vector3()
 const camRight = new THREE.Vector3()
 const sunProj = new THREE.Vector3()
@@ -3309,9 +3311,8 @@ function update(dt) {
     camera.fov += ((BASE_FOV - calm * 4) - camera.fov) * Math.min(1, dt * 1.5)
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
-    // ごく微かな“息”の揺れ
-    camGoal.x += Math.sin(tsec * 0.6) * 0.06
-    camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05
+    // ごく微かな“息”の揺れ（モーション軽減ONのときは止める）
+    if (!reduceMotion) { camGoal.x += Math.sin(tsec * 0.6) * 0.06; camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05 }
     // カメラの遮蔽回避（マリオ式）：主人公とカメラの間に建物/木があれば手前へ寄せる
     {
       const hx = boy.position.x, hyc = boy.position.y + 1.3, hz = boy.position.z
@@ -3409,6 +3410,27 @@ if (startBtn) startBtn.addEventListener('click', () => {
   startAudio(); if (titleEl) titleEl.classList.add('hidden')
   if (!seenGuide && guideEl) { guideEl.classList.add('on'); seenGuide = true }
 })
+
+// ── せってい（おと・モーション軽減）。localStorage に永続化 ──
+const settingsEl = document.getElementById('settings')
+const setBtn = document.getElementById('set-btn')
+const setSoundBtn = document.getElementById('set-sound')
+const setMotionBtn = document.getElementById('set-motion')
+const settings = { sound: true, motion: false }
+try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
+const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
+function applySound() {
+  if (setSoundBtn) { setSoundBtn.textContent = settings.sound ? 'ON' : 'OFF'; setSoundBtn.classList.toggle('on', settings.sound) }
+  try { const ctx = listener.context; if (settings.sound) { if (audioStarted) ctx.resume() } else ctx.suspend() } catch (e) {}
+}
+function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { setMotionBtn.textContent = settings.motion ? 'ON' : 'OFF'; setMotionBtn.classList.toggle('on', settings.motion) } }
+window.__applySound = applySound // startAudio から呼べるように
+if (setBtn) setBtn.addEventListener('click', () => settingsEl && settingsEl.classList.add('on'))
+const setCloseEl = document.getElementById('set-close')
+if (setCloseEl) setCloseEl.addEventListener('click', () => settingsEl && settingsEl.classList.remove('on'))
+if (setSoundBtn) setSoundBtn.addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); applySound() })
+if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
+applyMotion(); applySound()
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {

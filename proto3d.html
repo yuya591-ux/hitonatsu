@@ -101,6 +101,23 @@
         font-family: inherit; color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px;
         box-shadow: 0 4px 16px rgba(120,100,70,0.3); }
       .t-hint { margin-top: 1.5em; font-size: clamp(11px,2.4vw,15px); color: #e8dcc6; }
+      /* せってい（⚙） */
+      #set-btn { left: 3%; top: 3.5%; appearance: none; border: none; cursor: pointer; width: 44px; height: 44px;
+        border-radius: 50%; font-size: 20px; color: #fdf7ec; background: rgba(74,64,50,0.7);
+        box-shadow: 0 3px 10px rgba(20,24,40,0.3); }
+      #settings { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+        background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 28; }
+      #settings.on { display: flex; }
+      .set-card { width: min(86vw, 420px); padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.4); text-align: center; }
+      .set-card h2 { margin: 0 0 0.8em; font-size: clamp(19px,4.2vw,26px); color: #4a4032; letter-spacing: 0.1em; }
+      .set-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin: 0.7em 0;
+        font-size: clamp(15px,3vw,19px); color: #3b3024; }
+      .set-toggle { appearance: none; border: none; cursor: pointer; min-width: 84px; padding: 0.4em 1em; border-radius: 999px;
+        font-size: clamp(13px,2.6vw,16px); font-family: inherit; color: #fff; background: #9aa0ae; transition: background 0.2s; }
+      .set-toggle.on { background: #7aa86a; }
+      #set-close { margin-top: 1.2em; appearance: none; border: none; cursor: pointer; padding: 0.55em 2.2em;
+        font-size: clamp(15px,3vw,20px); font-family: inherit; color: #fdf7ec; background: #6a7088; border-radius: 999px; }
       /* はじめてのあそびかた（初回だけ・やさしく） */
       #guide { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 27; }
@@ -154,6 +171,15 @@
       </div>
     </div>
     <div id="stick"><div id="knob"></div></div>
+    <button id="set-btn" class="hud" title="せってい">⚙</button>
+    <div id="settings">
+      <div class="set-card">
+        <h2>せってい</h2>
+        <div class="set-row"><span>おと（環境音・効果音）</span><button class="set-toggle" id="set-sound">ON</button></div>
+        <div class="set-row"><span>画面のゆれを へらす</span><button class="set-toggle" id="set-motion">OFF</button></div>
+        <button id="set-close">とじる</button>
+      </div>
+    </div>
     <div id="guide">
       <div class="guide-card">
         <h2>あそびかた</h2>
