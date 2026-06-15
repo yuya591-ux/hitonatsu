@@ -548,6 +548,20 @@ for (const [x, z, s] of [[36, -4, 1.1], [-34, 6, 1.0], [19, 20, 0.95], [-25, 25,
     ws.traverse((o) => { if (o.isMesh) o.castShadow = true })
     const wsx = -20, wsz = -11; ws.position.set(wsx, heightAt(wsx, wsz) + 0.02, wsz); ws.rotation.y = 0.5; mergedOutline(ws, 0.02); addContactShadow(ws, 1.2); scene.add(ws)
   }
+  // 夏野菜の畑（トマト・なすの畝＝家の食卓を支える）
+  {
+    const gd = new THREE.Group()
+    for (let r = 0; r < 3; r++) { const ridge = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.16, 0.7), toonMap(0x6a4e36, plasterTex)); ridge.position.set(0, 0.08, r * 1.0 - 1.0); gd.add(ridge) } // 畝（土）
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) {
+      const px = -1.7 + c * 0.85, pz = r * 1.0 - 1.0
+      const plant = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), toon(0x4a7a3a)); plant.scale.set(1, 1.3, 1); plant.position.set(px, 0.42, pz); gd.add(plant)
+      const stake = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.82, 4), toon(0x9a7b4a)); stake.position.set(px, 0.5, pz); gd.add(stake)
+      const isNasu = r === 1
+      const fruit = new THREE.Mesh(new THREE.SphereGeometry(isNasu ? 0.085 : 0.07, 8, 6), toon(isNasu ? 0x5a3a8a : 0xd23a2a)); if (isNasu) fruit.scale.set(1, 1.7, 1); fruit.position.set(px + 0.1, 0.34, pz + 0.13); gd.add(fruit)
+    }
+    gd.traverse((o) => { if (o.isMesh) o.castShadow = true })
+    const gx = -25, gz = 7; gd.position.set(gx, heightAt(gx, gz), gz); gd.rotation.y = 0.3; mergedOutline(gd, 0.02); scene.add(gd)
+  }
 }
 // ── 低木・茂み（下草。木の根元や縁に点々と＝葉の密度を上げる）──
 function makeBush(x, z, s = 1) {
