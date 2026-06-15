@@ -410,7 +410,7 @@ makeFrog(POND.x - 9, POND.z + 4); makeFrog(POND.x + 7, POND.z - 6); makeFrog(-16
 // ── 低ポリの木（幹＋葉のかたまり）──
 function makeTree(x, z, s = 1) {
   const g = new THREE.Group()
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.45 * s, 3.4 * s, 6), toon(0x7a5a3a))
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.45 * s, 3.4 * s, 6), toonMap(0x7a5a3a, woodTex))
   trunk.position.y = 1.7 * s
   trunk.castShadow = true
   g.add(trunk)
@@ -650,9 +650,9 @@ const GATES = [
   {
     const sz = S.z + 38, sy = heightAt(S.x, sz)
     const g = new THREE.Group()
-    const base = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 4), toon(0x7a5230)); base.position.y = 0.25; g.add(base)
+    const base = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 4), toonMap(0x7a5230, woodTex)); base.position.y = 0.25; g.add(base)
     const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.4, 3.4), toon(0xc9402f)); body.position.y = 1.7; g.add(body)
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 1.6, 4), toon(0x37474f)); roof.position.y = 3.6; roof.rotation.y = Math.PI / 4; g.add(roof)
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 1.6, 4), toonMap(0x37474f, roofTex)); roof.position.y = 3.6; roof.rotation.y = Math.PI / 4; g.add(roof)
     g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(S.x, sy, sz); mergedOutline(g, 0.04); addContactShadow(g, 3.5); addCollider(S.x, sz, 2.8); scene.add(g)
     const sai = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 0.85), toon(0x6a4a30)); sai.position.set(S.x, sy + 0.35, sz - 3); sai.castShadow = true; addOutline(sai, 0.02); scene.add(sai)
   }
@@ -691,7 +691,7 @@ makeSignpost(GATE_TOWN.x - 3.0, GATE_TOWN.z + 2.2, 0, 'このさき はらっぱ
 // 商店街の一軒（昭和の店構え：店先・縞テント・看板・袖看板・品物）
 function makeShop(x, z, rot, opt) {
   const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.BoxGeometry(6, 4.2, 5), toon(0xe2d6bc)); body.position.y = 2.1; g.add(body)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(6, 4.2, 5), toonMap(0xe2d6bc, plasterTex)); body.position.y = 2.1; g.add(body)
   const front = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.3), new THREE.MeshBasicMaterial({ color: 0x2a221a })); front.position.set(0, 1.35, 2.51); g.add(front)
   // 暖簾（のれん・切れ目つき）
   for (let i = 0; i < 4; i++) { const nr = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 0.95), toon(opt.sign)); nr.position.set(-1.8 + i * 1.2, 2.05, 2.53); g.add(nr) }
@@ -752,7 +752,7 @@ const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自�
   for (let i = 0; i < 4; i++) {
     const hx = T.x + 12, hz = T.z - 18 + i * 13
     makeHouse(hx, hz, -Math.PI / 2, roofs[i % roofs.length])
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 1.0, 0.4), toon(0xbcb6a4))
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(9, 1.0, 0.4), toonMap(0xbcb6a4, plasterTex))
     wall.position.set(hx - 4.4, 0.5, hz); wall.rotation.y = Math.PI / 2; wall.castShadow = true
     addOutline(wall, 0.03); scene.add(wall)
   }
@@ -793,7 +793,7 @@ const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自�
   for (const hx of [T.x - 26, T.x - 8, T.x + 10, T.x + 28]) addGlow(hx, 1.7, T.z + 28.6, 0, 1.2, 0.8, 0xffd98e, 0.85)
   // ── 夜の屋台（夕方〜夜に灯る。焼きそば・かき氷の気配＝夏祭りのエモさ）──
   {
-    const yg = new THREE.Group(); const wood = toon(0x8a6038), woodDark = toon(0x5e4226)
+    const yg = new THREE.Group(); const wood = toonMap(0x8a6038, woodTex), woodDark = toonMap(0x5e4226, woodTex)
     const counter = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 0.9), wood); counter.position.y = 0.7; yg.add(counter)
     const top = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 1.1), woodDark); top.position.y = 1.2; yg.add(top)
     for (const sx of [-1.15, 1.15]) for (const sz of [-0.45, 0.45]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), woodDark); post.position.set(sx, 1.35, sz); yg.add(post) }
@@ -836,7 +836,7 @@ const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自�
   for (let i = 0; i < northXs.length; i++) {
     const hx = northXs[i], hz = T.z + 31
     makeHouse(hx, hz, Math.PI, roofs2[i % roofs2.length])
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 1.0, 0.4), toon(0xbcb6a4))
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 1.0, 0.4), toonMap(0xbcb6a4, plasterTex))
     wall.position.set(hx, 0.5, hz - 4.4); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall)
   }
   // 枝道ぞいの家（東向き）
