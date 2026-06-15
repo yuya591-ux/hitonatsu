@@ -430,6 +430,22 @@ const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 48), waterMat)
 water.rotation.x = -Math.PI / 2
 water.position.set(POND.x, WATER_Y, POND.z)
 scene.add(water)
+// ── ため池の畔の作り込み（葦・杭・睡蓮・桟橋）＝素っ気ない池に水辺の生命感 ──
+{
+  const cx = POND.x, cz = POND.z, R = POND.r, by = heightAt(cx, cz)
+  const rg = [] // 葦（北東寄りの縁にむらがる・mergedで1ドロー）
+  for (let i = 0; i < 64; i++) {
+    const a = -0.4 + Math.random() * 3.4, rr = R - 0.4 + Math.random() * 1.4
+    const x = cx + Math.cos(a) * rr, z = cz + Math.sin(a) * rr, h = 0.95 + Math.random() * 0.95
+    const ge = new THREE.CylinderGeometry(0.012, 0.04, h, 4); ge.translate(0, h / 2, 0); ge.rotateZ((Math.random() - 0.5) * 0.32)
+    ge.translate(x - cx, heightAt(x, z) - by, z - cz); rg.push(ge)
+  }
+  const reeds = new THREE.Mesh(mergeGeometries(rg), toon(0x6f8a44)); reeds.position.set(cx, by, cz); rg.forEach((g) => g.dispose()); reeds.castShadow = true; scene.add(reeds)
+  for (const a of [2.35, 2.75, 3.15]) { const x = cx + Math.cos(a) * (R - 0.5), z = cz + Math.sin(a) * (R - 0.5); const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.2, 6), toonMap(0x7a5a3a, woodTex)); post.position.set(x, heightAt(x, z) + 0.35, z); post.rotation.z = 0.13; post.castShadow = true; addOutline(post, 0.02); scene.add(post) } // 水際の杭
+  for (let i = 0; i < 11; i++) { const a = Math.random() * 6.28, rr = 1.5 + Math.random() * (R - 3); const x = cx + Math.cos(a) * rr, z = cz + Math.sin(a) * rr; const pad = new THREE.Mesh(new THREE.CircleGeometry(0.32 + Math.random() * 0.22, 8), toon(0x4f7e46)); pad.rotation.x = -Math.PI / 2; pad.position.set(x, WATER_Y + 0.02, z); scene.add(pad); if (Math.random() < 0.28) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), toon(0xe6a6c4)); fl.position.set(x, WATER_Y + 0.12, z); scene.add(fl) } } // 睡蓮の葉＋花
+  { const a = 3.95, jx = cx + Math.cos(a) * (R - 1.4), jz = cz + Math.sin(a) * (R - 1.4); const deck = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 3.6), toonMap(0x8a6a44, woodTex)); deck.position.set(jx, WATER_Y + 0.12, jz); deck.rotation.y = a; deck.castShadow = true; addOutline(deck, 0.02); scene.add(deck)
+    for (const t of [-1.3, 1.3]) { const px = jx + Math.cos(a + Math.PI / 2) * 0 + Math.sin(a) * t, pz = jz + Math.cos(a) * t; const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.0, 6), toonMap(0x7a5a3a, woodTex)); leg.position.set(px, WATER_Y - 0.3, pz); scene.add(leg) } } // 桟橋（南西の岸から）
+}
 // 岸の小石
 for (let i = 0; i < 7; i++) {
   const a = (i / 7) * Math.PI * 2 + 0.4
