@@ -2761,6 +2761,7 @@ let chimeArmed = true
   }
 })()
 let chimeAudio = null // 縁側の風鈴（立体音響）
+const riverAudios = [] // 小川のせせらぎ（立体音響・複数点で川沿いをカバー）
 function startAudio() {
   if (audioStarted) return
   audioStarted = true
@@ -2770,6 +2771,7 @@ function startAudio() {
     getMaster() // ★環境音を鳴らす前にマスターリミッターへ繋ぎ直す（合計クリップ＝録画の“ザザザ”防止）
     for (const id in ambients) { const a = ambients[id]; if (a.buffer && !a.isPlaying) a.play() }
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
+    for (const a of riverAudios) if (a.buffer && !a.isPlaying) try { a.play() } catch (e) {}
     initRainAudio()
     unlockIOSAudio() // iOSのミュートスイッチ/画面収録対策
   } catch (e) {}
@@ -3086,6 +3088,21 @@ if (audioUrls.windchime) {
     chimeAudio.setBuffer(buf); chimeAudio.setLoop(true); chimeAudio.setRefDistance(5); chimeAudio.setRolloffFactor(1.6); chimeAudio.setVolume(0.7)
     if (audioStarted) try { chimeAudio.play() } catch (e) {}
   }, undefined, () => {})
+}
+// 小川のせせらぎ（立体音響）：近づくと聞こえてくる。長い小川を3点でカバー。未使用だった river.mp3(CC0)を活用。
+if (audioUrls.river) {
+  const loader = new THREE.AudioLoader()
+  for (const t of [0.22, 0.5, 0.78]) {
+    const ax = CREEK.ax + (CREEK.bx - CREEK.ax) * t, az = CREEK.az + (CREEK.bz - CREEK.az) * t
+    const anchor = new THREE.Object3D(); anchor.position.set(ax, 0.2, az); scene.add(anchor)
+    const ra = new THREE.PositionalAudio(listener); anchor.add(ra)
+    loader.load(audioUrls.river, (buf) => {
+      ra.setBuffer(buf); ra.setLoop(true); ra.setRefDistance(5.5); ra.setRolloffFactor(1.5); ra.setVolume(0.5)
+      try { ra.setDetune((t - 0.5) * 80) } catch (e) {} // わずかにピッチをずらして3点の干渉(うねり)を防ぐ
+      if (audioStarted) try { ra.play() } catch (e) {}
+    }, undefined, () => {})
+    riverAudios.push(ra)
+  }
 }
 
 // ── 入力・状態 ──
