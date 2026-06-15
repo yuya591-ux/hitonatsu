@@ -1976,6 +1976,21 @@ function makeSunflower(x, z) {
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.05 })
 }
 for (const [x, z] of [[6, 8], [7.2, 9], [-5, 7], [4, -4]]) makeSunflower(x, z)
+// ── 野の花（白詰草・たんぽぽ・つゆくさ＝単調な夏草に色のリズム。instanceColorで1ドロー・所々かたまって咲く）──
+{
+  const N = 300, fl = new THREE.InstancedMesh(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshToonMaterial({ gradientMap: GRAD }), N)
+  const pal = [new THREE.Color(0xf4f2e8), new THREE.Color(0xf2d64a), new THREE.Color(0x9ab2e2), new THREE.Color(0xe2a4c2), new THREE.Color(0xf4f2e8)]
+  const m = new THREE.Matrix4(); let n = 0, guard = 0
+  while (n < N && guard++ < N * 6) {
+    let x, z
+    if (Math.random() < 0.5) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 50; x = Math.cos(a) * r; z = Math.sin(a) * r } // 中央寄り
+    else { const cx = (Math.random() - 0.5) * 150, cz = (Math.random() - 0.5) * 150; x = cx + (Math.random() - 0.5) * 5; z = cz + (Math.random() - 0.5) * 5 } // 散在＋小さな群れ
+    if ((x - POND.x) ** 2 + (z - POND.z) ** 2 < POND.r * POND.r) continue
+    if ((x - HOUSE.x) ** 2 + (z - HOUSE.z) ** 2 < 28) continue
+    m.makeTranslation(x, heightAt(x, z) + 0.13, z); fl.setMatrixAt(n, m); fl.setColorAt(n, pal[Math.floor(Math.random() * pal.length)]); n++
+  }
+  fl.count = n; fl.castShadow = false; scene.add(fl)
+}
 // ひまわり畑（密集パッチ＝夏の象徴。畑の一角に背高く並ぶ。歩いて抜けられる）
 for (let i = 0; i < 14; i++) { const hx = 32 + (i % 5) * 1.6 + (Math.random() - 0.5) * 0.6, hz = -20 + Math.floor(i / 5) * 1.7 + (Math.random() - 0.5) * 0.6; makeSunflower(hx, hz) }
 
