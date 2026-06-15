@@ -2178,6 +2178,11 @@ function makeVillager(x, z, opt) {
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 16), skin); if (opt.adult) { head.scale.set(1.0, 1.06, 0.98); head.position.y = 1.4 } else { head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.35 } g.add(head) // 大人は頭を小さめ＝幼児体型から大人びた頭身へ
   const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(opt.hair)); hair.position.y = 1.37; hair.rotation.x = -0.25; g.add(hair)
   if (!opt.boy && !opt.simple) for (const hx of [-0.21, 0.21]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.078, 10, 10), toon(opt.hair)); pt.position.set(hx, 1.31, -0.04); g.add(pt) }
+  if (opt.hat === 'straw') { // 麦わら帽子（夏らしさ＋主人公と統一）。髪の上に乗るよう少し高め。
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.03, 20), toon(0xe9c67e)); brim.position.y = 1.52; g.add(brim)
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.205, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), toon(0xe9c67e)); cap.position.y = 1.52; g.add(cap)
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.04, 20), toon(opt.band || 0xd2698a)); band.position.y = 1.54; g.add(band)
+  }
   // 腕（肩ピボット＝手を振る）。会話する村人は半袖＋肘、背景の人は1本カプセル。短めでむちっと。
   let elbowL = null, elbowR = null
   function makeArm(side) {
@@ -2225,7 +2230,7 @@ function makeVillager(x, z, opt) {
   return g
 }
 const villager = makeVillager(13, 9, {
-  shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5,
+  shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, // 麦わら帽子（ピンクのリボン）
   info: {
     name: '女の子',
     // 3日かけて進む関係（最初はそっけない→打ちとける→夏の終わりの別れ）
