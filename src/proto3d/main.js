@@ -2335,9 +2335,9 @@ let talkTarget = null
 
 // 商店街の通行人（道を行き来＝賑わい。会話はしない）
 const pedestrians = []
-const pedDefs = [
-  [-3.4, 0x7a8a9a, 1.0, false], [3.2, 0x9a7a6a, 0.85, true], [-2.6, 0x6f8a6a, 1.15, false],
-  [3.6, 0xb07a5a, 0.95, true], [-3.0, 0x5a7a9a, 1.05, false], // ＝計5人（控えめに・速さもばらけ）
+const pedDefs = [ // 平成初期＝明るめ/原色寄りの服も混ぜる。計7人で町に賑わい。
+  [-3.4, 0x4a78c0, 1.0, false], [3.2, 0xd05a4a, 0.85, true], [-2.6, 0x3a9a6a, 1.15, false],
+  [3.6, 0xe0a838, 0.95, true], [-3.0, 0x8a5ab0, 1.05, false], [2.2, 0xc04888, 1.0, false], [-3.8, 0x4aa0a0, 0.9, true],
 ]
 for (const [dx, col, sp, boyP] of pedDefs) {
   const hair = boyP ? 0x2a2218 : [0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86][Math.floor(Math.random() * 4)] // 白髪も混ぜる
