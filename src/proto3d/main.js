@@ -1887,7 +1887,8 @@ outlineObj(boy, 0.03)
 }
 scene.add(boy)
 // 主人公の接地影（地面に沿って追従。歩いて弾んでも影は地面に）
-const boyShadowMat = shadowMat.clone() // 主人公の影は時間帯で長さ・濃さを変えるので専用マテリアル
+const boyShadowMat = shadowMat.clone() // 主人公の影は時間帯で長さ・濃さ・色みを変えるので専用マテリアル
+const boyShadowWarm = new THREE.Color(0xffe2cc), boyShadowCool = new THREE.Color(0xc4d2ff) // 夕は暖かい影・夜は青い影（接地が光に馴染む）
 const boyShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), boyShadowMat)
 boyShadow.rotation.x = -Math.PI / 2
 scene.add(boyShadow)
@@ -3265,6 +3266,9 @@ function update(dt) {
   boyShadow.rotation.set(-Math.PI / 2, 0, Math.atan2(-sunDir.x, -sunDir.z)) // 影が伸びる向き
   boyShadow.scale.set(0.92 * (1 - jShrink), 0.92 * slen * (1 - jShrink), 1)
   boyShadowMat.opacity = THREE.MathUtils.clamp(0.18 + 0.42 * sunDir.y, 0.07, 0.6) * (1 - jShrink * 0.6)
+  // 影の色みを時間帯に寄せる（明度は保ったまま色相だけ：夕=暖, 夜=青）
+  const shNf = nightFactor(tday), shDusk = THREE.MathUtils.smoothstep(tday, 0.58, 0.72) * (1 - shNf)
+  boyShadowMat.color.setRGB(1, 1, 1).lerp(boyShadowWarm, shDusk * 0.7).lerp(boyShadowCool, shNf * 0.7)
   boyShadow.visible = boy.visible
   // 虫取り網を振る（採取時）
   if (boy.userData.swing > 0) {
