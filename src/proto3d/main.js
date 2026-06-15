@@ -1486,7 +1486,8 @@ function makeBoy() {
   return g
 }
 const boy = makeBoy()
-boy.scale.setScalar(0.92) // 体全体を少し小さく（小柄な小学生に）
+const BOY_SCALE = 0.92 // 基準スケール（小柄な小学生）。ジャンプの伸び縮みはこれに掛ける
+boy.scale.setScalar(BOY_SCALE) // 体全体を少し小さく
 boy.position.set(0, heightAt(0, 6), 6)
 outlineObj(boy, 0.03)
 // 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
@@ -2490,8 +2491,8 @@ const pointers = new Map() // 多点タッチ
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
-let jumpY = 0, jumpV = 0 // ジャンプ（地面からの高さと上下速度）
-function doJump() { if (jumpY <= 0.02 && mode === 'walk') { jumpV = 7.0; playStep(0.05, area === 'town'); todayFlags.jumped = true } } // 接地時だけ跳ねる
+let jumpY = 0, jumpV = 0, airborne = false, landSquash = 0 // ジャンプ（高さ・上下速度・空中フラグ・着地のつぶれ）
+function doJump() { if (jumpY <= 0.02 && mode === 'walk') { jumpV = 7.0; airborne = true; playStep(0.05, area === 'town'); todayFlags.jumped = true } } // 接地時だけ跳ねる
 
 function startPuni(id, x, y) {
   puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
@@ -2665,6 +2666,7 @@ function sitDown(which) {
 }
 function standUp() {
   mode = 'walk'
+  boy.scale.setScalar(BOY_SCALE); landSquash = 0; airborne = false // 伸び縮みをリセット
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
   boy.userData.kneeL.rotation.x = 0.12; boy.userData.kneeR.rotation.x = 0.12
   boy.userData.ankleL.rotation.x = 0; boy.userData.ankleR.rotation.x = 0
@@ -3218,12 +3220,18 @@ function update(dt) {
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
       jumpV -= 22 * dt; jumpY += jumpV * dt
-      if (jumpY <= 0) { jumpY = 0; jumpV = 0 }
+      if (jumpY <= 0) { jumpY = 0; jumpV = 0; if (airborne) { airborne = false; landSquash = 1 } } // 着地＝つぶれ開始
       boy.position.y += jumpY
       boy.rotation.x += (-0.12 * Math.min(1, jumpY) - boy.rotation.x) * Math.min(1, dt * 8) // 跳ぶと少しのけぞる
       boy.userData.legL.rotation.x = -0.5; boy.userData.legR.rotation.x = -0.3 // 足をたたむ
       boy.userData.kneeL.rotation.x = 0.7; boy.userData.kneeR.rotation.x = 0.5 // 膝をたたんで跳ぶ
     }
+    // 伸び縮み（ジュース）：上昇でひゅっと伸び、着地でぽてっとつぶれる
+    landSquash = Math.max(0, landSquash - dt * 5.5)
+    let scaleY = 1, scaleXZ = 1
+    if (jumpY > 0.04) { const st = (jumpV > 0 ? 0.12 : 0.05); scaleY = 1 + st; scaleXZ = 1 - st * 0.55 } // 上昇=伸び
+    if (landSquash > 0) { scaleY = 1 - landSquash * 0.2; scaleXZ = 1 + landSquash * 0.14 } // 着地=つぶれ
+    boy.scale.set(BOY_SCALE * scaleXZ, BOY_SCALE * scaleY, BOY_SCALE * scaleXZ)
 
     const nearBench = area === 'field' && Math.hypot(boy.position.x - SEAT.x, boy.position.z - SEAT.z) < 3.2
     const nearEngawa = area === 'field' && Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
