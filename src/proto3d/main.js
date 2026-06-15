@@ -2566,7 +2566,7 @@ const cloudMat = new THREE.ShaderMaterial({
   uniforms: {
     opacity: { value: 0.96 },
     topCol: { value: new THREE.Color(0xfffdf6) },
-    botCol: { value: new THREE.Color(0xb6c2d6) },
+    botCol: { value: new THREE.Color(0x95a1bb) },
     sunDir: { value: sunDir },
     sunCol: { value: new THREE.Color(0xfff0d4) },
   },
@@ -2583,7 +2583,7 @@ const cloudMat = new THREE.ShaderMaterial({
       float up = clamp(vN.y * 0.5 + 0.5, 0.0, 1.0);
       float bump = smoothstep(0.3, 0.72, fbm(vL * 0.16));            // 表面のもくもく（こぶ＝明、谷＝暗）
       vec3 col = mix(botCol, topCol, smoothstep(0.14, 0.86, up));    // 上は白く、下は青く陰る
-      col *= 0.8 + 0.32 * bump;                                      // こぶの陰影で立体感
+      col *= 0.74 + 0.36 * bump;                                     // こぶの陰影で立体感（コントラスト強め＝もくもく）
       col += sunCol * max(0.0, dot(vN, normalize(sunDir))) * 0.18;   // 太陽側を暖かく
       float fres = pow(1.0 - max(0.0, dot(vView, vN)), 3.0);
       col += vec3(0.14, 0.14, 0.13) * fres;                          // フチの銀色（雲の縁が光る）
