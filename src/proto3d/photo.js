@@ -20,7 +20,14 @@ export const PHOTO_CFG = {
   storeKey: 'hn3d_photos',
 }
 
-export function initPhotoMode({ renderer, getDay }) {
+// レトロ強度プリセット（見た目パラメータのみ差し替え。解像度等は据え置き）
+export const PHOTO_PRESETS = {
+  '弱': { saturation: 0.92, contrast: 0.98, brightness: 1.04, softBlurPx: 0.4, wbR: 1.04, wbG: 1.0, wbB: 0.95, warmAdd: 3, vignette: 0.2, grain: 12 },
+  '標準': { saturation: 0.82, contrast: 0.92, brightness: 1.05, softBlurPx: 0.7, wbR: 1.07, wbG: 1.0, wbB: 0.9, warmAdd: 6, vignette: 0.34, grain: 22 },
+  '強': { saturation: 0.66, contrast: 0.85, brightness: 1.06, softBlurPx: 1.05, wbR: 1.1, wbG: 1.0, wbB: 0.85, warmAdd: 11, vignette: 0.46, grain: 34 },
+}
+
+export function initPhotoMode({ renderer, getDay, playShutter }) {
   const cfg = PHOTO_CFG
   const $ = (tag, css, parent) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e }
 
@@ -44,6 +51,10 @@ export function initPhotoMode({ renderer, getDay }) {
       font-family:monospace;text-shadow:0 1px 3px rgba(0,0,0,0.5);}
     #pm-rec::before{content:'●';margin-right:6px;animation:pmblink 1.4s infinite;}
     @keyframes pmblink{0%,100%{opacity:1}50%{opacity:0.2}}
+    #pm-tools{position:absolute;right:7%;top:5.5%;display:flex;gap:8px;pointer-events:auto;}
+    .pm-tool{appearance:none;border:1px solid rgba(255,255,255,0.55);cursor:pointer;border-radius:999px;
+      padding:0.28em 0.85em;font-size:12px;font-family:monospace;letter-spacing:0.04em;color:#fff;
+      background:rgba(30,34,50,0.55);}
     #pm-bar{position:fixed;left:0;right:0;bottom:0;z-index:39;display:none;align-items:center;justify-content:center;
       gap:7vw;padding:3.5% 0 5%;}
     #pm-bar.on{display:flex;}
@@ -78,7 +89,7 @@ export function initPhotoMode({ renderer, getDay }) {
   // ── DOM（すべてJSで生成＝proto3d.htmlは無改変）──
   const btn = $('button', '', document.body); btn.id = 'pm-btn'; btn.textContent = '📷'; btn.title = 'しゃしん'
   const finder = $('div', '', document.body); finder.id = 'pm-finder'
-  finder.innerHTML = '<div id="pm-rec">PHOTO</div><div class="pm-corner pm-tl"></div><div class="pm-corner pm-tr"></div><div class="pm-corner pm-bl"></div><div class="pm-corner pm-br"></div>'
+  finder.innerHTML = '<div id="pm-rec">PHOTO</div><div id="pm-tools"><button class="pm-tool" id="pm-quality">画質:標準</button><button class="pm-tool" id="pm-date">日付:ON</button></div><div class="pm-corner pm-tl"></div><div class="pm-corner pm-tr"></div><div class="pm-corner pm-bl"></div><div class="pm-corner pm-br"></div>'
   const bar = $('div', '', document.body); bar.id = 'pm-bar'
   const closeBtn = $('button', '', bar); closeBtn.className = 'pm-side'; closeBtn.textContent = '×'; closeBtn.title = 'もどる'
   const shutter = $('button', '', bar); shutter.id = 'pm-shutter'
@@ -138,14 +149,20 @@ export function initPhotoMode({ renderer, getDay }) {
   }
 
   function takePhoto() {
+    try { playShutter && playShutter() } catch (e) {} // カシャッ（自前合成）
+    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 30) // 一瞬の白フラッシュ
     // 次フレームの描画結果を参照キャプチャ（preserveDrawingBuffer により可能）。ゲーム状態は無改変。
     requestAnimationFrame(() => {
       const url = processRetro(renderer.domElement)
       if (!url) return
       photos.push(url); while (photos.length > cfg.maxPhotos) photos.shift(); saveAlbum()
-      flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 30) // パシャッ
     })
   }
+  // レトロ強度プリセット切替＆日付スタンプON/OFF
+  const presetNames = Object.keys(PHOTO_PRESETS)
+  let presetIdx = 1 // 標準
+  function applyPreset(i) { presetIdx = (i + presetNames.length) % presetNames.length; const name = presetNames[presetIdx]; Object.assign(cfg, PHOTO_PRESETS[name]); finder.querySelector('#pm-quality').textContent = '画質:' + name }
+  applyPreset(1)
 
   // ── アルバム表示 ──
   function openAlbum() {
@@ -165,6 +182,8 @@ export function initPhotoMode({ renderer, getDay }) {
   btn.addEventListener('click', enter)
   closeBtn.addEventListener('click', exit)
   shutter.addEventListener('click', takePhoto)
+  finder.querySelector('#pm-quality').addEventListener('click', () => applyPreset(presetIdx + 1))
+  finder.querySelector('#pm-date').addEventListener('click', (e) => { cfg.dateStamp = !cfg.dateStamp; e.currentTarget.textContent = '日付:' + (cfg.dateStamp ? 'ON' : 'OFF') })
   albumBtn.addEventListener('click', openAlbum)
   album.querySelector('#pm-close-album').addEventListener('click', () => album.classList.remove('on'))
   viewClose.addEventListener('click', () => view.classList.remove('on'))
