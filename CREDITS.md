@@ -35,9 +35,9 @@
 |---|---|---|---|
 | 雨音 | ホワイトノイズ＋HPF/LPF＝やわらかい夏の雨。weatherで音量 | `initRainAudio` | `AUDIO.rainVol` |
 | 遠雷 | 低いノイズのランブル（LPFを下降）。本降りのときだけ | `maybeThunder` | （関数内 tvol） |
-| 花火 | 低い破裂＋火花の高域（遅れて届く） | 花火の音 | （関数内） |
+| 花火 | 深い低音の「ドーン」（低いサインの胴）＋破裂の空気（低域ノイズ）＋丘にこだまする余韻（フィードバックディレイ）。遅れて火花の高域。**縁日の夜の決まった時間だけ**上がる（一晩中は鳴らさない） | `playFireworkBoom` / `spawnFirework` | 開催日・時間 `FIREWORK.days/from/to` |
 | 夕焼けチャイム | 鐘らしい倍音の5音＋山びこエコー（特定の防災旋律は不使用） | `playChime` | （関数内 vol） |
-| **縁日のお囃子（祭り）** | 太鼓のドン（サイン下降＋ノイズ）＋篠笛（三角波＋ビブラート＋BPF）の旋律。**屋台からの距離で音量が変わる空間音響**＝音をたどって縁日へ | `updateFestival` | `AUDIO.festVol` / `festRefDist` / `festMaxDist`、開催日 `FESTIVAL.days` |
+| **縁日のお囃子＝盆踊り** | 踊れる太鼓の地打ち＋鉦（チキチキ）＋篠笛の民謡旋律（ヨナ抜き/陽音階の呼びと応え2小節）。**屋台からの距離で音量が変わる空間音響**＝音をたどって縁日へ。炭坑節など特定曲は模倣しないオリジナル | `updateFestival` / `scheduleFestBar` | `AUDIO.festVol` / `festRefDist` / `festMaxDist`、開催日 `FESTIVAL.days` |
 | **雨の神秘的BGM** | やわらかいパッド（Am7・少しデチューン＋ゆっくり開閉するLPF）。雨のときだけ静かに流し、止むとフェードアウト | `initRainBgm` | `AUDIO.rainBgmVol` |
 | オルゴール（**既定OFF**） | ペンタトニックの短い旋律をまばらに。常時BGMなしの方針で既定オフ・設定でON可 | `updateMusicBox` | （`getBgmOut` gain） |
 
