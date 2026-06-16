@@ -341,8 +341,11 @@ const tileTex = (() => {
 // ── 地形に沿う道路リボン（坂でも浮かない帯）。p0→p1 を結ぶ。グローバル＝野原も町も使える。──
 // concrete=コンクリ舗装(縁石+白破線)／false=田舎の土道(水彩のなじむ路面)。
 function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = false, lift = 0) { // lift＝急斜面で地形メッシュにめり込まないよう路面を余分に持ち上げる量
-  const len = Math.hypot(x1 - x0, z1 - z0), segs = Math.max(8, Math.round(len / 1.6)) // 細かく分割＝坂や山頂でも地形にめり込まず路面がはっきり乗る
-  const dx = (x1 - x0) / len, dz = (z1 - z0) / len, px = -dz, pz = dx // 進行方向と垂直
+  const rawLen = Math.hypot(x1 - x0, z1 - z0) || 1e-3
+  const dx = (x1 - x0) / rawLen, dz = (z1 - z0) / rawLen, px = -dz, pz = dx // 進行方向と垂直
+  const ext = Math.min(width * 0.5, 1.1) // 端を少し伸ばす＝隣の区間と重ねて曲がり角・交差点の三角すき間（緑がのぞく）を路面で埋める
+  x0 -= dx * ext; z0 -= dz * ext; x1 += dx * ext; z1 += dz * ext
+  const len = rawLen + ext * 2, segs = Math.max(8, Math.round(len / 1.6)) // 細かく分割＝坂や山頂でも地形にめり込まず路面がはっきり乗る
   const mk = (w, yoff, col, mapTex, dash) => {
     const verts = [], uvs = [], idx = []
     for (let i = 0; i <= segs; i++) {
