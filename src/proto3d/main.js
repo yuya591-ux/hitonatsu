@@ -177,7 +177,7 @@ const SHADOW_TEX = (() => {
   const x = c.getContext('2d')
   const g = x.createRadialGradient(32, 32, 2, 32, 32, 30)
   // 中心を濃く＝伸ばしても接地点直下に密度が残り“浮き”を防ぐ
-  g.addColorStop(0, 'rgba(20,24,16,0.62)'); g.addColorStop(0.4, 'rgba(20,24,16,0.34)'); g.addColorStop(1, 'rgba(20,24,16,0)')
+  g.addColorStop(0, 'rgba(18,22,14,0.72)'); g.addColorStop(0.4, 'rgba(18,22,14,0.4)'); g.addColorStop(1, 'rgba(18,22,14,0)') // 接地影を少し濃く締める＝物が地面に乗る立体感（実写寄り）
   x.fillStyle = g; x.fillRect(0, 0, 64, 64)
   return new THREE.CanvasTexture(c)
 })()
