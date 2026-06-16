@@ -2451,15 +2451,15 @@ outlineObj(boy, 0.03)
   const head = boy.userData.head
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3a2c22 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf3a59a, transparent: true, opacity: 0.5 })
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf4a094, transparent: true, opacity: 0.58 })
   const browMat = new THREE.MeshBasicMaterial({ color: 0x6a4a34 })
   // 目＝大きく丸い瞳＋うるうるハイライト2つ＝世界共通の“かわいい”。眉は出さない（やさしい印象）。頭0.185に合わせる
   for (const ex of [-0.078, 0.078]) {
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.053, 16, 14), hiMat); sclera.scale.set(0.82, 1.12, 0.4); sclera.position.set(ex, 0.025, 0.151); head.add(sclera) // 白目（大）
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.042, 16, 14), eyeMat); iris.scale.set(0.94, 1.0, 0.42); iris.position.set(ex, 0.02, 0.166); head.add(iris) // 瞳（大・茶）
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.019, 10, 10), hiMat); hi.position.set(ex + 0.015, 0.046, 0.18); head.add(hi) // きらり大
-    const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 8), hiMat); hi2.position.set(ex - 0.012, -0.004, 0.18); head.add(hi2) // きらり小（うるうる）
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 10), blushMat); bl.scale.set(1, 0.64, 0.4); bl.position.set(ex + (ex > 0 ? 0.05 : -0.05), -0.046, 0.143); head.add(bl) // ふんわりほっぺ
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.058, 18, 16), hiMat); sclera.scale.set(0.85, 1.17, 0.42); sclera.position.set(ex, 0.024, 0.151); head.add(sclera) // 白目（大・うるうる）
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.048, 18, 16), eyeMat); iris.scale.set(0.96, 1.05, 0.44); iris.position.set(ex, 0.018, 0.166); head.add(iris) // 瞳（大・茶・うるうる）
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.024, 12, 12), hiMat); hi.position.set(ex + 0.016, 0.052, 0.186); head.add(hi) // きらり大
+    const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 10), hiMat); hi2.position.set(ex - 0.013, -0.006, 0.186); head.add(hi2) // きらり小（うるうる）
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.053, 14, 12), blushMat); bl.scale.set(1, 0.66, 0.4); bl.position.set(ex + (ex > 0 ? 0.052 : -0.052), -0.05, 0.142); head.add(bl) // ふんわりほっぺ
   }
   // 口＝小さなにっこり（線だけ・暗い穴は作らない＝怖くならない）
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0085, 6, 14, Math.PI * 0.9), eyeMat)
@@ -2595,7 +2595,7 @@ function makeVillager(x, z, opt) {
   // 顔（輪郭線の後・頭の子に付ける＝見回しで一緒に動く・フチ無し）。主人公と同じ親しみやすい作りに統一
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x4a3526 })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf3a59a, transparent: true, opacity: 0.5 })
+  const blushMat = new THREE.MeshBasicMaterial({ color: 0xf4a094, transparent: true, opacity: 0.58 })
   // ※主人公と完全に同じ作りに統一（大きい丸い瞳＋うるうる2ハイライト・眉なし・ふんわり頬）＝同じ世界の住人に
   for (const ex of [-0.078, 0.078]) {
     if (opt.simple) { // 背景の通行人＝白目＋瞳＋きらり（軽量だが主人公と同じ親しみ）
@@ -2603,11 +2603,11 @@ function makeVillager(x, z, opt) {
       const ir = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), eyeMat); ir.scale.set(0.94, 1, 0.42); ir.position.set(ex, 0.02, 0.164); head.add(ir)
       const h0 = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 8), hiMat); h0.position.set(ex + 0.014, 0.044, 0.178); head.add(h0); continue
     }
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.053, 16, 14), hiMat); sclera.scale.set(0.82, 1.12, 0.4); sclera.position.set(ex, 0.025, 0.151); head.add(sclera) // 白目（大）
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.042, 16, 14), eyeMat); iris.scale.set(0.94, 1.0, 0.42); iris.position.set(ex, 0.02, 0.166); head.add(iris) // 瞳（大）
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.019, 10, 10), hiMat); hi.position.set(ex + 0.015, 0.046, 0.18); head.add(hi) // きらり大
-    const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 8), hiMat); hi2.position.set(ex - 0.012, -0.004, 0.18); head.add(hi2) // きらり小（うるうる）
-    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 10), blushMat); bl.scale.set(1, 0.64, 0.4); bl.position.set(ex + (ex > 0 ? 0.05 : -0.05), -0.046, 0.143); head.add(bl) // ふんわりほっぺ
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.058, 18, 16), hiMat); sclera.scale.set(0.85, 1.17, 0.42); sclera.position.set(ex, 0.024, 0.151); head.add(sclera) // 白目（大・うるうる）
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.048, 18, 16), eyeMat); iris.scale.set(0.96, 1.05, 0.44); iris.position.set(ex, 0.018, 0.166); head.add(iris) // 瞳（大・うるうる）
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.024, 12, 12), hiMat); hi.position.set(ex + 0.016, 0.052, 0.186); head.add(hi) // きらり大
+    const hi2 = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 10), hiMat); hi2.position.set(ex - 0.013, -0.006, 0.186); head.add(hi2) // きらり小（うるうる）
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.053, 14, 12), blushMat); bl.scale.set(1, 0.66, 0.4); bl.position.set(ex + (ex > 0 ? 0.052 : -0.052), -0.05, 0.142); head.add(bl) // ふんわりほっぺ
     if (opt.adult) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.013, 0.02), new THREE.MeshBasicMaterial({ color: 0x5a4636 })); brow.position.set(ex, 0.094, 0.176); brow.rotation.z = ex > 0 ? 0.08 : -0.08; head.add(brow) } // 大人＝やわらかい眉で年齢を出す（子どもは眉なしのまま）
   }
   { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0085, 6, 14, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.064, 0.168); head.add(mouth) } // 口は通行人にも付ける（無いと怖い）
