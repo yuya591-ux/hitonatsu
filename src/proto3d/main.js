@@ -1024,6 +1024,9 @@ function makeShop(x, z, rot, opt) {
   for (const [sx, sz, sw, sd] of [[0, 2.5, 6.3, 0.3], [0, -2.5, 6.3, 0.3], [3.0, 0, 0.3, 5.0], [-3.0, 0, 0.3, 5.0]]) { const w = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.5, sd), toon(0xc8bda6)); w.position.set(sx, 4.5, sz); g.add(w) }
   const wtank = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.7, 8), toon(0x9aa0a4)); wtank.position.set(1.9, 4.85, -1.3); g.add(wtank)
   const front = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.3), new THREE.MeshBasicMaterial({ color: 0x2a221a })); front.position.set(0, 1.35, 2.51); g.add(front)
+  // 夜に灯る店先のあかり（夕方の駄菓子屋の灯り＝商店街の郷愁）。昼は消灯、夜にぼんやり暖色
+  const shopGlow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.0), new THREE.MeshBasicMaterial({ color: 0xffd183, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide })); shopGlow.position.set(0, 1.4, 2.54); g.add(shopGlow)
+  townNightLights.push({ m: shopGlow, base: 0.62, ph: Math.random() * 6 })
   // 暖簾（のれん・切れ目つき）
   for (let i = 0; i < 4; i++) { const nr = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 0.95), toon(opt.sign)); nr.position.set(-1.8 + i * 1.2, 2.05, 2.53); g.add(nr) }
   // 縞テント（白×店色）
