@@ -120,17 +120,17 @@ function toonGradient(steps = 4, min = 0.5) {
   const data = new Uint8Array(steps)
   for (let i = 0; i < steps; i++) data[i] = Math.round(255 * (min + (1 - min) * (i / (steps - 1))))
   const tex = new THREE.DataTexture(data, steps, 1, THREE.RedFormat)
-  tex.minFilter = THREE.NearestFilter
-  tex.magFilter = THREE.NearestFilter
+  tex.minFilter = THREE.LinearFilter // なめらかに補間＝写実寄りのソフトな陰影（ハードなトゥーン段を解消）
+  tex.magFilter = THREE.LinearFilter
   tex.needsUpdate = true
   return tex
 }
-const GRAD = toonGradient(4)
+const GRAD = toonGradient(6, 0.42)
 const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
 // 肌専用トゥーン：影側の床を高く（0.78）＋わずかな自発光。3人称カメラは主人公の背を映すので主人公の顔は順光だが、
 // プレイヤーを向く村人/通行人の顔は“逆光（太陽の反対側）”でトゥーンの暗い段に落ち、顔が真っ黒に潰れていた。
 // 肌だけ陰影の最暗を持ち上げ＋肌色の淡い自発光で、どの向きでも顔がやさしく見えるようにする。
-const GRAD_SKIN = toonGradient(4, 0.78)
+const GRAD_SKIN = toonGradient(6, 0.74)
 const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.12) })
 
 // ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
@@ -3015,7 +3015,7 @@ const gradePass = new ShaderPass({
     float L(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
     void main(){
       // にじみのゆらぎ：低周波ノイズでサンプル位置を歪める＝手描きのよれ（弱め＝輪郭のチラつき防止）
-      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (2.1 * wc);
+      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (0.9 * wc); // にじみ揺らぎは最小（実写寄り）
       vec2 uv = vUv + wob;
       vec3 c = texture2D(tDiffuse, uv).rgb;
       float lum = L(c);
@@ -3024,11 +3024,11 @@ const gradePass = new ShaderPass({
               + abs(L(texture2D(tDiffuse, uv + vec2(0.0, texel.y)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(texel.x, 0.0)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(0.0, texel.y)).rgb) - lum);
-      c *= 1.0 - clamp(e * 2.3 * wc, 0.0, 0.44); // 顔料だまりを強め＝写実テクスチャの細部を“描いた縁”に
+      c *= 1.0 - clamp(e * 1.2 * wc, 0.0, 0.22); // 顔料だまりは控えめ（実写寄り）
       vec3 graded = c;
       graded += vec3(-0.020, 0.012, 0.034) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
       graded += vec3(0.032, 0.016, -0.022) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
-      graded = mix(vec3(lum), graded, 0.87 - 0.10 * wc);                        // 退色（水彩のくすみ・記憶の色＝少し強める）
+      graded = mix(vec3(lum), graded, 0.95 - 0.04 * wc);                        // 退色は控えめ＝彩度を残す（実写寄り）
       graded = graded * 0.975 + 0.018;
       c = mix(c, graded, amount);
       // 夕立：降っている間は全体を少し暗く・青く・くすませる（曇って雨が来た空気）
@@ -3044,7 +3044,7 @@ const gradePass = new ShaderPass({
       }
       // 水彩紙の地合い：低周波のむら＋紙の繊維(高周波)を全画面に重ね、写実テクスチャを一枚の水彩画に馴染ませる
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.40 + vnoise(vUv * vec2(38.0, 36.0)) * 0.34 + vnoise(vUv * vec2(540.0, 480.0)) * 0.26;
-      c *= 1.0 - wc * (0.075 - paper * 0.23);
+      c *= 1.0 - wc * (0.035 - paper * 0.11); // 実写寄り：紙の地合いはごく薄く
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
       c += (grain - 0.5) * 0.018;
       float d = distance(vUv, vec2(0.5));
