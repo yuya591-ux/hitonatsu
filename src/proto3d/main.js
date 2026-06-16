@@ -1683,7 +1683,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const ccx = T.x - 12, ccz = T.z + 6
     for (let i = 0; i < 20; i++) {
       const a = (i / 20) * Math.PI * 2 + (Math.random() - 0.5) * 0.18
-      const r = 250 + Math.random() * 95, isFar = r > 298 // 西へ歩行範囲を広げたぶん、遠景の山は外側へ（拡張した町に山が食い込まないように）
+      const r = 290 + Math.random() * 90, isFar = r > 335 // 西へ歩行範囲を広げたぶん、遠景の山は外側へ（山の裾(半径〜50)が歩ける範囲(半径〜238)に食い込まないよう中心を外へ）
       const mx = ccx + Math.cos(a) * r, mz = ccz + Math.sin(a) * r
       const h = 34 + Math.random() * 40, rad = 28 + Math.random() * 22
       const mtn = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 5 + Math.floor(Math.random() * 3), 1), isFar ? far : near)
@@ -1703,6 +1703,12 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 174, T.z - 9, T.x - 224, T.z - 4, 4, false) // 二つ池の入口へ(2/2)
   makeSignpost(T.x - 132, T.z - 12, Math.PI / 2, 'ふたつ池 →') // 二つ池への道しるべ（小学校前）
   for (const [dx, dz] of [[-150, -10], [-170, -8], [-190, -6]]) makeSakura(T.x + dx, T.z + dz - 3, 0.95 + Math.random() * 0.15) // 参道の桜並木（二つ池への道沿い）
+  // ── 二つ池の北の住宅（西へ広げた土地に田舎の家並み＝二つ池を“近所”に・回遊先を増やす）──
+  for (const [dx, dz] of [[-192, 16], [-214, 17], [-170, 17]]) {
+    makeHouse(T.x + dx, T.z + dz, Math.PI, roofs[Math.floor(Math.random() * roofs.length)]) // 道（南）を向く
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 0.9, 0.4), toonMap(0xbcb6a4, plasterTex)); wall.position.set(T.x + dx, 0.45, T.z + dz - 5); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall) // ブロック塀（道側）
+  }
+  for (const [dx, dz, ts] of [[-208, 7, 1.0], [-186, 6, 1.1], [-236, 10, 1.0], [-160, 8, 0.95], [-200, -14, 1.05], [-150, 4, 0.9]]) makeTree(T.x + dx, T.z + dz, ts) // 二つ池の周り・道沿いの木立
   // 学校前通り：孤立していた高校(南)を、校舎群の東を回り込んで町へ繋ぐ（建物footprintを避けて東へ）
   makeRoadRibbon(T.x - 32, T.z - 35, T.x - 15, T.z - 30, 4, false) // 高校の昇降口前→東へ抜ける
   makeRoadRibbon(T.x - 15, T.z - 30, T.x - 6, T.z - 4, 4, false)   // →北上して本通りへ合流
