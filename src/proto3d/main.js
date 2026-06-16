@@ -108,7 +108,7 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap // やわらかい影のふち＝実写寄り（固定カメラで再描画は稀なのでコスト可）
 
 const scene = new THREE.Scene()
-scene.fog = new THREE.Fog(0xdfeaf0, 38, 178) // 空気遠近（霞）。遠景を空の色へ溶かす。少し手前から霞ませて奥行きと「絵本の溶け」を出す
+scene.fog = new THREE.Fog(0xdfeaf0, 58, 300) // 空気遠近（霞）。高台から見渡したとき手前〜中景が白く潰れないよう霞の開始を奥へ（38→58）＋到達も奥へ（178→300）＝より多くの景色が見える。遠景の山は引き続き溶ける
 const _todFog = new THREE.Color(0xdfeaf0) // 時間帯の素の霧色（雨の紫霞をこれに重ねる＝毎フレーム安定合成）
 const _rainFog = new THREE.Color(0x6a6488) // 夏の雨・夕暮れの紫がかった霞
 
@@ -2530,7 +2530,7 @@ function makeBoy() {
   const packLid = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.09, 0.13), toon(0xa83a30)); packLid.position.set(0, 1.11, -0.16); g.add(packLid) // ふた
   for (const sx of [-0.075, 0.075]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.04), toon(0xa83a30)); st.position.set(sx, 1.02, 0.02); st.rotation.x = -0.12; g.add(st) } // 肩ひも
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く主人公を固定影マップに焼くと“残像(ゴースト)”が残るので落とさない＝接地は専用の丸影で表現
-  g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, swing: 0 }
+  g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, swing: 0, char: true } // char:true＝細棒除外の対象外（手足は細いがインク線を残す）
   return g
 }
 const boy = makeBoy()
@@ -2705,7 +2705,7 @@ function makeVillager(x, z, opt) {
   }
   { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 6, 12, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.058, P.eyeZ + 0.008); head.add(mouth) }
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult }
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult, char: true } // char:true＝細棒除外の対象外
   scene.add(g)
   return g
 }
@@ -4803,14 +4803,16 @@ function update(dt) {
 // ── インク線の安全網：透明で見えない装飾(窓の灯り)・点群(煙/星/ちり)・スプライトを法線パスから一括除外（取りこぼし対策）──
 // これらは法線パスで“不透明な四角”として描かれ、空や近景に四角いゴミ線を生むため layer1 へ退避（メイン描画では映る）。
 { const _bb = new THREE.Vector3()
+  const underChar = (o) => { let p = o; while (p) { if (p.userData && p.userData.char) return true; p = p.parent } return false } // 主人公/村人の配下は対象外
   scene.traverse((o) => {
     const m = o.material
     if (o.isLine || o.isPoints || o.isSprite || (m && !Array.isArray(m) && m.transparent === true && m.opacity === 0)) { o.layers.set(1); return } // 線/点/透明グロー＝法線パスから除外
-    // 細い棒・鎖・針金状（ブランコのロープ/鉄棒/タイヤの吊り綱など。2方向が極細のメッシュ）も除外＝1〜2pxの幅でエッジ検出がギザつき黒モヤになるため。背面法の輪郭線は残る。
-    if (o.isMesh && o.geometry && (o.layers.mask & 2) === 0) {
+    // 細い棒・鎖・脚・支柱状（ブランコの脚/ロープ、鉄棒、物干し竿、塀の支柱など。2方向が細いメッシュ）も除外＝
+    // 1〜2pxの幅でエッジ検出がギザつき「左上の2本のギザギザ黒線」等になるため。キャラの手足は char で対象外にして輪郭線を残す。背面法の輪郭線も残る。
+    if (o.isMesh && o.geometry && (o.layers.mask & 2) === 0 && !underChar(o)) {
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
       const bb = o.geometry.boundingBox
-      if (bb) { bb.getSize(_bb); let thin = 0; if (_bb.x < 0.07) thin++; if (_bb.y < 0.07) thin++; if (_bb.z < 0.07) thin++; if (thin >= 2) o.layers.set(1) }
+      if (bb) { bb.getSize(_bb); let thin = 0; if (_bb.x < 0.2) thin++; if (_bb.y < 0.2) thin++; if (_bb.z < 0.2) thin++; if (thin >= 2) o.layers.set(1) }
     }
   })
 }
