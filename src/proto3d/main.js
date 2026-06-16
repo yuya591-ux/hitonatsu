@@ -134,7 +134,7 @@ const GRAD_SKIN = toonGradient(6, 0.74)
 const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.12) })
 
 // ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
-const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x2c2419, side: THREE.BackSide, fog: true })
+const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x4b443c, side: THREE.BackSide, fog: true }) // 黒に近い線→やわらかいグレー褐色＝“縁の陰”程度に弱めて実写寄りに（読みやすさは維持）
 function addOutline(mesh, thickness = 0.05) {
   mesh.geometry.computeBoundingSphere()
   const r = (mesh.geometry.boundingSphere && mesh.geometry.boundingSphere.radius) || 1
