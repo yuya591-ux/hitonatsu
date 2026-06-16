@@ -1108,8 +1108,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
 {
   const T = TOWN
   // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
-  const TGX = T.x - 25, TGZ = T.z + 15 // 地面メッシュの中心（マンションを軸に四方へ拡張＝山に囲まれた盆地の町）
-  const tgeo = new THREE.PlaneGeometry(290, 260, 232, 208); tgeo.rotateX(-Math.PI / 2) // 細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
+  const TGX = T.x - 70, TGZ = T.z + 15 // 地面メッシュの中心（西へ拡張＝小学校の北西に二つ池を置く土地を確保）
+  const tgeo = new THREE.PlaneGeometry(380, 260, 304, 208); tgeo.rotateX(-Math.PI / 2) // 西へ拡張(290→380)。細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
   const tpos = tgeo.attributes.position, tcol = []
   const cTownGnd = new THREE.Color(0xb6ad99), cMntGrass = new THREE.Color(0x86b257), cMntDark = new THREE.Color(0x6f9a47)
   for (let i = 0; i < tpos.count; i++) {
@@ -1676,14 +1676,14 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     makeSakura(cx - 10, cz + 4, 1.1); makeSakura(cx + 10, cz + 5, 1.0); makeSakura(cx + 2, cz - 9, 1.05); makeSakura(cx - 4, cz + 10, 1.0)
     for (const [bx, bz, br2] of [[cx - 9, cz - 4, 0.4], [cx + 9, cz - 6, -0.6]]) { const bench = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.5), toon(0x9a6a3a)); bench.position.set(bx, fy + 0.45, bz); bench.rotation.y = br2; bench.castShadow = true; addOutline(bench, 0.02); scene.add(bench); for (const lx of [-0.9, 0.9]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.4), toon(0x7a5230)); leg.position.set(bx + Math.cos(br2) * lx, fy + 0.22, bz - Math.sin(br2) * lx); scene.add(leg) } }
   }
-  makePondPark(T.x - 24, T.z - 86) // 二つ池＝坂を下った南（しんみせから蛇行した先・確定レイアウトの“下り”の先）
+  makePondPark(T.x - 228, T.z - 2) // 二つ池＝小学校の北西（西へ拡張した土地。三ツ池公園オマージュ）
   // ── 街を囲む遠景の山々（盆地の町＝山に囲まれた鶴見の谷あい。歩行範囲の外周に低ポリの稜線を環状に）──
   {
     const near = new THREE.MeshToonMaterial({ color: 0x6f8a64, gradientMap: GRAD }), far = new THREE.MeshToonMaterial({ color: 0x8398a4, gradientMap: GRAD }) // 遠いほど青くかすむ
     const ccx = T.x - 12, ccz = T.z + 6
     for (let i = 0; i < 20; i++) {
       const a = (i / 20) * Math.PI * 2 + (Math.random() - 0.5) * 0.18
-      const r = 205 + Math.random() * 95, isFar = r > 255
+      const r = 250 + Math.random() * 95, isFar = r > 298 // 西へ歩行範囲を広げたぶん、遠景の山は外側へ（拡張した町に山が食い込まないように）
       const mx = ccx + Math.cos(a) * r, mz = ccz + Math.sin(a) * r
       const h = 34 + Math.random() * 40, rad = 28 + Math.random() * 22
       const mtn = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 5 + Math.floor(Math.random() * 3), 1), isFar ? far : near)
@@ -1699,9 +1699,10 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makePachinko(T.x + 30, T.z - 16, Math.PI / 2)
   // ── 監査(ワールド)対応：孤立していたランドマークへ枝道を通す（回遊性を上げる）──
   makeRoadRibbon(T.x + 5, T.z - 15, T.x + 31, T.z - 14, 4, false, true) // 本通り東→パチンコ・銭湯のクラスタ(コンクリ)
-  makeRoadRibbon(T.x - 78, T.z - 88, T.x - 50, T.z - 86, 4, false) // 坂の南端→二つ池への道(1/2)
-  makeRoadRibbon(T.x - 50, T.z - 86, T.x - 26, T.z - 85, 4, false) // 坂の南端→二つ池への道(2/2)
-  makeSignpost(T.x - 40, T.z - 84, Math.PI / 2, 'ふたつ池 →') // 二つ池への道しるべ
+  makeRoadRibbon(T.x - 122, T.z - 14, T.x - 174, T.z - 9, 4, false) // 小学校の前→校舎・体育館の北側を西へ抜けて二つ池へ(1/2)
+  makeRoadRibbon(T.x - 174, T.z - 9, T.x - 224, T.z - 4, 4, false) // 二つ池の入口へ(2/2)
+  makeSignpost(T.x - 132, T.z - 12, Math.PI / 2, 'ふたつ池 →') // 二つ池への道しるべ（小学校前）
+  for (const [dx, dz] of [[-150, -10], [-170, -8], [-190, -6]]) makeSakura(T.x + dx, T.z + dz - 3, 0.95 + Math.random() * 0.15) // 参道の桜並木（二つ池への道沿い）
   // 学校前通り：孤立していた高校(南)を、校舎群の東を回り込んで町へ繋ぐ（建物footprintを避けて東へ）
   makeRoadRibbon(T.x - 32, T.z - 35, T.x - 15, T.z - 30, 4, false) // 高校の昇降口前→東へ抜ける
   makeRoadRibbon(T.x - 15, T.z - 30, T.x - 6, T.z - 4, 4, false)   // →北上して本通りへ合流
@@ -4812,7 +4813,7 @@ function update(dt) {
         vel.x *= 0.15; vel.z *= 0.15 // 水際で勢いを止める
       }
     } else if (area === 'town') {
-      boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 162, TOWN.x + 100)
+      boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 250, TOWN.x + 100) // 西を拡張（小学校の北西の二つ池まで歩ける）
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 100, TOWN.z + 105)
     } else { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
