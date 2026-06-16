@@ -1519,6 +1519,10 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, D), toonMap(0x9a9a94, plasterTex)); floor.position.y = 0.15; g.add(floor)
     for (const px of [-W / 2 + 0.6, -W / 6, W / 6, W / 2 - 0.6]) for (const pz of [-D / 2 + 0.6, D / 2 - 0.6]) { const col = new THREE.Mesh(new THREE.BoxGeometry(0.42, baseH - 0.3, 0.42), toon(0x8c8c88)); col.position.set(px, baseH / 2, pz); g.add(col) }
     const backw = new THREE.Mesh(new THREE.BoxGeometry(W, baseH - 0.3, 0.25), toonMap(0x8c8c88, plasterTex)); backw.position.set(0, baseH / 2, D / 2 - 0.12); g.add(backw) // 背面の壁
+    // 1階の側面・前面を壁で塞ぐ＝中が透けて「道路の上に浮く／道のど真ん中に建つ」ように見えるのを防ぎ、建物の輪郭をはっきりさせる。入口(シャッター x≈6.8)だけ開ける
+    for (const sx of [-W / 2 + 0.12, W / 2 - 0.12]) { const sw = new THREE.Mesh(new THREE.BoxGeometry(0.25, baseH - 0.3, D - 0.2), toonMap(0x8c8c88, plasterTex)); sw.position.set(sx, baseH / 2, 0); g.add(sw) } // 両側面
+    const frontL = new THREE.Mesh(new THREE.BoxGeometry(15.0, baseH - 0.3, 0.25), toonMap(0x8c8c88, plasterTex)); frontL.position.set(-2.9, baseH / 2, -D / 2 + 0.12); g.add(frontL) // 前面（シャッターの左）
+    const frontR = new THREE.Mesh(new THREE.BoxGeometry(1.8, baseH - 0.3, 0.25), toonMap(0x8c8c88, plasterTex)); frontR.position.set(9.5, baseH / 2, -D / 2 + 0.12); g.add(frontR) // 前面（シャッターの右）
     for (let i = 0; i < 3; i++) { const car = miniCar([0xd2d2cc, 0x9a5a4a, 0x3a5a7a][i]); car.position.set(-W / 2 + 1.7 + i * 2.4, 0.45, 0.2); car.rotation.y = Math.PI / 2; g.add(car) }
     const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.2, 3.4), toon(0x7a7a74)); ramp.position.set(W / 2 - 2.4, 0.35, -D / 2 - 1.5); ramp.rotation.x = 0.3; g.add(ramp) // 私道から下って入る入口ランプ
     // ── 車用シャッター＋すぐ隣の人用ドア（立体駐車場と一体の入口・道路側=-z／シャッターは半開き）──
