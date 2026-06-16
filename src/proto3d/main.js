@@ -105,7 +105,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.NeutralToneMapping
 renderer.toneMappingExposure = 1.18
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFShadowMap // Softより軽い（トゥーンなら十分）
+renderer.shadowMap.type = THREE.PCFSoftShadowMap // やわらかい影のふち＝実写寄り（固定カメラで再描画は稀なのでコスト可）
 
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0xdfeaf0, 38, 178) // 空気遠近（霞）。遠景を空の色へ溶かす。少し手前から霞ませて奥行きと「絵本の溶け」を出す
@@ -125,7 +125,7 @@ function toonGradient(steps = 4, min = 0.5) {
   tex.needsUpdate = true
   return tex
 }
-const GRAD = toonGradient(6, 0.42)
+const GRAD = toonGradient(8, 0.34) // さらに滑らか(8段)＋影を深く(0.34)＝立体感・実写寄り
 const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
 // 肌専用トゥーン：影側の床を高く（0.78）＋わずかな自発光。3人称カメラは主人公の背を映すので主人公の顔は順光だが、
 // プレイヤーを向く村人/通行人の顔は“逆光（太陽の反対側）”でトゥーンの暗い段に落ち、顔が真っ黒に潰れていた。
