@@ -1,43 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- 「ひと夏の一日」アプリアイコン：夏空の田舎＋主人公の麦わら帽子（コード描画・外部素材なし） -->
+  <!-- 「ひと夏の一日」アプリアイコン：夏休みの空気＝入道雲・夏の陽・田舎の丘・主人公の麦わら帽子（コード描画・外部素材なし） -->
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#bcd9ea"/>
-      <stop offset="0.62" stop-color="#dfeadd"/>
-      <stop offset="1" stop-color="#f2e9cf"/>
+      <stop offset="0" stop-color="#8fc3e8"/>
+      <stop offset="0.55" stop-color="#bfdcec"/>
+      <stop offset="1" stop-color="#eef0db"/>
     </linearGradient>
     <linearGradient id="straw" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#f0cd86"/>
-      <stop offset="1" stop-color="#e3bb6c"/>
+      <stop offset="1" stop-color="#e0b766"/>
+    </linearGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe6ea"/>
     </linearGradient>
   </defs>
   <!-- 夏空 -->
   <rect width="512" height="512" fill="url(#sky)"/>
-  <!-- やわらかな夏の太陽 -->
-  <circle cx="150" cy="146" r="60" fill="#ffe6a0"/>
-  <!-- 入道雲のひとひら -->
-  <g fill="#ffffff" opacity="0.85">
-    <ellipse cx="392" cy="150" rx="58" ry="34"/>
-    <ellipse cx="350" cy="166" rx="40" ry="26"/>
-    <ellipse cx="430" cy="168" rx="38" ry="24"/>
+  <!-- 夏の陽 -->
+  <circle cx="116" cy="132" r="58" fill="#ffe49a"/>
+  <!-- 入道雲（もくもくと立ちのぼる夏の雲＝夏休みの空気） -->
+  <g fill="url(#cloud)">
+    <ellipse cx="332" cy="120" rx="58" ry="58"/>
+    <ellipse cx="300" cy="168" rx="62" ry="56"/>
+    <ellipse cx="382" cy="158" rx="66" ry="60"/>
+    <ellipse cx="346" cy="206" rx="86" ry="58"/>
+    <ellipse cx="262" cy="206" rx="46" ry="40"/>
+    <ellipse cx="428" cy="206" rx="40" ry="36"/>
+    <rect x="232" y="210" width="220" height="44" rx="22"/>
   </g>
   <!-- 奥の丘 -->
-  <path d="M0,356 Q150,300 300,342 T512,326 L512,512 L0,512 Z" fill="#9cc074"/>
+  <path d="M0,344 Q150,296 300,332 T512,318 L512,512 L0,512 Z" fill="#a0c277"/>
   <!-- 手前の丘 -->
-  <path d="M0,424 Q180,378 332,412 T512,402 L512,512 L0,512 Z" fill="#79a455"/>
-  <!-- 麦わら帽子（主人公の帽子。平たいボーター＋青いリボン） -->
+  <path d="M0,408 Q170,360 332,398 T512,388 L512,512 L0,512 Z" fill="#77a052"/>
+  <!-- 麦わら帽子（主人公の帽子＝この物語の目印。丘の上にちょこんと） -->
   <g>
-    <!-- クラウン（平たいドーム） -->
-    <ellipse cx="256" cy="262" rx="96" ry="60" fill="url(#straw)"/>
-    <!-- 青いリボン -->
-    <path d="M160,292 Q256,316 352,292 L352,308 Q256,334 160,308 Z" fill="#5e7ea0"/>
-    <!-- つば -->
-    <ellipse cx="256" cy="312" rx="178" ry="52" fill="url(#straw)"/>
-    <!-- つばのふち（やや濃い麦わら＝立体感） -->
-    <path d="M82,312 Q256,372 430,312 Q256,344 82,312 Z" fill="#d3a655"/>
-    <!-- 麦わらの編み目（つばの点線） -->
-    <ellipse cx="256" cy="312" rx="150" ry="42" fill="none" stroke="#cb9f52" stroke-width="4" stroke-dasharray="3 13" opacity="0.7"/>
-    <!-- クラウンのハイライト -->
-    <ellipse cx="232" cy="240" rx="40" ry="20" fill="#f6dca6" opacity="0.7"/>
+    <ellipse cx="256" cy="392" rx="120" ry="34" fill="url(#straw)"/>
+    <path d="M188,400 Q256,372 324,400 L324,410 Q256,430 188,410 Z" fill="#5e7ea0"/>
+    <ellipse cx="256" cy="372" rx="62" ry="40" fill="url(#straw)"/>
+    <path d="M150,392 Q256,440 362,392 Q256,416 150,392 Z" fill="#d2a554"/>
+    <ellipse cx="234" cy="358" rx="26" ry="13" fill="#f6dca6" opacity="0.7"/>
   </g>
 </svg>

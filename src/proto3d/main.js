@@ -2956,19 +2956,31 @@ function spawnFirework() {
   fireworksGroup.add(pts)
   playFireworkBoom() // 遠くの「ドーン」＋火花のパチパチ（夏のクライマックスに音を）
 }
-// 花火の音＝自前合成（遠い夜空なので低い破裂が少し遅れて届く＋火花の高域）。getSfxOut経由でクリップ防止。
+// 花火の音＝自前合成。遠い夜空の「ドーン」＝深い低音の胴＋破裂の空気＋丘にこだまする余韻（電車のしゅぽっぽにならないよう低音を効かせ響かせる）。getSfxOut経由でクリップ防止。
 function playFireworkBoom() {
   if (!audioStarted) return
   try {
-    const ctx = listener.context, t0 = ctx.currentTime + 0.12 // 遠いので少し遅れて届く
-    const src = ctx.createBufferSource(); src.buffer = getNoise(); src.loop = true; src.playbackRate.value = 0.6
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(440, t0); lp.frequency.exponentialRampToValueAtTime(120, t0 + 0.9)
-    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.15, t0 + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.3)
-    src.connect(lp); lp.connect(g); g.connect(getSfxOut()); src.start(t0); src.stop(t0 + 1.4)
-    const s2 = ctx.createBufferSource(); s2.buffer = getNoise(); s2.loop = true; s2.playbackRate.value = 1.4
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2600
-    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t0 + 0.06); g2.gain.exponentialRampToValueAtTime(0.035, t0 + 0.13); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.95)
-    s2.connect(hp); hp.connect(g2); g2.connect(getSfxOut()); s2.start(t0 + 0.06); s2.stop(t0 + 1.0)
+    const ctx = listener.context, t0 = ctx.currentTime + 0.12, out = getSfxOut() // 遠いので少し遅れて届く
+    // 丘にこだまする低い余韻（フィードバックディレイ＝遠くの花火が“ドドド”と響く）
+    const delay = ctx.createDelay(0.5); delay.delayTime.value = 0.17
+    const fb = ctx.createGain(); fb.gain.value = 0.34
+    const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 230 // 余韻は低音だけ＝遠い響き
+    delay.connect(dlp); dlp.connect(fb); fb.connect(delay)
+    const wet = ctx.createGain(); wet.gain.value = 0.5; delay.connect(wet); wet.connect(out)
+    // ① 深い「ドーン」＝低いサインの胴（少し下降・パンチのある立ち上がり＝低音が響く）
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(80, t0); o.frequency.exponentialRampToValueAtTime(40, t0 + 0.55)
+    const og = ctx.createGain(); og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.42, t0 + 0.012); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.95)
+    o.connect(og); og.connect(out); og.connect(delay); o.start(t0); o.stop(t0 + 1.0)
+    // ② 破裂の空気＝一瞬の低域ノイズ（パッと開く）
+    const n = ctx.createBufferSource(); n.buffer = getNoise(); n.loop = true; n.playbackRate.value = 0.5
+    const nlp = ctx.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.setValueAtTime(720, t0); nlp.frequency.exponentialRampToValueAtTime(150, t0 + 0.32)
+    const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.2, t0 + 0.014); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5)
+    n.connect(nlp); nlp.connect(ng); ng.connect(out); ng.connect(delay); n.start(t0); n.stop(t0 + 0.6)
+    // ③ 火花のパチパチ（遅れて届く高域・控えめ）
+    const s2 = ctx.createBufferSource(); s2.buffer = getNoise(); s2.loop = true; s2.playbackRate.value = 1.5
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3000
+    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t0 + 0.1); g2.gain.exponentialRampToValueAtTime(0.02, t0 + 0.2); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1)
+    s2.connect(hp); hp.connect(g2); g2.connect(out); s2.start(t0 + 0.1); s2.stop(t0 + 1.2)
   } catch (e) {}
 }
 
@@ -3255,6 +3267,7 @@ const AUDIO = {
 }
 // 縁日の開催：将来の複数日に備え、開催日と時間帯を設定で変えられる作り（今は1日目の夜に必ず）
 const FESTIVAL = { days: [1], from: 0.6, to: 1.0 } // days=開催する日(配列)・from/to=点灯する時刻(0..1)。夕方0.6〜夜
+const FIREWORK = { days: [1], from: 0.82, to: 0.95 } // 花火大会＝開催日(縁日と同じ夜)の“決まった時間だけ”上がる。一晩中は上げない（days/from/toで調整）
 // ── マスターリミッター：環境音(listener)＋効果音(sfxBus)の“合計”を必ず0dB以下に抑える。
 //   これが無いと夏の蝉時雨＋効果音が重なって出力がクリップし、特にiPhoneの画面録画で音が全部「ザザザ」と歪む。
 let masterChain = null
@@ -3530,10 +3543,27 @@ function festFlute(t0, freq, dur, vol) { // 篠笛のお囃子（三角波＋ビ
   const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.05); g.gain.setValueAtTime(vol, t0 + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
   o.connect(bp); bp.connect(g); g.connect(getFestOut()); o.start(t0); o.stop(t0 + dur + 0.03)
 }
-const FEST_MEL = [880, 988, 1047, 988, 880, 784, 0, 880] // お囃子の素朴な旋律（C系ペンタ寄り・0=休符）。1小節=2秒
+function festKane(t0, vol) { // 鉦（チキ）＝盆踊りらしい高い金属の刻み。短く硬い余韻
+  const ctx = listener.context
+  const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 2350
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2350; bp.Q.value = 3
+  const g = ctx.createGain(); g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.11)
+  o.connect(bp); bp.connect(g); g.connect(getFestOut()); o.start(t0); o.stop(t0 + 0.13)
+}
+// 盆踊りのお囃子：太鼓の地(ドン・ドコ)＋鉦のチキチキ＋篠笛の素朴な旋律。旋律は民謡らしいヨナ抜き(陽音階 D E G A B D')のオリジナル
+// （炭坑節など特定の曲は模倣しない。「お祭り＝盆踊り」と分かる空気だけを作る）。1小節=2秒
+const FEST_TAIKO = [[0, 0.6], [0.5, 0.32], [0.75, 0.34], [1.0, 0.55], [1.25, 0.3], [1.5, 0.46], [1.75, 0.32]] // [拍, 強さ]＝踊れる地打ち
+const FEST_KANE = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75] // チキチキ…と刻む（裏拍中心）
+const FEST_MEL = [ // 2小節の掛け合い [拍, 周波数Hz, 長さ秒]。陽音階で素朴に上がって下りる
+  [[0, 440, 0.42], [0.5, 494, 0.22], [0.75, 587, 0.22], [1.0, 494, 0.42], [1.5, 440, 0.46]],            // 上の句（呼び）
+  [[0, 392, 0.42], [0.5, 440, 0.22], [0.75, 392, 0.22], [1.0, 330, 0.4], [1.25, 392, 0.22], [1.5, 294, 0.62]], // 下の句（応え）
+]
+let festBar = 0
 function scheduleFestBar(t0) {
-  festTaiko(t0, 0.5); festTaiko(t0 + 0.5, 0.3); festTaiko(t0 + 0.75, 0.3); festTaiko(t0 + 1.0, 0.5); festTaiko(t0 + 1.5, 0.28) // ドン・ドコのリズム
-  for (let i = 0; i < FEST_MEL.length; i++) { const f = FEST_MEL[i]; if (f) festFlute(t0 + i * 0.25, f, 0.2, 0.14) } // 篠笛
+  for (const [b, v] of FEST_TAIKO) festTaiko(t0 + b, v) // 太鼓の地打ち
+  for (const b of FEST_KANE) festKane(t0 + b, 0.05) // 鉦の刻み（控えめ）
+  const mel = FEST_MEL[festBar % FEST_MEL.length]; festBar++
+  for (const [b, f, d] of mel) festFlute(t0 + b, f, d, 0.13) // 篠笛の旋律（呼びと応えを交互に）
 }
 function updateFestival(dt) {
   if (!audioStarted) return
@@ -4402,10 +4432,11 @@ function update(dt) {
   for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
   // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
   for (const L of townNightLights) L.m.material.opacity = nf * L.base * (0.9 + 0.1 * Math.sin(tsec * 2.2 + L.ph))
-  // 花火（夜・3日目はおまつりで多め）
-  if (nf > 0.4) {
+  // 花火（縁日の夜の“決まった時間だけ”＝花火大会。一晩中は上げない。FIREWORK.days/from/toで調整）
+  const fwOn = FIREWORK.days.indexOf(day) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
+  if (fwOn) {
     fwTimer -= dt
-    if (fwTimer <= 0) { fwTimer = (day >= 3 ? 1.4 : 3.2) + Math.random() * 2.5; spawnFirework() }
+    if (fwTimer <= 0) { fwTimer = 1.8 + Math.random() * 2.6; spawnFirework() }
   }
   for (const pts of [...fireworksGroup.children]) {
     const u = pts.userData; u.age += dt
