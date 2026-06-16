@@ -3205,6 +3205,21 @@ resize()
 // 音は癒しの半分。2D版の素材(MP3)を流用し、時刻で滑らかにクロスフェード。
 const listener = new THREE.AudioListener()
 camera.add(listener)
+// ── 音の調整パラメータ（後から数値だけで微調整できる。BGMは基本なし＝環境音で世界を作る。例外は縁日と雨のみ）──
+const AUDIO = {
+  ambMaster: 0.5,     // 環境音(朝/蝉/ヒグラシ/夜)の基準音量。主張しすぎない控えめ
+  nightAmb: 0.34,     // 夜の虫(カエルのような音)の音量倍率＝大きく下げて「眠れる静けさ」に
+  morningAmb: 0.85,   // 朝の鳥のさえずりの倍率
+  rainStart: 0.24,    // 雨音が鳴り始めるweather（これ未満の薄曇りでは鳴らさない＝“どしゃどしゃ”の正体＝薄い雨音を消す）
+  rainVol: 0.2,       // 雨音の最大音量
+  thunderStart: 0.34, // 遠雷が鳴り始めるweather（本降りのときだけ＝紛らわしい低音を出さない）
+  festVol: 0.6,       // 縁日のお囃子の基準音量（近づくと最大）
+  festRefDist: 9,     // この距離以内で最大。離れるほど小さく＝音をたどって屋台へ
+  festRolloff: 0.045, // 距離減衰の強さ（小さいほど遠くまで届く＝高台からも微かに聞こえる）
+  rainBgmVol: 0.14,   // 雨のときだけ流す神秘的BGMの音量
+}
+// 縁日の開催：将来の複数日に備え、開催日と時間帯を設定で変えられる作り（今は1日目の夜に必ず）
+const FESTIVAL = { days: [1], from: 0.6, to: 1.0 } // days=開催する日(配列)・from/to=点灯する時刻(0..1)。夕方0.6〜夜
 // ── マスターリミッター：環境音(listener)＋効果音(sfxBus)の“合計”を必ず0dB以下に抑える。
 //   これが無いと夏の蝉時雨＋効果音が重なって出力がクリップし、特にiPhoneの画面録画で音が全部「ザザザ」と歪む。
 let masterChain = null
@@ -3292,7 +3307,7 @@ function initRainAudio() {
 }
 // 遠雷＝低いランブル。少し曇ってきたら“夕立の予兆”として遠くで小さくゴロゴロ、本降りで近く大きく。
 function maybeThunder(dt) {
-  if (!audioStarted || weather < 0.18) return
+  if (!audioStarted || weather < AUDIO.thunderStart) return // 本降りのときだけ遠雷（薄曇りで紛らわしい低音を出さない）
   thunderCd -= dt
   if (thunderCd > 0) return
   thunderCd = 9 + Math.random() * 18
@@ -4184,7 +4199,7 @@ function update(dt) {
     pa.needsUpdate = true
   }
   // 雨音：weather に合わせて音量を上げ下げ（クリックしないよう setTargetAtTime でなめらかに）。遠雷もたまに
-  if (rainGain) { const tgt = THREE.MathUtils.clamp((weather - 0.04) * 0.27, 0, 0.23); rainGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 0.6) }
+  if (rainGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.5, 0, AUDIO.rainVol); rainGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 0.6) } // 本降りのときだけ雨音（薄曇りの“どしゃどしゃ”を消す）
   maybeThunder(dt)
   maybeCricket(dt) // 夜の虫の音
   // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
@@ -4249,8 +4264,10 @@ function update(dt) {
                   : area === 'town' ? { cicada: 0.62, higurashi: 0.72, morning: 0.85, night: 0.92 } : null
     for (const id in ambients) {
       const a = ambients[id]; if (!a.buffer) continue
-      let v = Math.min(1, w[id] || 0) * 0.6
+      let v = Math.min(1, w[id] || 0) * AUDIO.ambMaster
       if (id === 'cicada' || id === 'higurashi') v *= cicadaSwell
+      if (id === 'night') v *= AUDIO.nightAmb       // 夜の虫(カエルのような音)を大きく下げる＝眠れる静けさ
+      if (id === 'morning') v *= AUDIO.morningAmb
       if (areaAmb && areaAmb[id]) v *= areaAmb[id]
       a.setVolume(Math.max(0, v))
     }
