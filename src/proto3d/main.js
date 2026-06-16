@@ -4802,7 +4802,18 @@ function update(dt) {
 
 // ── インク線の安全網：透明で見えない装飾(窓の灯り)・点群(煙/星/ちり)・スプライトを法線パスから一括除外（取りこぼし対策）──
 // これらは法線パスで“不透明な四角”として描かれ、空や近景に四角いゴミ線を生むため layer1 へ退避（メイン描画では映る）。
-scene.traverse((o) => { const m = o.material; if (o.isLine || o.isPoints || o.isSprite || (m && !Array.isArray(m) && m.transparent === true && m.opacity === 0)) o.layers.set(1) }) // o.isLine＝電線/ワイヤー等の細い線（法線が無く深度も薄いため、エッジ検出が暴れて黒いウネウネのモヤになる→必ず除外）
+{ const _bb = new THREE.Vector3()
+  scene.traverse((o) => {
+    const m = o.material
+    if (o.isLine || o.isPoints || o.isSprite || (m && !Array.isArray(m) && m.transparent === true && m.opacity === 0)) { o.layers.set(1); return } // 線/点/透明グロー＝法線パスから除外
+    // 細い棒・鎖・針金状（ブランコのロープ/鉄棒/タイヤの吊り綱など。2方向が極細のメッシュ）も除外＝1〜2pxの幅でエッジ検出がギザつき黒モヤになるため。背面法の輪郭線は残る。
+    if (o.isMesh && o.geometry && (o.layers.mask & 2) === 0) {
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+      const bb = o.geometry.boundingBox
+      if (bb) { bb.getSize(_bb); let thin = 0; if (_bb.x < 0.07) thin++; if (_bb.y < 0.07) thin++; if (_bb.z < 0.07) thin++; if (thin >= 2) o.layers.set(1) }
+    }
+  })
+}
 
 // 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
 let frameAcc = 0
