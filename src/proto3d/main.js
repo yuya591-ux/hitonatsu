@@ -1710,6 +1710,17 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 174, T.z - 9, T.x - 224, T.z - 4, 4, false) // 二つ池の入口へ(2/2)
   makeSignpost(T.x - 132, T.z - 12, Math.PI / 2, 'ふたつ池 →') // 二つ池への道しるべ（小学校前）
   for (const [dx, dz] of [[-150, -10], [-170, -8], [-190, -6]]) makeSakura(T.x + dx, T.z + dz - 3, 0.95 + Math.random() * 0.15) // 参道の桜並木（二つ池への道沿い）
+  // ── しんみせを角にした交差点＋一うねりの蛇行で二つ池(と家並み)を囲う散歩道（ユーザー要望）──
+  // 坂(マンション)を下りてしんみせの角で西へ折れ、一うねり蛇行→二つ池をぐるりと囲み、学校からの道に合流して環になる
+  makeRoadRibbon(T.x - 89, T.z + 36, T.x - 116, T.z + 27, 4, false)  // しんみせの角→西へ折れる（交差点）
+  makeRoadRibbon(T.x - 116, T.z + 27, T.x - 103, T.z + 17, 4, false) // 一うねり（南東へ膨らむ）
+  makeRoadRibbon(T.x - 103, T.z + 17, T.x - 152, T.z + 25, 4, false) // 家並みの北を西へ（うねり戻し）
+  makeRoadRibbon(T.x - 152, T.z + 25, T.x - 196, T.z + 26, 4, false) // 二つ池の北東へ
+  makeRoadRibbon(T.x - 196, T.z + 26, T.x - 230, T.z + 22, 4, false) // 池を囲む：北
+  makeRoadRibbon(T.x - 230, T.z + 22, T.x - 250, T.z + 2, 4, false)  // 池を囲む：北→西
+  makeRoadRibbon(T.x - 250, T.z + 2, T.x - 232, T.z - 19, 4, false)  // 池を囲む：西→南
+  makeRoadRibbon(T.x - 232, T.z - 19, T.x - 195, T.z - 9, 4, false)  // 池を囲む：南→学校からの道に合流（環の完成）
+  makeSignpost(T.x - 110, T.z + 22, 0, 'ふたつ池 →') // 蛇行路の入口に道しるべ
   // ── 二つ池の北の住宅（西へ広げた土地に田舎の家並み＝二つ池を“近所”に・回遊先を増やす）──
   for (const [dx, dz] of [[-192, 16], [-214, 17], [-170, 17]]) {
     makeHouse(T.x + dx, T.z + dz, Math.PI, roofs[Math.floor(Math.random() * roofs.length)]) // 道（南）を向く
