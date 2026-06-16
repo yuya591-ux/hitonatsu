@@ -1311,7 +1311,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       const wx = -W / 2 + 1.3 + u * 2.6, wy = 1.7 + f * 2.4
       const win = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.35), toon(0x55707e)); win.position.set(wx, wy, -D / 2 - 0.03); grp.add(win) // 南向き(-z)の窓＝教室内の暗さ（昼でも暗く）
       const sill = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.12, 0.32), toon(0xcfc6b0)); sill.position.set(wx, wy - 0.76, -D / 2 - 0.12); grp.add(sill)
-      if (Math.random() < 0.35) { const gl = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.25), new THREE.MeshBasicMaterial({ color: 0xffe7a0, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide })); gl.position.set(wx, wy, -D / 2 - 0.05); grp.add(gl); winGlows.push(gl) }
+      if (Math.random() < 0.22) { const gl = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.05), new THREE.MeshBasicMaterial({ color: 0xeacf96, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide })); gl.position.set(wx, wy, -D / 2 - 0.05); grp.add(gl); winGlows.push(gl) } // 数を減らし・小さく・落ち着いた暖色＝校庭から見て窓がギラつかない
     }
     const ent = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.0, 2.2), toonMap(0xddd4be, plasterTex)); ent.position.set(0, 1.5, -D / 2 - 1.0); grp.add(ent) // 昇降口
     const door = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.2), toon(0x3a4a52)); door.position.set(0, 1.1, -D / 2 - 2.11); grp.add(door)
@@ -1321,7 +1321,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     grp.traverse((o) => { if (o.isMesh) o.castShadow = true })
     grp.position.set(cx, heightAt(cx, cz), cz)
     mergedOutline(grp, 0.05); addContactShadow(grp, W * 0.55); addBox(cx, cz, W / 2, D / 2, 0); scene.add(grp)
-    for (const gl of winGlows) townNightLights.push({ m: gl, base: 0.7, ph: Math.random() * 6 })
+    for (const gl of winGlows) townNightLights.push({ m: gl, base: 0.38, ph: Math.random() * 6, fa: 0.02 }) // 校庭(盆踊り)から見える窓＝暗め＋ほぼ点滅なし（ギラギラ/チカチカ対策）
     // ── 校庭（砂地）＋設備 ──
     const yz = cz - D / 2 - 15
     const yard = new THREE.Mesh(new THREE.PlaneGeometry(W + 7, 24), new THREE.MeshToonMaterial({ color: 0xcdb389, gradientMap: GRAD, map: watercolorTex })); yard.rotation.x = -Math.PI / 2; yard.position.set(cx, heightAt(cx, yz) + 0.04, yz); yard.receiveShadow = true; scene.add(yard)
@@ -3070,18 +3070,23 @@ for (const off of [-1.15, 1.15]) {
 const fireworksGroup = new THREE.Group(); scene.add(fireworksGroup)
 let fwTimer = 3
 function spawnFirework() {
-  const N = 72
-  const cx = (Math.random() - 0.5) * 70, cy = 34 + Math.random() * 18, cz = -36 - Math.random() * 28
+  const N = 150
+  // ★花火は“おまつり会場(校庭)の上空”に大きく開く。以前は原点(はらっぱ)上空に出ていて、町の会場からは遠くて見えなかった不具合を修正。
+  const cx = TOWN.x - 148 + (Math.random() - 0.5) * 90, cy = 46 + Math.random() * 26, cz = TOWN.z - 50 + (Math.random() - 0.5) * 70
   const pos = new Float32Array(N * 3); const vel = []
   for (let i = 0; i < N; i++) {
     pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
-    vel.push(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(5 + Math.random() * 5))
+    vel.push(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(11 + Math.random() * 8)) // 大きく開く（半径UP）
   }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  const c = new THREE.Color().setHSL(Math.random(), 0.7, 0.62)
-  const mat = new THREE.PointsMaterial({ color: c, size: 0.7, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })
+  const hue = Math.random()
+  const c = new THREE.Color().setHSL(hue, 0.75, 0.66)
+  const mat = new THREE.PointsMaterial({ color: c, size: 1.5, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }) // 火の粉を大きく＝遠くからでも目立つ
   const pts = new THREE.Points(geo, mat); pts.userData = { vel, age: 0 }
   fireworksGroup.add(pts)
+  // 開いた瞬間の大きな閃光（“ぱっ”と一目で分かる・空を見渡せば必ず気づく）
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 0.5, 0.88), transparent: true, opacity: 0.95, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
+  flash.position.set(cx, cy, cz); flash.userData = { flash: true, age: 0 }; fireworksGroup.add(flash)
   playFireworkBoom() // 遠くの「ドーン」＋火花のパチパチ（夏のクライマックスに音を）
 }
 // 花火の音＝自前合成。遠い夜空の「ドーン」＝深い低音の胴＋破裂の空気＋丘にこだまする余韻（電車のしゅぽっぽにならないよう低音を効かせ響かせる）。getSfxOut経由でクリップ防止。
@@ -3395,7 +3400,7 @@ const AUDIO = {
 }
 // 縁日の開催：将来の複数日に備え、開催日と時間帯を設定で変えられる作り（今は1日目の夜に必ず）
 const FESTIVAL = { days: [1], from: 0.6, to: 1.0 } // days=開催する日(配列)・from/to=点灯する時刻(0..1)。夕方0.6〜夜
-const FIREWORK = { days: [1], from: 0.82, to: 0.95 } // 花火大会＝開催日(縁日と同じ夜)の“決まった時間だけ”上がる。一晩中は上げない（days/from/toで調整）
+const FIREWORK = { days: [1], from: 0.80, to: 0.96 } // 花火大会＝開催日(縁日と同じ夜)の“決まった時間だけ”。窓を少し広げ＋下記で花火中は時間をゆっくり進める＝鑑賞を約30秒のばす
 // ── マスターリミッター：環境音(listener)＋効果音(sfxBus)の“合計”を必ず0dB以下に抑える。
 //   これが無いと夏の蝉時雨＋効果音が重なって出力がクリップし、特にiPhoneの画面録画で音が全部「ザザザ」と歪む。
 let masterChain = null
@@ -4404,7 +4409,9 @@ function update(dt) {
   // 一日の移ろい（朝→夜で止まり、「ねる」で翌日へ。ループしない＝3日間の区切り）
   if (dayAuto) {
     const prev = tday
-    tday = Math.min(0.97, tday + dt / 240)
+    // 花火大会の間は時間をゆっくり進める＝夏のクライマックスを長く味わう（花火を約30秒のばす）
+    const fwSlow = FIREWORK.days.indexOf(day) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
+    tday = Math.min(0.97, tday + dt / (fwSlow ? 400 : 240))
     setTimeOfDay(tday)
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast('ラジオ体操の じかんだ。') }
@@ -4585,15 +4592,16 @@ function update(dt) {
   // 提灯のあかり（夜に灯る・ゆらぐ）
   for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
   // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
-  for (const L of townNightLights) L.m.material.opacity = nf * L.base * (0.9 + 0.1 * Math.sin(tsec * 2.2 + L.ph))
+  for (const L of townNightLights) { const fa = L.fa ?? 0.1; L.m.material.opacity = nf * L.base * (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph)) } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
   // 花火（縁日の夜の“決まった時間だけ”＝花火大会。一晩中は上げない。FIREWORK.days/from/toで調整）
   const fwOn = FIREWORK.days.indexOf(day) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
   if (fwOn) {
     fwTimer -= dt
-    if (fwTimer <= 0) { fwTimer = 1.8 + Math.random() * 2.6; spawnFirework() }
+    if (fwTimer <= 0) { fwTimer = 1.2 + Math.random() * 1.8; spawnFirework() } // 連発を増やす＝にぎやかな花火大会
   }
   for (const pts of [...fireworksGroup.children]) {
     const u = pts.userData; u.age += dt
+    if (u.flash) { const k = u.age / 0.42; pts.scale.setScalar(1 + k * 3.2); pts.material.opacity = Math.max(0, 0.95 * (1 - k)); if (u.age > 0.42) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 中心フラッシュ＝ぱっと開いてすぐ消える
     const pa = pts.geometry.attributes.position
     for (let i = 0; i < u.vel.length; i++) {
       const v = u.vel[i]
@@ -4601,8 +4609,8 @@ function update(dt) {
       v.multiplyScalar(0.95)
     }
     pa.needsUpdate = true
-    pts.material.opacity = Math.max(0, 1 - u.age / 2.3)
-    if (u.age > 2.3) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
+    pts.material.opacity = Math.max(0, 1 - u.age / 2.6)
+    if (u.age > 2.6) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
   }
   // 商店街の通行人：一様に行進せず、立ち止まったり向きを変えたり＝右往左往して自然に
   for (const p of pedestrians) {
