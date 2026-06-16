@@ -1389,6 +1389,19 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
         }
       }
       const cs = new THREE.Mesh(new THREE.CircleGeometry(2.6, 18), shadowMat); cs.rotation.x = -Math.PI / 2; cs.position.set(ox, oy + 0.05, oz); bonOdori.add(cs) // 櫓の接地影（グループと一緒に出る）
+      // ── 屋台（縁日：わたあめ・かき氷・やきそば）＝校庭の西側に並ぶ。夜は提灯が灯る ──
+      const stalls = [['わたあめ', 0xd86a8a, oz - 5], ['かきごおり', 0x4a8ac0, oz], ['やきそば', 0xc0552e, oz + 5]]
+      for (const [label, col, sz] of stalls) {
+        const sx = ox - 10.5, sy = heightAt(sx, sz), st = new THREE.Group(); st.position.set(sx, sy, sz); st.rotation.y = Math.PI / 2 // 正面(+z)を櫓(+x=東)へ向ける
+        const counter = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 0.8), wood); counter.position.y = 0.63; st.add(counter)
+        const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 1.0), woodD); top.position.y = 1.1; st.add(top)
+        for (const dx of [-1.05, 1.05]) for (const dz of [-0.4, 0.4]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), woodD); post.position.set(dx, 1.3, dz); st.add(post) }
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.12, 1.3), toon(col)); roof.position.y = 2.3; st.add(roof)
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({ map: textTex(label, '#fdf3da', '#b03a2e', false), transparent: true })); sign.position.set(0, 1.98, 0.66); st.add(sign) // 品書きの幕
+        const lan = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 10), new THREE.MeshBasicMaterial({ color: 0xff7a3a, fog: false, transparent: true, opacity: 0 })); lan.scale.y = 1.25; lan.position.set(-1.0, 1.8, 0.6); st.add(lan)
+        st.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(st, 0.03); bonOdori.add(st)
+        townNightLights.push({ m: lan, base: 1.0, ph: Math.random() * 6 })
+      }
     }
   }
   makeSchool(T.x - 148, T.z - 24) // 獅子ヶ谷小＝マンション背面(西)・森を迂回した先のフラット地（確定レイアウト）
@@ -4346,7 +4359,8 @@ function update(dt) {
   gradePass.uniforms.rain.value = weather
   // 雨＝紫がかった霞が立ちこめ奥行きが詰まる（全時間帯で「遠景が空気に溶ける」統一感を持たせ、雨で最大に）
   scene.fog.color.copy(_todFog).lerp(_rainFog, weather * 0.5)
-  scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55
+  if (typeof window !== 'undefined' && window.__fogFar) { scene.fog.near = 9000; scene.fog.far = 12000 } // 検証用：俯瞰を見通す（本番では未設定）
+  else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
   // 光のボケ：雨×暗さ（夕暮れ〜夜）で軒の灯りがにじむ玉ボケ。ゆっくり昇って明滅
   { const nf = nightFactor(tday), vis = weather * THREE.MathUtils.clamp(nf * 1.5 + 0.14, 0, 1)
     bokeh.material.opacity = vis * 0.5
