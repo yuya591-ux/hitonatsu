@@ -1732,6 +1732,19 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 243, T.z - 2, T.x - 240, T.z + 8, 4, false)  // W→NW
   makeRoadRibbon(T.x - 240, T.z + 8, T.x - 228, T.z + 14, 4, false) // NW→N（環の完成）
   makeSignpost(T.x - 86, T.z + 40, Math.PI / 2, 'ふたつ池 →') // 交差点の角の道しるべ
+  // ── 梅雨のあじさい：新しい散歩道と二つ池の周回路の沿道に点々と。雨の似合う青紫＝あの時代の夏の入り口の色 ──
+  function makeAjisai(x, z, s = 1) {
+    const fy = heightAt(x, z)
+    const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55 * s, 1), toon(0x5f8b4a)); bush.scale.set(1, 0.8, 1); bush.position.set(x, fy + 0.42 * s, z); bush.castShadow = true; addOutline(bush, 0.03); scene.add(bush)
+    const cols = [0x6f86d6, 0x9a7ad0, 0x6aa0d0, 0xc77ab0, 0x7d9ad8] // 青・青紫・水色・うす紅（土でうつろうあじさいの色）
+    for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, rr = (0.32 + Math.random() * 0.18) * s; const bl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26 * s, 1), toon(cols[k % cols.length])); bl.position.set(x + Math.cos(a) * rr, fy + (0.68 + Math.random() * 0.22) * s, z + Math.sin(a) * rr); bl.castShadow = true; scene.add(bl) } // 花房（毬咲き＝こんもり）
+    addContactShadow(bush, 0.8 * s)
+  }
+  for (const [ax, az, as] of [
+    [T.x - 90, T.z + 38, 1.0], [T.x - 110, T.z + 34, 0.9], [T.x - 132, T.z + 48, 1.1], [T.x - 150, T.z + 33, 1.0], // 散歩道（しんみせ→一うねり）の沿道
+    [T.x - 172, T.z + 39, 0.95], [T.x - 196, T.z + 38, 1.05],                                                     // 池へ下る道沿い
+    [T.x - 224, T.z + 18, 1.0], [T.x - 246, T.z + 3, 0.95], [T.x - 244, T.z - 14, 1.0], [T.x - 228, T.z - 21, 1.1], [T.x - 208, T.z - 13, 0.9] // 周回路の外周（北・西・南）
+  ]) makeAjisai(ax, az, as)
   // ── 二つ池の北の住宅（西へ広げた土地に田舎の家並み＝二つ池を“近所”に・回遊先を増やす）──
   for (const [dx, dz] of [[-192, 16], [-214, 17], [-170, 17]]) {
     makeHouse(T.x + dx, T.z + dz, Math.PI, roofs[Math.floor(Math.random() * roofs.length)]) // 道（南）を向く
