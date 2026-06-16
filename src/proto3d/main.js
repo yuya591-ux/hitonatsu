@@ -2650,10 +2650,11 @@ function makeVillager(x, z, opt) {
   const nape = new THREE.Mesh(new THREE.SphereGeometry(0.152, 14, 10, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.4), hairCol); nape.position.set(0, hy - 0.01, -0.038); g.add(nape) // 後頭部〜襟足
   if (!opt.boy && !opt.simple) for (const hx of [-0.15, 0.15]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), hairCol); pt.position.set(hx, hy - 0.04, -0.02); g.add(pt) } // 女の子のサイドの髪
   const ht = head.position.y + 0.1 // 小さい頭に合わせた帽子の高さ
-  if (opt.hat === 'straw') { // 麦わら帽子（主人公と統一）
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.02, 20), toon(0xe9c67e)); brim.position.y = ht; g.add(brim)
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.155, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), toon(0xe9c67e)); cap.position.y = ht; g.add(cap)
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.035, 20), toon(opt.band || 0xd2698a)); band.position.y = ht + 0.015; g.add(band)
+  if (opt.hat === 'straw') { // 麦わら帽子（主人公と統一・浮かないよう深めの椀を低く被せる）
+    const hb = head.position.y + 0.07
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.265, 0.265, 0.02, 20), toon(0xe9c67e)); brim.position.y = hb; g.add(brim)
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(0xe9c67e)); cap.position.y = hb - 0.05; g.add(cap)
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.138, 0.138, 0.03, 20), toon(opt.band || 0xd2698a)); band.position.y = hb + 0.01; g.add(band)
   } else if (opt.hat === 'cap') { // 野球帽（平成初期の定番）
     const dome = new THREE.Mesh(new THREE.SphereGeometry(0.162, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), toon(opt.band || 0x3a5a8a)); dome.position.y = ht - 0.06; g.add(dome)
     const peak = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.18), toon(opt.band || 0x3a5a8a)); peak.position.set(0, ht - 0.08, 0.16); peak.rotation.x = -0.16; g.add(peak)
