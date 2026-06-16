@@ -2380,10 +2380,10 @@ function makeBoy() {
   //    関節は継ぎ目を“同径”の丸で隠して人形感を消す（太いコブを作らない）。──
   function makeLeg(side) {
     const hip = new THREE.Group(); hip.position.set(0.115 * side, 0.62, 0) // 腰をさらに低く＝脚を短く・重心を下げて幼児体型に
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.1, 6, 12), skin); thigh.position.y = -0.13; hip.add(thigh) // 短くむちっとした太もも
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.1, 10, 18), skin); thigh.position.y = -0.13; hip.add(thigh) // 短くむちっとした太もも
     const knee = new THREE.Group(); knee.position.y = -0.27; hip.add(knee)
     const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.094, 12, 10), skin); knee.add(kneeCap) // 膝の継ぎ目（太ももと同径＝コブを作らない）
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.084, 0.1, 6, 12), skin); shin.position.y = -0.13; knee.add(shin) // すね（短い）
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.084, 0.1, 10, 18), skin); shin.position.y = -0.13; knee.add(shin) // すね（短い）
     // 足首ピボット＝歩いても足裏が地面に沿う（スケートのように爪先が突き出ない）
     const ankle = new THREE.Group(); ankle.position.y = -0.26; knee.add(ankle)
     // サンダル：素足の甲＋革のソール＋甲ストラップ（子どもサイズ・ちょっと大きめの足）
@@ -2404,18 +2404,18 @@ function makeBoy() {
   function makeArm(side) {
     const sh = new THREE.Group(); sh.position.set(0.19 * side, 1.08, 0); sh.rotation.z = -0.13 * side // なで肩・腕は体から少し離してだらっと
     const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.082, 12, 10), shirt); sleeve.scale.set(1, 0.9, 1); sleeve.position.y = -0.02; sh.add(sleeve) // 半袖
-    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.062, 0.075, 6, 10), skin); upper.position.y = -0.11; sh.add(upper) // 短くむちっとした二の腕
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.062, 0.075, 9, 16), skin); upper.position.y = -0.11; sh.add(upper) // 短くむちっとした二の腕
     const elbow = new THREE.Group(); elbow.position.y = -0.185; sh.add(elbow)
     const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), skin); elbow.add(elbowCap)
-    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.056, 0.07, 6, 10), skin); fore.position.y = -0.09; elbow.add(fore) // 短い前腕
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.068, 10, 9), skin); hand.scale.set(1, 1.05, 0.72); hand.position.y = -0.17; elbow.add(hand) // ぷっくりした手
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.056, 0.07, 9, 16), skin); fore.position.y = -0.09; elbow.add(fore) // 短い前腕
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.068, 16, 12), skin); hand.scale.set(1, 1.05, 0.72); hand.position.y = -0.17; elbow.add(hand) // ぷっくりした手
     g.add(sh)
     return { sh, elbow }
   }
   const AL = makeArm(-1), AR = makeArm(1)
   const armL = AL.sh, armR = AR.sh, elbowL = AL.elbow, elbowR = AR.elbow
   // 首（細く・短い・ほぼ隠れる）
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 10), skin); neck.position.y = 1.24; g.add(neck)
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 16), skin); neck.position.y = 1.24; g.add(neck)
   // あたま＝相対的に大きく（幼児の王道）。geometryは0.185のまま、scaleで実効を大きく＝顔(子)も一緒に拡大される
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 22, 20), skin); head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.37; g.add(head)
   // むぎわら帽子（大きい頭に合わせる）
@@ -2520,13 +2520,13 @@ function makeVillager(x, z, opt) {
   function makeLeg(side) {
     const hip = new THREE.Group(); hip.position.set(0.11 * side, 0.6, 0); g.add(hip) // 腰を下げて脚を短く（主人公と統一）
     if (full) {
-      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.1, 4, 8), skin); thigh.position.y = -0.13; hip.add(thigh)
+      const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.1, 10, 16), skin); thigh.position.y = -0.13; hip.add(thigh)
       const knee = new THREE.Group(); knee.position.y = -0.27; hip.add(knee)
-      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.084, 0.1, 4, 8), skin); shin.position.y = -0.13; knee.add(shin)
-      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.26, 0.04); knee.add(shoe)
+      const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.084, 0.1, 10, 16), skin); shin.position.y = -0.13; knee.add(shin)
+      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), toon(0x6a4a32)); shoe.scale.set(1, 0.6, 1.4); shoe.position.set(0, -0.26, 0.04); knee.add(shoe)
       return { hip, knee }
     }
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.42, 4, 8), skin); leg.position.y = -0.3; hip.add(leg)
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.092, 0.42, 8, 14), skin); leg.position.y = -0.3; hip.add(leg)
     return { hip, knee: null }
   }
   const LL = makeLeg(-1), LR = makeLeg(1)
@@ -2541,7 +2541,7 @@ function makeVillager(x, z, opt) {
     const torso = new THREE.Mesh(new THREE.SphereGeometry(0.255, 14, 12), shirtM); torso.scale.set(1.04, 1.0, 0.82); torso.position.y = 0.95; g.add(torso)
   }
   // 首
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 9), skin); neck.position.y = 1.22; g.add(neck)
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.09, 14), skin); neck.position.y = 1.22; g.add(neck)
   // あたま＝相対的に大きく（主人公と同じ幼児頭身に統一）。geometry0.185＋scaleで実効を大きく
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.185, 18, 16), skin); if (opt.adult) { head.scale.set(1.0, 1.06, 0.98); head.position.y = 1.4 } else { head.scale.set(1.13, 1.19, 1.1); head.position.y = 1.35 } g.add(head) // 大人は頭を小さめ＝幼児体型から大人びた頭身へ
   // 髪＝頭頂〜後頭部〜サイドを覆う“帽子状”のキャップ。顔（額〜目）は開けて、髪が顔に垂れて真っ黒に見えるのを防ぐ。
