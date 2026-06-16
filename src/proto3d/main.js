@@ -121,6 +121,8 @@ const CEL = {
   bands: 3,             // トゥーンの階調数（2〜4。少ないほどパキッとセル画）
   shadowFloor: 0.52,    // 影側の明るさの床（0=真っ黒 1=影なし）
   skinFloor: 0.75,      // 肌の影の床（顔が黒く潰れないよう高め）＝逆光でも顔が見える
+  softFloor: 0.63,      // 髪の影の床（黒い塊に見えないよう持ち上げ）＝髪が“禿げ/お面”に見えるのを防ぐ
+  hatFloor: 0.8,        // 麦わら帽子の影の床（高め＝夏の日ざしで明るい麦わら。クラウンが暗い椀＝皿に見えるのを防ぐ）
   inkEdges: true,       // ポストプロセスのエッジ線（深度/法線ベースの内側の線）ON/OFF＝重い端末は切れる
   inkStrength: 0.85,    // エッジ線の濃さ
   inkThickness: 1.2,    // エッジ線の太さ（テクセル）
@@ -145,6 +147,12 @@ const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
 // 肌だけ陰影の最暗を持ち上げ＋肌色の淡い自発光で、どの向きでも顔がやさしく見えるようにする。
 const GRAD_SKIN = toonGradient(CEL.bands, CEL.skinFloor)
 const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.13) }) // 自発光をやや上げ＝逆光でも顔が黒く潰れず見える（のっぺりは色の柔らかさで回避）
+// 髪用：影側の床を肌と地の中間に持ち上げ＝逆光や横からでも“黒い塊（禿げ・お面）”に潰れない。わずかな自発光で生え際の線も馴染ませる
+const GRAD_SOFT = toonGradient(CEL.bands, CEL.softFloor)
+const softToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SOFT, emissive: new THREE.Color(color).multiplyScalar(0.06) })
+// 麦わら帽子用：影の床をさらに高く＝夏の日ざしに照らされた明るい麦わら。クラウン（椀）が暗く沈んで“皿/くり抜き”に見えるのを防ぐ
+const GRAD_HAT = toonGradient(CEL.bands, CEL.hatFloor)
+const hatToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_HAT, emissive: new THREE.Color(color).multiplyScalar(0.1) })
 
 // ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: CEL.outline, side: THREE.BackSide, fog: true }) // ほぼ黒のインク線（セル画/手描きアニメの輪郭）。CEL.outlineで色・CEL.outlineScaleで太さ
@@ -158,7 +166,7 @@ function addOutline(mesh, thickness = 0.05) {
 }
 function outlineObj(obj, thickness = 0.05) {
   const meshes = []
-  obj.traverse((m) => { if (m.isMesh) meshes.push(m) })
+  obj.traverse((m) => { if (m.isMesh && m.material !== OUTLINE_MAT && !m.userData.noOutline) meshes.push(m) }) // 既存の輪郭ハル/個別指定(noOutline)は二重に描かない
   for (const m of meshes) addOutline(m, thickness)
 }
 // 静止オブジェクト用：全パーツの反転ハル輪郭を1ジオメトリに統合＝輪郭が1ドローに（描画コール削減）。
@@ -2468,14 +2476,14 @@ const PROP = {
   waistY: 0.84, chestY: 1.18, torsoTopR: 0.132, torsoBotR: 0.112, // 胴：縦長・すっきり（ずんぐり解消）
   neckY: 1.37, headY: 1.575, headR: 0.145, headSX: 1.05, headSY: 1.12, headSZ: 1.03, // 頭：小さめ＝頭身を上げる
   eyeR: 0.031, eyeX: 0.057, eyeY: 0.012, eyeZ: 0.12, irisRatio: 0.6, // 目：小さめで繊細（黒目を小さく＝白目とのバランスを自然に）
-  hair: 0x4a3726, hairExtent: 0.5, hairY: 0.022, // 髪：色(やや明るい茶＝黒い塊にしない)・覆う範囲(0.5π＝短めで顔をふさがない)・高さ
-  hatBrim: 0.265, hatCap: 0.15, hatY: 0.07,      // 麦わら帽子：つば半径・椀半径・高さ（小さい頭にぴったり乗せ浮きをなくす）
+  hair: 0x6e4d34, hairTop: 0.17, hairExtent: 0.46, hairY: 0.0, hairTilt: -0.10, // 髪：色・帯の開始(頭頂はπ*0.17ぶん開けて帽子が覆う＝クラウンから突き出ない)・帯の長さ・高さ・控えめな後傾
+  hatBrim: 0.27, hatBrimY: 0.085, hatCap: 0.15, hatCapY: 0.085, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)
 }
 function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
 const NET_REST = -0.95 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る
 function makeBoy() {
   const g = new THREE.Group(); const P = PROP
-  const skin = skinToon(0xf1cdb5), shirt = toon(0xeef0ea), pants = toon(0x4f6f96), hat = toon(0xe6c074) // 自然で柔らかい肌・白い半袖シャツ・紺の半ズボン・麦わら帽子
+  const skin = skinToon(0xf1cdb5), shirt = toon(0xeef0ea), pants = toon(0x4f6f96), hat = hatToon(0xe6c074) // 自然で柔らかい肌・白い半袖シャツ・紺の半ズボン・麦わら帽子（明るい麦わら＝影で黒く沈めない）
   // 小学生（5〜6頭身）：頭は小さめ、胴はすっきり縦長、手足は細くまっすぐ。関節は同径の丸で継ぎ目を隠す。
   function makeLeg(side) {
     const hip = new THREE.Group(); hip.position.set(0.08 * side, P.hipY, 0) // 腰を高く＝脚を長く（小学生の重心）
@@ -2514,14 +2522,23 @@ function makeBoy() {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.11, 14), skin); neck.position.y = P.neckY; g.add(neck)
   // あたま＝小さめ（頭身を上げる）。顔・髪は頭の子に付けて見回しで一緒に動く
   const head = new THREE.Mesh(new THREE.SphereGeometry(P.headR, 22, 20), skin); head.scale.set(P.headSX, P.headSY, P.headSZ); head.position.y = P.headY; g.add(head)
-  // 短い髪＝頭頂〜後頭部を覆う“すっきりした短髪”。前は額の上で止め（目に垂れない）、横は耳の上で止める（顔をふさがない＝黒い塊にしない）
-  const hairCol = toon(P.hair)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.006, 18, 14, 0, Math.PI * 2, 0, Math.PI * P.hairExtent), hairCol); hair.position.set(0, P.hairY, -0.008); hair.rotation.x = -0.16; head.add(hair)
-  const nape = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.002, 14, 10, 0, Math.PI * 2, Math.PI * 0.56, Math.PI * 0.34), hairCol); nape.position.set(0, -0.02, -0.03); head.add(nape) // 後頭部〜襟足だけ
-  // むぎわら帽子（小さい頭にぴったり乗せる）。頭の子に付けて見回しに追従。capを頭頂に被せ、brimは少し下げて“浮き”をなくす
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(P.hatBrim, P.hatBrim, 0.02, 22), hat); brim.position.y = P.hatY; head.add(brim)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(P.hatCap, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.62), hat); cap.position.y = P.hatY - 0.05; head.add(cap) // 深めの椀＝頭にかぶさる（浮き解消）
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(P.hatCap * 0.92, P.hatCap * 0.92, 0.03, 22), toon(0x5b7a9c)); band.position.y = P.hatY + 0.01; head.add(band) // 帽子のリボン（青）
+  // 髪＝頭をしっかり覆う短髪。主髪＋襟足＋前髪＋サイドの4枚で“頭皮が見える/禿げ”をなくす。色はあたたかい茶＋影の床を上げて黒い塊にしない
+  const hairCol = softToon(P.hair)
+  // 主髪：つばの下に見える髪の帯（頭頂は帽子のクラウンが覆うので開ける＝髪がクラウンから突き出ない）。横にやや広げて耳の上まで
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.007, 20, 16, 0, Math.PI * 2, Math.PI * P.hairTop, Math.PI * P.hairExtent), hairCol); hair.scale.set(1.07, 1.0, 1.05); hair.position.set(0, P.hairY, -0.004); hair.rotation.x = P.hairTilt; head.add(hair)
+  // 襟足：後頭部の下端〜首の付け根まで（後ろが禿げない）
+  const nape = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.004, 16, 12, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.4), hairCol); nape.position.set(0, -0.018, -0.026); head.add(nape)
+  // 前髪：つばの下からのぞく一房（“禿げ”に見せない・素朴な生え際）
+  const bangs = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.003, 16, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.17), hairCol); bangs.position.set(0, 0.05, 0.052); bangs.rotation.x = 0.16; head.add(bangs)
+  // サイド：耳の上を覆う（横が禿げない・つばの下から髪が見える）
+  const hairParts = [hair, nape, bangs]
+  for (const sx of [-1, 1]) { const sd = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), hairCol); sd.scale.set(0.82, 1.18, 1.02); sd.position.set(sx * 0.118, -0.006, -0.004); head.add(sd); hairParts.push(sd) }
+  // 髪の輪郭線は細く＝太い背面ハルが帽子のクラウンより上に飛び出して“黒い点/筋”になるのを防ぐ（全身の0.03輪郭からは除外）
+  for (const hm of hairParts) { hm.userData.noOutline = true; addOutline(hm, 0.011) }
+  // むぎわら帽子：平たいクラウンを髪の上にかぶせる（頭頂の髪を覆い、つばの下に髪が見える＝皿/くり抜きに見せない）。頭の子に付けて見回しに追従
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(P.hatBrim, P.hatBrim, 0.022, 24), hat); brim.position.y = P.hatBrimY; brim.rotation.x = 0.03; head.add(brim)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(P.hatCap, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), hat); cap.scale.set(1, P.hatCapExtent, 1); cap.position.y = P.hatCapY; head.add(cap) // 平たいドーム（boater）＝頭の上に乗る（深い椀のくり抜き感をなくす）
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(P.hatCap * 0.985, P.hatCap * 0.985, 0.03, 24), toon(0x5b7a9c)); band.position.y = P.hatCapY + 0.006; head.add(band) // 帽子のリボン（青）＝クラウンの根元
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.05, 6), toon(0x9a7b4a)); pole.position.y = 0.42; net.add(pole) // 短めの柄
@@ -2644,17 +2661,20 @@ function makeVillager(x, z, opt) {
   // 髪＝頭頂〜後頭部〜サイドを覆う“帽子状”のキャップ。顔（額〜目）は開けて、髪が顔に垂れて真っ黒に見えるのを防ぐ。
   // 以前は y=1.38 固定で、大人は頭(1.4)より低く＝髪が顔に覆いかぶさっていた。頭の高さ(head.position.y)に追従させる。
   const hy = head.position.y
-  const hairCol = toon(opt.hair)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.162, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.6), hairCol); hair.position.set(0, hy + 0.03, -0.008); hair.rotation.x = -0.24; g.add(hair) // 生え際を額の上に（顔に垂れない）
-  const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.155, 16, 8, 0, Math.PI * 2, Math.PI * 0.32, Math.PI * 0.16), hairCol); bangs.position.set(0, hy + 0.085, 0.04); bangs.rotation.x = 0.14; g.add(bangs) // 前髪
+  const hairCol = softToon(opt.hair) // 影の床を上げて黒い塊（禿げ・お面）に潰れない＝主人公と統一
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.152, 18, 14, 0, Math.PI * 2, Math.PI * 0.32, Math.PI * 0.32), hairCol); hair.position.set(0, hy + 0.006, -0.004); hair.rotation.x = -0.05; g.add(hair) // 帽子のつばの“下”に見える髪の帯（頭頂は帽子が覆う）＝つばより上に髪が出ない
+  const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.18), hairCol); bangs.position.set(0, hy + 0.03, 0.05); bangs.rotation.x = 0.16; g.add(bangs) // 前髪＝つばの下からのぞく額のひと房（つばより下）
   const nape = new THREE.Mesh(new THREE.SphereGeometry(0.152, 14, 10, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.4), hairCol); nape.position.set(0, hy - 0.01, -0.038); g.add(nape) // 後頭部〜襟足
-  if (!opt.boy && !opt.simple) for (const hx of [-0.15, 0.15]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), hairCol); pt.position.set(hx, hy - 0.04, -0.02); g.add(pt) } // 女の子のサイドの髪
+  const hairParts = [hair, bangs, nape]
+  if (!opt.boy && !opt.simple) for (const hx of [-0.15, 0.15]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), hairCol); pt.position.set(hx, hy - 0.04, -0.02); g.add(pt); hairParts.push(pt) } // 女の子のサイドの髪
+  // 髪の輪郭線は細く＝太い背面ハルが帽子のクラウンより上に飛び出して“黒い筋”になるのを防ぐ（全身の0.028輪郭からは除外）。主人公と統一
+  if (!opt.simple) for (const hm of hairParts) { hm.userData.noOutline = true; addOutline(hm, 0.011) }
   const ht = head.position.y + 0.1 // 小さい頭に合わせた帽子の高さ
-  if (opt.hat === 'straw') { // 麦わら帽子（主人公と統一・浮かないよう深めの椀を低く被せる）
-    const hb = head.position.y + 0.07
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.265, 0.265, 0.02, 20), toon(0xe9c67e)); brim.position.y = hb; g.add(brim)
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), toon(0xe9c67e)); cap.position.y = hb - 0.05; g.add(cap)
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.138, 0.138, 0.03, 20), toon(opt.band || 0xd2698a)); band.position.y = hb + 0.01; g.add(band)
+  if (opt.hat === 'straw') { // 麦わら帽子（主人公と統一：明るい平たいクラウンを髪の上に乗せる＝皿/くり抜きをなくす）
+    const hb = head.position.y + 0.082 // つば＝額の上（下から前髪・サイドの髪が見える高さ）
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.022, 22), hatToon(0xe9c67e)); brim.position.y = hb; brim.rotation.x = 0.02; g.add(brim)
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.187, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), hatToon(0xe9c67e)); cap.scale.set(1, 0.74, 1); cap.position.set(0, hb - 0.004, 0); g.add(cap) // 平たいドーム＝髪を覆って頭の上に乗る（皿/くり抜き回避）
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.167, 0.167, 0.03, 22), toon(opt.band || 0xd2698a)); band.position.y = hb + 0.006; g.add(band)
   } else if (opt.hat === 'cap') { // 野球帽（平成初期の定番）
     const dome = new THREE.Mesh(new THREE.SphereGeometry(0.162, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), toon(opt.band || 0x3a5a8a)); dome.position.y = ht - 0.06; g.add(dome)
     const peak = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.18), toon(opt.band || 0x3a5a8a)); peak.position.set(0, ht - 0.08, 0.16); peak.rotation.x = -0.16; g.add(peak)
@@ -5052,6 +5072,7 @@ window.__proto3d = {
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
   get _camYaw() { return camCtl.yaw }, get _facing() { return facing }, // 検証用：カメラ追従
+  _face(r) { facing = r; boy.rotation.y = r }, // 検証用：主人公の向きを固定（後ろ姿の撮影など。loopのlerpが facing に追従するので固定される）
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
     sitDown()
