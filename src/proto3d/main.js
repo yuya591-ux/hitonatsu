@@ -551,7 +551,7 @@ makeFrog(POND.x - 9, POND.z + 4); makeFrog(POND.x + 7, POND.z - 6); makeFrog(-16
 // ── 低ポリの木（幹＋葉のかたまり）──
 function makeTree(x, z, s = 1) {
   const g = new THREE.Group()
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.45 * s, 3.4 * s, 6), toonMap(0x7a5a3a, woodTex))
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.45 * s, 3.4 * s, 12), toonMap(0x7a5a3a, woodTex))
   trunk.position.y = 1.7 * s
   trunk.castShadow = true
   g.add(trunk)
@@ -563,12 +563,13 @@ function makeTree(x, z, s = 1) {
     [1.3, 0.1, 4.75, 0.25], [1.05, 0.7, 4.9, -0.3], [1.15, 0.0, 3.85, 0.0],
   ]
   const geos = []
-  for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 1); ge.translate(bx * s, by * s, bz * s); geos.push(ge) }
-  const canopy = new THREE.Mesh(mergeGeometries(geos), toon(0x6f9a47)); canopy.castShadow = true; g.add(canopy)
+  for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 2); ge.translate(bx * s, by * s, bz * s); geos.push(ge) } // detail2＝丸い葉のかたまり（脱・低ポリ・モバイル性能とのバランス）
+  const canopyGeo = mergeGeometries(geos); canopyGeo.computeVertexNormals() // 重なりをなめらかな面に
+  const canopy = new THREE.Mesh(canopyGeo, toon(0x6f9a47)); canopy.castShadow = true; g.add(canopy)
   geos.forEach((ge) => ge.dispose())
   // 陽の当たる上の明るい房（立体感・木漏れ日の素）
   for (const [r, bx, by, bz] of [[1.15, 0.35, 4.8, 0.25], [0.98, -0.35, 5.05, -0.1], [1.05, 1.0, 4.5, 0.5], [0.9, -0.8, 4.7, -0.55]]) {
-    const hb = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), toon(0x9ec06c)); hb.position.set(bx * s, by * s, bz * s); hb.castShadow = true; g.add(hb)
+    const hb = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 2), toon(0x9ec06c)); hb.position.set(bx * s, by * s, bz * s); hb.castShadow = true; g.add(hb)
   }
   g.position.set(x, heightAt(x, z), z)
   mergedOutline(g, 0.08)
