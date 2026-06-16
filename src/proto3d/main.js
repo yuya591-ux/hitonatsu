@@ -3118,7 +3118,7 @@ const gradePass = new ShaderPass({
       vec3 graded = c;
       graded += vec3(-0.020, 0.012, 0.034) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
       graded += vec3(0.032, 0.016, -0.022) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
-      graded = mix(vec3(lum), graded, 0.95 - 0.04 * wc);                        // 退色は控えめ＝彩度を残す（実写寄り）
+      graded = mix(vec3(lum), graded, 0.87 - 0.05 * wc);                        // 彩度を落として“あの頃”のくすんだ色に（手描きアニメの退色感）
       graded = graded * 0.975 + 0.018;
       c = mix(c, graded, amount);
       // 夕立：降っている間は全体を少し暗く・青く・くすませる（曇って雨が来た空気）
@@ -3134,7 +3134,7 @@ const gradePass = new ShaderPass({
       }
       // 水彩紙の地合い：低周波のむら＋紙の繊維(高周波)を全画面に重ね、写実テクスチャを一枚の水彩画に馴染ませる
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.40 + vnoise(vUv * vec2(38.0, 36.0)) * 0.34 + vnoise(vUv * vec2(540.0, 480.0)) * 0.26;
-      c *= 1.0 - wc * (0.035 - paper * 0.11); // 実写寄り：紙の地合いはごく薄く
+      c *= 1.0 - wc * (0.06 - paper * 0.17); // 紙の地合いを強めて手描き感を全体に（背景もキャラも一枚の絵に馴染ませる）
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
       c += (grain - 0.5) * 0.018;
       float d = distance(vUv, vec2(0.5));
@@ -4848,7 +4848,8 @@ const setSoundBtn = document.getElementById('set-sound')
 const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
-const settings = { sound: true, bgm: true, motion: false, sens: 1 }
+const setInkBtn = document.getElementById('set-ink')
+const settings = { sound: true, bgm: true, motion: false, sens: 1, ink: true }
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
@@ -4866,6 +4867,10 @@ function applySens() { // 見まわす はやさ（3段階）
   if (setSensBtn) { setSensBtn.textContent = step.label; setSensBtn.classList.add('on') }
 }
 function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { setMotionBtn.textContent = settings.motion ? 'ON' : 'OFF'; setMotionBtn.classList.toggle('on', settings.motion) } }
+function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）
+  inkPass.enabled = settings.ink
+  if (setInkBtn) { setInkBtn.textContent = settings.ink ? 'ON' : 'OFF'; setInkBtn.classList.toggle('on', settings.ink) }
+}
 window.__applySound = applySound // startAudio から呼べるように
 if (setBtn) setBtn.addEventListener('click', () => settingsEl && settingsEl.classList.add('on'))
 const setCloseEl = document.getElementById('set-close')
@@ -4876,7 +4881,8 @@ if (setSoundBtn) setSoundBtn.addEventListener('click', () => { settings.sound = 
 if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !settings.bgm; saveSettings(); applyBgm() })
 if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEPS.findIndex((s) => Math.abs(s.v - settings.sens) < 0.01); settings.sens = SENS_STEPS[(i + 1) % SENS_STEPS.length].v; saveSettings(); applySens() }) // ひくい→ふつう→たかい
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
-applyMotion(); applySound(); applyBgm(); applySens()
+if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
+applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {
