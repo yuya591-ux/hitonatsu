@@ -401,6 +401,19 @@ const woodTex = (() => {
   for (let i = 0; i < 46; i++) { x.globalAlpha = 0.07; const v = 110 + Math.random() * 110; x.strokeStyle = `rgb(${v | 0},${(v * 0.78) | 0},${(v * 0.58) | 0})`; x.lineWidth = 1 + Math.random() * 2; const px = Math.random() * s; x.beginPath(); x.moveTo(px, 0); for (let y = 0; y <= s; y += 8) x.lineTo(px + Math.sin(y * 0.1 + i) * 2, y); x.stroke() }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 2); return t
 })()
+// 建物の窓グリッドをテクスチャに焼く＝鉄筋校舎/中層住宅の背面・側面が「のっぺりタン」にならないように。
+// 3Dの正面窓と同じ式(x0/y0/dx/dy)で並べると正面はぴったり重なり、他の面にも窓が乗る。
+function facadeTex(W, H, cols, rows, x0, y0, dx, dy, ww, wh, bg, wc, sill) {
+  const s = 12, c = document.createElement('canvas'); c.width = Math.max(8, Math.round(W * s)); c.height = Math.max(8, Math.round(H * s)); const g = c.getContext('2d')
+  g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height)
+  for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) {
+    const wx = -W / 2 + x0 + col * dx, wy = y0 + r * dy, X = (wx + W / 2 - ww / 2) * s, Y = (H - wy - wh / 2) * s
+    if (sill) { g.fillStyle = sill; g.fillRect((wx + W / 2 - ww / 2 - 0.06) * s, Y + wh * s, (ww + 0.12) * s, 0.16 * s) }
+    g.fillStyle = wc; g.fillRect(X, Y, ww * s, wh * s)
+    g.fillStyle = 'rgba(20,26,30,0.5)'; g.fillRect(X + ww / 2 * s - 1, Y, 2, wh * s); g.fillRect(X, Y + wh / 2 * s - 1, ww * s, 2) // 窓桟（十字）
+  }
+  return new THREE.CanvasTexture(c)
+}
 const ground = new THREE.Mesh(gGeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex }))
 ground.receiveShadow = true
 scene.add(ground)
@@ -1233,7 +1246,7 @@ const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自�
     const grp = new THREE.Group()
     const floors = 3, units = 8, W = units * 2.6, H = floors * 2.4 + 0.6, D = 6.5
     const base = new THREE.Mesh(new THREE.BoxGeometry(W + 0.4, 2, D + 0.4), toonMap(0xd8cfb8, plasterTex)); base.position.y = -0.8; grp.add(base) // 校舎の基礎＝校庭側(東)の下りで浮かないよう埋め込む
-    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), toonMap(0xdcd2b8, plasterTex)); body.position.y = H / 2; grp.add(body) // やや黄ばんだ昭和コンクリ（白っちゃけ防止）
+    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), new THREE.MeshToonMaterial({ map: facadeTex(W, H, units, floors, 1.3, 1.7, 2.6, 2.4, 1.9, 1.35, '#dcd2b8', '#55707e', '#cfc6b0'), gradientMap: GRAD })); body.position.y = H / 2; grp.add(body) // やや黄ばんだ昭和コンクリ＋全面に窓グリッド（南面は3D窓が重なる）
     const winGlows = []
     for (let f = 0; f < floors; f++) for (let u = 0; u < units; u++) {
       const wx = -W / 2 + 1.3 + u * 2.6, wy = 1.7 + f * 2.4
@@ -1511,7 +1524,7 @@ const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自�
   function makeHighSchool(cx, cz, rot) {
     const g = new THREE.Group()
     const floors = 4, units = 10, W = units * 2.6, H = floors * 2.5 + 0.6, D = 7
-    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), toonMap(0xd8d2c2, plasterTex)); body.position.y = H / 2; g.add(body)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), new THREE.MeshToonMaterial({ map: facadeTex(W, H, units, floors, 1.5, 1.4, 2.6, 2.5, 1.5, 1.1, '#d8d2c2', '#59707a', '#cfc6b0'), gradientMap: GRAD })); body.position.y = H / 2; g.add(body) // 全面に窓グリッド（正面は3D窓が重なる）
     for (let f = 0; f < floors; f++) for (let u = 0; u < units; u++) { const win = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.1), toon(0x59707a)); win.position.set(-W / 2 + 1.5 + u * 2.6, 1.4 + f * 2.5, D / 2 + 0.03); g.add(win) }
     const para = new THREE.Mesh(new THREE.BoxGeometry(W + 0.2, 0.5, D + 0.2), toon(0xc8c2b2)); para.position.y = H + 0.2; g.add(para)
     const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.4, 10), toon(0x9aa0a4)); tank.position.set(W * 0.32, H + 1.1, 0); g.add(tank)
