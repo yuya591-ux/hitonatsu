@@ -1953,9 +1953,9 @@ makePhoneBox(TOWN.x + 6, TOWN.z - 23, -0.4)
     const mesh = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD }))
     geos.forEach((g) => g.dispose()); scene.add(mesh)
   }
-  ring(34, 182, 26, -13, 36, 64, 30, 46, 0.7, 0x93a7ad, 6) // 遠景＝青くかすむ高い山なみ
-  ring(30, 158, 22, -11, 22, 42, 28, 40, 0.75, 0x86a26a, 7) // 中景＝緑の山
-  ring(24, 146, 16, -9, 16, 28, 24, 34, 0.85, 0x7c9a58, 7)  // 近景の丘（裾が霧にとける）
+  ring(34, 182, 26, -13, 36, 64, 30, 46, 0.7, 0x93a7ad, 14) // 遠景＝青くかすむ高い山なみ（丸く）
+  ring(30, 158, 22, -11, 22, 42, 28, 40, 0.75, 0x86a26a, 16) // 中景＝緑の山
+  ring(24, 146, 16, -9, 16, 28, 24, 34, 0.85, 0x7c9a58, 16)  // 近景の丘（裾が霧にとける）
 }
 
 // ── 草むら（低い茂みのかたまり。InstancedMeshで安く密に・風になびく）──
