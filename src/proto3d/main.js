@@ -704,8 +704,9 @@ function makeBush(x, z, s = 1) {
   const g = new THREE.Group()
   const blobs = [[0.7, 0, 0.36, 0], [0.56, 0.5, 0.32, 0.2], [0.56, -0.46, 0.34, -0.2], [0.5, 0.12, 0.52, 0.4], [0.48, -0.22, 0.5, -0.36], [0.46, 0.42, 0.5, -0.3]]
   const geos = []
-  for (const [r, bx, by, bz] of blobs) { const ge = new THREE.IcosahedronGeometry(r * s, 1); ge.translate(bx * s, by * s, bz * s); geos.push(ge) }
-  const m = new THREE.Mesh(mergeGeometries(geos), toon([0x5f8b3c, 0x6f9a47, 0x79a44e][Math.floor(Math.random() * 3)])); m.castShadow = true; g.add(m)
+  for (const [r, bx, by, bz] of blobs) { const ge = new THREE.IcosahedronGeometry(r * s, 2); ge.translate(bx * s, by * s, bz * s); geos.push(ge) } // detail2＝丸い繁み（脱・低ポリ）
+  const bgeo = mergeGeometries(geos); bgeo.computeVertexNormals()
+  const m = new THREE.Mesh(bgeo, toon([0x5f8b3c, 0x6f9a47, 0x79a44e][Math.floor(Math.random() * 3)])); m.castShadow = true; g.add(m)
   geos.forEach((ge) => ge.dispose())
   g.position.set(x, heightAt(x, z), z)
   mergedOutline(g, 0.05); addContactShadow(g, 0.75 * s)
