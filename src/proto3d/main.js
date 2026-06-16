@@ -3015,7 +3015,7 @@ const gradePass = new ShaderPass({
     float L(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
     void main(){
       // にじみのゆらぎ：低周波ノイズでサンプル位置を歪める＝手描きのよれ（弱め＝輪郭のチラつき防止）
-      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (1.4 * wc);
+      vec2 wob = vec2(vnoise(vUv * 19.0) - 0.5, vnoise(vUv * 19.0 + 7.3) - 0.5) * texel * (2.1 * wc);
       vec2 uv = vUv + wob;
       vec3 c = texture2D(tDiffuse, uv).rgb;
       float lum = L(c);
@@ -3024,7 +3024,7 @@ const gradePass = new ShaderPass({
               + abs(L(texture2D(tDiffuse, uv + vec2(0.0, texel.y)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(texel.x, 0.0)).rgb) - lum)
               + abs(L(texture2D(tDiffuse, uv - vec2(0.0, texel.y)).rgb) - lum);
-      c *= 1.0 - clamp(e * 1.7 * wc, 0.0, 0.32);
+      c *= 1.0 - clamp(e * 2.3 * wc, 0.0, 0.44); // 顔料だまりを強め＝写実テクスチャの細部を“描いた縁”に
       vec3 graded = c;
       graded += vec3(-0.020, 0.012, 0.034) * (1.0 - smoothstep(0.0, 0.5, lum)); // 影に青緑
       graded += vec3(0.032, 0.016, -0.022) * smoothstep(0.45, 1.0, lum);        // ハイライトに暖色
@@ -3042,9 +3042,9 @@ const gradePass = new ShaderPass({
         c += golden * vec3(0.10, 0.045, -0.05) * (0.12 + lum);          // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
         c += golden * vec3(0.05, 0.0, 0.02) * smoothstep(0.45, 1.0, vUv.y); // 上空は茜色がかる
       }
-      // 紙の質感：低周波の紙むら＋細かいザラ（暗くしすぎず、白い紙の上の淡いムラに）
-      float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.5 + vnoise(vUv * vec2(38.0, 36.0)) * 0.5;
-      c *= 1.0 - wc * (0.03 - paper * 0.12);
+      // 水彩紙の地合い：低周波のむら＋紙の繊維(高周波)を全画面に重ね、写実テクスチャを一枚の水彩画に馴染ませる
+      float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.40 + vnoise(vUv * vec2(38.0, 36.0)) * 0.34 + vnoise(vUv * vec2(540.0, 480.0)) * 0.26;
+      c *= 1.0 - wc * (0.075 - paper * 0.23);
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
       c += (grain - 0.5) * 0.018;
       float d = distance(vUv, vec2(0.5));
