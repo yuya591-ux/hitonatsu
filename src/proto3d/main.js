@@ -994,7 +994,17 @@ makeSignpost(GATE_TOWN.x - 3.0, GATE_TOWN.z + 2.2, 0, 'このさき はらっぱ
 // 商店街の一軒（昭和の店構え：店先・縞テント・看板・袖看板・品物）
 function makeShop(x, z, rot, opt) {
   const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.BoxGeometry(6, 4.2, 5), toonMap(0xe2d6bc, plasterTex)); body.position.y = 2.1; g.add(body)
+  // 2階の窓＋幕板をテクスチャで全面に焼く（背面・側面ののっぺりを解消＝店舗併用住宅らしく）。前面はこの上に暖簾/テント/看板を重ねる
+  const bc = document.createElement('canvas'); bc.width = 120; bc.height = 84; const bx = bc.getContext('2d')
+  bx.fillStyle = '#e2d6bc'; bx.fillRect(0, 0, 120, 84)
+  bx.fillStyle = '#8a7c64'; bx.fillRect(0, 30, 120, 4) // 1階と2階の境（幕板）
+  for (let i = 0; i < 3; i++) { bx.fillStyle = '#cfc6b2'; bx.fillRect(14 + i * 34, 22, 26, 3); bx.fillStyle = '#566069'; bx.fillRect(16 + i * 34, 8, 22, 15); bx.fillStyle = '#46505a'; bx.fillRect(26 + i * 34, 8, 2, 15) } // 2階の窓＋窓台
+  const btex = new THREE.CanvasTexture(bc)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(6, 4.2, 5), new THREE.MeshToonMaterial({ map: btex, gradientMap: GRAD })); body.position.y = 2.1; g.add(body)
+  // 陸屋根＝屋上の床＋パラペット（へり）＋給水タンク。バラックな箱の天面を「屋上」にして佇まいを出す
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(6, 0.16, 5), toon(0x8b8478)); slab.position.y = 4.28; g.add(slab)
+  for (const [sx, sz, sw, sd] of [[0, 2.5, 6.3, 0.3], [0, -2.5, 6.3, 0.3], [3.0, 0, 0.3, 5.0], [-3.0, 0, 0.3, 5.0]]) { const w = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.5, sd), toon(0xc8bda6)); w.position.set(sx, 4.5, sz); g.add(w) }
+  const wtank = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.7, 8), toon(0x9aa0a4)); wtank.position.set(1.9, 4.85, -1.3); g.add(wtank)
   const front = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.3), new THREE.MeshBasicMaterial({ color: 0x2a221a })); front.position.set(0, 1.35, 2.51); g.add(front)
   // 暖簾（のれん・切れ目つき）
   for (let i = 0; i < 4; i++) { const nr = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 0.95), toon(opt.sign)); nr.position.set(-1.8 + i * 1.2, 2.05, 2.53); g.add(nr) }
