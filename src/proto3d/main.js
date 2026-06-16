@@ -875,6 +875,7 @@ function drawWire(a, b, sag) {
   const pts = []
   for (let i = 0; i <= 8; i++) { const t = i / 8; pts.push(new THREE.Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * sag, a.z + (b.z - a.z) * t)) }
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.7 }))
+  line.layers.set(1) // 電線はインク線の法線パスから除外（細い線にエッジ検出が暴れて黒モヤになるのを防ぐ）
   scene.add(line)
 }
 drawWire(poleA, poleB, 1.2)
@@ -4794,7 +4795,7 @@ function update(dt) {
 
 // ── インク線の安全網：透明で見えない装飾(窓の灯り)・点群(煙/星/ちり)・スプライトを法線パスから一括除外（取りこぼし対策）──
 // これらは法線パスで“不透明な四角”として描かれ、空や近景に四角いゴミ線を生むため layer1 へ退避（メイン描画では映る）。
-scene.traverse((o) => { const m = o.material; if (o.isPoints || o.isSprite || (m && !Array.isArray(m) && m.transparent === true && m.opacity === 0)) o.layers.set(1) })
+scene.traverse((o) => { const m = o.material; if (o.isLine || o.isPoints || o.isSprite || (m && !Array.isArray(m) && m.transparent === true && m.opacity === 0)) o.layers.set(1) }) // o.isLine＝電線/ワイヤー等の細い線（法線が無く深度も薄いため、エッジ検出が暴れて黒いウネウネのモヤになる→必ず除外）
 
 // 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
 let frameAcc = 0
