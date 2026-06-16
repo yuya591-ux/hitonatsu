@@ -1003,8 +1003,24 @@ const GATES = [
     const base = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 4), toonMap(0x7a5230, woodTex)); base.position.y = 0.25; g.add(base)
     const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.4, 3.4), toon(0xc9402f)); body.position.y = 1.7; g.add(body)
     const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 1.6, 4), toonMap(0x37474f, roofTex)); roof.position.y = 3.6; roof.rotation.y = Math.PI / 4; g.add(roof)
+    // 千木（屋根上で交差する2本×前後）＋鰹木（棟に並ぶ横木）＝神社の象徴
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.3, 3.4), toonMap(0x5a4326, woodTex)); ridge.position.y = 4.3; g.add(ridge)
+    for (let i = 0; i < 4; i++) { const kat = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.0, 8), toon(0xcdb36a)); kat.rotation.z = Math.PI / 2; kat.position.set(0, 4.55, -1.1 + i * 0.73); g.add(kat) } // 鰹木×4
+    for (const ez of [-1.6, 1.6]) for (const sgn of [-1, 1]) { const chigi = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.9, 6), toon(0x5a4326)); chigi.position.set(0, 4.7, ez); chigi.rotation.x = (ez > 0 ? 1 : -1) * 0.18; chigi.rotation.z = sgn * 0.5; g.add(chigi) } // 千木（前後で交差）
     g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(S.x, sy, sz); mergedOutline(g, 0.04); addContactShadow(g, 3.5); addBox(S.x, sz, 2.5, 2.0, 0); scene.add(g) // お社も箱判定（長方形の角すり抜けを解消）
     const sai = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 0.85), toon(0x6a4a30)); sai.position.set(S.x, sy + 0.35, sz - 3); sai.castShadow = true; addOutline(sai, 0.02); scene.add(sai)
+    // 注連縄（社の正面・軒下）＋紙垂、鈴＋鈴緒＝お参りの場
+    const shime = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 3.4, 8), toon(0xd8cca6)); shime.rotation.z = Math.PI / 2; shime.position.set(S.x, sy + 2.55, sz - 1.72); scene.add(shime)
+    for (const dx of [-1.1, -0.37, 0.37, 1.1]) { const shide = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.42), new THREE.MeshBasicMaterial({ color: 0xfafafa, side: THREE.DoubleSide })); shide.position.set(S.x + dx, sy + 2.3, sz - 1.74); scene.add(shide) } // 紙垂
+    const bell = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 8), toon(0xb89a44)); bell.scale.y = 1.1; bell.position.set(S.x, sy + 2.3, sz - 1.78); scene.add(bell)
+    const suzuo = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.45, 0.05), toon(0xc24636)); suzuo.position.set(S.x, sy + 1.6, sz - 1.8); scene.add(suzuo) // 鈴緒（紅白の太い綱の気配）
+    // 手水舎（参道の左脇・水盤＋柄杓）
+    const tz = new THREE.Group(); const tw = toonMap(0x6a5236, woodTex)
+    for (const px of [-0.9, 0.9]) for (const pz of [-0.7, 0.7]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 6), tw); p.position.set(px, 0.9, pz); tz.add(p) }
+    const troof = new THREE.Mesh(new THREE.ConeGeometry(1.55, 0.7, 4), toonMap(0x4a5a52, roofTex)); troof.rotation.y = Math.PI / 4; troof.position.y = 2.15; tz.add(troof)
+    const basin = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.5, 0.9), toon(0x8a8378)); basin.position.y = 0.55; tz.add(basin)
+    const twater = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.7), new THREE.MeshBasicMaterial({ color: 0x6fa8c0, transparent: true, opacity: 0.8 })); twater.rotation.x = -Math.PI / 2; twater.position.y = 0.79; tz.add(twater)
+    tz.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(tz, S.x - 5, S.z - 2, 0.3, 0, 1.0)
   }
   // 鎮守の杜（社のまわりの木立）
   for (const [tx, tz, ts] of [[S.x - 16, S.z + 30, 1.3], [S.x + 16, S.z + 34, 1.4], [S.x - 22, S.z + 14, 1.2], [S.x + 22, S.z + 18, 1.2], [S.x - 11, S.z + 48, 1.3], [S.x + 12, S.z + 50, 1.3], [S.x - 26, S.z + 40, 1.1], [S.x + 26, S.z + 44, 1.1]]) makeTree(tx, tz, ts)
