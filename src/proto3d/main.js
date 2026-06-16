@@ -3264,6 +3264,7 @@ function startAudio() {
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
     for (const a of riverAudios) if (a.buffer && !a.isPlaying) try { a.play() } catch (e) {}
     initRainAudio()
+    initRainBgm() // 雨のときだけ鳴る神秘的BGM（パッド）を用意
     unlockIOSAudio() // iOSのミュートスイッチ/画面収録対策
   } catch (e) {}
   try { if (window.__applySound) window.__applySound() } catch (e) {} // 設定で「おとOFF」なら止める
@@ -3303,6 +3304,29 @@ function initRainAudio() {
     src.connect(hp); hp.connect(lp); lp.connect(rainGain); rainGain.connect(getSfxOut())
     src.start()
     rainStarted = true
+  } catch (e) {}
+}
+// ── 雨のときだけ流す神秘的なBGM（自前合成・やわらかいパッド）。雨が止むとゆっくりフェードアウト。
+// 常時BGM(オルゴール)とは別系統＝設定のBGM-OFFに関わらず、雨のときだけそっと鳴る（方針の例外）。
+let rainBgmGain = null, rainBgmStarted = false
+function initRainBgm() {
+  if (rainBgmStarted) return
+  try {
+    const ctx = listener.context
+    rainBgmGain = ctx.createGain(); rainBgmGain.gain.value = 0
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 820; lp.Q.value = 0.6 // こもったやわらかさ
+    const flfo = ctx.createOscillator(); flfo.frequency.value = 0.06; const flg = ctx.createGain(); flg.gain.value = 320 // ゆっくり開閉＝神秘的なうねり
+    flfo.connect(flg); flg.connect(lp.frequency); flfo.start()
+    rainBgmGain.connect(lp); lp.connect(getMaster())
+    const chord = [220, 261.63, 329.63, 392.0] // Am7（A3 C4 E4 G4）＝しみじみ・神秘的
+    for (const f of chord) for (const det of [-0.3, 0.3]) { // 少しデチューンして厚みを
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * (1 + det / 100)
+      const og = ctx.createGain(); og.gain.value = 0.085
+      const alfo = ctx.createOscillator(); alfo.frequency.value = 0.04 + Math.random() * 0.05; const alg = ctx.createGain(); alg.gain.value = 0.045 // 各音バラバラの位相でゆっくり呼吸
+      alfo.connect(alg); alg.connect(og.gain); alfo.start()
+      o.connect(og); og.connect(rainBgmGain); o.start()
+    }
+    rainBgmStarted = true
   } catch (e) {}
 }
 // 遠雷＝低いランブル。少し曇ってきたら“夕立の予兆”として遠くで小さくゴロゴロ、本降りで近く大きく。
@@ -4245,6 +4269,7 @@ function update(dt) {
   }
   // 雨音：weather に合わせて音量を上げ下げ（クリックしないよう setTargetAtTime でなめらかに）。遠雷もたまに
   if (rainGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.5, 0, AUDIO.rainVol); rainGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 0.6) } // 本降りのときだけ雨音（薄曇りの“どしゃどしゃ”を消す）
+  if (rainBgmGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.8, 0, AUDIO.rainBgmVol); rainBgmGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 1.8) } // 雨のときだけ神秘的BGMをゆっくり立ち上げ／止むとフェードアウト
   maybeThunder(dt)
   updateFestival(dt) // 縁日のお囃子（屋台からの距離で音量が変わる＝音をたどって縁日へ）
   maybeCricket(dt) // 夜の虫の音
@@ -5012,6 +5037,7 @@ window.__proto3d = {
   _weather(v) { weather = v; weatherTarget = v; weatherTimer = 999 }, // 検証用：夕立 0=晴 1=雨
   get _rainVol() { return rainGain ? rainGain.gain.value : -1 }, // 検証用：雨音の音量
   get _festVol() { return festGain ? festGain.gain.value : -1 }, // 検証用：縁日の音量（距離で変わる）
+  get _rainBgmVol() { return rainBgmGain ? rainBgmGain.gain.value : -1 }, // 検証用：雨のBGMの音量
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
