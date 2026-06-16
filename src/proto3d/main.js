@@ -119,9 +119,10 @@ const CEL = {
   outline: 0x15191b,    // 輪郭線（インク）の色＝ほぼ黒
   outlineScale: 1.5,    // 輪郭線の太さ倍率（背面法ハルの膨らみ・全体に効く）
   bands: 3,             // トゥーンの階調数（2〜4。少ないほどパキッとセル画）
-  shadowFloor: 0.52,    // 影側の明るさの床（0=真っ黒 1=影なし）
-  skinFloor: 0.75,      // 肌の影の床（顔が黒く潰れないよう高め）＝逆光でも顔が見える
-  softFloor: 0.63,      // 髪の影の床（黒い塊に見えないよう持ち上げ）＝髪が“禿げ/お面”に見えるのを防ぐ
+  shadowFloor: 0.52,    // 影側の明るさの床（0=真っ黒 1=影なし）＝世界（地面/建物）の陰影。雰囲気を保つためここは下げたまま
+  skinFloor: 0.78,      // 肌の影の床（顔が黒く潰れないよう高め）＝逆光でも顔が見える
+  softFloor: 0.66,      // 髪の影の床（黒い塊に見えないよう持ち上げ）＝髪が“禿げ/お面”に見えるのを防ぐ
+  charFloor: 0.72,      // 主人公・村人の服/体の影の床（世界より高く＝人物だけ逆光でも黒く沈まずはっきり見える。世界の陰影は shadowFloor のまま保つ）
   hatFloor: 0.92,       // 麦わら帽子の影の床（かなり高め＝ほぼ影なしの明るい麦わら。クラウンに黒い三日月（影の段）が出て“てっぺんが破け／禿げ”に見えるのを防ぐ）
   inkEdges: true,       // ポストプロセスのエッジ線（深度/法線ベースの内側の線）ON/OFF＝重い端末は切れる
   inkStrength: 0.85,    // エッジ線の濃さ
@@ -146,13 +147,16 @@ const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
 // プレイヤーを向く村人/通行人の顔は“逆光（太陽の反対側）”でトゥーンの暗い段に落ち、顔が真っ黒に潰れていた。
 // 肌だけ陰影の最暗を持ち上げ＋肌色の淡い自発光で、どの向きでも顔がやさしく見えるようにする。
 const GRAD_SKIN = toonGradient(CEL.bands, CEL.skinFloor)
-const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.13) }) // 自発光をやや上げ＝逆光でも顔が黒く潰れず見える（のっぺりは色の柔らかさで回避）
+const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.16) }) // 自発光をやや上げ＝逆光や木かげでも顔が黒く潰れず見える（のっぺりは色の柔らかさで回避）
 // 髪用：影側の床を肌と地の中間に持ち上げ＝逆光や横からでも“黒い塊（禿げ・お面）”に潰れない。わずかな自発光で生え際の線も馴染ませる
 const GRAD_SOFT = toonGradient(CEL.bands, CEL.softFloor)
 const softToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SOFT, emissive: new THREE.Color(color).multiplyScalar(0.06) })
 // 麦わら帽子用：影の床をさらに高く＝夏の日ざしに照らされた明るい麦わら。クラウン（椀）が暗く沈んで“皿/くり抜き”に見えるのを防ぐ
 const GRAD_HAT = toonGradient(CEL.bands, CEL.hatFloor)
 const hatToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_HAT, emissive: new THREE.Color(color).multiplyScalar(0.1) })
+// 主人公・村人の服/体用：世界より影の床を高く＋ごく弱い自発光＝人物だけ逆光でも黒く沈まずはっきり見える（世界の陰影＝雰囲気は shadowFloor のまま保つ＝「キャラだけ明るく」）
+const GRAD_CHAR = toonGradient(CEL.bands, CEL.charFloor)
+const charToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_CHAR, emissive: new THREE.Color(color).multiplyScalar(0.06) })
 
 // ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: CEL.outline, side: THREE.BackSide, fog: true }) // ほぼ黒のインク線（セル画/手描きアニメの輪郭）。CEL.outlineで色・CEL.outlineScaleで太さ
@@ -2483,7 +2487,7 @@ function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(
 const NET_REST = -0.95 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る
 function makeBoy() {
   const g = new THREE.Group(); const P = PROP
-  const skin = skinToon(0xf1cdb5), shirt = toon(0xeef0ea), pants = toon(0x4f6f96), hat = hatToon(0xe6c074) // 自然で柔らかい肌・白い半袖シャツ・紺の半ズボン・麦わら帽子（明るい麦わら＝影で黒く沈めない）
+  const skin = skinToon(0xf1cdb5), shirt = charToon(0xeef0ea), pants = charToon(0x4f6f96), hat = hatToon(0xe6c074) // 自然で柔らかい肌・白い半袖シャツ・紺の半ズボン・麦わら帽子。服は charToon＝逆光でも黒く沈まない
   // 小学生（5〜6頭身）：頭は小さめ、胴はすっきり縦長、手足は細くまっすぐ。関節は同径の丸で継ぎ目を隠す。
   function makeLeg(side) {
     const hip = new THREE.Group(); hip.position.set(0.08 * side, P.hipY, 0) // 腰を高く＝脚を長く（小学生の重心）
@@ -2524,8 +2528,8 @@ function makeBoy() {
   const head = new THREE.Mesh(new THREE.SphereGeometry(P.headR, 22, 20), skin); head.scale.set(P.headSX, P.headSY, P.headSZ); head.position.y = P.headY; g.add(head)
   // 髪＝頭をしっかり覆う短髪。主髪＋襟足＋前髪＋サイドの4枚で“頭皮が見える/禿げ”をなくす。色はあたたかい茶＋影の床を上げて黒い塊にしない
   const hairCol = softToon(P.hair)
-  // 主髪：つばの下に見える髪の帯（頭頂は帽子のクラウンが覆うので開ける＝髪がクラウンから突き出ない）。横にやや広げて耳の上まで
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.007, 20, 16, 0, Math.PI * 2, Math.PI * P.hairTop, Math.PI * P.hairExtent), hairCol); hair.scale.set(1.07, 1.0, 1.05); hair.position.set(0, P.hairY, -0.004); hair.rotation.x = P.hairTilt; head.add(hair)
+  // 主髪：つばの下に見える髪の帯。頭頂は帽子が覆うので上は開け(thetaStart)、前(顔)も開ける(方位角を後ろ＋横だけに)＝髪が顔に垂れて黒くならない・クラウンからも突き出ない
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.007, 24, 16, Math.PI * 0.78, Math.PI * 1.44, Math.PI * P.hairTop, Math.PI * P.hairExtent), hairCol); hair.scale.set(1.07, 1.0, 1.05); hair.position.set(0, P.hairY, -0.004); hair.rotation.x = P.hairTilt; head.add(hair)
   // 襟足：後頭部の下端〜首の付け根まで（後ろが禿げない）
   const nape = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.004, 16, 12, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.4), hairCol); nape.position.set(0, -0.018, -0.026); head.add(nape)
   // 前髪：額の上だけに薄く沿わせる一房（頭の球に沿わせる＝顔の前に張り出さない・目にかからない・つばより下＝クラウンに突き抜けない）
@@ -2548,9 +2552,9 @@ function makeBoy() {
   net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
   g.add(net)
   // 小さな赤いリュック（夏の探検・参考作品のシルエットに寄せる。オリジナル造形）。背中(-z)に
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.12), toon(0xc0463a)); pack.position.set(0, 1.0, -0.16); pack.scale.set(1, 1, 1); g.add(pack)
-  const packLid = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.09, 0.13), toon(0xa83a30)); packLid.position.set(0, 1.11, -0.16); g.add(packLid) // ふた
-  for (const sx of [-0.075, 0.075]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.04), toon(0xa83a30)); st.position.set(sx, 1.02, 0.02); st.rotation.x = -0.12; g.add(st) } // 肩ひも
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.12), charToon(0xc0463a)); pack.position.set(0, 1.0, -0.16); pack.scale.set(1, 1, 1); g.add(pack)
+  const packLid = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.09, 0.13), charToon(0xa83a30)); packLid.position.set(0, 1.11, -0.16); g.add(packLid) // ふた
+  for (const sx of [-0.075, 0.075]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.04), charToon(0xa83a30)); st.position.set(sx, 1.02, 0.02); st.rotation.x = -0.12; g.add(st) } // 肩ひも
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く主人公を固定影マップに焼くと“残像(ゴースト)”が残るので落とさない＝接地は専用の丸影で表現
   g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, swing: 0, char: true } // char:true＝細棒除外の対象外（手足は細いがインク線を残す）
   return g
@@ -2626,7 +2630,7 @@ function updateBillboard() {
 // ── 村の人（“人の気配”。近づくと話せる。台詞は時間帯で変わる）──
 function makeVillager(x, z, opt) {
   const g = new THREE.Group()
-  const skin = skinToon(opt.skin || 0xeeccb4), shirtM = toon(opt.shirt) // 自然で柔らかい肌（自発光控えめ）。opt.skinで個体差も付けられる
+  const skin = skinToon(opt.skin || 0xeeccb4), shirtM = charToon(opt.shirt) // 自然で柔らかい肌（自発光控えめ）。服は charToon＝主人公と同じく逆光でも黒く沈まない。opt.skinで個体差も付けられる
   const full = !opt.simple // 会話する村人＝関節あり／背景の通行人＝軽量（股ピボットのみ）
   // 主人公と同じ“幼児寄り”の頭身に統一（頭大きめ・胴短く・脚短め・重心低い）。大人はopt.scaleで少し背を高く。
   let kneeL = null, kneeR = null
@@ -2645,8 +2649,8 @@ function makeVillager(x, z, opt) {
   }
   const LL = makeLeg(-1), LR = makeLeg(1)
   const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
-  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.16, 0.22, 14), toon(opt.skirt)); shorts.scale.set(1, 1, 0.86); shorts.position.y = PROP.hipY + 0.06; g.add(shorts) }
-  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.36, 16), toon(opt.skirt)); skirt.position.y = PROP.hipY + 0.02; g.add(skirt) } // 小学生のすっきりしたスカート
+  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.16, 0.22, 14), charToon(opt.skirt)); shorts.scale.set(1, 1, 0.86); shorts.position.y = PROP.hipY + 0.06; g.add(shorts) }
+  else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.36, 16), charToon(opt.skirt)); skirt.position.y = PROP.hipY + 0.02; g.add(skirt) } // 小学生のすっきりしたスカート
   // 胴＝すっきり縦長（主人公と統一）。会話する村人は肩つき、背景の人は1本。
   if (full) {
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.18, 16), shirtM); torso.scale.set(1, 1, 0.84); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
