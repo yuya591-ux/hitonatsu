@@ -2662,7 +2662,12 @@ function makeVillager(x, z, opt) {
   // 以前は y=1.38 固定で、大人は頭(1.4)より低く＝髪が顔に覆いかぶさっていた。頭の高さ(head.position.y)に追従させる。
   const hy = head.position.y
   const hairCol = softToon(opt.hair) // 影の床を上げて黒い塊（禿げ・お面）に潰れない＝主人公と統一
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.152, 18, 14, 0, Math.PI * 2, Math.PI * 0.32, Math.PI * 0.32), hairCol); hair.position.set(0, hy + 0.006, -0.004); hair.rotation.x = -0.05; g.add(hair) // 帽子のつばの“下”に見える髪の帯（頭頂は帽子が覆う）＝つばより上に髪が出ない
+  // 帽子をかぶる村人は「つばの下に見える帯」、帽子なしの村人は頭頂まで覆う「フルキャップ」（帽子なしが頭頂禿げにならないよう分岐）
+  const hatted = opt.hat === 'straw' || opt.hat === 'cap' || opt.hat === 'bucket'
+  const hair = hatted
+    ? new THREE.Mesh(new THREE.SphereGeometry(0.152, 18, 14, 0, Math.PI * 2, Math.PI * 0.32, Math.PI * 0.34), hairCol)
+    : new THREE.Mesh(new THREE.SphereGeometry(0.161, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.6), hairCol)
+  hair.position.set(0, hy + (hatted ? 0.006 : 0.028), hatted ? -0.004 : -0.008); hair.rotation.x = hatted ? -0.05 : -0.22; g.add(hair) // 帽子ありは帯（つばより上に髪が出ない）／帽子なしは頭頂を覆う
   const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.18), hairCol); bangs.position.set(0, hy + 0.03, 0.05); bangs.rotation.x = 0.16; g.add(bangs) // 前髪＝つばの下からのぞく額のひと房（つばより下）
   const nape = new THREE.Mesh(new THREE.SphereGeometry(0.152, 14, 10, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.4), hairCol); nape.position.set(0, hy - 0.01, -0.038); g.add(nape) // 後頭部〜襟足
   const hairParts = [hair, bangs, nape]
@@ -5048,7 +5053,7 @@ window.__proto3d = {
   get area() { return area },
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
-  villager, townLady, townKid, cat, // 検証用
+  villager, townLady, townKid, farmer, cat, // 検証用
   heightAt(x, z) { return heightAt(x, z) }, // 検証用：地形の高さを問い合わせ（接地点検）
   colliders, _collide(x, z) { return pushOutOfColliders(x, z) }, // 検証用：当たり判定（点を外へ押し出す）
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
