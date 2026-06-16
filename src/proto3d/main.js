@@ -124,6 +124,8 @@ const CEL = {
   inkEdges: true,       // ポストプロセスのエッジ線（深度/法線ベースの内側の線）ON/OFF＝重い端末は切れる
   inkStrength: 0.85,    // エッジ線の濃さ
   inkThickness: 1.2,    // エッジ線の太さ（テクセル）
+  inkFadeNear: 48,      // この視線距離からインク線を薄め始める（近景はくっきり）
+  inkFadeFar: 150,      // この距離で完全に消す＝遠景の細い物のサブピクセルなチラつき(黒モヤ)を構造的に断つ
 }
 // ── トゥーン用のグラデ（セル画の階調＝段の境目をくっきり）──
 function toonGradient(steps = 4, min = 0.5) {
@@ -3160,10 +3162,11 @@ const inkPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
     texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: camera.far },
+    fadeNear: { value: CEL.inkFadeNear }, fadeFar: { value: CEL.inkFadeFar }, // この距離からエッジを薄くし、奥で消す＝遠景のチラつき(黒モヤ)を断つ
     inkColor: { value: new THREE.Color(CEL.outline) }, strength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 texel; uniform float near, far, strength, thickness; uniform vec3 inkColor;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 texel; uniform float near, far, strength, thickness, fadeNear, fadeFar; uniform vec3 inkColor;
     float rawZ(vec2 uv){ return texture2D(tDepth, uv).x; } // 生のNDC深度（平面なら画面上で線形→傾いた床でも誤検出しない）
     vec3 nrm(vec2 uv){ return texture2D(tNormal, uv).xyz*2.0-1.0; }
     void main(){
@@ -3178,8 +3181,11 @@ const inkPass = new ShaderPass({
       vec3 nC = nrm(vUv);                                                  // 法線の差（角・折り目・シルエット）
       float ne = (1.0-dot(nC,nrm(vUv-vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(0.0,t.y)))) + (1.0-dot(nC,nrm(vUv-vec2(0.0,t.y))));
       float normEdge = smoothstep(0.7, 1.4, ne);                          // しきい値を上げ、地形のうねり/細い手足など“ゆるい曲面”の誤検出を抑える
-      float sky = step(0.9995, zC);                                        // 空（クリア値=最遠）は線を出さない
-      float edge = clamp(max(depthEdge, normEdge), 0.0, 1.0) * (1.0 - sky) * strength;
+      float eyeZ = (2.0*near*far)/(far+near-(2.0*zC-1.0)*(far-near));       // 線形の視線距離
+      // 遠いほどエッジを消す＝遠景の細い/小さい物がサブピクセルでチラつく「黒モヤ」を構造的に断つ（角度/再起動で再発しない）。
+      // 空(最遠)もこのフェードで自然に0になる＝深度しきい値の境界ちらつきも解消。近景はくっきり。
+      float fade = 1.0 - smoothstep(fadeNear, fadeFar, eyeZ);
+      float edge = clamp(max(depthEdge, normEdge), 0.0, 1.0) * fade * strength;
       gl_FragColor = vec4(mix(col, inkColor, edge), 1.0);
     }`,
 })
