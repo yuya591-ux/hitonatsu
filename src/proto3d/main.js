@@ -581,11 +581,12 @@ function makeTree(x, z, s = 1) {
   const geos = []
   for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 2); ge.translate(bx * s, by * s, bz * s); geos.push(ge) } // detail2＝丸い葉のかたまり（脱・低ポリ・モバイル性能とのバランス）
   const canopyGeo = mergeGeometries(geos); canopyGeo.computeVertexNormals() // 重なりをなめらかな面に
-  const canopy = new THREE.Mesh(canopyGeo, toon(0x6f9a47)); canopy.castShadow = true; g.add(canopy)
+  const tg = [[0x6f9a47, 0x9ec06c], [0x63903f, 0x96bb60], [0x7aa24c, 0xaecb7b], [0x5d8a3a, 0x8ab257], [0x86a44e, 0xb6cc83]][Math.floor(Math.random() * 5)] // 夏の緑に個体差＝同じ木が並ばない（自然さ）
+  const canopy = new THREE.Mesh(canopyGeo, toon(tg[0])); canopy.castShadow = true; g.add(canopy)
   geos.forEach((ge) => ge.dispose())
   // 陽の当たる上の明るい房（立体感・木漏れ日の素）
   for (const [r, bx, by, bz] of [[1.15, 0.35, 4.8, 0.25], [0.98, -0.35, 5.05, -0.1], [1.05, 1.0, 4.5, 0.5], [0.9, -0.8, 4.7, -0.55]]) {
-    const hb = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 2), toon(0x9ec06c)); hb.position.set(bx * s, by * s, bz * s); hb.castShadow = true; g.add(hb)
+    const hb = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 2), toon(tg[1])); hb.position.set(bx * s, by * s, bz * s); hb.castShadow = true; g.add(hb)
   }
   g.position.set(x, heightAt(x, z), z)
   mergedOutline(g, 0.08)
