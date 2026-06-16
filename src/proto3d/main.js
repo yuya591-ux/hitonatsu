@@ -142,7 +142,7 @@ const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
 // プレイヤーを向く村人/通行人の顔は“逆光（太陽の反対側）”でトゥーンの暗い段に落ち、顔が真っ黒に潰れていた。
 // 肌だけ陰影の最暗を持ち上げ＋肌色の淡い自発光で、どの向きでも顔がやさしく見えるようにする。
 const GRAD_SKIN = toonGradient(CEL.bands, CEL.skinFloor)
-const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.12) })
+const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.07) }) // 自発光は控えめ＝のっぺりを防ぎ顔に陰影を残す（逆光で黒潰れしない程度）
 
 // ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: CEL.outline, side: THREE.BackSide, fog: true }) // ほぼ黒のインク線（セル画/手描きアニメの輪郭）。CEL.outlineで色・CEL.outlineScaleで太さ
@@ -2465,12 +2465,12 @@ const PROP = {
   shoulderY: 1.30, upperArm: 0.30, fore: 0.29, armR: 0.05,     // 腕：長くまっすぐ・細い
   waistY: 0.84, chestY: 1.18, torsoTopR: 0.132, torsoBotR: 0.112, // 胴：縦長・すっきり（ずんぐり解消）
   neckY: 1.37, headY: 1.575, headR: 0.145, headSX: 1.05, headSY: 1.12, headSZ: 1.03, // 頭：小さめ＝頭身を上げる
-  eyeR: 0.036, eyeX: 0.057, eyeY: 0.012, eyeZ: 0.12,           // 目：繊細・控えめ（過度なデフォルメを避ける）
+  eyeR: 0.031, eyeX: 0.057, eyeY: 0.012, eyeZ: 0.12, irisRatio: 0.6, // 目：小さめで繊細（黒目を小さく＝白目とのバランスを自然に）
 }
 function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
 function makeBoy() {
   const g = new THREE.Group(); const P = PROP
-  const skin = skinToon(0xf4c79c), shirt = toon(0xeef0ea), pants = toon(0x4f6f96), hat = toon(0xe6c074) // 肌・白い半袖シャツ・紺の半ズボン・麦わら帽子
+  const skin = skinToon(0xf1cdb5), shirt = toon(0xeef0ea), pants = toon(0x4f6f96), hat = toon(0xe6c074) // 自然で柔らかい肌・白い半袖シャツ・紺の半ズボン・麦わら帽子
   // 小学生（5〜6頭身）：頭は小さめ、胴はすっきり縦長、手足は細くまっすぐ。関節は同径の丸で継ぎ目を隠す。
   function makeLeg(side) {
     const hip = new THREE.Group(); hip.position.set(0.08 * side, P.hipY, 0) // 腰を高く＝脚を長く（小学生の重心）
@@ -2523,6 +2523,7 @@ function makeBoy() {
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 6, 14), toon(0x8a6b3a)); ring.position.y = 1.3; ring.rotation.x = Math.PI / 2; net.add(ring)
   const bag = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.28, side: THREE.DoubleSide })); bag.position.y = 1.3; bag.rotation.x = Math.PI; net.add(bag)
   net.position.set(0.26, 0.98, -0.08); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ（高くなった肩に合わせる）
+  net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
   g.add(net)
   // 小さな赤いリュック（夏の探検・参考作品のシルエットに寄せる。オリジナル造形）。背中(-z)に
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.12), toon(0xc0463a)); pack.position.set(0, 1.0, -0.16); pack.scale.set(1, 1, 1); g.add(pack)
@@ -2547,7 +2548,7 @@ outlineObj(boy, 0.03)
   // 目＝小さめで繊細・素朴（過度なデフォルメを避ける）。白目＋茶の瞳＋小さなきらり1つ・ふんわり頬。眉は出さない（やさしい印象）
   for (const ex of [-P.eyeX, P.eyeX]) {
     const sclera = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 16, 14), hiMat); sclera.scale.set(0.92, 1.12, 0.4); sclera.position.set(ex, P.eyeY, P.eyeZ); head.add(sclera)
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.78, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
     const hi = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.32, 8, 8), hiMat); hi.position.set(ex + 0.012, P.eyeY + 0.016, P.eyeZ + 0.024); head.add(hi)
     const bl = new THREE.Mesh(new THREE.SphereGeometry(0.038, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.35); bl.position.set(ex + (ex > 0 ? 0.04 : -0.04), -0.05, P.eyeZ - 0.006); head.add(bl)
   }
@@ -2603,7 +2604,7 @@ function updateBillboard() {
 // ── 村の人（“人の気配”。近づくと話せる。台詞は時間帯で変わる）──
 function makeVillager(x, z, opt) {
   const g = new THREE.Group()
-  const skin = skinToon(opt.skin || 0xf0c49c), shirtM = toon(opt.shirt) // 肌は自発光の床つき＝逆光でも顔が真っ黒に潰れない。opt.skinで個体差も付けられる
+  const skin = skinToon(opt.skin || 0xeeccb4), shirtM = toon(opt.shirt) // 自然で柔らかい肌（自発光控えめ）。opt.skinで個体差も付けられる
   const full = !opt.simple // 会話する村人＝関節あり／背景の通行人＝軽量（股ピボットのみ）
   // 主人公と同じ“幼児寄り”の頭身に統一（頭大きめ・胴短く・脚短め・重心低い）。大人はopt.scaleで少し背を高く。
   let kneeL = null, kneeR = null
@@ -2693,11 +2694,11 @@ function makeVillager(x, z, opt) {
   for (const ex of [-P.eyeX, P.eyeX]) {
     if (opt.simple) { // 背景の通行人＝白目＋瞳＋きらり（軽量・主人公と同じ繊細さ）
       const sc = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 10, 8), hiMat); sc.scale.set(0.9, 1.1, 0.4); sc.position.set(ex, P.eyeY, P.eyeZ); head.add(sc)
-      const ir = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.78, 10, 8), eyeMat); ir.scale.set(0.96, 1, 0.42); ir.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(ir)
+      const ir = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 10, 8), eyeMat); ir.scale.set(0.96, 1, 0.42); ir.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(ir)
       const h0 = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.3, 6, 6), hiMat); h0.position.set(ex + 0.011, P.eyeY + 0.014, P.eyeZ + 0.02); head.add(h0); continue
     }
     const sclera = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 16, 14), hiMat); sclera.scale.set(0.92, 1.12, 0.4); sclera.position.set(ex, P.eyeY, P.eyeZ); head.add(sclera)
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.78, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
     const hi = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.32, 8, 8), hiMat); hi.position.set(ex + 0.012, P.eyeY + 0.016, P.eyeZ + 0.024); head.add(hi)
     const bl = new THREE.Mesh(new THREE.SphereGeometry(0.038, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.35); bl.position.set(ex + (ex > 0 ? 0.04 : -0.04), -0.05, P.eyeZ - 0.006); head.add(bl)
     if (opt.adult) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.011, 0.018), new THREE.MeshBasicMaterial({ color: 0x5a4636 })); brow.position.set(ex, P.eyeY + 0.05, P.eyeZ + 0.01); brow.rotation.z = ex > 0 ? 0.08 : -0.08; head.add(brow) } // 大人＝やわらかい眉
@@ -3163,19 +3164,21 @@ const inkPass = new ShaderPass({
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 texel; uniform float near, far, strength, thickness; uniform vec3 inkColor;
-    float lz(vec2 uv){ float z = texture2D(tDepth, uv).x; return (2.0*near*far)/(far+near-(2.0*z-1.0)*(far-near)); } // 線形の視線距離
+    float rawZ(vec2 uv){ return texture2D(tDepth, uv).x; } // 生のNDC深度（平面なら画面上で線形→傾いた床でも誤検出しない）
     vec3 nrm(vec2 uv){ return texture2D(tNormal, uv).xyz*2.0-1.0; }
     void main(){
       vec3 col = texture2D(tDiffuse, vUv).rgb;
       vec2 t = texel * thickness;
-      float dC = lz(vUv);
-      float dL = lz(vUv-vec2(t.x,0.0)), dR = lz(vUv+vec2(t.x,0.0)), dU = lz(vUv+vec2(0.0,t.y)), dD = lz(vUv-vec2(0.0,t.y));
-      float de = (abs(dC-dL)+abs(dC-dR)+abs(dC-dU)+abs(dC-dD)) / dC;       // 深度の相対差（遠いほど鈍く＝近景の線を主に）
-      float depthEdge = smoothstep(0.015, 0.05, de);
-      vec3 nC = nrm(vUv);                                                  // 法線の差（角・折り目）
+      float zC = rawZ(vUv);
+      float zL = rawZ(vUv-vec2(t.x,0.0)), zR = rawZ(vUv+vec2(t.x,0.0)), zU = rawZ(vUv+vec2(0.0,t.y)), zD = rawZ(vUv-vec2(0.0,t.y));
+      // 深度の2階微分(ラプラシアン)：平面はどんな傾き(グレージング)でも≈0、シルエット/段差だけ大きい
+      // ＝目線で地面を見渡しても床一面に黒モヤが出ない（1階差分だと傾いた床で誤検出して画面全体が黒線になる不具合の修正）
+      float lap = abs(zL + zR - 2.0*zC) + abs(zU + zD - 2.0*zC);
+      float depthEdge = smoothstep(0.0007, 0.0035, lap);
+      vec3 nC = nrm(vUv);                                                  // 法線の差（角・折り目・シルエット）
       float ne = (1.0-dot(nC,nrm(vUv-vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(0.0,t.y)))) + (1.0-dot(nC,nrm(vUv-vec2(0.0,t.y))));
-      float normEdge = smoothstep(0.55, 1.25, ne);
-      float sky = step(far*0.9, dC);                                       // 空（法線パスに無い＝最遠）は線を出さない
+      float normEdge = smoothstep(0.7, 1.4, ne);                          // しきい値を上げ、地形のうねり/細い手足など“ゆるい曲面”の誤検出を抑える
+      float sky = step(0.9995, zC);                                        // 空（クリア値=最遠）は線を出さない
       float edge = clamp(max(depthEdge, normEdge), 0.0, 1.0) * (1.0 - sky) * strength;
       gl_FragColor = vec4(mix(col, inkColor, edge), 1.0);
     }`,
