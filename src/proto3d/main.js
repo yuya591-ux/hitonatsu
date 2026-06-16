@@ -1707,20 +1707,31 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // ── 監査(ワールド)対応：孤立していたランドマークへ枝道を通す（回遊性を上げる）──
   makeRoadRibbon(T.x + 5, T.z - 15, T.x + 31, T.z - 14, 4, false, true) // 本通り東→パチンコ・銭湯のクラスタ(コンクリ)
   makeRoadRibbon(T.x - 122, T.z - 14, T.x - 174, T.z - 9, 4, false) // 小学校の前→校舎・体育館の北側を西へ抜けて二つ池へ(1/2)
-  makeRoadRibbon(T.x - 174, T.z - 9, T.x - 224, T.z - 4, 4, false) // 二つ池の入口へ(2/2)
+  makeRoadRibbon(T.x - 174, T.z - 9, T.x - 213, T.z - 2, 4, false) // 二つ池の周回路の東(E)に接続(2/2)
   makeSignpost(T.x - 132, T.z - 12, Math.PI / 2, 'ふたつ池 →') // 二つ池への道しるべ（小学校前）
   for (const [dx, dz] of [[-150, -10], [-170, -8], [-190, -6]]) makeSakura(T.x + dx, T.z + dz - 3, 0.95 + Math.random() * 0.15) // 参道の桜並木（二つ池への道沿い）
-  // ── しんみせを角にした交差点＋一うねりの蛇行で二つ池(と家並み)を囲う散歩道（ユーザー要望）──
-  // 坂(マンション)を下りてしんみせの角で西へ折れ、一うねり蛇行→二つ池をぐるりと囲み、学校からの道に合流して環になる
-  makeRoadRibbon(T.x - 89, T.z + 36, T.x - 116, T.z + 27, 4, false)  // しんみせの角→西へ折れる（交差点）
-  makeRoadRibbon(T.x - 116, T.z + 27, T.x - 103, T.z + 17, 4, false) // 一うねり（南東へ膨らむ）
-  makeRoadRibbon(T.x - 103, T.z + 17, T.x - 152, T.z + 25, 4, false) // 家並みの北を西へ（うねり戻し）
-  makeRoadRibbon(T.x - 152, T.z + 25, T.x - 196, T.z + 26, 4, false) // 二つ池の北東へ
-  makeRoadRibbon(T.x - 196, T.z + 26, T.x - 230, T.z + 22, 4, false) // 池を囲む：北
-  makeRoadRibbon(T.x - 230, T.z + 22, T.x - 250, T.z + 2, 4, false)  // 池を囲む：北→西
-  makeRoadRibbon(T.x - 250, T.z + 2, T.x - 232, T.z - 19, 4, false)  // 池を囲む：西→南
-  makeRoadRibbon(T.x - 232, T.z - 19, T.x - 195, T.z - 9, 4, false)  // 池を囲む：南→学校からの道に合流（環の完成）
-  makeSignpost(T.x - 110, T.z + 22, 0, 'ふたつ池 →') // 蛇行路の入口に道しるべ
+  // ── しんみせを“角”にした交差点＋一うねりの散歩道で二つ池をぐるりと囲う（ユーザー要望・再修正版）──
+  // 設計：マンションから尾根道(x=T.x-78)を下る→しんみせ(908,36)が右手→少し進んだ“南”(z+42)が交差点→右折して西へ。
+  //   しんみせは店先が東向き＝背面は西(x<906)。「後ろから道が生えて見える」不具合は、交差点をしんみせの“南”に置き、
+  //   西進する道を z+42（ビルの南端z39より南）に通すことで解消（しんみせは終始“北＝右手”に見え、背面を回らない）。
+  makeRoadRibbon(T.x - 78, T.z + 42, T.x - 97, T.z + 42, 5, false)  // 交差点：尾根道→右折して西へ（しんみせの南を通る＝しんみせは右手）
+  makeRoadRibbon(T.x - 97, T.z + 42, T.x - 116, T.z + 37, 4, false) // 西へ（しんみせを右手に見送る）
+  makeRoadRibbon(T.x - 116, T.z + 37, T.x - 134, T.z + 44, 4, false)// 一うねり：北へ膨らむ
+  makeRoadRibbon(T.x - 134, T.z + 44, T.x - 153, T.z + 37, 4, false)// 一うねり：南へ戻る（S字ひとつ）
+  makeRoadRibbon(T.x - 153, T.z + 37, T.x - 174, T.z + 35, 4, false)// 児童公園・住宅の北をゆるやかに西へ
+  makeRoadRibbon(T.x - 174, T.z + 35, T.x - 197, T.z + 34, 4, false)// さらに西（家並みの北）
+  makeRoadRibbon(T.x - 197, T.z + 34, T.x - 216, T.z + 21, 4, false)// 二つ池へ向けて南下
+  makeRoadRibbon(T.x - 216, T.z + 21, T.x - 228, T.z + 14, 4, false)// 周回路の北(N)へ合流
+  // 二つ池をぐるりと囲む周回路（半径≒15・公園の外周。8区間で環にする）
+  makeRoadRibbon(T.x - 228, T.z + 14, T.x - 216, T.z + 8, 4, false) // N→NE
+  makeRoadRibbon(T.x - 216, T.z + 8, T.x - 213, T.z - 2, 4, false)  // NE→E（学校からの道がここに接続）
+  makeRoadRibbon(T.x - 213, T.z - 2, T.x - 216, T.z - 12, 4, false) // E→SE
+  makeRoadRibbon(T.x - 216, T.z - 12, T.x - 228, T.z - 17, 4, false)// SE→S
+  makeRoadRibbon(T.x - 228, T.z - 17, T.x - 240, T.z - 12, 4, false)// S→SW
+  makeRoadRibbon(T.x - 240, T.z - 12, T.x - 243, T.z - 2, 4, false) // SW→W
+  makeRoadRibbon(T.x - 243, T.z - 2, T.x - 240, T.z + 8, 4, false)  // W→NW
+  makeRoadRibbon(T.x - 240, T.z + 8, T.x - 228, T.z + 14, 4, false) // NW→N（環の完成）
+  makeSignpost(T.x - 86, T.z + 40, Math.PI / 2, 'ふたつ池 →') // 交差点の角の道しるべ
   // ── 二つ池の北の住宅（西へ広げた土地に田舎の家並み＝二つ池を“近所”に・回遊先を増やす）──
   for (const [dx, dz] of [[-192, 16], [-214, 17], [-170, 17]]) {
     makeHouse(T.x + dx, T.z + dz, Math.PI, roofs[Math.floor(Math.random() * roofs.length)]) // 道（南）を向く
