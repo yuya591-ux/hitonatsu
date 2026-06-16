@@ -2484,7 +2484,7 @@ const PROP = {
   hatBrim: 0.27, hatBrimY: 0.096, hatCap: 0.15, hatCapY: 0.096, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)。つばを少し上げ前髪の居場所を作る
 }
 function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
-const NET_REST = -0.95 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る
+const NET_REST = -0.85 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る。肩にちゃんと乗る角度に（浮き解消）
 function makeBoy() {
   const g = new THREE.Group(); const P = PROP
   const skin = skinToon(0xf1cdb5), shirt = charToon(0xeef0ea), pants = charToon(0x4f6f96), hat = hatToon(0xe6c074) // 自然で柔らかい肌・白い半袖シャツ・紺の半ズボン・麦わら帽子。服は charToon＝逆光でも黒く沈まない
@@ -2548,7 +2548,7 @@ function makeBoy() {
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.05, 6), toon(0x9a7b4a)); pole.position.y = 0.42; net.add(pole) // 短めの柄
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 6, 14), toon(0x8a6b3a)); ring.position.y = 0.9; ring.rotation.x = Math.PI / 2; net.add(ring)
   const bag = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.24, side: THREE.DoubleSide })); bag.position.y = 0.9; bag.rotation.x = Math.PI; net.add(bag)
-  net.position.set(0.15, 0.95, 0.0); net.rotation.set(NET_REST, 0, -0.28) // 肩にかつぐ＝柄を後ろへ寝かせ網は背中側へ低く（rotation.xは虫採りアニメがNET_RESTで上書き）
+  net.position.set(0.15, 1.27, -0.01); net.rotation.set(NET_REST, 0, -0.06) // 柄の支点を右肩に乗せる＝肩に触れて網は頭の真後ろ上へ（横に飛び出さない・浮き解消）。rotation.xは虫採りアニメがNET_RESTで上書き
   net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
   g.add(net)
   // 小さな赤いリュック（夏の探検・参考作品のシルエットに寄せる。オリジナル造形）。背中(-z)に
