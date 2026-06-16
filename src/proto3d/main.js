@@ -122,7 +122,7 @@ const CEL = {
   shadowFloor: 0.52,    // 影側の明るさの床（0=真っ黒 1=影なし）
   skinFloor: 0.75,      // 肌の影の床（顔が黒く潰れないよう高め）＝逆光でも顔が見える
   softFloor: 0.63,      // 髪の影の床（黒い塊に見えないよう持ち上げ）＝髪が“禿げ/お面”に見えるのを防ぐ
-  hatFloor: 0.8,        // 麦わら帽子の影の床（高め＝夏の日ざしで明るい麦わら。クラウンが暗い椀＝皿に見えるのを防ぐ）
+  hatFloor: 0.92,       // 麦わら帽子の影の床（かなり高め＝ほぼ影なしの明るい麦わら。クラウンに黒い三日月（影の段）が出て“てっぺんが破け／禿げ”に見えるのを防ぐ）
   inkEdges: true,       // ポストプロセスのエッジ線（深度/法線ベースの内側の線）ON/OFF＝重い端末は切れる
   inkStrength: 0.85,    // エッジ線の濃さ
   inkThickness: 1.2,    // エッジ線の太さ（テクセル）
@@ -2477,7 +2477,7 @@ const PROP = {
   neckY: 1.37, headY: 1.575, headR: 0.145, headSX: 1.05, headSY: 1.12, headSZ: 1.03, // 頭：小さめ＝頭身を上げる
   eyeR: 0.031, eyeX: 0.057, eyeY: 0.012, eyeZ: 0.12, irisRatio: 0.6, // 目：小さめで繊細（黒目を小さく＝白目とのバランスを自然に）
   hair: 0x6e4d34, hairTop: 0.37, hairExtent: 0.32, hairY: 0.0, hairTilt: -0.05, // 髪：色・帯の開始(髪の上端をつばより下に＝つばのひさしが隠す＝クラウンから突き出ない)・帯の長さ・高さ・ごく控えめな後傾
-  hatBrim: 0.27, hatBrimY: 0.085, hatCap: 0.15, hatCapY: 0.085, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)
+  hatBrim: 0.27, hatBrimY: 0.096, hatCap: 0.15, hatCapY: 0.096, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)。つばを少し上げ前髪の居場所を作る
 }
 function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
 const NET_REST = -0.95 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る
@@ -2528,8 +2528,8 @@ function makeBoy() {
   const hair = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.007, 20, 16, 0, Math.PI * 2, Math.PI * P.hairTop, Math.PI * P.hairExtent), hairCol); hair.scale.set(1.07, 1.0, 1.05); hair.position.set(0, P.hairY, -0.004); hair.rotation.x = P.hairTilt; head.add(hair)
   // 襟足：後頭部の下端〜首の付け根まで（後ろが禿げない）
   const nape = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.004, 16, 12, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.4), hairCol); nape.position.set(0, -0.018, -0.026); head.add(nape)
-  // 前髪：つばの下からのぞく一房（“禿げ”に見せない・素朴な生え際）
-  const bangs = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.003, 16, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.17), hairCol); bangs.position.set(0, 0.05, 0.052); bangs.rotation.x = 0.16; head.add(bangs)
+  // 前髪：額の上だけに薄く沿わせる一房（頭の球に沿わせる＝顔の前に張り出さない・目にかからない・つばより下＝クラウンに突き抜けない）
+  const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 6, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.11), hairCol); bangs.position.set(0, 0, 0.004); bangs.rotation.x = 0.06; head.add(bangs)
   // サイド：耳の上を覆う（横が禿げない・つばの下から髪が見える）
   const hairParts = [hair, nape, bangs]
   for (const sx of [-1, 1]) { const sd = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), hairCol); sd.scale.set(0.82, 1.18, 1.02); sd.position.set(sx * 0.118, -0.006, -0.004); head.add(sd); hairParts.push(sd) }
