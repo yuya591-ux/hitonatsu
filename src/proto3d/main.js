@@ -3652,10 +3652,19 @@ function festKane(t0, vol) { // 鉦（チキ）＝盆踊りらしい高い金属
   const g = ctx.createGain(); g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.11)
   o.connect(bp); bp.connect(g); g.connect(getFestOut()); o.start(t0); o.stop(t0 + 0.13)
 }
+function festShamisen(t0, freq, vol) { // 三味線の撥（テン）＝盆踊り/民謡/炭坑節の弦の地。撥のベン＋さわり（高い倍音のビーン）＋短い減衰
+  const ctx = listener.context
+  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(freq * 1.015, t0); o.frequency.exponentialRampToValueAtTime(freq, t0 + 0.05) // 撥のベン（少し上から)
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq * 2.1; bp.Q.value = 2.4 // 鼻にかかった胴鳴り
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.46) // 撥いて減衰
+  o.connect(bp); bp.connect(g); g.connect(getFestOut()); o.start(t0); o.stop(t0 + 0.5)
+  const sv = ctx.createOscillator(); sv.type = 'triangle'; sv.frequency.value = freq * 3.01; const svg = ctx.createGain(); svg.gain.setValueAtTime(vol * 0.2, t0); svg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22); sv.connect(svg); svg.connect(getFestOut()); sv.start(t0); sv.stop(t0 + 0.26) // さわり
+}
 // 盆踊りのお囃子：太鼓の地(ドン・ドコ)＋鉦のチキチキ＋篠笛の素朴な旋律。旋律は民謡らしいヨナ抜き(陽音階 D E G A B D')のオリジナル
 // （炭坑節など特定の曲は模倣しない。「お祭り＝盆踊り」と分かる空気だけを作る）。1小節=2秒
 const FEST_TAIKO = [[0, 0.6], [0.5, 0.32], [0.75, 0.34], [1.0, 0.55], [1.25, 0.3], [1.5, 0.46], [1.75, 0.32]] // [拍, 強さ]＝踊れる地打ち
 const FEST_KANE = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75] // チキチキ…と刻む（裏拍中心）
+const FEST_SHAMI = [[0, 294], [0.5, 294], [0.75, 220], [1.0, 294], [1.5, 220], [1.75, 294]] // 三味線の地（テン・テンツク）＝民謡/炭坑節らしい弦の刻み。Dとその下のA
 const FEST_MEL = [ // 2小節の掛け合い [拍, 周波数Hz, 長さ秒]。陽音階で素朴に上がって下りる
   [[0, 440, 0.42], [0.5, 494, 0.22], [0.75, 587, 0.22], [1.0, 494, 0.42], [1.5, 440, 0.46]],            // 上の句（呼び）
   [[0, 392, 0.42], [0.5, 440, 0.22], [0.75, 392, 0.22], [1.0, 330, 0.4], [1.25, 392, 0.22], [1.5, 294, 0.62]], // 下の句（応え）
@@ -3664,8 +3673,9 @@ let festBar = 0
 function scheduleFestBar(t0) {
   for (const [b, v] of FEST_TAIKO) festTaiko(t0 + b, v) // 太鼓の地打ち
   for (const b of FEST_KANE) festKane(t0 + b, 0.05) // 鉦の刻み（控えめ）
+  for (const [b, f] of FEST_SHAMI) festShamisen(t0 + b, f, 0.075) // 三味線の地＝炭坑節/民謡らしい弦のテンツク
   const mel = FEST_MEL[festBar % FEST_MEL.length]; festBar++
-  for (const [b, f, d] of mel) festFlute(t0 + b, f, d, 0.13) // 篠笛の旋律（呼びと応えを交互に）
+  for (const [b, f, d] of mel) festFlute(t0 + b, f, d, 0.12) // 篠笛の旋律（呼びと応えを交互に）
 }
 function updateFestival(dt) {
   bonOdori.visible = FESTIVAL.days.indexOf(day) >= 0 // 盆踊り会場（校庭の櫓・提灯）は開催日だけ姿を見せる（音の有無に関わらず）
