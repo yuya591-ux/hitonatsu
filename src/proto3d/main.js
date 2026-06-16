@@ -1400,11 +1400,14 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
         const x0 = ox, y0 = oy + 3.9, z0 = oz, x1 = ex, y1 = ey + 2.7, z1 = ez, N = 3
         for (let k = 1; k <= N; k++) { const t = k / (N + 1), lx = x0 + (x1 - x0) * t, lz = z0 + (z1 - z0) * t, ly = y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * 0.5
           const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), toon(0xd9483a)); body.scale.y = 1.3; body.position.set(lx, ly, lz); bonOdori.add(body) // 赤い紙提灯（昼も見える）
-          const glow = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff8a4a, fog: false, transparent: true, opacity: 0 })); glow.scale.y = 1.3; glow.position.set(lx, ly, lz); bonOdori.add(glow) // 夜に灯る
-          townNightLights.push({ m: glow, base: 0.95, ph: Math.random() * 6 })
+          const glow = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffa84e, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.y = 1.3; glow.position.set(lx, ly, lz); bonOdori.add(glow) // 夜に大きく明るく灯る（加算でにじむ＝楽しげ）
+          townNightLights.push({ m: glow, base: 1.45, ph: Math.random() * 6 })
         }
       }
       const cs = new THREE.Mesh(new THREE.CircleGeometry(2.6, 18), shadowMat); cs.rotation.x = -Math.PI / 2; cs.position.set(ox, oy + 0.05, oz); bonOdori.add(cs) // 櫓の接地影（グループと一緒に出る）
+      // 会場ぜんたいに広がる暖かい光だまり（夜に灯る＝遠くからでも「楽しそう」と分かる賑わいの光）
+      const fglow = new THREE.Mesh(new THREE.CircleGeometry(12, 28), new THREE.MeshBasicMaterial({ color: 0xffb060, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); fglow.rotation.x = -Math.PI / 2; fglow.position.set(ox, oy + 0.06, oz); bonOdori.add(fglow)
+      townNightLights.push({ m: fglow, base: 0.34, ph: 0.7 })
       // ── 屋台（縁日：わたあめ・かき氷・やきそば）＝校庭の西側に並ぶ。夜は提灯が灯る ──
       const stalls = [['わたあめ', 0xd86a8a, oz - 5], ['かきごおり', 0x4a8ac0, oz], ['やきそば', 0xc0552e, oz + 5]]
       for (const [label, col, sz] of stalls) {
@@ -1414,9 +1417,9 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
         for (const dx of [-1.05, 1.05]) for (const dz of [-0.4, 0.4]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), woodD); post.position.set(dx, 1.3, dz); st.add(post) }
         const roof = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.12, 1.3), toon(col)); roof.position.y = 2.3; st.add(roof)
         const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({ map: textTex(label, '#fdf3da', '#b03a2e', false), transparent: true })); sign.position.set(0, 1.98, 0.66); st.add(sign) // 品書きの幕
-        const lan = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 10), new THREE.MeshBasicMaterial({ color: 0xff7a3a, fog: false, transparent: true, opacity: 0 })); lan.scale.y = 1.25; lan.position.set(-1.0, 1.8, 0.6); st.add(lan)
+        const lan = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffa84e, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); lan.scale.y = 1.3; lan.position.set(-1.0, 1.85, 0.62); st.add(lan)
         st.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(st, 0.03); bonOdori.add(st)
-        townNightLights.push({ m: lan, base: 1.0, ph: Math.random() * 6 })
+        townNightLights.push({ m: lan, base: 1.5, ph: Math.random() * 6 })
       }
     }
   }
