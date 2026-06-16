@@ -1709,6 +1709,21 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 0.9, 0.4), toonMap(0xbcb6a4, plasterTex)); wall.position.set(T.x + dx, 0.45, T.z + dz - 5); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall) // ブロック塀（道側）
   }
   for (const [dx, dz, ts] of [[-208, 7, 1.0], [-186, 6, 1.1], [-236, 10, 1.0], [-160, 8, 0.95], [-200, -14, 1.05], [-150, 4, 0.9]]) makeTree(T.x + dx, T.z + dz, ts) // 二つ池の周り・道沿いの木立
+  // ── 児童公園（住宅街の一角・昭和の遊具：滑り台・砂場・ベンチ）＝子どもの遊び場の気配 ──
+  {
+    const px = T.x - 188, pz = T.z + 28, py = heightAt(px, pz)
+    const sand = new THREE.Mesh(new THREE.CircleGeometry(2.0, 6), new THREE.MeshToonMaterial({ color: 0xcdb389, gradientMap: GRAD, map: watercolorTex })); sand.rotation.x = -Math.PI / 2; sand.position.set(px - 3.5, py + 0.06, pz + 1.5); scene.add(sand) // 砂場
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const edge = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.28, 0.22), toon(0x8a6a44)); edge.position.set(px - 3.5 + Math.cos(a) * 2, py + 0.14, pz + 1.5 + Math.sin(a) * 2); edge.rotation.y = -a; scene.add(edge) } // 砂場の木枠
+    const sl = new THREE.Group() // 滑り台
+    for (const [lx, lz] of [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), toon(0x8aa0b0)); leg.position.set(lx, 1.0, lz); sl.add(leg) }
+    const plat = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 1.1), toon(0xb04a3a)); plat.position.y = 2.0; sl.add(plat)
+    for (let i = 0; i < 5; i++) { const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 6), toon(0xc0c0b0)); rung.rotation.z = Math.PI / 2; rung.position.set(0, 0.4 + i * 0.4, -0.56); sl.add(rung) } // はしご
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 3.0), toon(0xd8cba0)); slide.position.set(0, 1.1, 1.55); slide.rotation.x = 0.62; sl.add(slide) // すべり面
+    for (const sx of [-0.42, 0.42]) { const sr = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.26, 3.0), toon(0xb04a3a)); sr.position.set(sx, 1.22, 1.55); sr.rotation.x = 0.62; sl.add(sr) } // すべり面の縁
+    sl.traverse((o) => { if (o.isMesh) o.castShadow = true }); sl.position.set(px + 1.5, py, pz - 1); mergedOutline(sl, 0.02); addContactShadow(sl, 1.6); addCollider(px + 1.5, pz - 1, 0.9); scene.add(sl)
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.5), toon(0x9a6a3a)); bench.position.set(px - 4, py + 0.45, pz - 3); bench.castShadow = true; addOutline(bench, 0.02); scene.add(bench)
+    for (const lx of [-0.8, 0.8]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.4), toon(0x7a5230)); leg.position.set(px - 4 + lx, py + 0.22, pz - 3); scene.add(leg) }
+  }
   // 学校前通り：孤立していた高校(南)を、校舎群の東を回り込んで町へ繋ぐ（建物footprintを避けて東へ）
   makeRoadRibbon(T.x - 32, T.z - 35, T.x - 15, T.z - 30, 4, false) // 高校の昇降口前→東へ抜ける
   makeRoadRibbon(T.x - 15, T.z - 30, T.x - 6, T.z - 4, 4, false)   // →北上して本通りへ合流
