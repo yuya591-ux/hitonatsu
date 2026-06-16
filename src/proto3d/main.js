@@ -2476,7 +2476,7 @@ const PROP = {
   waistY: 0.84, chestY: 1.18, torsoTopR: 0.132, torsoBotR: 0.112, // 胴：縦長・すっきり（ずんぐり解消）
   neckY: 1.37, headY: 1.575, headR: 0.145, headSX: 1.05, headSY: 1.12, headSZ: 1.03, // 頭：小さめ＝頭身を上げる
   eyeR: 0.031, eyeX: 0.057, eyeY: 0.012, eyeZ: 0.12, irisRatio: 0.6, // 目：小さめで繊細（黒目を小さく＝白目とのバランスを自然に）
-  hair: 0x6e4d34, hairTop: 0.17, hairExtent: 0.46, hairY: 0.0, hairTilt: -0.10, // 髪：色・帯の開始(頭頂はπ*0.17ぶん開けて帽子が覆う＝クラウンから突き出ない)・帯の長さ・高さ・控えめな後傾
+  hair: 0x6e4d34, hairTop: 0.37, hairExtent: 0.32, hairY: 0.0, hairTilt: -0.05, // 髪：色・帯の開始(髪の上端をつばより下に＝つばのひさしが隠す＝クラウンから突き出ない)・帯の長さ・高さ・ごく控えめな後傾
   hatBrim: 0.27, hatBrimY: 0.085, hatCap: 0.15, hatCapY: 0.085, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)
 }
 function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
@@ -2665,9 +2665,9 @@ function makeVillager(x, z, opt) {
   // 帽子をかぶる村人は「つばの下に見える帯」、帽子なしの村人は頭頂まで覆う「フルキャップ」（帽子なしが頭頂禿げにならないよう分岐）
   const hatted = opt.hat === 'straw' || opt.hat === 'cap' || opt.hat === 'bucket'
   const hair = hatted
-    ? new THREE.Mesh(new THREE.SphereGeometry(0.152, 18, 14, 0, Math.PI * 2, Math.PI * 0.32, Math.PI * 0.34), hairCol)
+    ? new THREE.Mesh(new THREE.SphereGeometry(0.152, 18, 14, 0, Math.PI * 2, Math.PI * 0.43, Math.PI * 0.3), hairCol)
     : new THREE.Mesh(new THREE.SphereGeometry(0.161, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.6), hairCol)
-  hair.position.set(0, hy + (hatted ? 0.006 : 0.028), hatted ? -0.004 : -0.008); hair.rotation.x = hatted ? -0.05 : -0.22; g.add(hair) // 帽子ありは帯（つばより上に髪が出ない）／帽子なしは頭頂を覆う
+  hair.position.set(0, hy + (hatted ? 0.0 : 0.028), hatted ? -0.004 : -0.008); hair.rotation.x = hatted ? -0.02 : -0.22; g.add(hair) // 帽子ありは「つばより下」の帯（つばのひさしが隠す＝クラウンから髪が突き出ない）／帽子なしは頭頂を覆う
   const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.18), hairCol); bangs.position.set(0, hy + 0.03, 0.05); bangs.rotation.x = 0.16; g.add(bangs) // 前髪＝つばの下からのぞく額のひと房（つばより下）
   const nape = new THREE.Mesh(new THREE.SphereGeometry(0.152, 14, 10, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.4), hairCol); nape.position.set(0, hy - 0.01, -0.038); g.add(nape) // 後頭部〜襟足
   const hairParts = [hair, bangs, nape]
