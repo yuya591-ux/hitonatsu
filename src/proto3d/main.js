@@ -3215,7 +3215,7 @@ const AUDIO = {
   thunderStart: 0.34, // 遠雷が鳴り始めるweather（本降りのときだけ＝紛らわしい低音を出さない）
   festVol: 0.6,       // 縁日のお囃子の基準音量（近づくと最大）
   festRefDist: 9,     // この距離以内で最大。離れるほど小さく＝音をたどって屋台へ
-  festRolloff: 0.045, // 距離減衰の強さ（小さいほど遠くまで届く＝高台からも微かに聞こえる）
+  festMaxDist: 135,   // この距離で無音。近づくほど大きく＝音をたどって屋台へ（高台=約105からも微かに聞こえる）
   rainBgmVol: 0.14,   // 雨のときだけ流す神秘的BGMの音量
 }
 // 縁日の開催：将来の複数日に備え、開催日と時間帯を設定で変えられる作り（今は1日目の夜に必ず）
@@ -3441,6 +3441,51 @@ function getNoise() {
   const d = noiseBuf.getChannelData(0)
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
   return noiseBuf
+}
+// ── 縁日のお囃子（自前合成・太鼓＋篠笛）。屋台からの距離で音量が変わる＝小さく聞こえる音をたどると縁日に着く（このゲームの核） ──
+const FEST_POS = new THREE.Vector2(TOWN.x - 7, TOWN.z + 19) // 屋台の位置(x,z)
+let festGain = null, festNextBar = 0
+function getFestOut() {
+  const ctx = listener.context
+  if (festGain && festGain.context === ctx) return festGain
+  festGain = ctx.createGain(); festGain.gain.value = 0
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3000 // 遠くの祭りらしくやわらかく
+  festGain.connect(lp); lp.connect(getMaster())
+  return festGain
+}
+function festTaiko(t0, vol) { // 太鼓のドン（低いサインの下降＋ばちの当たり）
+  const ctx = listener.context
+  const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(155, t0); o.frequency.exponentialRampToValueAtTime(56, t0 + 0.18)
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32)
+  o.connect(g); g.connect(getFestOut()); o.start(t0); o.stop(t0 + 0.34)
+  const n = ctx.createBufferSource(); n.buffer = getNoise(); const nb = ctx.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = 1600
+  const ng = ctx.createGain(); ng.gain.setValueAtTime(vol * 0.45, t0); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05)
+  n.connect(nb); nb.connect(ng); ng.connect(getFestOut()); n.start(t0); n.stop(t0 + 0.07)
+}
+function festFlute(t0, freq, dur, vol) { // 篠笛のお囃子（三角波＋ビブラート＋バンドパス）
+  const ctx = listener.context
+  const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(freq, t0)
+  const vib = ctx.createOscillator(); vib.frequency.value = 5.5; const vg = ctx.createGain(); vg.gain.value = freq * 0.013
+  vib.connect(vg); vg.connect(o.frequency); vib.start(t0); vib.stop(t0 + dur + 0.05)
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq * 1.4; bp.Q.value = 1.6
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.05); g.gain.setValueAtTime(vol, t0 + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+  o.connect(bp); bp.connect(g); g.connect(getFestOut()); o.start(t0); o.stop(t0 + dur + 0.03)
+}
+const FEST_MEL = [880, 988, 1047, 988, 880, 784, 0, 880] // お囃子の素朴な旋律（C系ペンタ寄り・0=休符）。1小節=2秒
+function scheduleFestBar(t0) {
+  festTaiko(t0, 0.5); festTaiko(t0 + 0.5, 0.3); festTaiko(t0 + 0.75, 0.3); festTaiko(t0 + 1.0, 0.5); festTaiko(t0 + 1.5, 0.28) // ドン・ドコのリズム
+  for (let i = 0; i < FEST_MEL.length; i++) { const f = FEST_MEL[i]; if (f) festFlute(t0 + i * 0.25, f, 0.2, 0.14) } // 篠笛
+}
+function updateFestival(dt) {
+  if (!audioStarted) return
+  const out = getFestOut(), ctx = listener.context
+  const onDay = FESTIVAL.days.indexOf(day) >= 0
+  const tw = onDay ? THREE.MathUtils.smoothstep(tday, FESTIVAL.from, FESTIVAL.from + 0.05) * (1 - THREE.MathUtils.smoothstep(tday, FESTIVAL.to - 0.03, FESTIVAL.to)) : 0 // 開催日の夕方〜夜だけ
+  const dist = Math.hypot(boy.position.x - FEST_POS.x, boy.position.z - FEST_POS.y)
+  const da = Math.pow(THREE.MathUtils.clamp((AUDIO.festMaxDist - dist) / (AUDIO.festMaxDist - AUDIO.festRefDist), 0, 1), 1.4) // 近いほど大・遠いほど小＝音をたどれる
+  const target = AUDIO.festVol * tw * da
+  out.gain.setTargetAtTime(target, ctx.currentTime, 0.4)
+  if (target > 0.004) { const now = ctx.currentTime; if (festNextBar < now + 0.1) festNextBar = now + 0.1; while (festNextBar < now + 0.7) { scheduleFestBar(festNextBar); festNextBar += 2.0 } } // 聞こえる範囲のときだけ先読み
 }
 function playStep(vol, town) { // 足音：草はやわらかい低音、舗装は少し明るい擦れ
   if (!audioStarted) return
@@ -4201,6 +4246,7 @@ function update(dt) {
   // 雨音：weather に合わせて音量を上げ下げ（クリックしないよう setTargetAtTime でなめらかに）。遠雷もたまに
   if (rainGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.5, 0, AUDIO.rainVol); rainGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 0.6) } // 本降りのときだけ雨音（薄曇りの“どしゃどしゃ”を消す）
   maybeThunder(dt)
+  updateFestival(dt) // 縁日のお囃子（屋台からの距離で音量が変わる＝音をたどって縁日へ）
   maybeCricket(dt) // 夜の虫の音
   // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
   if (lastWeatherForDrip > 0.4 && weather < 0.28) { dripQueue = 8; if (nightFactor(tday) < 0.2) rainbowTimer = 26 }
@@ -4887,7 +4933,7 @@ const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
 const setInkBtn = document.getElementById('set-ink')
-const settings = { sound: true, bgm: true, motion: false, sens: 1, ink: true }
+const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true } // BGM(オルゴール)は既定OFF＝常時BGMなしで環境音中心。設定でONにも戻せる（縁日/雨の音は別系統で常時有効）
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
@@ -4965,6 +5011,8 @@ window.__proto3d = {
   },
   _weather(v) { weather = v; weatherTarget = v; weatherTimer = 999 }, // 検証用：夕立 0=晴 1=雨
   get _rainVol() { return rainGain ? rainGain.gain.value : -1 }, // 検証用：雨音の音量
+  get _festVol() { return festGain ? festGain.gain.value : -1 }, // 検証用：縁日の音量（距離で変わる）
+  _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
   get _camYaw() { return camCtl.yaw }, get _facing() { return facing }, // 検証用：カメラ追従
