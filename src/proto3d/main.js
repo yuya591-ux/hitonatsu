@@ -120,7 +120,7 @@ const CEL = {
   outlineScale: 1.5,    // 輪郭線の太さ倍率（背面法ハルの膨らみ・全体に効く）
   bands: 3,             // トゥーンの階調数（2〜4。少ないほどパキッとセル画）
   shadowFloor: 0.52,    // 影側の明るさの床（0=真っ黒 1=影なし）
-  skinFloor: 0.66,      // 肌の影の床（顔が黒く潰れないよう高め）
+  skinFloor: 0.75,      // 肌の影の床（顔が黒く潰れないよう高め）＝逆光でも顔が見える
   inkEdges: true,       // ポストプロセスのエッジ線（深度/法線ベースの内側の線）ON/OFF＝重い端末は切れる
   inkStrength: 0.85,    // エッジ線の濃さ
   inkThickness: 1.2,    // エッジ線の太さ（テクセル）
@@ -144,7 +144,7 @@ const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
 // プレイヤーを向く村人/通行人の顔は“逆光（太陽の反対側）”でトゥーンの暗い段に落ち、顔が真っ黒に潰れていた。
 // 肌だけ陰影の最暗を持ち上げ＋肌色の淡い自発光で、どの向きでも顔がやさしく見えるようにする。
 const GRAD_SKIN = toonGradient(CEL.bands, CEL.skinFloor)
-const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.07) }) // 自発光は控えめ＝のっぺりを防ぎ顔に陰影を残す（逆光で黒潰れしない程度）
+const skinToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD_SKIN, emissive: new THREE.Color(color).multiplyScalar(0.13) }) // 自発光をやや上げ＝逆光でも顔が黒く潰れず見える（のっぺりは色の柔らかさで回避）
 
 // ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: CEL.outline, side: THREE.BackSide, fog: true }) // ほぼ黒のインク線（セル画/手描きアニメの輪郭）。CEL.outlineで色・CEL.outlineScaleで太さ
@@ -2468,8 +2468,11 @@ const PROP = {
   waistY: 0.84, chestY: 1.18, torsoTopR: 0.132, torsoBotR: 0.112, // 胴：縦長・すっきり（ずんぐり解消）
   neckY: 1.37, headY: 1.575, headR: 0.145, headSX: 1.05, headSY: 1.12, headSZ: 1.03, // 頭：小さめ＝頭身を上げる
   eyeR: 0.031, eyeX: 0.057, eyeY: 0.012, eyeZ: 0.12, irisRatio: 0.6, // 目：小さめで繊細（黒目を小さく＝白目とのバランスを自然に）
+  hair: 0x4a3726, hairExtent: 0.5, hairY: 0.022, // 髪：色(やや明るい茶＝黒い塊にしない)・覆う範囲(0.5π＝短めで顔をふさがない)・高さ
+  hatBrim: 0.265, hatCap: 0.15, hatY: 0.07,      // 麦わら帽子：つば半径・椀半径・高さ（小さい頭にぴったり乗せ浮きをなくす）
 }
 function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
+const NET_REST = -0.95 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る
 function makeBoy() {
   const g = new THREE.Group(); const P = PROP
   const skin = skinToon(0xf1cdb5), shirt = toon(0xeef0ea), pants = toon(0x4f6f96), hat = toon(0xe6c074) // 自然で柔らかい肌・白い半袖シャツ・紺の半ズボン・麦わら帽子
@@ -2511,20 +2514,20 @@ function makeBoy() {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.11, 14), skin); neck.position.y = P.neckY; g.add(neck)
   // あたま＝小さめ（頭身を上げる）。顔・髪は頭の子に付けて見回しで一緒に動く
   const head = new THREE.Mesh(new THREE.SphereGeometry(P.headR, 22, 20), skin); head.scale.set(P.headSX, P.headSY, P.headSZ); head.position.y = P.headY; g.add(head)
-  // 短い髪（額・襟足を覆う・麦わらの下から見える）
-  const hairCol = toon(0x3a2a1e)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.01, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.62), hairCol); hair.position.set(0, 0.018, -0.006); hair.rotation.x = -0.2; head.add(hair)
-  const nape = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.004, 14, 10, 0, Math.PI * 2, Math.PI * 0.52, Math.PI * 0.42), hairCol); nape.position.set(0, -0.02, -0.03); head.add(nape)
-  // むぎわら帽子（小さい頭に合わせる）。頭の子に付けて見回しに追従
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.02, 22), hat); brim.position.y = 0.1; head.add(brim)
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.155, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.position.y = 0.1; head.add(cap)
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.035, 22), toon(0x5b7a9c)); band.position.y = 0.115; head.add(band) // 帽子のリボン（青）
+  // 短い髪＝頭頂〜後頭部を覆う“すっきりした短髪”。前は額の上で止め（目に垂れない）、横は耳の上で止める（顔をふさがない＝黒い塊にしない）
+  const hairCol = toon(P.hair)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.006, 18, 14, 0, Math.PI * 2, 0, Math.PI * P.hairExtent), hairCol); hair.position.set(0, P.hairY, -0.008); hair.rotation.x = -0.16; head.add(hair)
+  const nape = new THREE.Mesh(new THREE.SphereGeometry(P.headR + 0.002, 14, 10, 0, Math.PI * 2, Math.PI * 0.56, Math.PI * 0.34), hairCol); nape.position.set(0, -0.02, -0.03); head.add(nape) // 後頭部〜襟足だけ
+  // むぎわら帽子（小さい頭にぴったり乗せる）。頭の子に付けて見回しに追従。capを頭頂に被せ、brimは少し下げて“浮き”をなくす
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(P.hatBrim, P.hatBrim, 0.02, 22), hat); brim.position.y = P.hatY; head.add(brim)
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(P.hatCap, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.62), hat); cap.position.y = P.hatY - 0.05; head.add(cap) // 深めの椀＝頭にかぶさる（浮き解消）
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(P.hatCap * 0.92, P.hatCap * 0.92, 0.03, 22), toon(0x5b7a9c)); band.position.y = P.hatY + 0.01; head.add(band) // 帽子のリボン（青）
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), toon(0x9a7b4a)); pole.position.y = 0.55; net.add(pole)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 6, 14), toon(0x8a6b3a)); ring.position.y = 1.3; ring.rotation.x = Math.PI / 2; net.add(ring)
-  const bag = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.28, side: THREE.DoubleSide })); bag.position.y = 1.3; bag.rotation.x = Math.PI; net.add(bag)
-  net.position.set(0.26, 0.98, -0.08); net.rotation.set(-0.2, 0, -0.55) // 肩にかつぐ（高くなった肩に合わせる）
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.05, 6), toon(0x9a7b4a)); pole.position.y = 0.42; net.add(pole) // 短めの柄
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 6, 14), toon(0x8a6b3a)); ring.position.y = 0.9; ring.rotation.x = Math.PI / 2; net.add(ring)
+  const bag = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.24, side: THREE.DoubleSide })); bag.position.y = 0.9; bag.rotation.x = Math.PI; net.add(bag)
+  net.position.set(0.15, 0.95, 0.0); net.rotation.set(NET_REST, 0, -0.28) // 肩にかつぐ＝柄を後ろへ寝かせ網は背中側へ低く（rotation.xは虫採りアニメがNET_RESTで上書き）
   net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
   g.add(net)
   // 小さな赤いリュック（夏の探検・参考作品のシルエットに寄せる。オリジナル造形）。背中(-z)に
@@ -4327,8 +4330,8 @@ function update(dt) {
   if (boy.userData.swing > 0) {
     boy.userData.swing = Math.max(0, boy.userData.swing - dt * 1000)
     const sw = Math.sin((1 - boy.userData.swing / 320) * Math.PI)
-    boy.userData.net.rotation.x = -0.2 - sw * 1.9
-  } else boy.userData.net.rotation.x = -0.2
+    boy.userData.net.rotation.x = NET_REST - sw * 1.15 // 肩の上の網を前へ振って採る（振り切り角は従来どおり）
+  } else boy.userData.net.rotation.x = NET_REST // ふだんは肩にかつぐ＝柄を後ろへ寝かせ網は背中側へ（浮き/飛び解消）
   // 池に近づいたら“見た”ことを記録（絵日記用）
   if (Math.hypot(boy.position.x - POND.x, boy.position.z - POND.z) < POND.r + 2) todayFlags.sawPond = true
   // 環境音：時刻でクロスフェード＋夕方に一度だけ夕焼けチャイム
