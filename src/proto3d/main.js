@@ -849,10 +849,29 @@ function drawWire(a, b, sag) {
 drawWire(poleA, poleB, 1.2)
 drawWire(poleB, new THREE.Vector3(HOUSE.x, heightAt(HOUSE.x, HOUSE.z) + 3.5, HOUSE.z), 0.8)
 
-// ── 野原の素朴な土道（家↔小川/池/門。原っぱの開けた感じは保ちつつ“歩いて味わう”踏み跡を足す。池は避けて通す）──
+// ── 野原の道づくり（田舎の集落の道）＝歩いて「町」だと感じる幹線の土道＋水辺への踏み跡 ──
+// 集落の一本道（締まった土道・幅3.4〜3.6）：町の門 → 池と田の「くびれ」を抜け → 池の南を西へ → 家の前。原っぱの背骨。
+makeRoadRibbon(42, 35, 40, 31, 3.4, false)     // 門 → くびれの入口へ
+makeRoadRibbon(40, 31, 39.3, 14, 3.4, false)   // 池の東と田の西の「くびれ」をまっすぐ抜ける
+makeRoadRibbon(39.3, 14, 34, 6, 3.4, false)    // くびれを出て池の南東をかすめ下る
+makeRoadRibbon(34, 6, 16, 3, 3.6, false)       // 池の南を西へ（開けた原を横切る本道）
+makeRoadRibbon(16, 3, -1, 6, 3.6, false)       // 家の前へ
+makeRoadRibbon(41, 31, 46, 29, 2.4, false)     // 本道 → バス停への短い枝
+// 家から北・水辺への踏み跡（細い土道）
 makeRoadRibbon(-13, 13, -12, 29.5, 1.8, false) // 家→小川/太鼓橋（水あそびへの踏み跡）
 makeRoadRibbon(-12, 12, 14, 13, 1.8, false)    // 家→池の西岸（魚を見にいく道）
-makeRoadRibbon(41, 33, 38, 16, 2.2, false)     // 門→池の東岸（町からの来訪者の道）
+makeRoadRibbon(-2, 7, -12, 12, 1.8, false)     // 本道（家の前）→ 北の踏み跡へつなぐ
+makeRoadRibbon(41, 33, 38, 16, 2.2, false)     // 門→池の東岸（来訪者の脇道・残置）
+// 小川の南岸ぞいに鳥居（神社の入口）まで＝川を横目に歩く参道
+makeRoadRibbon(-12, 29, -27, 32.5, 2.0, false)
+makeRoadRibbon(-27, 32.5, -39, 35.5, 2.0, false)
+// 本道ぞいの電柱＋電線（霧の奥へ続く＝道が「どこかへ通じている」気配）
+const fpoleA = makePole(28, 1)
+const fpoleB = makePole(12, 1)
+const fpoleC = makePole(-3, 4)
+drawWire(fpoleA, fpoleB, 1.0); drawWire(fpoleB, fpoleC, 1.0)
+// 辻の道しるべ（家の前＝本道の分かれ目）
+makeSignpost(-4, 9, 0.5, '← じんじゃ　まち →')
 
 // ── 住宅街エリア（昭和の街並み：家・ブロック塀・電柱・空き地の土管）＝ドラえもん的な往来先 ──
 const GATE_FIELD = new THREE.Vector3(42, 0, 36)            // 野原側の出入口（→町へ）
@@ -2163,7 +2182,7 @@ function makeRicePaddy(cx, cz, w, d) {
   rice.count = n; rice.instanceMatrix.needsUpdate = true; rice.castShadow = false; scene.add(rice)
 }
 makeRicePaddy(48, -14, 18, 15) // 西どなりの田
-makeRicePaddy(50, 26, 20, 13)  // 門の手前の田
+makeRicePaddy(51, 26, 20, 13)  // 門の手前の田（本道の「くびれ」を通すため西端を1mだけ東へ）
 // 用水路（コンクリ三面＋水＝田の南を走る人工水路。小川とは別）
 { const uy = heightAt(51, -22)
   const trough = new THREE.Mesh(new THREE.BoxGeometry(24, 0.4, 1.2), toon(0xb8b4a8)); trough.position.set(51, uy + 0.18, -22.3); trough.castShadow = true; addOutline(trough, 0.02); scene.add(trough)
@@ -2440,6 +2459,7 @@ function makeBoy() {
 const boy = makeBoy()
 const BOY_SCALE = 0.85 // 基準スケール（さらに小柄に）。ジャンプの伸び縮みはこれに掛ける
 boy.scale.setScalar(BOY_SCALE) // 体全体をもう少し小さく
+boy.rotation.order = 'YXZ' // ★向き(y)を最外＝前傾(x)は常に「進行方向へ前のめり」になる。XYZだと東西を向いた時に前傾が横倒れ＝左に傾く不具合になる
 boy.position.set(0, heightAt(0, 6), 6)
 outlineObj(boy, 0.03)
 // 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
@@ -3927,7 +3947,7 @@ function standUp() {
   boy.userData.kneeL.rotation.x = 0.12; boy.userData.kneeR.rotation.x = 0.12
   boy.userData.ankleL.rotation.x = 0; boy.userData.ankleR.rotation.x = 0
   boy.userData.elbowL.rotation.x = 0; boy.userData.elbowR.rotation.x = 0 // 座りの肘曲げを戻す
-  boy.rotation.x = 0; boy.rotation.order = 'XYZ' // 歩行は通常のXYZへ戻す（寝そべりでYXZに変えていたのを復帰）
+  boy.rotation.x = 0; boy.rotation.order = 'YXZ' // 歩行もYXZ＝前傾は常に進行方向へ（XYZだと向き次第で左へ傾く不具合）
   boy.visible = true
   boy.position.y = heightAt(boy.position.x, boy.position.z)
   idleTime = 0
