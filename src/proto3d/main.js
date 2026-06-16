@@ -3156,18 +3156,18 @@ for (let i = 0; i < 7; i++) {
 
 // ── 夕立（時おり通り雨。空が陰り、雨が降って すぐ晴れる＝夏の通り雨）──
 let weather = 0, weatherTarget = 0, weatherTimer = 260 + Math.random() * 220 // 0=快晴 1=本降り。夏は基本晴れ＝最初の通り雨まで長く
-let rainGain = null, rainStarted = false, thunderCd = 12 // 雨音（自前合成）・遠雷のクールダウン
-const RAINN = 280, RAIN_BOX = 15, RAIN_H = 17
+let rainGain = null, rainLP = null, rainStarted = false, thunderCd = 12, dropletCd = 0 // 雨音（自前合成）・LPF（weatherで開閉）・遠雷/しずくのクールダウン
+const RAINN = 440, RAIN_BOX = 15, RAIN_H = 17 // 雨粒の数（増やして見やすく）
 const rainGeo = new THREE.BufferGeometry()
 const rainPos = new Float32Array(RAINN * 6)
 const rainY = new Float32Array(RAINN)
 for (let i = 0; i < RAINN; i++) {
   const rx = (Math.random() - 0.5) * 2 * RAIN_BOX, rz = (Math.random() - 0.5) * 2 * RAIN_BOX
   rainY[i] = Math.random() * RAIN_H
-  rainPos[i * 6] = rx; rainPos[i * 6 + 2] = rz; rainPos[i * 6 + 3] = rx + 0.06; rainPos[i * 6 + 5] = rz // 上端と下端（少し斜め）
+  rainPos[i * 6] = rx; rainPos[i * 6 + 2] = rz; rainPos[i * 6 + 3] = rx + 0.16; rainPos[i * 6 + 5] = rz // 上端と下端（斜めの雨足）
 }
 rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3))
-const rainMesh = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xb4c6d6, transparent: true, opacity: 0, fog: false }))
+const rainMesh = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xd2e0ee, transparent: true, opacity: 0, fog: false })) // 明るい雨足＝見やすく
 rainMesh.frustumCulled = false; scene.add(rainMesh)
 // ── 光のボケ（雨×夕暮れ/夜に、軒の灯り・雨粒がにじむ玉ボケ＝「夏の雨、夕暮れ」の空気）──
 const BOKEHN = 64
@@ -3348,7 +3348,7 @@ const AUDIO = {
   ambMaster: 0.5,     // 環境音(朝/蝉/ヒグラシ/夜)の基準音量。主張しすぎない控えめ
   nightAmb: 0.34,     // 夜の虫(カエルのような音)の音量倍率＝大きく下げて「眠れる静けさ」に
   morningAmb: 0.85,   // 朝の鳥のさえずりの倍率
-  rainStart: 0.24,    // 雨音が鳴り始めるweather（これ未満の薄曇りでは鳴らさない＝“どしゃどしゃ”の正体＝薄い雨音を消す）
+  rainStart: 0.1,     // 雨音が鳴り始めるweather。やさしい雨(0.4)もちゃんと聞こえる。低weatherはLPFでやわらかく＝“どしゃどしゃ”でなく癒しのポツポツに
   rainVol: 0.2,       // 雨音の最大音量
   thunderStart: 0.34, // 遠雷が鳴り始めるweather（本降りのときだけ＝紛らわしい低音を出さない）
   festVol: 0.6,       // 縁日のお囃子の基準音量（近づくと最大）
@@ -3438,11 +3438,22 @@ function initRainAudio() {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
     const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 340
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2300; lp.Q.value = 0.4
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.4; rainLP = lp // weatherで開閉＝弱い雨はやわらかく/本降りははっきり
     rainGain = ctx.createGain(); rainGain.gain.value = 0
     src.connect(hp); hp.connect(lp); lp.connect(rainGain); rainGain.connect(getSfxOut())
     src.start()
     rainStarted = true
+  } catch (e) {}
+}
+// やさしい雨の「ポツ…ポツ」＝近くの軒/葉に当たる雫（ASMR的な癒し）。弱〜中の雨で個々の雫が聞こえる感じに
+function playDroplet() {
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, t0 = ctx.currentTime
+    const n = ctx.createBufferSource(); n.buffer = getNoise(); n.playbackRate.value = 0.7 + Math.random() * 0.6
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 850 + Math.random() * 1500; bp.Q.value = 1.3
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.045 + Math.random() * 0.04, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05 + Math.random() * 0.07)
+    n.connect(bp); bp.connect(g); g.connect(getSfxOut()); n.start(t0); n.stop(t0 + 0.16)
   } catch (e) {}
 }
 // ── 雨のときだけ流す神秘的なBGM（自前合成・やわらかいパッド）。雨が止むとゆっくりフェードアウト。
@@ -4397,8 +4408,8 @@ function update(dt) {
   // 夕立：時おり通り雨。空が陰り→雨→すぐ晴れる
   weatherTimer -= dt
   if (weatherTimer <= 0) {
-    if (weatherTarget > 0.5) { weatherTarget = 0; weatherTimer = 380 + Math.random() * 340 } // 雨→晴れ（夏は基本ずっと晴れ＝雨はたまに・4日に1回くらいの体感）
-    else { weatherTarget = 1; weatherTimer = 12 + Math.random() * 12 } // 晴れ→夕立（短い通り雨）
+    if (weatherTarget > 0.2) { weatherTarget = 0; weatherTimer = 360 + Math.random() * 320 } // 雨→晴れ（夏は基本ずっと晴れ＝雨はたまに）
+    else { const gentle = Math.random() < 0.62; weatherTarget = gentle ? 0.4 : 1.0; weatherTimer = (gentle ? 36 : 14) + Math.random() * 18 } // 晴れ→雨。6割は“やさしい雨(ポツポツ・ASMR)”で長め・4割は夕立(土砂降り)で短い
   }
   weather += (weatherTarget - weather) * Math.min(1, dt * 0.3)
   gradePass.uniforms.rain.value = weather
@@ -4418,15 +4429,18 @@ function update(dt) {
     }
   }
   rainMesh.visible = weather > 0.03
-  rainMesh.material.opacity = Math.min(1, weather * 1.5) * 0.62
+  rainMesh.material.opacity = Math.min(1, weather * 1.6) * 0.78 // 明るめ＝雨がはっきり見える
   if (rainMesh.visible) {
     rainMesh.position.set(camera.position.x, camera.position.y - 6.5, camera.position.z)
-    const pa = rainGeo.attributes.position, fall = 30 * dt
-    for (let i = 0; i < RAINN; i++) { rainY[i] -= fall; if (rainY[i] < 0) rainY[i] += RAIN_H; pa.array[i * 6 + 1] = rainY[i] + 0.85; pa.array[i * 6 + 4] = rainY[i] }
+    const pa = rainGeo.attributes.position, fall = (18 + weather * 22) * dt, len = 1.0 + weather * 0.9 // 弱い雨はゆっくり短く・本降りは速く長い雨足
+    for (let i = 0; i < RAINN; i++) { rainY[i] -= fall; if (rainY[i] < 0) rainY[i] += RAIN_H; pa.array[i * 6 + 1] = rainY[i] + len; pa.array[i * 6 + 4] = rainY[i] }
     pa.needsUpdate = true
   }
   // 雨音：weather に合わせて音量を上げ下げ（クリックしないよう setTargetAtTime でなめらかに）。遠雷もたまに
-  if (rainGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.5, 0, AUDIO.rainVol); rainGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 0.6) } // 本降りのときだけ雨音（薄曇りの“どしゃどしゃ”を消す）
+  if (rainGain) { const rctx = listener.context, tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.62, 0, AUDIO.rainVol); rainGain.gain.setTargetAtTime(tgt, rctx.currentTime, 0.6)
+    if (rainLP) rainLP.frequency.setTargetAtTime(480 + weather * weather * 1950, rctx.currentTime, 0.7) } // 弱い雨=やわらかく(LPF閉じ＝癒しのポツポツ)・本降り=はっきり(開く)
+  dropletCd -= dt // やさしい雨のポツポツ（弱〜中の雨で個々の雫が聞こえる＝ASMR）
+  if (audioStarted && weather > 0.12 && weather < 0.78 && dropletCd <= 0) { playDroplet(); dropletCd = 0.16 + Math.random() * 0.5 * (1.3 - weather) }
   if (rainBgmGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.8, 0, AUDIO.rainBgmVol); rainBgmGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 1.8) } // 雨のときだけ神秘的BGMをゆっくり立ち上げ／止むとフェードアウト
   maybeThunder(dt)
   updateFestival(dt) // 縁日のお囃子（屋台からの距離で音量が変わる＝音をたどって縁日へ）
