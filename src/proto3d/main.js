@@ -23,6 +23,7 @@ const HOUSE = { x: -17, z: 13 } // 昭和の田舎家（縁側）の位置
 const TOWN = { x: 1000, z: 0 } // 住宅街エリアは遠くにオフセット（霧で野原と分離）。x>500=街
 const MOUNT = { x: TOWN.x + 6, z: TOWN.z + 92, h: 32, w: 46, d: 30 } // 町の北にそびえる裏山（頂上で街を一望）。勾配をなだらかにして“道”が斜めからも見えるように（急峻だと路面がエッジオンで線に見える）
 const MOUNT2 = { x: TOWN.x - 20, z: TOWN.z + 82, h: 30, w: 38, d: 24 } // 裏山の南西の“もう一つの峰”(980,82)。手前すぎたので奥(北)へ寄せ、折り返しの道がこの峰を上ってベンチ(994,83)へ届く高さに。南の町は守る(zクリップ)
+const MOUNT3 = { x: TOWN.x - 114, z: TOWN.z + 82, h: 28, w: 32, d: 24 } // ヘアピン道の“すぐ西の原っぱ”(886,82)を見晴らしベンチくらいの高さの山に（ユーザー要望「この辺も山に」。頂≒28m＝ベンチ並、枝道の通る肩は≒25m）。MOUNT2と一体の山塊。南の町・散歩道は守る(zクリップ)
 // マンションの“長い坂道”：南(下)→北(上)へ登る大きく長い坂。SLOPE.xの尾根に道が走り、東西に離れると平地へ。
 // マンションは坂の約7割地点(高いところ)の西脇・道より一段下がった敷地に建つ。
 const SLOPE = { x: TOWN.x - 78, z0: TOWN.z - 96, z1: TOWN.z + 4, h: 30, wW: 26, wE: 12 } // 尾根の道のx。西の裾は広く(建物/森)・東の裾は急に(平地の町を守る)
@@ -90,7 +91,10 @@ function heightAt(x, z) {
     // 裏山の南西に足す峰(MOUNT2)。zクリップで町(z<44)は盛り上げず＝南の交差路/家並みを守る。既存の裏山とは“足さず高い方”で合成＝同じ高さの一体の山塊
     const m2dx = x - MOUNT2.x, m2dz = z - MOUNT2.z
     const m2 = MOUNT2.h * Math.exp(-(m2dx * m2dx / (2 * MOUNT2.w * MOUNT2.w) + m2dz * m2dz / (2 * MOUNT2.d * MOUNT2.d))) * smoothstep01((z - 44) / 10)
-    const mtn = Math.max(m, m2)
+    // 西の原っぱの峰(MOUNT3)。ヘアピン道のすぐ西を裏山と同じくらいの高さに（同じくzクリップで町・散歩道を守る）
+    const m3dx = x - MOUNT3.x, m3dz = z - MOUNT3.z
+    const m3 = MOUNT3.h * Math.exp(-(m3dx * m3dx / (2 * MOUNT3.w * MOUNT3.w) + m3dz * m3dz / (2 * MOUNT3.d * MOUNT3.d))) * smoothstep01((z - 44) / 10)
+    const mtn = Math.max(m, m2, m3)
     // 長い坂道（尾根）：高さは slopeHeight(z)。x方向は“非対称”＝西(建物/森側)はゆるく裾を引き、東(町側)は急に落として平地の町を守る
     const dxs = x - SLOPE.x, sg = dxs < 0 ? SLOPE.wW : SLOPE.wE
     const across = Math.exp(-(dxs * dxs) / (2 * sg * sg))
@@ -1945,6 +1949,11 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 48, T.z + 87, T.x - 30, T.z + 85, 4, false, true)   // (952,87)→(970,85) 上り
   makeRoadRibbon(T.x - 30, T.z + 85, T.x - 8, T.z + 82, 4, false, true)    // (970,85)→(992,82) 見晴らしベンチへ
   makeSignpost(T.x - 73, T.z + 50, 0, '↑ 見晴らし') // しんみせ交差点の道しるべ（折り返して裏山の見晴らしベンチへ）
+  // ── ④長い直線の途中から西へ分岐する細い枝道（ユーザー要望）：今の道(x922)の途中から赤ピンの方＝西の新しい山(MOUNT3)へ分かれ、そのまま西へしばらく伸びる。高さは見晴らしベンチより少し低い≒25m。勾配はヘアピン本線並(約45%)になるよう斜めに上らせる ──
+  makeRoadRibbon(T.x - 78, T.z + 72, T.x - 88, T.z + 82, 4, false, true)   // (922,72)→(912,82) 直線から斜めに分岐して西へ上り
+  makeRoadRibbon(T.x - 88, T.z + 82, T.x - 104, T.z + 84, 4, false, true)  // (912,82)→(896,84) 新しい山(MOUNT3)の肩＝赤ピンの辺りへ
+  makeRoadRibbon(T.x - 104, T.z + 84, T.x - 134, T.z + 84, 4, false, true) // (896,84)→(866,84) そのまま西へしばらく（約25m→23m）
+  makeSignpost(T.x - 86, T.z + 74, -1.4, '← 西の丘') // 分岐の道しるべ（西の新しい丘へ）
   // ── ブランコ（乗ってブランコ視点であそぶ）──
   {
     const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
