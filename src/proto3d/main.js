@@ -3383,15 +3383,35 @@ function resize() {
   const w = innerWidth, h = innerHeight
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき）
   renderer.setSize(w, h)
-  composer.setSize(w, h)
-  bloom.setSize(w / 2, h / 2) // ブルームは半解像度を維持
+  composer.setSize(w, h)            // EffectComposer内部の読み書きRT（全ポストプロセス）を追従
+  bloom.setSize(w / 2, h / 2)       // ブルームは半解像度を維持
   gradePass.uniforms.texel.value.set(1 / w, 1 / h) // 水彩のエッジ/にじみ用の1テクセル幅
   const db = renderer.getDrawingBufferSize(new THREE.Vector2())
-  normalRT.setSize(db.x, db.y); inkPass.uniforms.texel.value.set(1 / db.x, 1 / db.y) // インク線の法線/深度RTも実解像度に追従
-  camera.aspect = w / h
+  // ★輪郭線(インク)の法線/深度RTを実解像度へ。THREEの setSize は色texのみで depthTexture を追従しないため、
+  //   サイズが変わったら depthTexture を作り直す。これを怠ると回転後に“古いサイズの深度バッファ”が残り、
+  //   インクのエッジ検出が旧解像度のまま描かれて画面に黒い輪郭線のゴースト（黒モヤ）が残る＝今回の不具合の元。
+  if (normalRT.width !== db.x || normalRT.height !== db.y) {
+    normalRT.setSize(db.x, db.y)
+    normalRT.depthTexture.dispose()
+    normalRT.depthTexture = new THREE.DepthTexture(db.x, db.y, THREE.UnsignedIntType)
+    inkPass.uniforms.tNormal.value = normalRT.texture  // 参照を貼り直す（setSizeでtextureは作り直される）
+    inkPass.uniforms.tDepth.value = normalRT.depthTexture
+  }
+  inkPass.uniforms.texel.value.set(1 / db.x, 1 / db.y) // エッジ検出のテクセル幅も新解像度に
+  camera.aspect = w / h            // カメラのアスペクト・投影行列も更新
   camera.updateProjectionMatrix()
 }
-addEventListener('resize', resize)
+// 画面リサイズ＆端末回転に確実に追従。モバイルは回転直後 innerWidth/Height の更新が一拍遅れるため、
+// 数フレーム後にも resize を再適用して、輪郭線/ポストプロセスのバッファが旧サイズのまま残る（黒モヤ）のを防ぐ。
+function onResize() {
+  resize()
+  requestAnimationFrame(resize) // レイアウト確定後の次フレームで再適用
+  setTimeout(resize, 160)       // 回転アニメ後の確定サイズで再適用
+  setTimeout(resize, 420)
+}
+addEventListener('resize', onResize)
+addEventListener('orientationchange', onResize) // 端末回転（縦↔横）を明示的に拾う
+if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize) // モバイルで最も信頼できるサイズ変化イベント
 resize()
 
 // ── 環境音（蝉↔ヒグラシを時間帯でブレンド＋夕焼けチャイム）──
