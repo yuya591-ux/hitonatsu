@@ -1692,19 +1692,19 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // ── 二つ池の公園（三ツ池公園のオマージュ。複数の池・桜並木・あずまや・おしどり）──
   function makePondPark(cx, cz) {
     const fy = heightAt(cx, cz)
-    const gnd = new THREE.Mesh(new THREE.CircleGeometry(14, 36), new THREE.MeshToonMaterial({ color: 0x88ad52, gradientMap: GRAD, map: watercolorTex })); gnd.rotation.x = -Math.PI / 2; gnd.position.set(cx, fy + 0.05, cz); gnd.receiveShadow = true; scene.add(gnd) // 公園地面を拡張(13→14)＝大きくした池(中心から最大12.5)を1.5m岸で囲う
-    for (const [px, pz, pr] of [[cx - 6, cz + 2.5, 6.0], [cx + 6, cz - 2.5, 5.2]]) { // 池を約3倍の面積へ(3.6→6.0/3.1→5.2)＋中心を離して二つの大きな池に
+    const gnd = new THREE.Mesh(new THREE.CircleGeometry(22, 44), new THREE.MeshToonMaterial({ color: 0x88ad52, gradientMap: GRAD, map: watercolorTex })); gnd.rotation.x = -Math.PI / 2; gnd.position.set(cx, fy + 0.05, cz); gnd.receiveShadow = true; scene.add(gnd) // 公園ごと拡大(14→22)＝ユーザー要望でさらに大きく
+    for (const [px, pz, pr] of [[cx - 9, cz + 3, 9.4], [cx + 9, cz - 3, 8.2]]) { // 池をさらに拡大(6.0→9.4/5.2→8.2)＋中心をより離して二つの大きな池に
       const w = new THREE.Mesh(new THREE.CircleGeometry(pr, 28), waterMat); w.rotation.x = -Math.PI / 2; w.position.set(px, fy + 0.08, pz); scene.add(w)
       for (let a = 0; a < 18; a++) { const rx = px + Math.cos(a / 18 * Math.PI * 2) * (pr + 0.2), rz = pz + Math.sin(a / 18 * Math.PI * 2) * (pr + 0.2); const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22 + Math.random() * 0.1, 0), toon(0x9a958c)); rock.position.set(rx, fy + 0.12, rz); rock.castShadow = true; scene.add(rock) }
       for (let d = 0; d < 3; d++) { const dk = new THREE.Group(); const bd = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), toon(d % 2 ? 0xe7e2d6 : 0xd2843a)); bd.scale.set(1.4, 0.8, 1); dk.add(bd); const hd = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), toon(d ? 0xc09030 : 0x3a6a4a)); hd.position.set(0.22, 0.13, 0); dk.add(hd); const bk = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 5), toon(0xe0a030)); bk.rotation.z = -Math.PI / 2; bk.position.set(0.34, 0.12, 0); dk.add(hd); dk.add(bk); dk.position.set(px + (Math.random() - 0.5) * pr, fy + 0.2, pz + (Math.random() - 0.5) * pr); dk.rotation.y = Math.random() * 6; dk.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(dk) } // おしどり
       addCollider(px, pz, pr - 0.3) // 池には入れない
     }
     // 太鼓橋（赤・2池の間）
-    { const br = new THREE.Group(); for (let i = -2; i <= 2; i++) { const plank = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.5), toon(0xb0563f)); plank.position.set(0, 0.5 - Math.abs(i) * 0.06, i * 0.45); br.add(plank) } for (const sx of [-0.65, 0.65]) for (let i = -2; i <= 2; i += 2) { const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 5), toon(0xc0392b)); rail.position.set(sx, 0.7 - Math.abs(i) * 0.06, i * 0.45); br.add(rail) } br.traverse((o) => { if (o.isMesh) o.castShadow = true }); br.position.set(cx, fy, cz - 0.5); br.scale.setScalar(1.4); scene.add(br) } // 大きくした2池の“くびれ”に架ける（少し大きめに）
+    { const br = new THREE.Group(); for (let i = -2; i <= 2; i++) { const plank = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.5), toon(0xb0563f)); plank.position.set(0, 0.5 - Math.abs(i) * 0.06, i * 0.45); br.add(plank) } for (const sx of [-0.65, 0.65]) for (let i = -2; i <= 2; i += 2) { const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 5), toon(0xc0392b)); rail.position.set(sx, 0.7 - Math.abs(i) * 0.06, i * 0.45); br.add(rail) } br.traverse((o) => { if (o.isMesh) o.castShadow = true }); br.position.set(cx, fy, cz - 0.7); br.scale.setScalar(2.0); scene.add(br) } // 大きくした2池の“くびれ”に架ける（さらに大きく）
     // あずまや（四阿）
-    { const az = new THREE.Group(); for (const sx of [-1.3, 1.3]) for (const sz of [-1.3, 1.3]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.4, 6), toon(0x8a6a44)); post.position.set(sx, 1.2, sz); az.add(post) } const roof = new THREE.Mesh(new THREE.ConeGeometry(2.4, 1.3, 4), toon(0x586472)); roof.position.y = 3.0; roof.rotation.y = Math.PI / 4; az.add(roof); const bench = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.5), toon(0x9a6a3a)); bench.position.set(0, 0.45, -1.0); az.add(bench); az.traverse((o) => { if (o.isMesh) o.castShadow = true }); az.position.set(cx - 7.5, fy, cz - 6); mergedOutline(az, 0.03); addContactShadow(az, 2.4); addCollider(cx - 7.5, cz - 6, 1.6); scene.add(az) } // 池の南西の岸（大きい池からは約8.6m離れ水に入らない）
-    makeSakura(cx - 13, cz + 5, 1.1); makeSakura(cx + 10, cz + 5, 1.0); makeSakura(cx + 2, cz - 9, 1.05); makeSakura(cx - 4, cz + 10, 1.0) // 1本目は池に入らないよう外へ
-    for (const [bx, bz, br2] of [[cx - 9, cz - 4, 0.4], [cx + 9, cz - 6, -0.6]]) { const bench = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.5), toon(0x9a6a3a)); bench.position.set(bx, fy + 0.45, bz); bench.rotation.y = br2; bench.castShadow = true; addOutline(bench, 0.02); scene.add(bench); for (const lx of [-0.9, 0.9]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.4), toon(0x7a5230)); leg.position.set(bx + Math.cos(br2) * lx, fy + 0.22, bz - Math.sin(br2) * lx); scene.add(leg) } }
+    { const az = new THREE.Group(); for (const sx of [-1.3, 1.3]) for (const sz of [-1.3, 1.3]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.4, 6), toon(0x8a6a44)); post.position.set(sx, 1.2, sz); az.add(post) } const roof = new THREE.Mesh(new THREE.ConeGeometry(2.4, 1.3, 4), toon(0x586472)); roof.position.y = 3.0; roof.rotation.y = Math.PI / 4; az.add(roof); const bench = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.5), toon(0x9a6a3a)); bench.position.set(0, 0.45, -1.0); az.add(bench); az.traverse((o) => { if (o.isMesh) o.castShadow = true }); az.position.set(cx - 12, fy, cz - 9); mergedOutline(az, 0.03); addContactShadow(az, 2.4); addCollider(cx - 12, cz - 9, 1.8); scene.add(az) } // 拡大した池の南西の岸へ
+    makeSakura(cx - 19, cz + 7, 1.3); makeSakura(cx + 15, cz + 7, 1.2); makeSakura(cx + 3, cz - 14, 1.2); makeSakura(cx - 6, cz + 15, 1.1) // 大きい池の外周に桜
+    for (const [bx, bz, br2] of [[cx - 15, cz - 7, 0.4], [cx + 16, cz - 10, -0.6]]) { const bench = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.5), toon(0x9a6a3a)); bench.position.set(bx, fy + 0.45, bz); bench.rotation.y = br2; bench.castShadow = true; addOutline(bench, 0.02); scene.add(bench); for (const lx of [-0.9, 0.9]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.4), toon(0x7a5230)); leg.position.set(bx + Math.cos(br2) * lx, fy + 0.22, bz - Math.sin(br2) * lx); scene.add(leg) } }
   }
   makePondPark(T.x - 228, T.z - 2) // 二つ池＝小学校の北西（西へ拡張した土地。三ツ池公園オマージュ）
   // ── 街を囲む遠景の山々（盆地の町＝山に囲まれた鶴見の谷あい。歩行範囲の外周に低ポリの稜線を環状に）──
@@ -1730,7 +1730,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // ── 監査(ワールド)対応：孤立していたランドマークへ枝道を通す（回遊性を上げる）──
   makeRoadRibbon(T.x + 5, T.z - 15, T.x + 31, T.z - 14, 4, false, true) // 本通り東→パチンコ・銭湯のクラスタ(コンクリ)
   makeRoadRibbon(T.x - 122, T.z - 14, T.x - 174, T.z - 9, 4, false) // 小学校の前→校舎・体育館の北側を西へ抜けて二つ池へ(1/2)
-  makeRoadRibbon(T.x - 174, T.z - 9, T.x - 213, T.z - 2, 4, false) // 二つ池の周回路の東(E)に接続(2/2)
+  makeRoadRibbon(T.x - 174, T.z - 9, T.x - 205, T.z - 2, 4, false) // 二つ池の周回路の東(E)に接続(2/2)（拡大に合わせ更新）
   makeSignpost(T.x - 132, T.z - 12, Math.PI / 2, 'ふたつ池 →') // 二つ池への道しるべ（小学校前）
   for (const [dx, dz] of [[-150, -10], [-170, -8], [-190, -6]]) makeSakura(T.x + dx, T.z + dz - 3, 0.95 + Math.random() * 0.15) // 参道の桜並木（二つ池への道沿い）
   // ── しんみせを“角”にした交差点＋一うねりの散歩道で二つ池をぐるりと囲う（ユーザー要望・再修正版）──
@@ -1746,16 +1746,16 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 153, T.z + 37, T.x - 174, T.z + 35, IKEW, false, true, 0.05)// 児童公園・住宅の北をゆるやかに西へ
   makeRoadRibbon(T.x - 174, T.z + 35, T.x - 197, T.z + 34, IKEW, false, true, 0.05)// さらに西（家並みの北）
   makeRoadRibbon(T.x - 197, T.z + 34, T.x - 216, T.z + 21, IKEW, false, true, 0.05)// 二つ池へ向けて南下
-  makeRoadRibbon(T.x - 216, T.z + 21, T.x - 228, T.z + 14, IKEW, false, true, 0.05)// 周回路の北(N)へ合流
-  // 二つ池をぐるりと囲む周回路（半径≒15・公園の外周。8区間で環にする。舗装で連続。大きくした池(中心から最大12.5)も家並みも避ける）
-  makeRoadRibbon(T.x - 228, T.z + 14, T.x - 216, T.z + 8, IKEW, false, true, 0.05) // N→NE
-  makeRoadRibbon(T.x - 216, T.z + 8, T.x - 213, T.z - 2, IKEW, false, true, 0.05)  // NE→E（学校からの道がここに接続）
-  makeRoadRibbon(T.x - 213, T.z - 2, T.x - 216, T.z - 12, IKEW, false, true, 0.05) // E→SE
-  makeRoadRibbon(T.x - 216, T.z - 12, T.x - 228, T.z - 17, IKEW, false, true, 0.05)// SE→S
-  makeRoadRibbon(T.x - 228, T.z - 17, T.x - 240, T.z - 12, IKEW, false, true, 0.05)// S→SW
-  makeRoadRibbon(T.x - 240, T.z - 12, T.x - 243, T.z - 2, IKEW, false, true, 0.05) // SW→W
-  makeRoadRibbon(T.x - 243, T.z - 2, T.x - 240, T.z + 8, IKEW, false, true, 0.05)  // W→NW
-  makeRoadRibbon(T.x - 240, T.z + 8, T.x - 228, T.z + 14, IKEW, false, true, 0.05) // NW→N（環の完成）
+  makeRoadRibbon(T.x - 216, T.z + 21, T.x - 228, T.z + 21, IKEW, false, true, 0.05)// 周回路の北(N)へ合流
+  // 二つ池をぐるりと囲む周回路（半径≒23・拡大した公園の外周。8区間で環に。大きくした池も家並みも避ける）
+  makeRoadRibbon(T.x - 228, T.z + 21, T.x - 212, T.z + 14, IKEW, false, true, 0.05) // N→NE
+  makeRoadRibbon(T.x - 212, T.z + 14, T.x - 205, T.z - 2, IKEW, false, true, 0.05)  // NE→E（学校からの道がここに接続）
+  makeRoadRibbon(T.x - 205, T.z - 2, T.x - 212, T.z - 18, IKEW, false, true, 0.05)  // E→SE
+  makeRoadRibbon(T.x - 212, T.z - 18, T.x - 228, T.z - 25, IKEW, false, true, 0.05) // SE→S
+  makeRoadRibbon(T.x - 228, T.z - 25, T.x - 244, T.z - 18, IKEW, false, true, 0.05) // S→SW
+  makeRoadRibbon(T.x - 244, T.z - 18, T.x - 251, T.z - 2, IKEW, false, true, 0.05)  // SW→W
+  makeRoadRibbon(T.x - 251, T.z - 2, T.x - 244, T.z + 14, IKEW, false, true, 0.05)  // W→NW
+  makeRoadRibbon(T.x - 244, T.z + 14, T.x - 228, T.z + 21, IKEW, false, true, 0.05) // NW→N（環の完成）
   makeSignpost(T.x - 86, T.z + 40, Math.PI / 2, 'ふたつ池 →') // 交差点の角の道しるべ
   // ── 梅雨のあじさい：新しい散歩道と二つ池の周回路の沿道に点々と。雨の似合う青紫＝あの時代の夏の入り口の色 ──
   function makeAjisai(x, z, s = 1) {
@@ -1768,14 +1768,14 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   for (const [ax, az, as] of [
     [T.x - 90, T.z + 38, 1.0], [T.x - 110, T.z + 34, 0.9], [T.x - 132, T.z + 48, 1.1], [T.x - 150, T.z + 33, 1.0], // 散歩道（しんみせ→一うねり）の沿道
     [T.x - 172, T.z + 39, 0.95], [T.x - 196, T.z + 38, 1.05],                                                     // 池へ下る道沿い
-    [T.x - 224, T.z + 18, 1.0], [T.x - 246, T.z + 3, 0.95], [T.x - 244, T.z - 14, 1.0], [T.x - 228, T.z - 21, 1.1], [T.x - 208, T.z - 13, 0.9] // 周回路の外周（北・西・南）
+    [T.x - 228, T.z + 25, 1.0], [T.x - 254, T.z + 4, 0.95], [T.x - 250, T.z - 18, 1.0], [T.x - 228, T.z - 29, 1.1], [T.x - 202, T.z - 16, 0.9] // 周回路の外周（拡大に合わせ外へ）
   ]) makeAjisai(ax, az, as)
   // ── 二つ池の北の住宅（西へ広げた土地に田舎の家並み＝二つ池を“近所”に・回遊先を増やす）──
-  for (const [dx, dz] of [[-192, 16], [-214, 17], [-170, 17]]) {
+  for (const [dx, dz] of [[-192, 16], [-214, 26], [-170, 17]]) { // 中央の1軒は拡大した池に掛かるため北へ(17→26)
     makeHouse(T.x + dx, T.z + dz, Math.PI, roofs[Math.floor(Math.random() * roofs.length)]) // 道（南）を向く
     const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 0.9, 0.4), toonMap(0xbcb6a4, plasterTex)); wall.position.set(T.x + dx, 0.45, T.z + dz - 5); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall) // ブロック塀（道側）
   }
-  for (const [dx, dz, ts] of [[-208, 7, 1.0], [-186, 6, 1.1], [-236, 10, 1.0], [-160, 8, 0.95], [-200, -14, 1.05], [-150, 4, 0.9]]) makeTree(T.x + dx, T.z + dz, ts) // 二つ池の周り・道沿いの木立
+  for (const [dx, dz, ts] of [[-202, 10, 1.0], [-186, 6, 1.1], [-250, 14, 1.0], [-160, 8, 0.95], [-200, -14, 1.05], [-150, 4, 0.9]]) makeTree(T.x + dx, T.z + dz, ts) // 二つ池の周り・道沿いの木立（拡大に掛かる2本を外へ）
   // ── 児童公園（住宅街の一角・昭和の遊具：滑り台・砂場・ベンチ）＝子どもの遊び場の気配 ──
   {
     const px = T.x - 188, pz = T.z + 28, py = heightAt(px, pz)
