@@ -1927,6 +1927,13 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // 裏山の雑木（斜面に点々と＝木立の山）
   for (const [tx, tz, ts] of [[T.x - 22, T.z + 50, 1.1], [T.x + 26, T.z + 56, 1.2], [T.x - 6, T.z + 66, 1.0], [T.x + 16, T.z + 72, 1.1], [T.x - 30, T.z + 66, 0.95], [T.x + 36, T.z + 46, 1.0], [T.x - 14, T.z + 80, 0.9]]) makeTree(tx, tz, ts)
   makeSignpost(T.x + 13, T.z + 26, -0.4, '↑ 峠ごえ') // 頂上を越えて先へ続く峠道
+  // ── しんみせの交差点から“北へまっすぐ→先で山”＝裏山の西斜面を上って峠道へつなぐ道（ユーザー要望。地面に沿わせ歩ける）──
+  // 平地を少し直進→裏山のなだらかな裾から徐々に急な上りへ（MOUNTのガウス斜面が緩→急→高い、を自然に作る）→既存の峠道(x1008)へ合流
+  makeRoadRibbon(T.x - 78, T.z + 42, T.x - 78, T.z + 66, 7, true, true)   // しんみせ交差点→北へまっすぐ（平地）
+  makeRoadRibbon(T.x - 78, T.z + 66, T.x - 50, T.z + 64, 7, true, true)   // 裏山の裾へ（ゆるやかに上り始める）
+  makeRoadRibbon(T.x - 50, T.z + 64, T.x - 20, T.z + 59, 7, true, true)   // 徐々に急な上りへ（中腹）
+  makeRoadRibbon(T.x - 20, T.z + 59, T.x + 8, T.z + 55, 7, true, true)    // 峠道(裏山)へ合流＝既存の高台とつながる
+  makeSignpost(T.x - 73, T.z + 50, 0, '↑ うらやま') // しんみせ交差点の道しるべ（裏山へ）
   // ── ブランコ（乗ってブランコ視点であそぶ）──
   {
     const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
