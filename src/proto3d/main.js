@@ -1150,8 +1150,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
 {
   const T = TOWN
   // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
-  const TGX = T.x - 70, TGZ = T.z - 110 // 地面メッシュの中心。北端は据え置き(z+145)、南へさらに拡張(z-241→-365)＝獅子ヶ谷/北寺尾エリアを新築する土地を確保（ユーザー要望A・広く拡張）
-  const tgeo = new THREE.PlaneGeometry(380, 510, 304, 408); tgeo.rotateX(-Math.PI / 2) // 西へ拡張(290→380)＋南へさらに拡張(386→510)。細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
+  const TGX = T.x - 70, TGZ = T.z - 58 // 地面メッシュの中心。南端z-366据え置き＋北へ拡張(z+145→+250)＝裏山の谷を北へ下る新しい土地を確保（ユーザー要望）
+  const tgeo = new THREE.PlaneGeometry(380, 616, 304, 493); tgeo.rotateX(-Math.PI / 2) // 西へ拡張(290→380)＋南北へ拡張(510→616)。細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
   const tpos = tgeo.attributes.position, tcol = []
   const cTownGnd = new THREE.Color(0xb6ad99), cMntGrass = new THREE.Color(0x86b257), cMntDark = new THREE.Color(0x6f9a47)
   for (let i = 0; i < tpos.count; i++) {
@@ -1802,6 +1802,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       const r = 290 + Math.random() * 90, isFar = r > 335 // 西へ歩行範囲を広げたぶん、遠景の山は外側へ（山の裾(半径〜50)が歩ける範囲(半径〜238)に食い込まないよう中心を外へ）
       let mx = ccx + Math.cos(a) * r, mz = ccz + Math.sin(a) * r
       if (Math.sin(a) < -0.25 && mz > -395) mz = -405 - Math.random() * 70 // 南に新エリア(z-345まで)を新築したので、南の山だけ外へ押し出す（町の北/東/西の背景はそのまま・ユーザー要望A）
+      if (Math.sin(a) > 0.25 && mz < 395) mz = 405 + Math.random() * 70 // 北も裏山の谷を下る新エリア(z+230まで)を新築したので、北の山だけ外へ押し出す（東/西の背景はそのまま）
       const h = 34 + Math.random() * 40, rad = 28 + Math.random() * 22
       const mtn = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 5 + Math.floor(Math.random() * 3), 1), isFar ? far : near)
       mtn.position.set(mx, h / 2 - 9, mz); mtn.rotation.y = Math.random() * 6.28 // 麓を少し沈めて稜線だけ見せる
@@ -1998,6 +1999,12 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 88, T.z + 82, T.x - 104, T.z + 84, 4, false, true)  // (912,82)→(896,84) 新しい山(MOUNT3)の肩＝赤ピンの辺りへ
   makeRoadRibbon(T.x - 104, T.z + 84, T.x - 134, T.z + 84, 4, false, true) // (896,84)→(866,84) そのまま西へしばらく（約25m→23m）
   makeSignpost(T.x - 86, T.z + 74, -1.4, '← 西の丘') // 分岐の道しるべ（西の新しい丘へ）
+  // ── 【裏山の谷を下る3本目の道／ユーザー要望】二股(西の丘/見晴らし)の“間”から、西の丘とMOUNT2の間の谷を北へゆるやかに下って、北の新しい土地へ ──
+  makeRoadRibbon(T.x - 78, T.z + 88, T.x - 77, T.z + 120, 4, false, true)  // (922,88)→(923,120) 二股の間から谷へ下り始める
+  makeRoadRibbon(T.x - 77, T.z + 120, T.x - 75, T.z + 158, 4, false, true) // (923,120)→(925,158) 谷を北へ下る
+  makeRoadRibbon(T.x - 75, T.z + 158, T.x - 75, T.z + 198, 4, false, true) // (925,158)→(925,198) 山を抜けて新しい土地へ(平ら)
+  makeRoadRibbon(T.x - 75, T.z + 198, T.x - 76, T.z + 228, 4, false, true) // (925,198)→(924,228) さらに北へ
+  makeSignpost(T.x - 73, T.z + 92, Math.PI, '谷の道 ↓') // 二股の間＝谷を下る道の道しるべ
   // ── ブランコ（乗ってブランコ視点であそぶ）──
   {
     const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
@@ -5072,7 +5079,7 @@ function update(dt) {
       }
     } else if (area === 'town') {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 250, TOWN.x + 100) // 西を拡張（小学校の北西の二つ池まで歩ける）
-      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 345, TOWN.z + 105) // 南をさらに拡張（獅子ヶ谷/北寺尾エリアまで歩ける＝ユーザー要望A・広く拡張）
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 345, TOWN.z + 230) // 南は獅子ヶ谷/北寺尾・北は裏山の谷を下った先まで歩ける（ユーザー要望・北へ拡張）
     } else { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
