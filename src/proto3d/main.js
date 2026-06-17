@@ -403,17 +403,17 @@ function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = fal
     const verts = [], uvs = [], idx = []
     for (let i = 0; i <= segs; i++) {
       const t = i / segs, cx = x0 + (x1 - x0) * t, cz = z0 + (z1 - z0) * t
-      for (const sd of [-1, 1]) { const wx = cx + px * w / 2 * sd, wz = cz + pz * w / 2 * sd; verts.push(wx, heightAt(wx, wz) + yoff + lift, wz); uvs.push((sd + 1) / 2, t * len / w) }
+      for (const sd of [-1, 0, 1]) { const wx = cx + px * w / 2 * sd, wz = cz + pz * w / 2 * sd; verts.push(wx, heightAt(wx, wz) + yoff + lift, wz); uvs.push((sd + 1) / 2, t * len / w) } // 中央にも頂点＝凸の尾根でも路面が地形に沿い、地形(緑)が路面を突き抜けない
     }
-    for (let i = 0; i < segs; i++) { if (dash && i % 2 === 1) continue; const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3) } // 破線は1セグおき
+    for (let i = 0; i < segs; i++) { if (dash && i % 2 === 1) continue; const a = i * 3; idx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5) } // 3頂点×左右2枚の帯。破線は1セグおき
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); geo.setIndex(idx); geo.computeVertexNormals()
     const mat = new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: mapTex || null, side: THREE.DoubleSide }) // 両面＝斜面で面が裏返っても路面が消えない
     const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m); return m
   }
-  if (concrete) { // しっかりしたコンクリート舗装＝はっきり見える・地形に十分乗せて“消える/めり込む”を防ぐ
-    mk(width + 0.9, 0.12, 0x4a4a45, null)   // 路肩/縁石（濃い＝道の縁をはっきり）
-    mk(width, 0.18, 0x8f9088, null)          // コンクリート舗装（中明度グレー。両面表示で斜面でも消えない）
-    if (centerline) mk(0.42, 0.24, 0xf2efe4, null, true) // 白の破線センターライン（太め）
+  if (concrete) { // しっかりしたコンクリート舗装。中央頂点で地形に沿わせ緑がのぞかない。路肩も路面も“同じグレー”で統一＝普通の道路（ユーザー要望）
+    mk(width + 1.0, 0.13, 0x8f9088, null)   // 路肩のすそ（路面と同色グレー＝縁の緑のぞきを隠すだけ。濃い縁石はやめて色を統一）
+    mk(width, 0.19, 0x8f9088, null)          // コンクリート舗装（中明度グレー。両面表示で斜面でも消えない）
+    if (centerline) mk(0.42, 0.25, 0xf2efe4, null, true) // 白の破線センターライン（太め）
   } else {
     mk(width, 0.06, 0xb0a488, dirtTex)       // 田舎道（土のテクスチャ＝歩く主役）
     if (centerline) mk(0.3, 0.09, 0xcfc9bb, dirtTex)
@@ -4155,6 +4155,9 @@ function nextDay() {
 }
 sleepEl.addEventListener('click', () => { if (!diaryOpen && !dialogue) openDiary() })
 diaryCloseEl.addEventListener('click', () => { if (diaryOpen) nextDay() })
+// 「まだ ねない」＝誤って「ねる」を押しても、翌日へ進めず今の一日に戻る（時間も再開）。強制的に寝かされない（ユーザー要望）
+const diaryCancelEl = document.getElementById('diary-cancel')
+if (diaryCancelEl) diaryCancelEl.addEventListener('click', () => { if (diaryOpen) { diaryEl.style.display = 'none'; diaryOpen = false; dayAuto = true } })
 
 // ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
 let area = 'field'

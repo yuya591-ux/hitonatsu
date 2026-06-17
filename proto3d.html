@@ -73,9 +73,10 @@
         border-radius: 999px; box-shadow: 0 3px 12px rgba(30,24,16,0.3); opacity: 0; pointer-events: none;
         transition: opacity 0.4s ease, transform 0.4s ease; }
       #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-      #sleep { left: calc(3% + env(safe-area-inset-left)); bottom: calc(6% + env(safe-area-inset-bottom)); appearance: none; border: none; cursor: pointer;
+      /* 「ねる」は左上の⚙の下へ（横画面で左手の親指の下＝誤爆を避ける・ユーザー要望）。押すと確認の絵日記が出る */
+      #sleep { left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + 54px + env(safe-area-inset-top)); appearance: none; border: none; cursor: pointer;
         padding: 0.45em 1em; font-size: clamp(12px,2.3vw,16px); font-family: inherit; color: #fdf7ec;
-        background: rgba(60,66,98,0.78); border-radius: 999px; box-shadow: 0 3px 10px rgba(20,24,40,0.3); }
+        background: rgba(60,66,98,0.7); border-radius: 999px; box-shadow: 0 3px 10px rgba(20,24,40,0.3); }
       #diary { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(20,24,40,0.66); backdrop-filter: blur(2px); z-index: 20; }
       .diary-page { width: min(88vw, 560px); max-height: 86vh; overflow: auto; padding: 1.3em 1.6em 1.6em;
@@ -89,6 +90,9 @@
       #diary-body .line { border-bottom: 1px dashed rgba(150,130,90,0.3); }
       #diary-close { margin-top: 1.2em; appearance: none; border: none; cursor: pointer; padding: 0.55em 2.2em;
         font-size: clamp(15px,3vw,21px); font-family: inherit; color: #fdf7ec; background: #6a7088; border-radius: 999px; }
+      /* 「まだ ねない」＝誤って「ねる」を押しても翌日へ進めず元の一日に戻れる（ユーザー要望の戻るボタン） */
+      #diary-cancel { margin-top: 0.7em; appearance: none; border: none; cursor: pointer; padding: 0.45em 1.8em; display: block; margin-left: auto; margin-right: auto;
+        font-size: clamp(13px,2.6vw,17px); font-family: inherit; color: #5a4a36; background: rgba(150,140,118,0.26); border-radius: 999px; }
       #npc { left: 50%; bottom: 17%; transform: translateX(-50%); appearance: none; border: none;
         cursor: pointer; padding: 0.6em 1.6em; font-size: clamp(14px,2.8vw,20px); font-family: inherit;
         color: #4a4032; background: rgba(255,250,240,0.94); border-radius: 999px;
@@ -181,6 +185,7 @@
         <div id="diary-pic"></div>
         <div id="diary-body"></div>
         <button id="diary-close">おやすみ</button>
+        <button id="diary-cancel">まだ ねない</button>
       </div>
     </div>
     <div id="stick"><div id="knob"></div></div>
