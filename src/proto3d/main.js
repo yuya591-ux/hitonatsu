@@ -55,6 +55,7 @@ function pushOutOfColliders(px, pz) {
 }
 let swingSeat = null, swingPhase = 0, swingAmp = 0.3, swingCreakN = 0 // 振り子の状態（CreakNはきしみ音の折り返し検出）
 const smoothstep01 = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
+const PLATEAU_Y = 13 // マンションの丘の上の台地の高さ（サンライズ/南の公園を平らに据える地ならし。heightAtで使用）
 // 長い坂道の高さ。坂は“南(小さいz)ほど高い”＝北(下/しんみせ)→南へ登る→途中の平らな踊り場(ビスコ)→マンション(約7割)→頂上(南)。大きく長い坂。
 function slopeHeight(z) {
   const zb = TOWN.z + 44, zl1 = TOWN.z + 4, zl0 = TOWN.z - 12, ztop = TOWN.z - 90, hL = 10, hT = 30
@@ -80,7 +81,12 @@ function heightAt(x, z) {
     const across = Math.exp(-(dxs * dxs) / (2 * sg * sg))
     const s = slopeHeight(z) * across
     const undul = 0.4 * Math.sin(x * 0.1) * Math.cos(z * 0.1)
-    return m + s + ((m > 0.5 || s > 0.5) ? undul : 0)
+    let h = m + s + ((m > 0.5 || s > 0.5) ? undul : 0)
+    // ── マンションの丘の上＝平らな台地（公園/マンションが斜面にめり込まないよう。周囲とは8mでなめらかにブレンド）──
+    // x[884,910]・z[-80,-40]を高さPLATEAU_Yに均す。サンライズと南の公園が“平地に建つ/公園の形を保つ”ための地ならし。
+    const pk = smoothstep01((x - 876) / 8) * smoothstep01((918 - x) / 8) * smoothstep01((-32 - z) / 8) * smoothstep01((z + 88) / 8)
+    if (pk > 0) h = h * (1 - pk) + PLATEAU_Y * pk
+    return h
   }
   const hill = 6.0 * Math.exp(-((x * x) + (z + 28) * (z + 28)) / (2 * 18 * 18)) // -Z側のなだらかな高台
   const undul = 0.6 * Math.sin(x * 0.08) * Math.cos(z * 0.08) // 微妙なうねり
@@ -2699,10 +2705,12 @@ function makeBoy() {
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.05, 6), toon(0x9a7b4a)); pole.position.y = 0.42; net.add(pole) // 短めの柄
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.016, 6, 16), toon(0x8a6b3a)); ring.position.y = 0.92; ring.rotation.x = Math.PI / 2; net.add(ring) // 網の口（輪）を細く・少し大きく
-  // 深い円錐の網袋＝お椀型だと“トイレのスッポン”に見えるので、先細りの袋にして虫取り網らしく
-  const bag = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.46, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xeef0e6, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false })); bag.position.y = 0.69; bag.rotation.x = Math.PI; net.add(bag)
-  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 5), new THREE.MeshBasicMaterial({ color: 0xeef0e6, transparent: true, opacity: 0.3 })); bagTip.position.y = 0.47; net.add(bagTip) // 袋の底（先の丸み）
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.015, 8, 20), toon(0xb6bAac)); ring.position.y = 0.93; ring.rotation.x = Math.PI / 2; net.add(ring) // 網の口（金属の輪・口金）
+  // ── 実物の虫取り網に寄せる：粗い“編み目(メッシュ)”地を貼った深い袋＝中が透けて見える網。研究：竿＋金属の輪＋深い網袋(先は丸い) ──
+  const ntx = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.clearRect(0, 0, 64, 64); x.strokeStyle = 'rgba(243,246,235,0.92)'; x.lineWidth = 2.4; for (let i = 0; i <= 64; i += 9) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 64); x.moveTo(0, i); x.lineTo(64, i); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 6); return t })()
+  const netMat = new THREE.MeshBasicMaterial({ map: ntx, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
+  const bag = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.56, 18, 1, true), netMat); bag.position.y = 0.65; bag.rotation.x = Math.PI; net.add(bag) // 深い網袋（編み目が見える）
+  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI; bagTip.position.y = 0.37; net.add(bagTip) // 袋の底（丸み・同じ網地）
   net.position.set(0.15, 1.27, -0.01); net.rotation.set(NET_REST, 0, -0.06) // 柄の支点を右肩に乗せる＝肩に触れて網は頭の真後ろ上へ（横に飛び出さない・浮き解消）。rotation.xは虫採りアニメがNET_RESTで上書き
   net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
   g.add(net)
