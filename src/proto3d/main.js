@@ -1133,8 +1133,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
 {
   const T = TOWN
   // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
-  const TGX = T.x - 70, TGZ = T.z + 15 // 地面メッシュの中心（西へ拡張＝小学校の北西に二つ池を置く土地を確保）
-  const tgeo = new THREE.PlaneGeometry(380, 260, 304, 208); tgeo.rotateX(-Math.PI / 2) // 西へ拡張(290→380)。細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
+  const TGX = T.x - 70, TGZ = T.z - 48 // 地面メッシュの中心。北端は据え置き(z+145)、南へ拡張(z-115→-241)＝マンションの丘の南の尾根道を先へ延ばす土地を確保（ユーザー要望）
+  const tgeo = new THREE.PlaneGeometry(380, 386, 304, 308); tgeo.rotateX(-Math.PI / 2) // 西へ拡張(290→380)＋南へ拡張(260→386)。細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
   const tpos = tgeo.attributes.position, tcol = []
   const cTownGnd = new THREE.Color(0xb6ad99), cMntGrass = new THREE.Color(0x86b257), cMntDark = new THREE.Color(0x6f9a47)
   for (let i = 0; i < tpos.count; i++) {
@@ -1155,6 +1155,11 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // makeRoadRibbon はグローバルへ移動済み（野原でも使えるように）。
   // マンション正面(南)に平行な“坂道”＝東(左手)上り・西(右手)下り。マンションはこの道の道中に建つ。
   makeRoadRibbon(T.x - 78, T.z + 46, T.x - 78, T.z - 92, 9, true, true) // しっかりしたコンクリート舗装の坂道（尾根の道）：北(下/しんみせ)→南(上/マンション・頂上)。マンションは約7割地点の西脇。新店まで一直線。
+  // ── 丘の上（南端z-92・約30m）で終わっていた尾根道を、さらに南へ延ばす（ユーザー要望「山登りきった先の道」）。slopeHeightはz≤-90で30m一定＝下りなし・標高保ったまま。ごく緩いカーブ→あとはまっすぐ ──
+  makeRoadRibbon(T.x - 78, T.z - 92, T.x - 79, T.z - 112, 9, true, true)  // (922,-92)→(921,-112) ごく緩くカーブし始める
+  makeRoadRibbon(T.x - 79, T.z - 112, T.x - 82, T.z - 134, 9, true, true) // (921,-112)→(918,-134) 少しだけ西へカーブ
+  makeRoadRibbon(T.x - 82, T.z - 134, T.x - 82, T.z - 170, 9, true, true) // (918,-134)→(918,-170) あとはまっすぐ南へ（霧の奥・地図の端へ）
+  makeSignpost(T.x - 86, T.z - 100, Math.PI, '丘のむこう →') // 丘の上から先へ続く道の道しるべ
   // 坂道の東肩にガードレール（昭和の峠道の象徴。地形に追従・支柱と白いビームを各1ドローに集約）
   function makeGuardrail(x0, z0, x1, z1, h = 0.6) {
     const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), n = Math.max(2, Math.round(len / 3.2)), pg = [], bg = []
@@ -1167,6 +1172,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const beams = new THREE.Mesh(mergeGeometries(bg), toon(0xe9ebec)); beams.castShadow = true; scene.add(beams); bg.forEach((g) => g.dispose())
   }
   makeGuardrail(T.x - 73, T.z + 4, T.x - 73, T.z - 58) // 坂道の東端（急な落ち側）に沿わせる
+  // 南へ延ばした尾根道の東端（急な落ち側）にもガードレールを続ける＝丘の上から先も“道らしく”仕上げる
+  makeGuardrail(T.x - 73, T.z - 92, T.x - 77, T.z - 134); makeGuardrail(T.x - 77, T.z - 134, T.x - 77, T.z - 170)
   // 上り(南)＝頂上→北寺尾の町方面／下り(北)＝ビスコ(踊り場)→しんみせ(一番下)→本通り
   makeRoadRibbon(T.x - 78, T.z + 42, T.x - 4, T.z + 8, 6, true, true) // 坂下(北)を町の本通りへ接続（コンクリート）
   makeRoadRibbon(T.x - 78, T.z - 50, T.x - 96, T.z - 50, 5, false, true) // マンションへ左折で入る下り坂(私道・コンクリート)：尾根の道→西へ約14m一段下って入口へ（セットバックした敷地に橋渡し）
@@ -5025,7 +5032,7 @@ function update(dt) {
       }
     } else if (area === 'town') {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 250, TOWN.x + 100) // 西を拡張（小学校の北西の二つ池まで歩ける）
-      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 100, TOWN.z + 105)
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 175, TOWN.z + 105) // 南を拡張（マンションの丘の尾根道を丘の上から先へ＝地図拡大・ユーザー要望）
     } else { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
