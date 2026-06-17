@@ -75,7 +75,8 @@ function slopeHeight(z) {
   if (z > zl1) return hL * smoothstep01((zb - z) / (zb - zl1)) // 下(北)→踊り場へ南に登る
   if (z > zl0) return hL // 踊り場（平ら＝ビスコの前で道がまっすぐ）
   if (z > ztop) return hL + (hT - hL) * smoothstep01((zl0 - z) / (zl0 - ztop)) // 踊り場→頂上(南)へ。途中にマンション(約7割)
-  return hT // 頂上(南)の平地
+  if (z >= TOWN.z - 200) return hT // 頂上(南)の平地＝丘の上の長い道(30m・不変)
+  return Math.max(5, hT - 25 * ((TOWN.z - 200 - z) / 95)) // z<-200：北寺尾エリアへ向け尾根も30→5へゆるく下げる（尾根が30mのまま残ると低い集落の横に崖ができるため・ユーザー要望A）
 }
 // 尾根道の中心線X。高さ30mの尾根が道に沿って曲がる＝丘の上(z≤-120)から先は東へゆるく45°カーブして南東へまっすぐ。道が下らず30mを保つ（ユーザー要望）。
 // 道だけ曲げると東側は急に下って高さを保てないため、尾根そのものをこの中心線に沿わせる。
@@ -113,9 +114,14 @@ function heightAt(x, z) {
     // x[884,910]・z[-80,-40]を高さPLATEAU_Yに均す。サンライズと南の公園が“平地に建つ/公園の形を保つ”ための地ならし。
     const pk = smoothstep01((x - 876) / 8) * smoothstep01((918 - x) / 8) * smoothstep01((-28 - z) / 8) * smoothstep01((z + 88) / 8)
     if (pk > 0) h = h * (1 - pk) + PLATEAU_Y * pk
-    // ── 【獅子ヶ谷/北寺尾エリア・新築／ユーザー要望A】南の拡張地に高さ30mの平らな台地。既存の長い道(30m)と地続き＝下りなし。学校や住宅街をこの上に置く ──
-    const NB = smoothstep01((x - 776) / 14) * smoothstep01((946 - x) / 14) * smoothstep01((-210 - z) / 14) * smoothstep01((z + 352) / 14)
-    if (NB > 0) h = h * (1 - NB) + 30 * NB
+    // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
+    if (z < -200) {
+      const t = Math.max(0, Math.min(1, (-200 - z) / 95)) // 線形の下り：0(z-200)→1(z-295)
+      const lvl = 30 - 25 * t                             // 高さ 30→5（一定勾配のゆるめの下り）
+      const halfW = 14 + 78 * t                           // 横の半幅 14(細い尾根)→92(広い集落)＝高い所は細く・低い所は広く（広い崖を作らない）
+      const nb = smoothstep01((x - (855 - halfW)) / 18) * smoothstep01(((855 + halfW) - x) / 18) * smoothstep01((z + 360) / 16)
+      if (nb > 0) h = h * (1 - nb) + lvl * nb
+    }
     return h
   }
   const hill = 6.0 * Math.exp(-((x * x) + (z + 28) * (z + 28)) / (2 * 18 * 18)) // -Z側のなだらかな高台
