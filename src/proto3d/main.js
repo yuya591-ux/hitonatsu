@@ -1171,15 +1171,6 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 93, T.z - 150, T.x - 123, T.z - 180, 9, true, true) // (907,-150)→(877,-180) 南西へずっとまっすぐ
   makeRoadRibbon(T.x - 123, T.z - 180, T.x - 143, T.z - 200, 9, true, true) // (877,-180)→(857,-200) まっすぐ（霧の奥・地図の端へ）
   makeSignpost(T.x - 72, T.z - 116, Math.PI, '丘のむこう →') // 丘の上から先へ続く道の道しるべ
-  // ── 【獅子ヶ谷の再現・第一歩／ユーザー要望A・安全側】今の町は触らず、南の空き地（平らな原っぱ）に実地図(鶴見獅子ヶ谷通り)を新築。仮縮尺0.3・サンライズ基準(810,-150)。追加だけ＝何も壊れない・いつでも消せる ──
-  makeRoadRibbon(T.x - 185, T.z - 103, T.x - 197, T.z - 117, 6, true, true) // 鶴見獅子ヶ谷通り（西＝しんみせ方面から）
-  makeRoadRibbon(T.x - 197, T.z - 117, T.x - 203, T.z - 132, 6, true, true)
-  makeRoadRibbon(T.x - 203, T.z - 132, T.x - 204, T.z - 150, 6, true, true) // サンライズの前あたり
-  makeRoadRibbon(T.x - 204, T.z - 150, T.x - 205, T.z - 167, 6, true, true)
-  makeRoadRibbon(T.x - 205, T.z - 167, T.x - 206, T.z - 180, 6, true, true) // ローソン(寺尾五丁目)あたり
-  makeRoadRibbon(T.x - 206, T.z - 180, T.x - 205, T.z - 195, 6, true, true) // 東へ続く
-  makeRoadRibbon(T.x - 197, T.z - 117, T.x - 156, T.z - 117, 4, false, true) // 北へ分岐（獅子ヶ谷小学校／橘学苑の方＝地図で北の枝道）
-  makeSignpost(T.x - 188, T.z - 100, 0, '← 獅子ヶ谷') // 新しい実地図エリアの入口（仮）
   // 坂道の東肩にガードレール（昭和の峠道の象徴。地形に追従・支柱と白いビームを各1ドローに集約）
   function makeGuardrail(x0, z0, x1, z1, h = 0.6) {
     const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), n = Math.max(2, Math.round(len / 3.2)), pg = [], bg = []
