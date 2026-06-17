@@ -1439,13 +1439,13 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       }
     }
   }
-  makeSchool(T.x - 148, T.z - 24) // 獅子ヶ谷小＝マンション背面(西)・森を迂回した先のフラット地（確定レイアウト）
+  makeSchool(T.x - 166, T.z - 24) // 獅子ヶ谷小＝西へ18m移設（マンションとの距離を広げる・ユーザー要望）。盆踊り会場(校庭)もこの中で一緒に動く
   // ── 森（森山＝立花学園グラウンドの名残）＝マンション背面(西)と小学校の間に“塊”で。森があるので直進できず左(南)へ迂回 ──
   for (const [tx, tz, ts] of [[886, -42, 1.6], [878, -34, 1.7], [870, -42, 1.6], [882, -28, 1.5], [874, -48, 1.6], [866, -34, 1.5], [888, -34, 1.6], [876, -24, 1.4], [862, -42, 1.5], [880, -52, 1.4], [868, -50, 1.5], [884, -22, 1.4]]) makeTree(tx, tz, ts) // マンション西移設に合わせ森も10m西へ（背面と小学校の間の塊・直進不可の迂回を維持）
   // ── 地下出入口(マンション背面=西)を出て、横切るように細い道(一方通行幅)が出る→“山を下る側(北)”へ下り→盛(森)を北から回り込み→小学校へ ──
   makeRoadRibbon(T.x - 107, T.z - 48, T.x - 109, T.z - 28, 4.4, false) // 地下出口の前を横切り、山を下る側(北)へ下る（マンション西移設に合わせ10m西へ）
   makeRoadRibbon(T.x - 109, T.z - 28, T.x - 122, T.z - 14, 4.4, false) // 盛(森)を北からぐるっと回り込み西へ
-  makeRoadRibbon(T.x - 122, T.z - 14, T.x - 147, T.z - 24, 4.4, false) // そのまま小学校の前へ迎える形で
+  makeRoadRibbon(T.x - 122, T.z - 14, T.x - 158, T.z - 24, 4.4, false) // そのまま小学校の前へ迎える形で（小学校の西移設に合わせ延長）
   // ── 土のサッカーグラウンド（当時のマリノスのグラウンドのオマージュ。団地の西）──
   function makeGround(cx, cz) {
     const W = 44, D = 28, fy = heightAt(cx, cz) // もう少し広く（マリノスのグラウンドのオマージュ＝広い原っぱ）
@@ -3139,7 +3139,7 @@ let fwTimer = 3
 function spawnFirework() {
   const N = 150
   // ★花火は“おまつり会場(校庭)の上空”に大きく開く。以前は原点(はらっぱ)上空に出ていて、町の会場からは遠くて見えなかった不具合を修正。
-  const cx = TOWN.x - 148 + (Math.random() - 0.5) * 90, cy = 46 + Math.random() * 26, cz = TOWN.z - 50 + (Math.random() - 0.5) * 70
+  const cx = TOWN.x - 166 + (Math.random() - 0.5) * 90, cy = 46 + Math.random() * 26, cz = TOWN.z - 50 + (Math.random() - 0.5) * 70 // 会場(校庭)の西移設に追従
   const pos = new Float32Array(N * 3); const vel = []
   for (let i = 0; i < N; i++) {
     pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
@@ -3746,7 +3746,7 @@ function getNoise() {
   return noiseBuf
 }
 // ── 縁日のお囃子（自前合成・太鼓＋篠笛）。屋台からの距離で音量が変わる＝小さく聞こえる音をたどると縁日に着く（このゲームの核） ──
-const FEST_POS = new THREE.Vector2(TOWN.x - 148, TOWN.z - 42) // 盆踊りの会場＝小学校の校庭（櫓のあたり）。お囃子はここから聞こえる＝音をたどって校庭の盆踊りへ
+const FEST_POS = new THREE.Vector2(TOWN.x - 166, TOWN.z - 42) // 盆踊りの会場＝小学校の校庭（櫓のあたり）。小学校の西移設に追従。お囃子はここから聞こえる＝音をたどって校庭の盆踊りへ
 let festGain = null, festNextBar = 0
 function getFestOut() {
   const ctx = listener.context
