@@ -1432,7 +1432,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 122, T.z - 14, T.x - 147, T.z - 24, 4.4, false) // そのまま小学校の前へ迎える形で
   // ── 土のサッカーグラウンド（当時のマリノスのグラウンドのオマージュ。団地の西）──
   function makeGround(cx, cz) {
-    const W = 34, D = 22, fy = heightAt(cx, cz)
+    const W = 44, D = 28, fy = heightAt(cx, cz) // もう少し広く（マリノスのグラウンドのオマージュ＝広い原っぱ）
     // ほぼ使われず草ぼうぼうの広い原っぱ（昔のグラウンドの名残）。子どもが時々入って虫取り/鬼ごっこする場所
     const grass = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshToonMaterial({ color: 0x8aa64c, gradientMap: GRAD, map: watercolorTex })); grass.rotation.x = -Math.PI / 2; grass.position.set(cx, fy + 0.04, cz); grass.receiveShadow = true; scene.add(grass)
     // 伸び放題の夏草（30〜40cm）が一面に。InstancedMeshで安く密に
@@ -1701,8 +1701,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // ※旧「近道」のフラット平面は、坂道化＋ランドマーク移設で宙に浮く不具合になっていたため撤去。
   //   背面(西)の森を迂回して小学校へ向かう動線は makeRoadRibbon の細道（地形に沿う）に一本化済み。
   // 配置：西側に団地2棟（道を向く）、入口東側にパチンコ屋、空き地に住宅を増設
-  makeApartment(T.x - 49, T.z + 12, -Math.PI / 2, 4, 4)
-  makeApartment(T.x - 49, T.z + 28, -Math.PI / 2, 5, 5)
+  makeApartment(T.x - 60, T.z + 12, -Math.PI / 2, 4, 4) // 西の空き地へ移設＝交差路/団地道への食い込みを解消（ユーザー指摘）。団地道(x960)へは前庭ごしに正対
+  makeApartment(T.x - 60, T.z + 28, -Math.PI / 2, 5, 5) // 同上（5階建ては交差路z24に食い込んでいた）
   makePachinko(T.x + 30, T.z - 16, Math.PI / 2)
   // ── 監査(ワールド)対応：孤立していたランドマークへ枝道を通す（回遊性を上げる）──
   makeRoadRibbon(T.x + 5, T.z - 15, T.x + 31, T.z - 14, 4, false, true) // 本通り東→パチンコ・銭湯のクラスタ(コンクリ)
@@ -1797,7 +1797,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     }
     placeProp(g, x, z, 0, 0.02, span * 0.5)
   }
-  bikeRack(T.x - 44.5, T.z + 9, 5); bikeRack(T.x - 44.5, T.z + 25, 6)
+  bikeRack(T.x - 54, T.z + 9, 5); bikeRack(T.x - 54, T.z + 25, 6) // 団地の西移設に合わせ前庭へ
   // ゴミ集積所（金網ボックス＋ふた）＝団地の角
   { const g = new THREE.Group()
     const box = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.1, 1.0), new THREE.MeshToonMaterial({ color: 0x6f8f6a, gradientMap: GRAD, transparent: true, opacity: 0.5 })); box.position.y = 0.55; g.add(box)
@@ -2676,8 +2676,10 @@ function makeBoy() {
   // 虫取り網（ふだんは肩にかつぐ。採取時に前へ振る）
   const net = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.05, 6), toon(0x9a7b4a)); pole.position.y = 0.42; net.add(pole) // 短めの柄
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 6, 14), toon(0x8a6b3a)); ring.position.y = 0.9; ring.rotation.x = Math.PI / 2; net.add(ring)
-  const bag = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshBasicMaterial({ color: 0xf5f5ee, transparent: true, opacity: 0.24, side: THREE.DoubleSide })); bag.position.y = 0.9; bag.rotation.x = Math.PI; net.add(bag)
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.016, 6, 16), toon(0x8a6b3a)); ring.position.y = 0.92; ring.rotation.x = Math.PI / 2; net.add(ring) // 網の口（輪）を細く・少し大きく
+  // 深い円錐の網袋＝お椀型だと“トイレのスッポン”に見えるので、先細りの袋にして虫取り網らしく
+  const bag = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.46, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xeef0e6, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false })); bag.position.y = 0.69; bag.rotation.x = Math.PI; net.add(bag)
+  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 5), new THREE.MeshBasicMaterial({ color: 0xeef0e6, transparent: true, opacity: 0.3 })); bagTip.position.y = 0.47; net.add(bagTip) // 袋の底（先の丸み）
   net.position.set(0.15, 1.27, -0.01); net.rotation.set(NET_REST, 0, -0.06) // 柄の支点を右肩に乗せる＝肩に触れて網は頭の真後ろ上へ（横に飛び出さない・浮き解消）。rotation.xは虫採りアニメがNET_RESTで上書き
   net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
   g.add(net)
