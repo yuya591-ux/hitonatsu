@@ -61,7 +61,7 @@ const ROOF_Y = PLATEAU_Y + 3.4 + 7 * 2.6 // 屋上の歩行面の高さ(34.6)。
 // 与えられた(x,z)が屋上/踊り場/外階段の上なら、その高さを返す（地面より上に乗る）。それ以外はnull。
 // 階段(東x905〜909)と屋上(x892〜903)はx903〜905の隙間で隔て、最上段の踊り場(z-60〜-64)だけでつなぐ＝途中で横から屋上へ飛び移れない。
 function sunriseClimbY(x, z) {
-  if (x >= 892 && x <= 903 && z >= -61 && z <= -39) return ROOF_Y           // 屋上の歩行面
+  if (x >= 891.5 && x <= 904 && z >= -62 && z <= -38) return ROOF_Y         // 屋上の歩行面（四隅＝端まで歩けて一望できるよう広め）
   if (x >= 902 && x <= 909 && z >= -64 && z <= -60) return ROOF_Y           // 最上段の踊り場（階段⇔屋上をつなぐ）
   if (x >= 905 && x <= 909 && z >= -60 && z <= -37) return PLATEAU_Y + (ROOF_Y - PLATEAU_Y) * ((-37 - z) / 23) // 外階段（zで線形に上る）
   return null
@@ -1621,11 +1621,11 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       for (let i = 0; i <= 8; i++) { const t = i / 8; const p = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1.15, 6), RAIL); p.position.set(hx, PLATEAU_Y + dy * t + 0.55, -37 - 23 * t); p.castShadow = true; scene.add(p) }
     }
     // 屋上の歩行面（床）＋最上段の踊り場
-    const rf = new THREE.Mesh(new THREE.BoxGeometry(11.4, 0.25, 22.4), toonMap(0xc0bcaf, plasterTex)); rf.position.set(897.5, ROOF_Y - 0.12, -50); rf.receiveShadow = true; rf.castShadow = true; scene.add(rf)
+    const rf = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.25, 24.2), toonMap(0xc0bcaf, plasterTex)); rf.position.set(897.75, ROOF_Y - 0.12, -50); rf.receiveShadow = true; rf.castShadow = true; scene.add(rf) // 端まで歩ける広い屋上の床
     const ld = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.25, 4.6), toonMap(0xc0bcaf, plasterTex)); ld.position.set(905.5, ROOF_Y - 0.12, -62); ld.receiveShadow = true; scene.add(ld)
-    // 屋上の手すり（落下防止の見た目。SE＝階段口は開ける）
+    // 屋上の手すり（落下防止の見た目。四周を腰高で囲い、SE＝階段口だけ開ける）
     const rh = 1.05, RC = toon(0xc8c4b6)
-    for (const [rx, rz, rw, rd] of [[897.5, -39, 11.4, 0.14], [896, -61, 8.4, 0.14], [892, -50, 0.14, 22], [903, -45.5, 0.14, 11]]) { const r = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), RC); r.position.set(rx, ROOF_Y + rh / 2, rz); r.castShadow = true; scene.add(r) }
+    for (const [rx, rz, rw, rd] of [[897.75, -38, 12.6, 0.14], [896, -62, 9, 0.14], [891.5, -50, 0.14, 24.2], [904, -47, 0.14, 17]]) { const r = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), RC); r.position.set(rx, ROOF_Y + rh / 2, rz); r.castShadow = true; scene.add(r) }
     const ph = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.5, 2.4), toonMap(0xd2cec0, tileTex)); ph.position.set(900, ROOF_Y + 1.25, -57.5); ph.castShadow = true; scene.add(ph) // 階段室の塔屋（屋上の出口）
     const sgn = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.5), new THREE.MeshBasicMaterial({ map: textTex('おくじょう', '#3a2c1e', '#f4e8c8', false) })); sgn.position.set(906.6, PLATEAU_Y + 1.4, -36.6); scene.add(sgn) // 階段下の道しるべ
   }
@@ -4400,7 +4400,7 @@ function enterLieView() { // 一人称で空を見る視点へ（カメラは追
 const ENGAWA = new THREE.Vector3(HOUSE.x + Math.sin(0.35) * 3.4, 0, HOUSE.z + Math.cos(0.35) * 3.4)
 ENGAWA.y = heightAt(ENGAWA.x, ENGAWA.z)
 // 裏山の頂上の見晴らしベンチ（座ると街を一望）
-const MOUNT_SEAT = new THREE.Vector3(TOWN.x + 4, 0, TOWN.z + 86)
+const MOUNT_SEAT = new THREE.Vector3(TOWN.x - 6, 0, TOWN.z + 83) // 峠道のど真ん中→西の原っぱへ寄せる（道を外し、南＝町を一望できる位置に・ユーザー要望）
 MOUNT_SEAT.y = heightAt(MOUNT_SEAT.x, MOUNT_SEAT.z)
 {
   const g = new THREE.Group(); const w = toon(0x9a6a3a)
@@ -5006,9 +5006,13 @@ function update(dt) {
     // 建物・木の当たり判定：めり込んだら円の外へ押し戻す（すり抜け防止＝境界をはっきり）
     // ── サンライズの屋上/外階段：足の高さに階段・屋上の高さを足す（heightAtより上に乗る）──
     let climbY = sunriseClimbY(boy.position.x, boy.position.z)
-    // 落下防止：高い所(階段の途中/屋上)から構造の外へ踏み外したら一歩戻す（縁でバンプ）
+    // 落下防止＋縁を滑る：高い所から構造の外へ出る成分だけ止める（端・四隅まで歩ける＝一望できる）
     if (boy.userData._cy != null && boy.userData._cy > PLATEAU_Y + 3 && climbY == null) {
-      boy.position.x = boy.userData._cx; boy.position.z = boy.userData._cz; vel.x = 0; vel.z = 0; climbY = boy.userData._cy
+      const ox = boy.userData._cx, oz = boy.userData._cz
+      if (sunriseClimbY(boy.position.x, oz) != null) { boy.position.z = oz; vel.z = 0 }       // zだけ戻す＝x方向にスライド
+      else if (sunriseClimbY(ox, boy.position.z) != null) { boy.position.x = ox; vel.x = 0 }  // xだけ戻す＝z方向にスライド
+      else { boy.position.x = ox; boy.position.z = oz; vel.x = 0; vel.z = 0 }                 // 両方ダメ＝戻す
+      climbY = sunriseClimbY(boy.position.x, boy.position.z); if (climbY == null) climbY = boy.userData._cy
     }
     boy.userData._cy = climbY; boy.userData._cx = boy.position.x; boy.userData._cz = boy.position.z
     // 当たり判定は“地上にいる時だけ”（屋上/階段に乗っている間はスキップ＝建物コライダーで屋上から押し出されない）
@@ -5122,7 +5126,7 @@ function update(dt) {
     // マリオ64/サンシャイン式の追従：歩くとカメラが進行方向の真後ろへゆっくり回り込む。
     // 指で視点を回した直後(camManualTimer)は自動追従を止めて手動を優先する。
     if (camManualTimer > 0) camManualTimer -= dt
-    else if (moving && speedNow > 0.8) {
+    else if (moving && speedNow > 0.8 && !(boy.userData._cy != null && boy.userData._cy > PLATEAU_Y + 3)) { // 屋上(高所)では自動追従を切り、指で自由に視点を回せる＝街を一望
       let dyaw = (facing + Math.PI) - camCtl.yaw
       while (dyaw > Math.PI) dyaw -= Math.PI * 2; while (dyaw < -Math.PI) dyaw += Math.PI * 2
       camCtl.yaw += dyaw * Math.min(1, dt * 1.0) // ゆっくり（ラグ感＝レイクツーカメラ風）
