@@ -1772,7 +1772,13 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 32, T.z - 35, T.x - 15, T.z - 30, 4, false) // 高校の昇降口前→東へ抜ける
   makeRoadRibbon(T.x - 15, T.z - 30, T.x - 6, T.z - 4, 4, false)   // →北上して本通りへ合流
   makeSignpost(T.x - 27, T.z - 32, Math.PI / 2, 'こうこう →')
-  for (const [hx, hz, r, roof] of [[T.x + 34, T.z + 4, Math.PI / 2, 0x6a5a4a], [T.x + 34, T.z + 16, Math.PI / 2, 0x556088], [T.x - 21, T.z - 19, 0, 0x705a52], [T.x + 57, T.z + 34, Math.PI, 0x4a6a5a]]) makeHouse(hx, hz, r, roof)
+  // ── 東のはずれ：野原に孤立して浮いていた“空き地の増設4軒”を、パチンコ通りの南に正対する一列の家並みへ整理（道路に面した現実的な町並みに）──
+  // ※元は(1034,4)等で東の空地に浮き、一部は町に背を向けていた。パチンコ通り(z-14)を少し東へ延ばし、その南に北向きの家を等間隔で並べる。
+  makeRoadRibbon(T.x + 31, T.z - 14, T.x + 40, T.z - 13, 4, false, true) // パチンコ通りを東へ延長（銭湯・団地側の動線）
+  for (const [hx, roof] of [[T.x + 8, 0x6a5a4a], [T.x + 17, 0x556088], [T.x + 26, 0x705a52], [T.x + 35, 0x4a6a5a]]) {
+    makeHouse(hx, T.z - 22, 0, roof) // パチンコ通りの南に北向きで建てる＝道に正対した家並み（背を向けない）
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(7, 1.0, 0.4), toonMap(0xbcb6a4, plasterTex)); wall.position.set(hx, 0.5, T.z - 17.6); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall) // 道側(北)のブロック塀
+  }
   // ── マンション前の一本道（団地の正面を南北に貫く生活道路）＋沿道の暮らし ──
   makeRoadRibbon(T.x - 40, T.z - 16, T.x - 40, T.z + 48, 5, true, true) // 団地の正面を通る一本道。交差路(z+24)と交わり本通り・坂道へ通じる
   // 電柱並木（道の西肩＝団地側）＋電線が霧の奥へ
