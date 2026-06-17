@@ -56,6 +56,16 @@ function pushOutOfColliders(px, pz) {
 let swingSeat = null, swingPhase = 0, swingAmp = 0.3, swingCreakN = 0 // 振り子の状態（CreakNはきしみ音の折り返し検出）
 const smoothstep01 = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
 const PLATEAU_Y = 13 // マンションの丘の上の台地の高さ（サンライズ/南の公園を平らに据える地ならし。heightAtで使用）
+// ── サンライズ(マンション)の屋上＋外階段：プレイヤーが“建物の上に乗る”ための高さ。台地+基礎+7階。屋上を歩け、東面の階段で登れる ──
+const ROOF_Y = PLATEAU_Y + 3.4 + 7 * 2.6 // 屋上の歩行面の高さ(34.6)。makeMansionのbaseH/floors/FHと一致させる
+// 与えられた(x,z)が屋上/踊り場/外階段の上なら、その高さを返す（地面より上に乗る）。それ以外はnull。
+// 階段(東x905〜909)と屋上(x892〜903)はx903〜905の隙間で隔て、最上段の踊り場(z-60〜-64)だけでつなぐ＝途中で横から屋上へ飛び移れない。
+function sunriseClimbY(x, z) {
+  if (x >= 892 && x <= 903 && z >= -61 && z <= -39) return ROOF_Y           // 屋上の歩行面
+  if (x >= 902 && x <= 909 && z >= -64 && z <= -60) return ROOF_Y           // 最上段の踊り場（階段⇔屋上をつなぐ）
+  if (x >= 905 && x <= 909 && z >= -60 && z <= -37) return PLATEAU_Y + (ROOF_Y - PLATEAU_Y) * ((-37 - z) / 23) // 外階段（zで線形に上る）
+  return null
+}
 // 長い坂道の高さ。坂は“南(小さいz)ほど高い”＝北(下/しんみせ)→南へ登る→途中の平らな踊り場(ビスコ)→マンション(約7割)→頂上(南)。大きく長い坂。
 function slopeHeight(z) {
   const zb = TOWN.z + 44, zl1 = TOWN.z + 4, zl0 = TOWN.z - 12, ztop = TOWN.z - 90, hL = 10, hT = 30
@@ -84,7 +94,7 @@ function heightAt(x, z) {
     let h = m + s + ((m > 0.5 || s > 0.5) ? undul : 0)
     // ── マンションの丘の上＝平らな台地（公園/マンションが斜面にめり込まないよう。周囲とは8mでなめらかにブレンド）──
     // x[884,910]・z[-80,-40]を高さPLATEAU_Yに均す。サンライズと南の公園が“平地に建つ/公園の形を保つ”ための地ならし。
-    const pk = smoothstep01((x - 876) / 8) * smoothstep01((918 - x) / 8) * smoothstep01((-32 - z) / 8) * smoothstep01((z + 88) / 8)
+    const pk = smoothstep01((x - 876) / 8) * smoothstep01((918 - x) / 8) * smoothstep01((-28 - z) / 8) * smoothstep01((z + 88) / 8)
     if (pk > 0) h = h * (1 - pk) + PLATEAU_Y * pk
     return h
   }
@@ -1539,7 +1549,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // ── サンライズ（作者の家）：丘の上の7階建てグレーのマンション。原作不問のオリジナル造形（実名は出さない）──
   function makeMansion(cx, cz) {
     const g = new THREE.Group()
-    const floors = 8, units = 8, FH = 2.6, baseH = 3.4, W = units * 2.6, D = 11 // もっと大きく（横に太く・高く・立体駐車場の余地）
+    const floors = 7, units = 10, FH = 2.6, baseH = 3.4, W = units * 2.6, D = 14 // ユーザー要望でさらに巨大化（横に太く＝屋上に登る大きなサンライズ）。屋上の歩行面は外で別途
     // 1階＝立体駐車場の土台（濃いグレー・駐車場の暗い開口）。地形が丘なので道路側に露出する
     // 1階＝立体駐車場（柱で抜けた開放構造）。前面(-z/道路側)が開いて車が見える＋入口ランプ。背面(+z/崖側)に地下からの出入口
     const miniCar = (col) => { const c = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 0.8), toon(col)); b.position.y = 0.35; c.add(b); const cab = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.42, 0.74), toon(col)); cab.position.set(-0.1, 0.76, 0); c.add(cab); const ws = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.7), toon(0x3a4650)); ws.position.set(-0.1, 0.76, 0); c.add(ws); for (const wx of [-0.6, 0.6]) for (const wz of [-0.42, 0.42]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 10), toon(0x222222)); w.rotation.x = Math.PI / 2; w.position.set(wx, 0.16, wz); c.add(w) } return c }
@@ -1601,6 +1611,24 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     for (const gl of winGlows) townNightLights.push({ m: gl, base: 0.85, ph: Math.random() * 6 })
   }
   makeMansion(MANSION.x, MANSION.z) // 丘の南斜面の中腹に建てる（頂上はその北＝背面の崖）
+  // ── サンライズの外階段＋屋上の歩行面（歩いて登れる。当たり/高さは sunriseClimbY と一致）──
+  { const STH = toonMap(0xcbc6b8, plasterTex), RAIL = toon(0x9a9a90), dy = ROOF_Y - PLATEAU_Y
+    // 外階段（東面 x907／z-37→-60を段々に上る）
+    const N = 26
+    for (let i = 0; i < N; i++) { const t = (i + 0.5) / N; const st = new THREE.Mesh(new THREE.BoxGeometry(4, 0.42, 23 / N + 0.55), STH); st.position.set(907, PLATEAU_Y + dy * t - 0.2, -37 - 23 * t); st.castShadow = true; scene.add(st) }
+    for (const hx of [905.1, 908.9]) { // 斜めの手すり＋柱
+      const rl = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, Math.hypot(23, dy)), RAIL); rl.position.set(hx, PLATEAU_Y + dy / 2 + 1.05, -48.5); rl.rotation.x = Math.atan2(dy, 23); rl.castShadow = true; scene.add(rl)
+      for (let i = 0; i <= 8; i++) { const t = i / 8; const p = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1.15, 6), RAIL); p.position.set(hx, PLATEAU_Y + dy * t + 0.55, -37 - 23 * t); p.castShadow = true; scene.add(p) }
+    }
+    // 屋上の歩行面（床）＋最上段の踊り場
+    const rf = new THREE.Mesh(new THREE.BoxGeometry(11.4, 0.25, 22.4), toonMap(0xc0bcaf, plasterTex)); rf.position.set(897.5, ROOF_Y - 0.12, -50); rf.receiveShadow = true; rf.castShadow = true; scene.add(rf)
+    const ld = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.25, 4.6), toonMap(0xc0bcaf, plasterTex)); ld.position.set(905.5, ROOF_Y - 0.12, -62); ld.receiveShadow = true; scene.add(ld)
+    // 屋上の手すり（落下防止の見た目。SE＝階段口は開ける）
+    const rh = 1.05, RC = toon(0xc8c4b6)
+    for (const [rx, rz, rw, rd] of [[897.5, -39, 11.4, 0.14], [896, -61, 8.4, 0.14], [892, -50, 0.14, 22], [903, -45.5, 0.14, 11]]) { const r = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), RC); r.position.set(rx, ROOF_Y + rh / 2, rz); r.castShadow = true; scene.add(r) }
+    const ph = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.5, 2.4), toonMap(0xd2cec0, tileTex)); ph.position.set(900, ROOF_Y + 1.25, -57.5); ph.castShadow = true; scene.add(ph) // 階段室の塔屋（屋上の出口）
+    const sgn = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.5), new THREE.MeshBasicMaterial({ map: textTex('おくじょう', '#3a2c1e', '#f4e8c8', false) })); sgn.position.set(906.6, PLATEAU_Y + 1.4, -36.6); scene.add(sgn) // 階段下の道しるべ
+  }
   // ── ゲーム屋「ビスコ」のオマージュ（昭和末〜平成初のゲーム/おもちゃ屋）。実名は出さず generic「ゲーム」看板 ──
   function makeGameShop(cx, cz, rot) {
     const g = new THREE.Group()
@@ -4976,8 +5004,16 @@ function update(dt) {
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
     }
     // 建物・木の当たり判定：めり込んだら円の外へ押し戻す（すり抜け防止＝境界をはっきり）
-    if (!autoWalk) { const r = pushOutOfColliders(boy.position.x, boy.position.z); if (r.hit) { boy.position.x = r.x; boy.position.z = r.z; vel.x *= 0.3; vel.z *= 0.3 } }
-    boy.position.y = heightAt(boy.position.x, boy.position.z)
+    // ── サンライズの屋上/外階段：足の高さに階段・屋上の高さを足す（heightAtより上に乗る）──
+    let climbY = sunriseClimbY(boy.position.x, boy.position.z)
+    // 落下防止：高い所(階段の途中/屋上)から構造の外へ踏み外したら一歩戻す（縁でバンプ）
+    if (boy.userData._cy != null && boy.userData._cy > PLATEAU_Y + 3 && climbY == null) {
+      boy.position.x = boy.userData._cx; boy.position.z = boy.userData._cz; vel.x = 0; vel.z = 0; climbY = boy.userData._cy
+    }
+    boy.userData._cy = climbY; boy.userData._cx = boy.position.x; boy.userData._cz = boy.position.z
+    // 当たり判定は“地上にいる時だけ”（屋上/階段に乗っている間はスキップ＝建物コライダーで屋上から押し出されない）
+    if (!autoWalk && climbY == null) { const r = pushOutOfColliders(boy.position.x, boy.position.z); if (r.hit) { boy.position.x = r.x; boy.position.z = r.z; vel.x *= 0.3; vel.z *= 0.3 } }
+    boy.position.y = climbY != null ? climbY : heightAt(boy.position.x, boy.position.z)
     if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
     phase += dt * 1.55 * speedNow // 歩調は実速度に連動（短い脚に合わせて少し速いパタパタ歩き＝幼児らしさ）
     // 向きをなめらかに
