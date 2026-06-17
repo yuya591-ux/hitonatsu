@@ -1514,18 +1514,22 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 110, T.z - 60, T.x - 106, T.z - 66, 1.8, false) // 地下の小径：公園へ合流
   // ── マンション正面(東)＝尾根道を渡った先(崖側)に「マンション・一軒家が並ぶ通り」を再現（まず代表3棟で試作・ユーザー要望）──
   // 東は急斜面なので各棟は“上り側(西)の地面の高さ”に建て、崖側(東)は擁壁(RC土台)で埋める＝めり込み/浮きを防ぐ。マンションに正対(西向き)。
-  function eastBldg(cx, cz, kind) {
+  function eastBldg(cx, cz, kind, floors) {
     const we = kind === 'house' ? 2.5 : 3.25 // 上り側(西)の縁までの距離（rot=-π/2なので世界x方向の半幅）
     const yTop = heightAt(cx - we, cz)        // 西の縁の地面に合わせて建てる
     const Hf = 18
     const found = new THREE.Mesh(new THREE.BoxGeometry(kind === 'house' ? 7.6 : 9.6, Hf, kind === 'house' ? 5.6 : 7.1), toonMap(0x8c8c86, plasterTex))
     found.position.set(cx, yTop + 0.2 - Hf / 2, cz); found.rotation.y = -Math.PI / 2; found.castShadow = true; addOutline(found, 0.03); scene.add(found) // 崖側を埋める擁壁
-    const g = kind === 'house' ? makeHouse(cx, cz, -Math.PI / 2, [0x6a5a4a, 0x556088, 0x705a52][Math.floor(Math.random() * 3)]) : makeDanchi(cx, cz, -Math.PI / 2, 6)
+    const g = kind === 'house' ? makeHouse(cx, cz, -Math.PI / 2, [0x6a5a4a, 0x556088, 0x705a52, 0x4a6a5a, 0x705048][Math.floor(Math.random() * 5)]) : makeDanchi(cx, cz, -Math.PI / 2, floors || 4)
     if (g) g.position.y = yTop // 上り側の高さへ持ち上げ（崖側は擁壁で受ける）
   }
-  eastBldg(T.x - 67, T.z - 51, 'danchi') // 正面の代表マンション
-  eastBldg(T.x - 66, T.z - 40, 'house')  // 北どなりの一軒家
-  eastBldg(T.x - 66, T.z - 62, 'house')  // 南どなりの一軒家
+  // ユーザー要望で数を増やす：一軒家を中心に“まばら”に、低めのマンション(3〜4階)も交ぜて尾根道沿いに並べ“通り”に
+  for (const [dx, dz, kind, fl] of [
+    [-66, -30, 'house'], [-67, -40, 'danchi', 4], [-65, -50, 'house'],
+    [-66, -60, 'house'], [-67, -69, 'danchi', 3], [-65, -78, 'house'],
+  ]) eastBldg(T.x + dx, T.z + dz, kind, fl)
+  makeRoadRibbon(T.x - 78, T.z - 49, T.x - 71, T.z - 49, 3.4, false, true) // 尾根道→渡って通りへ（短い坂）
+  makeRoadRibbon(T.x - 71, T.z - 28, T.x - 71, T.z - 80, 3.4, false, true) // 家並みの前の通り（南北・家並みに正対）
   // ── サンライズ（作者の家）：丘の上の7階建てグレーのマンション。原作不問のオリジナル造形（実名は出さない）──
   function makeMansion(cx, cz) {
     const g = new THREE.Group()
