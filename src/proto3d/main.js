@@ -77,6 +77,14 @@ function slopeHeight(z) {
   if (z > ztop) return hL + (hT - hL) * smoothstep01((zl0 - z) / (zl0 - ztop)) // 踊り場→頂上(南)へ。途中にマンション(約7割)
   return hT // 頂上(南)の平地
 }
+// 尾根道の中心線X。高さ30mの尾根が道に沿って曲がる＝丘の上(z≤-120)から先は東へゆるく45°カーブして南東へまっすぐ。道が下らず30mを保つ（ユーザー要望）。
+// 道だけ曲げると東側は急に下って高さを保てないため、尾根そのものをこの中心線に沿わせる。
+function ridgeX(z) {
+  const z0 = TOWN.z - 120, z1 = TOWN.z - 150 // カーブの始まり / 45°に達する所
+  if (z >= z0) return SLOPE.x // 丘の上＋少しはまっすぐ南（＝既存の坂のまま）
+  if (z >= z1) { const u = (z0 - z) / (z0 - z1); return SLOPE.x - (z0 - z1) * (u * u * u - u * u * u * u / 2) } // 西へゆるやかに45°まで曲げる（傾きが0→1へなめらかに・ユーザー要望で東→西へ反転）
+  return SLOPE.x - (z0 - z1) * 0.5 - (z1 - z) // 45°で南西へまっすぐ（傾き+1のまま延びる）
+}
 function heightAt(x, z) {
   if (x > 1500) {
     // 神社エリア：石段の先（+z奥）に社の小山がせり上がる
@@ -96,7 +104,7 @@ function heightAt(x, z) {
     const m3 = MOUNT3.h * Math.exp(-(m3dx * m3dx / (2 * MOUNT3.w * MOUNT3.w) + m3dz * m3dz / (2 * MOUNT3.d * MOUNT3.d))) * smoothstep01((z - 44) / 10)
     const mtn = Math.max(m, m2, m3)
     // 長い坂道（尾根）：高さは slopeHeight(z)。x方向は“非対称”＝西(建物/森側)はゆるく裾を引き、東(町側)は急に落として平地の町を守る
-    const dxs = x - SLOPE.x, sg = dxs < 0 ? SLOPE.wW : SLOPE.wE
+    const dxs = x - ridgeX(z), sg = dxs < 0 ? SLOPE.wW : SLOPE.wE // 尾根の中心線は南で東へ曲がる（ridgeX）＝道が30mを保ったまま南東へ
     const across = Math.exp(-(dxs * dxs) / (2 * sg * sg))
     const s = slopeHeight(z) * across
     const undul = 0.4 * Math.sin(x * 0.1) * Math.cos(z * 0.1)
@@ -1155,11 +1163,14 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // makeRoadRibbon はグローバルへ移動済み（野原でも使えるように）。
   // マンション正面(南)に平行な“坂道”＝東(左手)上り・西(右手)下り。マンションはこの道の道中に建つ。
   makeRoadRibbon(T.x - 78, T.z + 46, T.x - 78, T.z - 92, 9, true, true) // しっかりしたコンクリート舗装の坂道（尾根の道）：北(下/しんみせ)→南(上/マンション・頂上)。マンションは約7割地点の西脇。新店まで一直線。
-  // ── 丘の上（南端z-92・約30m）で終わっていた尾根道を、さらに南へ延ばす（ユーザー要望「山登りきった先の道」）。slopeHeightはz≤-90で30m一定＝下りなし・標高保ったまま。ごく緩いカーブ→あとはまっすぐ ──
-  makeRoadRibbon(T.x - 78, T.z - 92, T.x - 79, T.z - 112, 9, true, true)  // (922,-92)→(921,-112) ごく緩くカーブし始める
-  makeRoadRibbon(T.x - 79, T.z - 112, T.x - 82, T.z - 134, 9, true, true) // (921,-112)→(918,-134) 少しだけ西へカーブ
-  makeRoadRibbon(T.x - 82, T.z - 134, T.x - 82, T.z - 170, 9, true, true) // (918,-134)→(918,-170) あとはまっすぐ南へ（霧の奥・地図の端へ）
-  makeSignpost(T.x - 86, T.z - 100, Math.PI, '丘のむこう →') // 丘の上から先へ続く道の道しるべ
+  // ── 丘の上（z-92・約30m）で終わっていた尾根道を、その先へ延ばす（ユーザー要望）。丘の上は少しまっすぐ→東へゆるく45°カーブ→あとは南東へずっとまっすぐ。中心線ridgeXに沿わせ高さ30mを保つ（下りなし）──
+  makeRoadRibbon(T.x - 78, T.z - 92, T.x - 78, T.z - 120, 9, true, true)  // (922,-92)→(922,-120) 丘の上から少しまっすぐ南（ここまでが“合ってる”部分）
+  makeRoadRibbon(T.x - 78, T.z - 120, T.x - 79, T.z - 130, 9, true, true) // (922,-120)→(921,-130) 西へゆるくカーブし始める
+  makeRoadRibbon(T.x - 79, T.z - 130, T.x - 84, T.z - 140, 9, true, true) // (921,-130)→(916,-140) カーブ続き
+  makeRoadRibbon(T.x - 84, T.z - 140, T.x - 93, T.z - 150, 9, true, true) // (916,-140)→(907,-150) ここで45°（南西向き）に
+  makeRoadRibbon(T.x - 93, T.z - 150, T.x - 123, T.z - 180, 9, true, true) // (907,-150)→(877,-180) 南西へずっとまっすぐ
+  makeRoadRibbon(T.x - 123, T.z - 180, T.x - 143, T.z - 200, 9, true, true) // (877,-180)→(857,-200) まっすぐ（霧の奥・地図の端へ）
+  makeSignpost(T.x - 72, T.z - 116, Math.PI, '丘のむこう →') // 丘の上から先へ続く道の道しるべ
   // 坂道の東肩にガードレール（昭和の峠道の象徴。地形に追従・支柱と白いビームを各1ドローに集約）
   function makeGuardrail(x0, z0, x1, z1, h = 0.6) {
     const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), n = Math.max(2, Math.round(len / 3.2)), pg = [], bg = []
@@ -1172,8 +1183,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const beams = new THREE.Mesh(mergeGeometries(bg), toon(0xe9ebec)); beams.castShadow = true; scene.add(beams); bg.forEach((g) => g.dispose())
   }
   makeGuardrail(T.x - 73, T.z + 4, T.x - 73, T.z - 58) // 坂道の東端（急な落ち側）に沿わせる
-  // 南へ延ばした尾根道の東端（急な落ち側）にもガードレールを続ける＝丘の上から先も“道らしく”仕上げる
-  makeGuardrail(T.x - 73, T.z - 92, T.x - 77, T.z - 134); makeGuardrail(T.x - 77, T.z - 134, T.x - 77, T.z - 170)
+  // 延ばした尾根道の東端（急な落ち側＝中心線の東）にもガードレールを続ける＝丘の上から先も“道らしく”仕上げる（西カーブに沿わせる）
+  makeGuardrail(T.x - 73, T.z - 92, T.x - 73, T.z - 120); makeGuardrail(T.x - 73, T.z - 120, T.x - 88, T.z - 150); makeGuardrail(T.x - 88, T.z - 150, T.x - 138, T.z - 200)
   // 上り(南)＝頂上→北寺尾の町方面／下り(北)＝ビスコ(踊り場)→しんみせ(一番下)→本通り
   makeRoadRibbon(T.x - 78, T.z + 42, T.x - 4, T.z + 8, 6, true, true) // 坂下(北)を町の本通りへ接続（コンクリート）
   makeRoadRibbon(T.x - 78, T.z - 50, T.x - 96, T.z - 50, 5, false, true) // マンションへ左折で入る下り坂(私道・コンクリート)：尾根の道→西へ約14m一段下って入口へ（セットバックした敷地に橋渡し）
@@ -5035,7 +5046,7 @@ function update(dt) {
       }
     } else if (area === 'town') {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 250, TOWN.x + 100) // 西を拡張（小学校の北西の二つ池まで歩ける）
-      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 175, TOWN.z + 105) // 南を拡張（マンションの丘の尾根道を丘の上から先へ＝地図拡大・ユーザー要望）
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 205, TOWN.z + 105) // 南を拡張（マンションの丘の尾根道を丘の上から東へ45°カーブ→南東へ＝地図拡大・ユーザー要望）
     } else { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
