@@ -113,6 +113,9 @@ function heightAt(x, z) {
     // x[884,910]・z[-80,-40]を高さPLATEAU_Yに均す。サンライズと南の公園が“平地に建つ/公園の形を保つ”ための地ならし。
     const pk = smoothstep01((x - 876) / 8) * smoothstep01((918 - x) / 8) * smoothstep01((-28 - z) / 8) * smoothstep01((z + 88) / 8)
     if (pk > 0) h = h * (1 - pk) + PLATEAU_Y * pk
+    // ── 【獅子ヶ谷/北寺尾エリア・新築／ユーザー要望A】南の拡張地に高さ30mの平らな台地。既存の長い道(30m)と地続き＝下りなし。学校や住宅街をこの上に置く ──
+    const NB = smoothstep01((x - 776) / 14) * smoothstep01((946 - x) / 14) * smoothstep01((-210 - z) / 14) * smoothstep01((z + 352) / 14)
+    if (NB > 0) h = h * (1 - NB) + 30 * NB
     return h
   }
   const hill = 6.0 * Math.exp(-((x * x) + (z + 28) * (z + 28)) / (2 * 18 * 18)) // -Z側のなだらかな高台
@@ -1141,8 +1144,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
 {
   const T = TOWN
   // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
-  const TGX = T.x - 70, TGZ = T.z - 48 // 地面メッシュの中心。北端は据え置き(z+145)、南へ拡張(z-115→-241)＝マンションの丘の南の尾根道を先へ延ばす土地を確保（ユーザー要望）
-  const tgeo = new THREE.PlaneGeometry(380, 386, 304, 308); tgeo.rotateX(-Math.PI / 2) // 西へ拡張(290→380)＋南へ拡張(260→386)。細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
+  const TGX = T.x - 70, TGZ = T.z - 110 // 地面メッシュの中心。北端は据え置き(z+145)、南へさらに拡張(z-241→-365)＝獅子ヶ谷/北寺尾エリアを新築する土地を確保（ユーザー要望A・広く拡張）
+  const tgeo = new THREE.PlaneGeometry(380, 510, 304, 408); tgeo.rotateX(-Math.PI / 2) // 西へ拡張(290→380)＋南へさらに拡張(386→510)。細かい格子＝坂や山で道が地形にめり込まない（路面がぴったり乗る）
   const tpos = tgeo.attributes.position, tcol = []
   const cTownGnd = new THREE.Color(0xb6ad99), cMntGrass = new THREE.Color(0x86b257), cMntDark = new THREE.Color(0x6f9a47)
   for (let i = 0; i < tpos.count; i++) {
@@ -1171,6 +1174,12 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 93, T.z - 150, T.x - 123, T.z - 180, 9, true, true) // (907,-150)→(877,-180) 南西へずっとまっすぐ
   makeRoadRibbon(T.x - 123, T.z - 180, T.x - 143, T.z - 200, 9, true, true) // (877,-180)→(857,-200) まっすぐ（霧の奥・地図の端へ）
   makeSignpost(T.x - 72, T.z - 116, Math.PI, '丘のむこう →') // 丘の上から先へ続く道の道しるべ
+  // ── 【獅子ヶ谷/北寺尾エリア・新築／ユーザー要望A】既存の長い道の先(857,-200)から、南の平らな台地(30m)へ主要道(鶴見獅子ヶ谷通り)を延ばす。地図の通りゆるくカーブ。学校/枝道は次の手順で足す ──
+  makeRoadRibbon(T.x - 143, T.z - 200, T.x - 140, T.z - 238, 8, true, true) // (857,-200)→(860,-238) 台地へ入る
+  makeRoadRibbon(T.x - 140, T.z - 238, T.x - 130, T.z - 278, 8, true, true) // (860,-238)→(870,-278) ゆるく東へ
+  makeRoadRibbon(T.x - 130, T.z - 278, T.x - 134, T.z - 315, 8, true, true) // (870,-278)→(866,-315)
+  makeRoadRibbon(T.x - 134, T.z - 315, T.x - 140, T.z - 340, 8, true, true) // (866,-315)→(860,-340) 南へ続く
+  makeSignpost(T.x - 150, T.z - 214, 0, '北寺尾 →') // 新エリアの入口（仮）
   // 坂道の東肩にガードレール（昭和の峠道の象徴。地形に追従・支柱と白いビームを各1ドローに集約）
   function makeGuardrail(x0, z0, x1, z1, h = 0.6) {
     const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), n = Math.max(2, Math.round(len / 3.2)), pg = [], bg = []
@@ -1775,7 +1784,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     for (let i = 0; i < 20; i++) {
       const a = (i / 20) * Math.PI * 2 + (Math.random() - 0.5) * 0.18
       const r = 290 + Math.random() * 90, isFar = r > 335 // 西へ歩行範囲を広げたぶん、遠景の山は外側へ（山の裾(半径〜50)が歩ける範囲(半径〜238)に食い込まないよう中心を外へ）
-      const mx = ccx + Math.cos(a) * r, mz = ccz + Math.sin(a) * r
+      let mx = ccx + Math.cos(a) * r, mz = ccz + Math.sin(a) * r
+      if (Math.sin(a) < -0.25 && mz > -395) mz = -405 - Math.random() * 70 // 南に新エリア(z-345まで)を新築したので、南の山だけ外へ押し出す（町の北/東/西の背景はそのまま・ユーザー要望A）
       const h = 34 + Math.random() * 40, rad = 28 + Math.random() * 22
       const mtn = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 5 + Math.floor(Math.random() * 3), 1), isFar ? far : near)
       mtn.position.set(mx, h / 2 - 9, mz); mtn.rotation.y = Math.random() * 6.28 // 麓を少し沈めて稜線だけ見せる
@@ -5046,7 +5056,7 @@ function update(dt) {
       }
     } else if (area === 'town') {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 250, TOWN.x + 100) // 西を拡張（小学校の北西の二つ池まで歩ける）
-      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 205, TOWN.z + 105) // 南を拡張（マンションの丘の尾根道を丘の上から東へ45°カーブ→南東へ＝地図拡大・ユーザー要望）
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 345, TOWN.z + 105) // 南をさらに拡張（獅子ヶ谷/北寺尾エリアまで歩ける＝ユーザー要望A・広く拡張）
     } else { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
