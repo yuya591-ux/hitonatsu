@@ -1186,6 +1186,16 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 130, T.z - 278, T.x - 134, T.z - 315, 8, true, true) // (870,-278)→(866,-315)
   makeRoadRibbon(T.x - 134, T.z - 315, T.x - 140, T.z - 340, 8, true, true) // (866,-315)→(860,-340) 南へ続く
   makeSignpost(T.x - 150, T.z - 214, 0, '北寺尾 →') // 新エリアの入口（仮）
+  // ── 【北寺尾エリア・新築／ユーザー要望A】低い集落(約5m)の上に、地図どおり学校・園・住宅と枝道を置く。今の町は不変・追加のみ ──
+  makeHighSchool(T.x - 180, T.z - 312, Math.PI / 2)   // 橘学苑(高校)＝主要道の西・道に正対(東向き) (820,-312)
+  makeHighSchool(T.x - 102, T.z - 314, -Math.PI / 2)  // 白鳥女子高＝主要道の東・道に正対(西向き) (898,-314)
+  makeKindergarten(T.x - 208, T.z - 328, Math.PI / 2) // 幼稚園＝西の小さな園舎 (792,-328)
+  makeHouse(T.x - 158, T.z - 300, Math.PI)            // 住宅(842,-300)
+  makeHouse(T.x - 120, T.z - 300, Math.PI)            // 住宅(880,-300)
+  makeRoadRibbon(T.x - 146, T.z - 312, T.x - 172, T.z - 312, 4, false, true) // 西へ枝道→橘学苑
+  makeRoadRibbon(T.x - 134, T.z - 314, T.x - 110, T.z - 314, 4, false, true) // 東へ枝道→白鳥女子高
+  makeRoadRibbon(T.x - 158, T.z - 300, T.x - 205, T.z - 300, 4, false, true) // 西の住宅街の道(幼稚園の方へ)
+  makeSignpost(T.x - 152, T.z - 296, Math.PI, '北寺尾の町') // 集落の道しるべ(仮)
   // 坂道の東肩にガードレール（昭和の峠道の象徴。地形に追従・支柱と白いビームを各1ドローに集約）
   function makeGuardrail(x0, z0, x1, z1, h = 0.6) {
     const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), n = Math.max(2, Math.round(len / 3.2)), pg = [], bg = []
