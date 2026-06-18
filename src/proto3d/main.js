@@ -132,7 +132,7 @@ function heightAt(x, z) {
       if (sk > 0) h = h * (1 - sk) + 7.5 * sk
       const yk = smoothstep01((x - 742) / 7) * smoothstep01((788 - x) / 6) * smoothstep01((z + 64) / 9) * smoothstep01((-26 - z) / 8) // 西の高い校庭=10（西の山の裾を少し取り込み、校庭との谷を消す）
       if (yk > 0) h = h * (1 - yk) + 10 * yk
-      const bpk = smoothstep01((x - 800) / 6) * smoothstep01((822 - x) / 5) * smoothstep01((z + 36) / 7) * smoothstep01((-14 - z) / 8) // 校舎の真裏(北)＝体育館の平地(7.3)。迂回路(x>822)は避ける
+      const bpk = smoothstep01((x - 800) / 6) * smoothstep01((822 - x) / 5) * smoothstep01((z + 36) / 7) * smoothstep01((-7 - z) / 9) // 校舎の真裏(北)＝体育館の平地(7.3)。北へ広げ体育館の足元を平らに。迂回路(x>822)は避ける
       if (bpk > 0) h = h * (1 - bpk) + 7.3 * bpk
     }
     // ── マリノスのグラウンド＝“崖下の平らな運動場”(≒4m)。東端(グラウンドのすぐ東)を草の土手で立ち上げてビスコ(10.5)へ。
@@ -1505,7 +1505,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     }
     // ── 体育館（校舎の真裏＝北。ユーザーの実体験どおり校舎のすぐ後ろに建つ。2026-06-18修正）──
     {
-      const bgx = cx - 1, bgz = cz + 12, gW = 11, gD = 16, gH = 7.5
+      const bgx = cx - 1, bgz = cz + 13, gW = 11, gD = 16, gH = 7.5
       const gg = new THREE.Group()
       const gb = new THREE.Mesh(new THREE.BoxGeometry(gW, gH, gD), toonMap(0xdcd3bf, plasterTex)); gb.position.y = gH / 2; gg.add(gb)
       const groof = new THREE.Mesh(new THREE.BoxGeometry(gW + 0.4, 0.6, gD + 0.4), toonMap(0x8a9098, roofTex)); groof.position.y = gH + 0.3; gg.add(groof)
@@ -1966,8 +1966,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // ※元は(1034,4)等で東の空地に浮き、一部は町に背を向けていた。パチンコ通り(z-14)を少し東へ延ばし、その南に北向きの家を等間隔で並べる。
   makeRoadRibbon(T.x + 31, T.z - 14, T.x + 40, T.z - 13, 4, false, true) // パチンコ通りを東へ延長（銭湯・団地側の動線）
   for (const [hx, roof] of [[T.x + 8, 0x6a5a4a], [T.x + 17, 0x556088], [T.x + 26, 0x705a52], [T.x + 35, 0x4a6a5a]]) {
-    makeHouse(hx, T.z - 22, 0, roof) // パチンコ通りの南に北向きで建てる＝道に正対した家並み（背を向けない）
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(7, 1.0, 0.4), toonMap(0xbcb6a4, plasterTex)); wall.position.set(hx, 0.5, T.z - 17.6); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall) // 道側(北)のブロック塀
+    makeHouse(hx, T.z - 25, 0, roof) // パチンコ通りの南に北向きで建てる＝道に正対した家並み。z-22→-25へ南下＝パチンコ/前列の家との重なりを解消(2026-06-18)
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(7, 1.0, 0.4), toonMap(0xbcb6a4, plasterTex)); wall.position.set(hx, 0.5, T.z - 20.6); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall) // 道側(北)のブロック塀（家に追従して南下）
   }
   // ── マンション前の一本道（団地の正面を南北に貫く生活道路）＋沿道の暮らし ──
   makeRoadRibbon(T.x - 40, T.z - 16, T.x - 40, T.z + 48, 5, true, true) // 団地の正面を通る一本道。交差路(z+24)と交わり本通り・坂道へ通じる
