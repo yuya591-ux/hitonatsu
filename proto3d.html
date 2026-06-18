@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>ひと夏の一日</title>
     <!-- 麦わら帽子のアイコン（コード描画のSVG・外部素材なし） -->
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
@@ -17,8 +17,11 @@
     <style>
       html, body { margin: 0; height: 100%; background: #1b1d24; overflow: hidden;
         font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
-        color: #3b3024; -webkit-tap-highlight-color: transparent; user-select: none; }
+        color: #3b3024; -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
       #c { display: block; width: 100vw; height: 100vh; touch-action: none; }
+      /* ボタン連打でのダブルタップ拡大・長押しのテキスト選択/コールアウトを止める（ユーザー要望2026-06-19） */
+      button, .hud { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
       .hud { position: fixed; }
       #hint { left: 50%; top: calc(3.5% + env(safe-area-inset-top)); transform: translateX(-50%);
         padding: 0.4em 1.2em; font-size: clamp(13px,2.4vw,18px); letter-spacing: 0.08em;
