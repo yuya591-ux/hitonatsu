@@ -2578,6 +2578,15 @@ for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) makeCorn(-13.5 + c * 1.3
   for (const [cx2, cz2] of [[-1.0, 1.0], [1.0, 1.0], [1.0, 2.6], [-1.0, 2.6]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 5), toon(0x9a958c)); p.position.set(cx2, 0.5, cz2); g.add(p) }
   const run = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.95, 1.6), new THREE.MeshToonMaterial({ color: 0xcfcabe, transparent: true, opacity: 0.1, gradientMap: GRAD })); run.position.set(0, 0.5, 1.8); g.add(run)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(-24, heightAt(-24, 5), 5); g.rotation.y = 0.6; mergedOutline(g, 0.03); addContactShadow(g, 1.6); addBox(-24, 5, 0.95, 0.75, 0.6); scene.add(g) }
+// ── 野の花パッチ（原っぱに夏の色を散らす：タンポポ/シロツメクサ/れんげ風。開けた草地に点々と）──
+for (const [fx, fz, fn, fs] of [[-11, 1, 9, 7], [7, 32, 9, 8], [24, 9, 8, 6], [-4, -7, 8, 6], [-21, 20, 8, 7], [16, 22, 8, 7]]) {
+  const cols = [0xf2e85a, 0xfbfbf0, 0xe87ab0, 0xf0a850] // 黄(タンポポ)・白(シロツメ)・桃・橙
+  for (let i = 0; i < fn; i++) {
+    const x = fx + (Math.random() - 0.5) * fs, z = fz + (Math.random() - 0.5) * fs, y = heightAt(x, z)
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.22, 4), toon(0x5e7d3e)); st.position.set(x, y + 0.11, z); scene.add(st)
+    const fl = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), toon(cols[i % cols.length])); fl.scale.y = 0.6; fl.position.set(x, y + 0.2, z); scene.add(fl)
+  }
+}
 // 水やりの水しぶき（じょうろから落ちる水の粒）
 const WDROPN = 20
 const wdropPos = new Float32Array(WDROPN * 3).fill(-9999)
