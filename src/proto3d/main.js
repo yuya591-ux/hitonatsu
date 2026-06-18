@@ -2024,7 +2024,11 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 83, T.z + 149, T.x - 107, T.z + 150, 4, false, true)  // (917,149)→(893,150) 地点2→3
   makeRoadRibbon(T.x - 107, T.z + 150, T.x - 133, T.z + 148, 4, false, true) // (893,150)→(867,148) 地点3→4（谷の道の終点と交差）
   makeRoadRibbon(T.x - 133, T.z + 148, T.x - 150, T.z + 141, 4, false, true) // (867,148)→(850,141) 地点4→5
-  makeRoadRibbon(T.x - 150, T.z + 141, T.x - 172, T.z + 127, 4, false, true) // (850,141)→(828,127) 地点5→6（西の原っぱで行き止まり）
+  makeRoadRibbon(T.x - 150, T.z + 141, T.x - 172, T.z + 127, 4, false, true) // (850,141)→(828,127) 地点5→6
+  // ── 【さらに西へ続く道／ユーザー要望2026-06-18：東西の道の西端(828,127)から3点をたどって西へ】平らな原っぱ(高さ0〜1.3m)。西端(786,148)で行き止まり ──
+  makeRoadRibbon(T.x - 172, T.z + 127, T.x - 175, T.z + 125, 4, false, true)  // (828,127)→(825,125) 地点1（前の道の続き）
+  makeRoadRibbon(T.x - 175, T.z + 125, T.x - 198, T.z + 125, 4, false, true)  // (825,125)→(802,125) 地点2
+  makeRoadRibbon(T.x - 198, T.z + 125, T.x - 214, T.z + 148, 4, false, true)  // (802,125)→(786,148) 地点3（西の原っぱで行き止まり）
   // ── ブランコ（乗ってブランコ視点であそぶ）──
   {
     const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
@@ -2852,7 +2856,7 @@ const boy = makeBoy()
 const BOY_SCALE = 0.85 // 基準スケール（さらに小柄に）。ジャンプの伸び縮みはこれに掛ける
 boy.scale.setScalar(BOY_SCALE) // 体全体をもう少し小さく
 boy.rotation.order = 'YXZ' // ★向き(y)を最外＝前傾(x)は常に「進行方向へ前のめり」になる。XYZだと東西を向いた時に前傾が横倒れ＝左に傾く不具合になる
-boy.position.set(0, heightAt(0, 6), 6)
+boy.position.set(912, heightAt(912, -50), -50); boy.rotation.y = Math.PI / 2 // ゲーム開始位置＝サンライズ(マンション)の入口を出た私道の上(外階段x905-909の東の地面)・東(道のほう)向き（ユーザー要望2026-06-18）
 outlineObj(boy, 0.03)
 // 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
 {
@@ -4090,7 +4094,7 @@ if (audioUrls.river) {
 let mode = 'walk' // 'walk' | 'sit' | 'lie'
 let moving = false
 let phase = 0
-let facing = 0 // 向き(rad)
+let facing = Math.PI / 2 // 向き(rad)。開始はサンライズ前で東(道のほう)向き
 const keys = {}
 const seatLook = { yaw: Math.PI, pitch: -0.05 } // 座/寝の視線
 const vel = new THREE.Vector3() // 歩きの慣性（世界速度 x,z）
@@ -4224,7 +4228,7 @@ const diaryCancelEl = document.getElementById('diary-cancel')
 if (diaryCancelEl) diaryCancelEl.addEventListener('click', () => { if (diaryOpen) { diaryEl.style.display = 'none'; diaryOpen = false; dayAuto = true } })
 
 // ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
-let area = 'field'
+let area = 'town' // 開始エリア＝町(サンライズ前)。はらっぱ(おばあちゃんち)は町の門から歩いて行ける（ユーザー要望2026-06-18）
 let transitioning = false
 let autoWalk = null // 往来中の自動歩行 {x,z}（門をくぐって前進）
 const goEl = document.getElementById('go')
