@@ -128,9 +128,9 @@ function heightAt(x, z) {
     // ── 小学校＝山あいの段々校地（ユーザー要望2026-06-18：山に囲まれた高低差のある学校）──
     //    ①前(南)=広場・校舎・奥=プールの棚を 7.5 に。②向かって左(西)に一段高い校庭(10≒校舎2階の高さ)を作り、階段でつなぐ。
     {
-      const sk = smoothstep01((x - 784) / 7) * smoothstep01((840 - x) / 8) * smoothstep01((z + 74) / 8) * smoothstep01((-30 - z) / 8) // 広場/校舎/プールの棚=7.5
+      const sk = smoothstep01((x - 794) / 6) * smoothstep01((840 - x) / 8) * smoothstep01((z + 74) / 8) * smoothstep01((-30 - z) / 8) // 広場/校舎/プールの棚=7.5（西端を東へ＝拡大した校庭に寄せた分）
       if (sk > 0) h = h * (1 - sk) + 7.5 * sk
-      const yk = smoothstep01((x - 742) / 7) * smoothstep01((788 - x) / 6) * smoothstep01((z + 64) / 9) * smoothstep01((-26 - z) / 8) // 西の高い校庭=10（西の山の裾を少し取り込み、校庭との谷を消す）
+      const yk = smoothstep01((x - 745) / 8) * smoothstep01((797 - x) / 6) * smoothstep01((z + 72) / 10) * smoothstep01((-20 - z) / 8) // 西の高い校庭=10（x753〜791・z-28〜-62へ拡大。東は広場の手前まで）
       if (yk > 0) h = h * (1 - yk) + 10 * yk
       const bpk = smoothstep01((x - 800) / 6) * smoothstep01((822 - x) / 5) * smoothstep01((z + 36) / 7) * smoothstep01((-7 - z) / 9) // 校舎の真裏(北)＝体育館の平地(7.3)。北へ広げ体育館の足元を平らに。迂回路(x>822)は避ける
       if (bpk > 0) h = h * (1 - bpk) + 7.3 * bpk
@@ -1454,8 +1454,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     for (const gl of winGlows) townNightLights.push({ m: gl, base: 0.38, ph: Math.random() * 6, fa: 0.02 }) // 校庭(盆踊り)から見える窓＝暗め＋ほぼ点滅なし（ギラギラ/チカチカ対策）
     // ── 高い校庭（向かって左=西の高台・10m＝校舎2階の高さ）。砂地＋白線トラック＋鉄棒/朝礼台/二宮像。広場とは階段、校舎2階とは渡り廊下でつながる（ユーザー要望2026-06-18）──
     const yz = cz - D / 2 - 16              // 旧・校庭の中心＝いまは「広場」(前/南・7.5)の中心になる
-    const gx = cx - 42, gz = cz - 7, gy = 10 // 高い校庭の中心(西の高台)＝(768,-44,10)
-    const gYW = 30, gYD = 26                 // 校庭の広さ
+    const gx = cx - 38, gz = cz - 8, gy = 10 // 高い校庭の中心(西の高台)＝(772,-45,10)。拡大＋東へ寄せて校舎/広場に近づけた(2026-06-18)
+    const gYW = 38, gYD = 34                 // 校庭の広さ（x753〜791・z-28〜-62へ拡大）
     const yard = new THREE.Mesh(new THREE.PlaneGeometry(gYW, gYD), new THREE.MeshToonMaterial({ color: 0xcdb389, gradientMap: GRAD, map: watercolorTex })); yard.rotation.x = -Math.PI / 2; yard.position.set(gx, gy + 0.04, gz); yard.receiveShadow = true; scene.add(yard)
     // 白線トラック（楕円＝運動場らしさ）
     { const tr = new THREE.Mesh(new THREE.RingGeometry(7.4, 8.0, 44), new THREE.MeshBasicMaterial({ color: 0xeae6d6, transparent: true, opacity: 0.85, side: THREE.DoubleSide })); tr.rotation.x = -Math.PI / 2; tr.scale.set(1.5, 1, 1); tr.position.set(gx, gy + 0.06, gz); scene.add(tr) }
@@ -1519,7 +1519,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     }
     // ── 体育館（校舎の真裏＝北。ユーザーの実体験どおり校舎のすぐ後ろに建つ。2026-06-18修正）──
     {
-      const bgx = cx - 1, bgz = cz + 13, gW = 11, gD = 16, gH = 7.5
+      const bgx = cx - 1, bgz = cz + 12, gW = 16, gD = 7, gH = 7 // 校舎のような細長い長方形にスリム化（11×16のずんぐり→16×7。2026-06-18）
       const gg = new THREE.Group()
       const gb = new THREE.Mesh(new THREE.BoxGeometry(gW, gH, gD), toonMap(0xdcd3bf, plasterTex)); gb.position.y = gH / 2; gg.add(gb)
       const groof = new THREE.Mesh(new THREE.BoxGeometry(gW + 0.4, 0.6, gD + 0.4), toonMap(0x8a9098, roofTex)); groof.position.y = gH + 0.3; gg.add(groof)
@@ -3343,7 +3343,7 @@ let fwTimer = 3
 function spawnFirework() {
   const N = 150
   // ★花火は“おまつり会場(校庭)の上空”に大きく開く。以前は原点(はらっぱ)上空に出ていて、町の会場からは遠くて見えなかった不具合を修正。
-  const cx = TOWN.x - 232 + (Math.random() - 0.5) * 70, cy = 50 + Math.random() * 26, cz = TOWN.z - 44 + (Math.random() - 0.5) * 60 // 会場＝高い校庭(768,-44)の上空へ追従（段々校地への作り直し2026-06-18）
+  const cx = TOWN.x - 228 + (Math.random() - 0.5) * 74, cy = 50 + Math.random() * 26, cz = TOWN.z - 45 + (Math.random() - 0.5) * 64 // 会場＝高い校庭(772,-45)の上空へ追従（校庭拡大2026-06-18）
   const pos = new Float32Array(N * 3); const vel = []
   for (let i = 0; i < N; i++) {
     pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
@@ -3950,7 +3950,7 @@ function getNoise() {
   return noiseBuf
 }
 // ── 縁日のお囃子（自前合成・太鼓＋篠笛）。屋台からの距離で音量が変わる＝小さく聞こえる音をたどると縁日に着く（このゲームの核） ──
-const FEST_POS = new THREE.Vector2(TOWN.x - 232, TOWN.z - 44) // 盆踊りの会場＝小学校の“高い校庭”の櫓(768,-44)。段々校地への作り直しに追従(2026-06-18)。お囃子はここから聞こえる＝音をたどって校庭の盆踊りへ
+const FEST_POS = new THREE.Vector2(TOWN.x - 228, TOWN.z - 45) // 盆踊りの会場＝小学校の“高い校庭”の櫓(772,-45)。校庭拡大に追従(2026-06-18)。お囃子はここから聞こえる＝音をたどって校庭の盆踊りへ
 let festGain = null, festNextBar = 0
 function getFestOut() {
   const ctx = listener.context
