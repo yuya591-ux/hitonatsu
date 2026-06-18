@@ -158,6 +158,39 @@
       #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px;
         margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,0.55);
         box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+      /* ── ばしょマップ（開発中だけの“場所をつたえる”道具・ユーザー要望。完成したら外す）── */
+      #set-map { background: #c8956a; } /* せってい内の「ひらく」ボタン＝道具らしい色 */
+      #mapui { position: fixed; inset: 0; display: none; z-index: 32; box-sizing: border-box; overflow: auto;
+        align-items: center; justify-content: center; gap: 14px; padding: 12px; flex-wrap: wrap;
+        background: rgba(24,28,42,0.84); backdrop-filter: blur(3px); }
+      #mapui.on { display: flex; }
+      #map-wrap { position: relative; background: #f3ead6; border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+      #map-cv { display: block; border-radius: 12px; touch-action: none; cursor: crosshair; }
+      #map-compass { position: absolute; left: 8px; top: 6px; font-size: 13px; font-weight: 600;
+        color: #6a5a3a; text-shadow: 0 1px 2px rgba(255,251,243,0.8); pointer-events: none; }
+      #map-panel { width: min(92vw, 304px); max-height: 88vh; overflow: auto; padding: 14px 15px 15px;
+        background: #fbf6ea; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+      #map-panel h2 { margin: 0 0 0.5em; font-size: clamp(18px,3.6vw,22px); color: #4a4032; letter-spacing: 0.06em; }
+      .map-help { margin: 0 0 0.8em; font-size: 13px; line-height: 1.6; color: #6a5c46; }
+      .map-modes { display: flex; gap: 6px; margin-bottom: 4px; }
+      .map-mode { flex: 1; appearance: none; border: none; cursor: pointer; padding: 0.5em 0; border-radius: 999px;
+        font-size: 15px; font-family: inherit; color: #5a4a36; background: #e3dac6; transition: background 0.2s; }
+      .map-mode.on { background: #7aa86a; color: #fff; }
+      .map-modehelp { margin: 0.4em 0 0.9em; font-size: 12px; line-height: 1.5; color: #8a7a5e; }
+      .map-btn { display: block; width: 100%; appearance: none; border: none; cursor: pointer; margin: 7px 0;
+        padding: 0.62em 1em; border-radius: 12px; font-size: 16px; font-family: inherit; color: #4a4032;
+        background: rgba(150,140,118,0.2); box-shadow: 0 2px 6px rgba(120,100,70,0.14); }
+      #map-here { color: #2e5a2e; background: rgba(232,246,228,0.96); font-weight: 600;
+        border: 2px solid rgba(150,180,120,0.6); }
+      #map-copy { color: #fdf7ec; background: #7aa86a; font-weight: 600; }
+      #map-share { color: #fdf7ec; background: #6a86c0; font-weight: 600; }
+      #map-out { width: 100%; box-sizing: border-box; min-height: 78px; margin: 8px 0 2px; padding: 8px 10px;
+        font-family: inherit; font-size: 12.5px; line-height: 1.6; color: #3b3024; background: #fffdf7;
+        border: 1px solid rgba(150,130,90,0.3); border-radius: 10px; resize: vertical; }
+      .map-sub { display: flex; gap: 7px; }
+      .map-sub .map-btn { margin: 7px 0; }
+      #map-close { color: #fdf7ec; background: #6a7088; }
     </style>
   </head>
   <body>
@@ -198,8 +231,37 @@
         <div class="set-row"><span>見まわす はやさ</span><button class="set-toggle on" id="set-sens">ふつう</button></div>
         <div class="set-row"><span>画面のゆれを へらす</span><button class="set-toggle" id="set-motion">OFF</button></div>
         <div class="set-row"><span>手描きの線（おもいとき OFF）</span><button class="set-toggle on" id="set-ink">ON</button></div>
+        <div class="set-row"><span>🗺 ばしょマップ（場所をつたえる）</span><button class="set-toggle" id="set-map">ひらく</button></div>
         <button id="set-close">とじる</button>
         <button id="set-guide">あそびかたを みる</button>
+      </div>
+    </div>
+    <!-- ばしょマップ：開発中だけ、場所をことばや座標でなく“タップ＋コピー”で伝える道具（ユーザー要望） -->
+    <div id="mapui">
+      <div id="map-wrap">
+        <canvas id="map-cv"></canvas>
+        <div id="map-compass">北 ▲</div>
+      </div>
+      <div id="map-panel">
+        <h2>ばしょマップ</h2>
+        <p class="map-help">地図を <b>タップ</b>すると、そこに 印（しるし）が つきます。<br>
+          ゲームで その場所に 立って <b>「いる所に印」</b>を おしても いいです。<br>
+          印を つけたら <b>「コピー」</b>（文字）か <b>「📷 画像にして送る」</b>（地図の絵）で、わたしに 送ってください。</p>
+        <div class="map-modes">
+          <button class="map-mode on" id="map-mode-point" data-mode="point">地点</button>
+          <button class="map-mode" id="map-mode-area" data-mode="area">範囲</button>
+          <button class="map-mode" id="map-mode-line" data-mode="line">道</button>
+        </div>
+        <p class="map-modehelp" id="map-modehelp">「地点」＝1か所をタップ。何個でも置けます。</p>
+        <button class="map-btn" id="map-here">📍 いま いる所に 印</button>
+        <textarea id="map-out" readonly placeholder="（まだ 印が ありません）"></textarea>
+        <button class="map-btn" id="map-copy">コピー する</button>
+        <button class="map-btn" id="map-share">📷 画像にして 送る</button>
+        <div class="map-sub">
+          <button class="map-btn" id="map-undo">ひとつ もどす</button>
+          <button class="map-btn" id="map-clear">ぜんぶ けす</button>
+        </div>
+        <button class="map-btn" id="map-close">とじる</button>
       </div>
     </div>
     <div id="guide">

@@ -5492,3 +5492,266 @@ window.__proto3d = {
   },
 }
 
+// ── ばしょマップ（開発中だけの“場所をつたえる”道具・ユーザー要望。アプリ完成後に撤去する想定）──
+// 言葉や座標でなく「地図をタップ → コピー → 貼り付け」で、位置を正確に伝えるための開発用オーバーレイ。
+// 実座標から描いた2Dの見取り図＋いまの現在地マーカー＋近くの目印の自動注記。3Dシーンには一切触れない。
+;(function setupPlaceMap() {
+  const mapEl = document.getElementById('mapui')
+  const mapCv = document.getElementById('map-cv')
+  if (!mapEl || !mapCv) return
+  const ctx = mapCv.getContext('2d')
+  const out = document.getElementById('map-out')
+  const modeHelp = document.getElementById('map-modehelp')
+  const copyBtn = document.getElementById('map-copy')
+  const T = TOWN
+  // 歩ける町の範囲（walkのクランプと一致）。+z=北(裏山)を上、+x=東を右に描く＝ふつうの地図向き
+  const X0 = T.x - 250, X1 = T.x + 100, Z0 = T.z - 345, Z1 = T.z + 230
+  let cssW = 320, cssH = 480, dpr = 1
+  let baseCanvas = null, glr = null, orthoCam = null // 実写オルソの下地（別レンダラ。メインの描画/カメラには一切触れない）
+
+  // 目印（すべて“実際に物を置いたmake呼び出しの座標”から。座標はコメントの make* と一致＝シーンと厳密に合う）。
+  // k=見た目の種類。dy指定があればラベルの上下を個別に決めて密集地の重なりを避ける（無指定は i%2 で自動振り分け）。
+  const LM = [
+    // ── 西エリア（尾根の坂・マンション・学校・二つ池） ──
+    { x: MANSION.x, z: MANSION.z, t: 'マンション', k: 'bld', dy: -11 },        // makeMansion(898,-50)
+    { x: T.x - 92, z: T.z - 5, t: 'ビスコ', k: 'shop', dy: -11 },               // makeGameShop(908,-5)＝ゲーム屋
+    { x: T.x - 92, z: T.z + 36, t: 'しんみせ', k: 'shop', dy: 13 },             // makeDagashi(908,36)＝駄菓子屋
+    { x: T.x - 104, z: T.z - 70, t: 'こうえん', k: 'park', dy: 13 },            // makePark(896,-70)
+    { x: T.x - 166, z: T.z - 24, t: '小学校', k: 'bld', dy: -11 },              // makeSchool(834,-24)
+    { x: T.x - 132, z: T.z - 42, t: '校庭(盆おどり)', k: 'ground', dy: 13 },    // 校庭＝盆踊り会場(834,-42)
+    { x: T.x - 132, z: T.z + 8, t: 'グラウンド', k: 'ground', dy: 13 },         // makeGround(868,8)
+    { x: T.x - 124, z: T.z - 37, t: '森', k: 'forest', dy: -11 },               // 学校よこの森(876,-37)
+    { x: T.x - 228, z: T.z - 2, t: 'ふたつ池', k: 'pond', dy: -11 },            // makePondPark(772,-2)
+    // ── 東エリア＝街の中心（元の地図に欠けていた区画。商店街・パチンコ・銭湯・団地） ──
+    { x: T.x - 12, z: T.z + 2, t: '商店街', k: 'shop', dy: -11 },               // makeShop×4(988,-18〜21)の中ほど
+    { x: T.x - 49, z: T.z - 4, t: 'スーパー', k: 'bld', dy: 13 },               // makeSuperMarket(951,-4)
+    { x: T.x + 30, z: T.z - 16, t: 'パチンコ', k: 'bld', dy: -11 },             // makePachinko(1030,-16)
+    { x: T.x + 40, z: T.z - 8, t: '銭湯', k: 'bld', dy: 13 },                   // makeSento(1040,-8)＝ゆ
+    { x: T.x + 45, z: T.z + 15, t: '団地(東)', k: 'bld', dy: -11 },             // makeDanchi(1044,4)(1046,26)
+    { x: T.x - 60, z: T.z + 20, t: '団地(西)', k: 'bld', dy: 13 },              // makeApartment(940,12)(940,28)
+    { x: T.x - 32, z: T.z - 40, t: '高校', k: 'bld', dy: 13 },                  // makeHighSchool(968,-40)＝中央の高校（下へ＝幼稚園と分離）
+    { x: T.x - 30, z: T.z - 10, t: 'ようちえん', k: 'bld', dy: -11 },           // makeKindergarten(970,-10)＝中央の幼稚園（上へ）
+    { x: T.x - 67, z: T.z - 54, t: '尾根の家', k: 'area', dy: 13 },             // eastBldg列(933〜935,-30〜-78)＝下へ＝マンションと分離
+    // ── 南エリア＝北寺尾の集落 ──
+    { x: T.x - 180, z: T.z - 312, t: '高校(橘)', k: 'bld', dy: -11 },           // makeHighSchool(820,-312)
+    { x: T.x - 102, z: T.z - 314, t: '高校(白鳥)', k: 'bld', dy: -11 },         // makeHighSchool(898,-314)
+    { x: T.x - 208, z: T.z - 328, t: 'ようちえん(橘)', k: 'bld', dy: 13 },      // makeKindergarten(792,-328)
+    { x: T.x - 142, z: T.z - 300, t: '北寺尾の家なみ', k: 'area', dy: 13 },     // makeHouse(842,-300)(880,-300)
+    // ── 北エリア＝裏山・西の丘・見晴らし ──
+    { x: MOUNT.x, z: MOUNT.z, t: '裏山', k: 'mtn', dy: 13 },                    // MOUNT(1006,92)
+    { x: MOUNT_SEAT.x, z: MOUNT_SEAT.z, t: '見はらしベンチ', k: 'bench', dy: -11 }, // MOUNT_SEAT(994,83)
+    { x: MOUNT3.x, z: MOUNT3.z, t: '西のみね', k: 'mtn', dy: -11 },             // MOUNT3(886,82)
+    { x: T.x - 140, z: T.z + 84, t: '西の丘', k: 'hill', dy: 13 },              // 西の丘(860,84)
+    { x: 890, z: 107, t: '森(西の丘ぞい)', k: 'forest', dy: 13 },               // makeTree群(868〜912,89〜126)
+    { x: SWING.x, z: SWING.z, t: 'ブランコ', k: 'park', dy: -11 },              // SWING(984,37)
+    { x: 924, z: 160, t: '谷の道', k: 'road', dy: -11 },                        // 谷を下る道(923〜925,120〜228)
+  ]
+  // 主な道（見取り図用のポリライン。makeRoadRibbon の実座標から要約）。座標は make* の引数と一致。
+  const RD = [
+    // 尾根の坂道：しんみせ前(北・坂下)→マンション→丘の上→北寺尾方面（霧の奥）へ一本に
+    [[T.x - 78, T.z + 46], [T.x - 78, T.z - 92], [T.x - 84, T.z - 140], [T.x - 123, T.z - 180], [T.x - 143, T.z - 200], [T.x - 140, T.z - 238], [T.x - 130, T.z - 278], [T.x - 140, T.z - 340]],
+    [[T.x - 78, T.z + 42], [T.x - 4, T.z + 8]],                                  // 坂下→商店街の本通りへ
+    [[T.x - 78, T.z - 50], [T.x - 96, T.z - 50]],                               // 尾根道→マンション入口(西へ枝)
+    // 商店街の本通り（南北）＋東西の交差路＋パチンコ通り＋マンション前の一本道＝街の中心の道網
+    [[T.x, T.z - 22], [T.x, T.z + 25]],                                         // 商店街 本通り(988中央)
+    [[T.x - 45, T.z + 24], [T.x + 45, T.z + 24]],                               // 東西の交差路(z+24・幅90の道)
+    [[T.x + 5, T.z - 15], [T.x + 31, T.z - 14], [T.x + 40, T.z - 13]],          // パチンコ・銭湯通り(東へ)
+    [[T.x - 40, T.z - 16], [T.x - 40, T.z + 48]],                               // 団地の正面を通る一本道(960)
+    // 高校(中央)→本通りへ／小学校→二つ池への参道
+    [[T.x - 32, T.z - 35], [T.x - 15, T.z - 30], [T.x - 6, T.z - 4]],           // 中央高校前→本通り
+    [[T.x - 122, T.z - 14], [T.x - 174, T.z - 9], [T.x - 205, T.z - 2]],        // 小学校前→二つ池へ
+    [[T.x - 107, T.z - 48], [T.x - 122, T.z - 14], [T.x - 158, T.z - 24]],      // マンション地下→森を回り小学校へ
+    // 二つ池をぐるりと囲む周回路（半径≒23・中心772,-2）
+    [[T.x - 228, T.z + 21], [T.x - 205, T.z - 2], [T.x - 228, T.z - 25], [T.x - 251, T.z - 2], [T.x - 228, T.z + 21]],
+    // しんみせ交差点→二つ池への散歩道（西へS字）
+    [[T.x - 78, T.z + 42], [T.x - 116, T.z + 37], [T.x - 153, T.z + 37], [T.x - 197, T.z + 34], [T.x - 216, T.z + 21], [T.x - 228, T.z + 21]],
+    // 裏山の峠道（交差路→頂上を越え霧の奥へ）
+    [[T.x + 8, T.z + 22], [T.x + 8, T.z + 92], [T.x + 11, T.z + 148]],
+    // しんみせ交差点→折り返して見晴らしベンチへ（ヘアピン）
+    [[T.x - 78, T.z + 42], [T.x - 78, T.z + 88], [T.x - 65, T.z + 96], [T.x - 48, T.z + 87], [T.x - 8, T.z + 82]],
+    // 西の丘への枝道（直線途中から西へ）
+    [[T.x - 78, T.z + 72], [T.x - 104, T.z + 84], [T.x - 134, T.z + 84]],
+    // 谷を北へ下る道（新しい土地へ）
+    [[T.x - 78, T.z + 88], [T.x - 77, T.z + 120], [T.x - 76, T.z + 228]],
+  ]
+
+  // 実写の真上ビューと同じ向き：北(+z)=上・東(+x)=左（鏡写し＝ユーザー確認済み）。タップ↔座標もこの式で厳密一致
+  const w2sx = (x) => (X1 - x) / (X1 - X0) * cssW
+  const w2sy = (z) => (Z1 - z) / (Z1 - Z0) * cssH
+  const s2wx = (sx) => X1 - sx / cssW * (X1 - X0)
+  const s2wz = (sy) => Z1 - sy / cssH * (Z1 - Z0)
+  const inB = (x, z) => x >= X0 && x <= X1 && z >= Z0 && z <= Z1
+
+  let mode = 'point'
+  const points = []   // [{x,z}]
+  let rect = null     // {ax,az,bx,bz}
+  let areaA = null    // 範囲の1点目
+  const line = []     // [{x,z}]
+
+  // 近くの目印を自動で言い表す（座標が苦手でも意味が伝わる）
+  function dirJP(dx, dz) {
+    const ax = Math.abs(dx), az = Math.abs(dz); let s = ''
+    if (az >= ax * 0.4) s += dz > 0 ? '北' : '南'
+    if (ax >= az * 0.4) s += dx > 0 ? '東' : '西'
+    return s || '近く'
+  }
+  function anchor(x, z) {
+    let best = null, bd = 1e9
+    for (const l of LM) { const d = Math.hypot(l.x - x, l.z - z); if (d < bd) { bd = d; best = l } }
+    if (!best) return ''
+    if (bd < 22) return `${best.t}のあたり`
+    return `${best.t}から ${dirJP(x - best.x, z - best.z)}へ 約${Math.round(bd)}m`
+  }
+  function genText() {
+    const L = []
+    points.forEach((p, i) => L.push(`地点${i + 1}: (x=${Math.round(p.x)}, z=${Math.round(p.z)}) ＝ ${anchor(p.x, p.z)}`))
+    if (rect) {
+      const x0 = Math.round(Math.min(rect.ax, rect.bx)), x1 = Math.round(Math.max(rect.ax, rect.bx))
+      const z0 = Math.round(Math.min(rect.az, rect.bz)), z1 = Math.round(Math.max(rect.az, rect.bz))
+      L.push(`範囲: x=${x0}〜${x1}, z=${z0}〜${z1} ＝ ${anchor((x0 + x1) / 2, (z0 + z1) / 2)}のまわり`)
+    }
+    if (line.length >= 2) L.push(`道: ${line.map((p) => `(${Math.round(p.x)},${Math.round(p.z)})`).join('→')}`)
+    else if (line.length === 1) L.push(`道: (${Math.round(line[0].x)},${Math.round(line[0].z)}) … もう1か所 タップしてください`)
+    return L.join('\n')
+  }
+  function refreshOut() { out.value = genText() }
+
+  // ── 描画（下地＝実写の真上オルソ。その上に方角・主要な目印名・現在地・印を重ねる）──
+  function dot(x, z, r, fill) { ctx.beginPath(); ctx.arc(w2sx(x), w2sy(z), r, 0, 7); ctx.fillStyle = fill; ctx.fill() }
+  function label(x, z, t, dy) {
+    const sx = w2sx(x), sy = w2sy(z) + dy
+    ctx.font = 'bold 11px "Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif'
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.strokeText(t, sx, sy)
+    ctx.fillStyle = '#3a2f22'; ctx.fillText(t, sx, sy)
+  }
+  // 名前を出す主要な目印（実写の上に乗せる。anchor()は全LMを使い、描画はこの主要どころだけ＝混雑回避）
+  const LBL = new Set(['マンション', 'しんみせ', '商店街', 'スーパー', 'パチンコ', '銭湯', '団地(東)', '小学校', 'グラウンド', 'ふたつ池', 'こうえん', '裏山', '西の丘', '北寺尾の家なみ', '高校'])
+
+  // 実写の真上ビューを“別レンダラ＋オルソカメラ”で一度だけ描いて下地にする（メインの描画ループ/カメラには一切触れない）
+  function renderBase() {
+    try {
+      const RW = Math.max(2, Math.round(cssW * dpr)), RH = Math.max(2, Math.round(cssH * dpr))
+      if (!glr) { glr = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); glr.setPixelRatio(1) }
+      glr.setSize(RW, RH, false); glr.setClearColor(0xa8c4d6, 1)
+      const halfW = (X1 - X0) / 2, halfH = (Z1 - Z0) / 2, cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2
+      if (!orthoCam) orthoCam = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 6000)
+      orthoCam.up.set(0, 0, 1); orthoCam.position.set(cx, 2000, cz); orthoCam.lookAt(cx, 0, cz); orthoCam.updateProjectionMatrix() // up=(0,0,1)で北上・東左（実写と同じ向き）
+      const sFog = scene.fog, sAuto = dayAuto, sT = tday // 昼・霧なしで撮って即もどす（オーバーレイで隠れて見えない）
+      dayAuto = false; tday = 0.5; setTimeOfDay(0.5) // 先に昼へ（setTimeOfDayは scene.fog.color を触るので fog は生かしたまま）
+      scene.fog = null // それから霧だけ外す＝俯瞰が霧で真っ白に消えるのを防ぐ
+      glr.render(scene, orthoCam)
+      scene.fog = sFog; dayAuto = sAuto; tday = sT; setTimeOfDay(sT) // 霧を戻してから時刻も元へ
+      if (!baseCanvas) baseCanvas = document.createElement('canvas')
+      baseCanvas.width = RW; baseCanvas.height = RH
+      baseCanvas.getContext('2d').drawImage(glr.domElement, 0, 0)
+    } catch (e) { baseCanvas = null } // 失敗時は無地下地にフォールバック
+  }
+
+  function drawMap() {
+    ctx.clearRect(0, 0, cssW, cssH)
+    if (baseCanvas) ctx.drawImage(baseCanvas, 0, 0, cssW, cssH); else { ctx.fillStyle = '#cde0d2'; ctx.fillRect(0, 0, cssW, cssH) }
+    // 方角（実写の向き＝北上・東左）
+    ctx.font = 'bold 13px sans-serif'; ctx.textBaseline = 'middle'
+    const dlab = (t, x, y, ax) => { ctx.textAlign = ax; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.strokeText(t, x, y); ctx.fillStyle = '#1a3a6a'; ctx.fillText(t, x, y) }
+    dlab('北▲', cssW / 2, 12, 'center'); dlab('南', cssW / 2, cssH - 12, 'center')
+    dlab('東', 7, cssH / 2, 'left'); dlab('西', cssW - 7, cssH / 2, 'right')
+    // 主要な目印の名前（実写の上に。座標は検証済み＝実物に乗る）
+    LM.forEach((l) => { if (LBL.has(l.t)) { dot(l.x, l.z, 3, '#d61f6e'); label(l.x, l.z, l.t, l.dy != null ? l.dy : -10) } })
+    // いまの現在地（ゲーム内の主人公）
+    if (inB(boy.position.x, boy.position.z)) {
+      const sx = w2sx(boy.position.x), sy = w2sy(boy.position.z)
+      const tt = (Date.now() % 1200) / 1200
+      ctx.beginPath(); ctx.arc(sx, sy, 6 + tt * 9, 0, 7); ctx.strokeStyle = `rgba(232,90,40,${0.6 * (1 - tt)})`; ctx.lineWidth = 2.5; ctx.stroke()
+      ctx.beginPath(); ctx.arc(sx, sy, 5, 0, 7); ctx.fillStyle = '#e85a28'; ctx.fill()
+      label(boy.position.x, boy.position.z, 'いま', -12)
+    }
+    // 置いた印（番号つき）
+    points.forEach((p, i) => {
+      const sx = w2sx(p.x), sy = w2sy(p.z)
+      ctx.beginPath(); ctx.arc(sx, sy, 9, 0, 7); ctx.fillStyle = '#c83a8a'; ctx.fill()
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), sx, sy + 0.5)
+    })
+    if (areaA) { const sx = w2sx(areaA.x), sy = w2sy(areaA.z); ctx.strokeStyle = '#c83a8a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx - 6, sy); ctx.lineTo(sx + 6, sy); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx, sy + 6); ctx.stroke() }
+    if (rect) { const x = Math.min(w2sx(rect.ax), w2sx(rect.bx)), y = Math.min(w2sy(rect.az), w2sy(rect.bz)), w = Math.abs(w2sx(rect.bx) - w2sx(rect.ax)), h = Math.abs(w2sy(rect.bz) - w2sy(rect.az)); ctx.fillStyle = 'rgba(200,58,138,0.18)'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#c83a8a'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h) }
+    if (line.length) { ctx.strokeStyle = '#c83a8a'; ctx.lineWidth = 3; ctx.beginPath(); line.forEach((p, i) => { const sx = w2sx(p.x), sy = w2sy(p.z); i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy) }); ctx.stroke(); line.forEach((p) => dot(p.x, p.z, 4, '#c83a8a')) }
+  }
+
+  function sizeCanvas() {
+    const ratio = (Z1 - Z0) / (X1 - X0) // 高さ/幅
+    let w = Math.min(window.innerWidth * 0.56, 440)
+    let h = w * ratio
+    const maxH = window.innerHeight * 0.92
+    if (h > maxH) { h = maxH; w = h / ratio }
+    cssW = Math.round(w); cssH = Math.round(h)
+    dpr = Math.min(window.devicePixelRatio || 1, 2)
+    mapCv.style.width = cssW + 'px'; mapCv.style.height = cssH + 'px'
+    mapCv.width = Math.round(cssW * dpr); mapCv.height = Math.round(cssH * dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+
+  let timer = 0
+  function openMap() { const s = document.getElementById('settings'); if (s) s.classList.remove('on'); sizeCanvas(); renderBase(); mapEl.classList.add('on'); refreshOut(); drawMap(); if (!timer) timer = setInterval(drawMap, 220) }
+  function closeMap() { mapEl.classList.remove('on'); if (timer) { clearInterval(timer); timer = 0 } }
+  window.__placeMap = { open: openMap, close: closeMap, get text() { return genText() }, tapWorld(x, z) { points.push({ x, z }); drawMap(); refreshOut() }, exportPNG() { drawMap(); return mapCv.toDataURL('image/png') } } // 検証用
+
+  mapCv.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    const r = mapCv.getBoundingClientRect()
+    const x = Math.round(s2wx(e.clientX - r.left)), z = Math.round(s2wz(e.clientY - r.top))
+    if (mode === 'point') points.push({ x, z })
+    else if (mode === 'area') { if (!areaA) areaA = { x, z }; else { rect = { ax: areaA.x, az: areaA.z, bx: x, bz: z }; areaA = null } }
+    else line.push({ x, z })
+    drawMap(); refreshOut()
+  })
+
+  const MODE_HELP = { point: '「地点」＝決めたい所を タップ。何個でも置けます。', area: '「範囲」＝かこみたい所の カドを 2回 タップ（しかくになります）。', line: '「道」＝道すじを 何回か タップ（線でつなぎます）。' }
+  document.querySelectorAll('.map-mode').forEach((b) => b.addEventListener('click', () => {
+    mode = b.dataset.mode
+    document.querySelectorAll('.map-mode').forEach((o) => o.classList.toggle('on', o === b))
+    if (modeHelp) modeHelp.textContent = MODE_HELP[mode]
+    drawMap()
+  }))
+
+  const setMapBtn = document.getElementById('set-map')
+  if (setMapBtn) setMapBtn.addEventListener('click', openMap)
+  const closeBtn = document.getElementById('map-close'); if (closeBtn) closeBtn.addEventListener('click', closeMap)
+  const hereBtn = document.getElementById('map-here')
+  if (hereBtn) hereBtn.addEventListener('click', () => {
+    const x = Math.round(boy.position.x), z = Math.round(boy.position.z)
+    if (!inB(x, z)) { out.value = '※ いまは町の外にいます。町の中に立ってから ためしてください。'; return }
+    points.push({ x, z }); if (mode !== 'point') { mode = 'point'; document.querySelectorAll('.map-mode').forEach((o) => o.classList.toggle('on', o.dataset.mode === 'point')); if (modeHelp) modeHelp.textContent = MODE_HELP.point }
+    drawMap(); refreshOut()
+  })
+  const undoBtn = document.getElementById('map-undo')
+  if (undoBtn) undoBtn.addEventListener('click', () => { if (mode === 'line' && line.length) line.pop(); else if (mode === 'area') { if (areaA) areaA = null; else rect = null } else if (points.length) points.pop(); drawMap(); refreshOut() })
+  const clearBtn = document.getElementById('map-clear')
+  if (clearBtn) clearBtn.addEventListener('click', () => { points.length = 0; line.length = 0; rect = null; areaA = null; drawMap(); refreshOut() })
+  if (copyBtn) copyBtn.addEventListener('click', () => {
+    const text = genText(); if (!text) { copyBtn.textContent = '先に 印を おいてね'; setTimeout(() => (copyBtn.textContent = 'コピー する'), 1400); return }
+    const done = () => { copyBtn.textContent = 'コピーしました！'; setTimeout(() => (copyBtn.textContent = 'コピー する'), 1400) }
+    const fallback = () => { try { out.focus(); out.select(); document.execCommand('copy'); done() } catch (e) { copyBtn.textContent = '下の文をコピーしてね'; setTimeout(() => (copyBtn.textContent = 'コピー する'), 1600) } }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback()
+  })
+  // 「📷 画像にして 送る」＝印つきの地図を画像にして、そのまま渡せる（赤丸スクショのやり方そのまま・自動で正確）。
+  // スマホ：共有シートで送る（座標の文字も一緒に添える）／PC等：画像を保存。3Dには触れない。
+  const shareBtn = document.getElementById('map-share')
+  const SHARE_LABEL = '📷 画像にして 送る'
+  function flashShare(t, ms) { if (shareBtn) { shareBtn.textContent = t; setTimeout(() => (shareBtn.textContent = SHARE_LABEL), ms || 1600) } }
+  function dlPng(dataUrl) { const a = document.createElement('a'); a.href = dataUrl; a.download = 'basho-map.png'; document.body.appendChild(a); a.click(); a.remove() }
+  function shareMap() {
+    drawMap() // 最新の印を反映してから書き出す
+    let dataUrl
+    try { dataUrl = mapCv.toDataURL('image/png') } catch (e) { flashShare('画像を作れませんでした'); return }
+    const text = genText() || 'この場所に お願いします'
+    let file = null // dataURL→Fileは同期で（iOSの共有はタップのジェスチャ内で呼ぶ必要があるため）
+    try { const b = atob(dataUrl.split(',')[1]); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); file = new File([u], 'basho-map.png', { type: 'image/png' }) } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], text }).then(() => flashShare('送りました！'), (e) => { if (!e || e.name !== 'AbortError') { dlPng(dataUrl); flashShare('画像を保存しました') } })
+    } else { dlPng(dataUrl); flashShare('画像を保存しました（送るときに 添付してね）') }
+  }
+  if (shareBtn) shareBtn.addEventListener('click', shareMap)
+
+  window.addEventListener('resize', () => { if (mapEl.classList.contains('on')) { sizeCanvas(); renderBase(); drawMap() } })
+})()
+
