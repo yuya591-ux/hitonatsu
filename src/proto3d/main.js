@@ -103,7 +103,10 @@ function heightAt(x, z) {
     // 西の原っぱの峰(MOUNT3)。ヘアピン道のすぐ西を裏山と同じくらいの高さに（同じくzクリップで町・散歩道を守る）
     const m3dx = x - MOUNT3.x, m3dz = z - MOUNT3.z
     const m3 = MOUNT3.h * Math.exp(-(m3dx * m3dx / (2 * MOUNT3.w * MOUNT3.w) + m3dz * m3dz / (2 * MOUNT3.d * MOUNT3.d))) * smoothstep01((z - 44) / 10)
-    const mtn = Math.max(m, m2, m3)
+    // 小学校の西の山＝高い校庭(向かって左=西)を山側に抱かせ「山に囲まれた学校」に（ユーザー実体験2026-06-18）。二つ池/道に届かないよう小さく
+    const mschdx = x - 734, mschdz = z + 48
+    const mSch = 17 * Math.exp(-(mschdx * mschdx / (2 * 14 * 14) + mschdz * mschdz / (2 * 16 * 16)))
+    const mtn = Math.max(m, m2, m3, mSch)
     // 長い坂道（尾根）：高さは slopeHeight(z)。x方向は“非対称”＝西(建物/森側)はゆるく裾を引き、東(町側)は急に落として平地の町を守る
     const dxs = x - ridgeX(z), sg = dxs < 0 ? SLOPE.wW : SLOPE.wE // 尾根の中心線は南で東へ曲がる（ridgeX）＝道が30mを保ったまま南東へ
     const across = Math.exp(-(dxs * dxs) / (2 * sg * sg))
@@ -122,10 +125,15 @@ function heightAt(x, z) {
       const rb = smoothstep01((884 - x) / 12) * smoothstep01((x - 640) / 16) * smoothstep01((10 - z) / 40) * smoothstep01((z + 82) / 14)
       if (rb > 0 && planeH > h) h = h * (1 - rb) + planeH * rb
     }
-    // ── 小学校の校地＝斜面を削った“平らな校庭”（校舎・体育館・プール・校庭をひとつの高さ7.5に＝ビスコ8.8より下・ユーザー要望2026-06-18）──
+    // ── 小学校＝山あいの段々校地（ユーザー要望2026-06-18：山に囲まれた高低差のある学校）──
+    //    ①前(南)=広場・校舎・奥=プールの棚を 7.5 に。②向かって左(西)に一段高い校庭(10≒校舎2階の高さ)を作り、階段でつなぐ。
     {
-      const sk = smoothstep01((x - 778) / 10) * smoothstep01((844 - x) / 10) * smoothstep01((z + 66) / 10) * smoothstep01((-24 - z) / 10)
+      const sk = smoothstep01((x - 784) / 7) * smoothstep01((840 - x) / 8) * smoothstep01((z + 74) / 8) * smoothstep01((-30 - z) / 8) // 広場/校舎/プールの棚=7.5
       if (sk > 0) h = h * (1 - sk) + 7.5 * sk
+      const yk = smoothstep01((x - 742) / 7) * smoothstep01((788 - x) / 6) * smoothstep01((z + 64) / 9) * smoothstep01((-26 - z) / 8) // 西の高い校庭=10（西の山の裾を少し取り込み、校庭との谷を消す）
+      if (yk > 0) h = h * (1 - yk) + 10 * yk
+      const bpk = smoothstep01((x - 800) / 6) * smoothstep01((822 - x) / 5) * smoothstep01((z + 36) / 7) * smoothstep01((-14 - z) / 8) // 校舎の真裏(北)＝体育館の平地(7.3)。迂回路(x>822)は避ける
+      if (bpk > 0) h = h * (1 - bpk) + 7.3 * bpk
     }
     // ── マリノスのグラウンド＝“崖下の平らな運動場”(≒4m)。東端(グラウンドのすぐ東)を草の土手で立ち上げてビスコ(10.5)へ。
     //    土手はビスコの基礎(西面x≈902)の手前で登りきり、灰色の擁壁を草で覆う（ユーザー要望2026-06-18：基礎を草で隠す）──
@@ -1430,20 +1438,24 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     grp.position.set(cx, heightAt(cx, cz), cz)
     mergedOutline(grp, 0.05); addContactShadow(grp, W * 0.55); addBox(cx, cz, W / 2, D / 2, 0); scene.add(grp)
     for (const gl of winGlows) townNightLights.push({ m: gl, base: 0.38, ph: Math.random() * 6, fa: 0.02 }) // 校庭(盆踊り)から見える窓＝暗め＋ほぼ点滅なし（ギラギラ/チカチカ対策）
-    // ── 校庭（砂地）＋設備 ──
-    const yz = cz - D / 2 - 15
-    const yard = new THREE.Mesh(new THREE.PlaneGeometry(W + 7, 24), new THREE.MeshToonMaterial({ color: 0xcdb389, gradientMap: GRAD, map: watercolorTex })); yard.rotation.x = -Math.PI / 2; yard.position.set(cx, heightAt(cx, yz) + 0.04, yz); yard.receiveShadow = true; scene.add(yard)
-    // フェンス（低いコンクリ基礎＋支柱）
-    const fy = heightAt(cx, yz)
-    for (let i = -1; i <= 1; i += 2) { const wall = new THREE.Mesh(new THREE.BoxGeometry(W + 7, 0.6, 0.2), toon(0xc8c0b0)); wall.position.set(cx, fy + 0.3, yz + i * 12); scene.add(wall) }
-    for (let i = 0; i <= 10; i++) { const px = cx - (W + 7) / 2 + i * (W + 7) / 10; for (const zz of [yz - 12, yz + 12]) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 5), toon(0xa8a89c)); pole.position.set(px, fy + 0.8, zz); scene.add(pole) } }
+    // ── 高い校庭（向かって左=西の高台・10m＝校舎2階の高さ）。砂地＋白線トラック＋鉄棒/朝礼台/二宮像。広場とは階段、校舎2階とは渡り廊下でつながる（ユーザー要望2026-06-18）──
+    const yz = cz - D / 2 - 16              // 旧・校庭の中心＝いまは「広場」(前/南・7.5)の中心になる
+    const gx = cx - 42, gz = cz - 7, gy = 10 // 高い校庭の中心(西の高台)＝(768,-44,10)
+    const gYW = 30, gYD = 26                 // 校庭の広さ
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(gYW, gYD), new THREE.MeshToonMaterial({ color: 0xcdb389, gradientMap: GRAD, map: watercolorTex })); yard.rotation.x = -Math.PI / 2; yard.position.set(gx, gy + 0.04, gz); yard.receiveShadow = true; scene.add(yard)
+    // 白線トラック（楕円＝運動場らしさ）
+    { const tr = new THREE.Mesh(new THREE.RingGeometry(7.4, 8.0, 44), new THREE.MeshBasicMaterial({ color: 0xeae6d6, transparent: true, opacity: 0.85, side: THREE.DoubleSide })); tr.rotation.x = -Math.PI / 2; tr.scale.set(1.5, 1, 1); tr.position.set(gx, gy + 0.06, gz); scene.add(tr) }
+    // フェンス（低いコンクリ基礎＋支柱）＝高い校庭の四周
+    const fy = gy
+    for (let i = -1; i <= 1; i += 2) { const wall = new THREE.Mesh(new THREE.BoxGeometry(gYW, 0.6, 0.2), toon(0xc8c0b0)); wall.position.set(gx, fy + 0.3, gz + i * gYD / 2); scene.add(wall) }
+    for (let i = 0; i <= 12; i++) { const px = gx - gYW / 2 + i * gYW / 12; for (const zz of [gz - gYD / 2, gz + gYD / 2]) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 5), toon(0xa8a89c)); pole.position.set(px, fy + 0.8, zz); scene.add(pole) } }
     // 鉄棒（高さ違い）
-    for (const [bx, bh] of [[cx - W * 0.32, 1.1], [cx - W * 0.32 + 1.4, 1.4]]) {
-      for (const sx of [-0.7, 0.7]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, bh, 6), toon(0x8a9aa2)); p.position.set(bx + sx, fy + bh / 2, yz + 6); p.castShadow = true; scene.add(p) }
-      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 6), toon(0xb0bcc2)); bar.rotation.z = Math.PI / 2; bar.position.set(bx, fy + bh, yz + 6); scene.add(bar)
+    for (const [bx, bh] of [[gx - gYW * 0.3, 1.1], [gx - gYW * 0.3 + 1.4, 1.4]]) {
+      for (const sx of [-0.7, 0.7]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, bh, 6), toon(0x8a9aa2)); p.position.set(bx + sx, fy + bh / 2, gz + 7); p.castShadow = true; scene.add(p) }
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 6), toon(0xb0bcc2)); bar.rotation.z = Math.PI / 2; bar.position.set(bx, fy + bh, gz + 7); scene.add(bar)
     }
     // 朝礼台
-    const dais = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 1.6), toon(0xbcae96)); dais.position.set(cx + W * 0.3, fy + 0.25, yz - 5); dais.castShadow = true; addOutline(dais, 0.02); scene.add(dais)
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 1.6), toon(0xbcae96)); dais.position.set(gx + gYW * 0.28, fy + 0.25, gz - 5); dais.castShadow = true; addOutline(dais, 0.02); scene.add(dais)
     // 二宮金次郎像（薪を背負い本を読む少年・台座。緑青色のブロンズ）。原作不問のオリジナル造形
     {
       const st = new THREE.Group(); const bronze = toon(0x6e7a5e)
@@ -1453,42 +1465,79 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       const book = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.2), bronze); book.position.set(0, 1.42, 0.28); book.rotation.x = -0.5; st.add(book)
       for (let i = 0; i < 4; i++) { const fw = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 5), toon(0x5a6a4e)); fw.position.set(-0.08 + i * 0.05, 1.35, -0.2); fw.rotation.x = 0.3; st.add(fw) } // 背中の薪
       st.traverse((o) => { if (o.isMesh) o.castShadow = true })
-      st.position.set(cx - W * 0.42, fy, yz - 8); mergedOutline(st, 0.02); addContactShadow(st, 0.7); scene.add(st)
+      st.position.set(gx - gYW * 0.4, fy, gz - 8); mergedOutline(st, 0.02); addContactShadow(st, 0.7); scene.add(st)
     }
-    // ── 体育館（校舎の西どなり・大きな箱＋低い屋根）──
+    // ── 広場（校舎の前＝南。石畳・花壇・ベンチ・水飲み場＝山あいの小学校の入口広場。ユーザー要望2026-06-18）──
     {
-      const gx = cx - W / 2 - 12, gW = 11, gD = 16, gH = 7.5
+      const plz = cz - D / 2 - 14, ply = 7.5
+      const pave = new THREE.Mesh(new THREE.PlaneGeometry(24, 22), new THREE.MeshToonMaterial({ color: 0xc9c2b2, gradientMap: GRAD, map: watercolorTex })); pave.rotation.x = -Math.PI / 2; pave.position.set(cx + 2, ply + 0.05, plz); pave.receiveShadow = true; scene.add(pave)
+      for (const bx of [cx - 7, cx + 11]) { // 花壇×2（レンガ縁＋夏の花）
+        const bz = plz + 7
+        const rim = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.4, 2.2), toon(0xb06a4a)); rim.position.set(bx, ply + 0.2, bz); rim.castShadow = true; scene.add(rim)
+        const soil = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.3, 1.6), toon(0x5a4636)); soil.position.set(bx, ply + 0.34, bz); scene.add(soil)
+        for (let i = 0; i < 14; i++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 5), toon([0xe85a6a, 0xf2c43a, 0xe87ab0, 0xf0903a][i % 4])); fl.position.set(bx - 1.6 + Math.random() * 3.2, ply + 0.58, bz - 0.6 + Math.random() * 1.2); scene.add(fl) }
+      }
+      for (const bx of [cx - 7, cx + 11]) { // ベンチ×2
+        const bg = new THREE.Group(); const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.14, 0.6), toonMap(0x9a6a40, woodTex)); seat.position.y = 0.5; bg.add(seat)
+        const back = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 0.12), toonMap(0x9a6a40, woodTex)); back.position.set(0, 0.78, -0.24); bg.add(back)
+        for (const lx of [-1.0, 1.0]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.5), toon(0x6a4a30)); leg.position.set(lx, 0.25, 0); bg.add(leg) }
+        bg.traverse((o) => { if (o.isMesh) o.castShadow = true }); bg.position.set(bx, ply, plz - 6); mergedOutline(bg, 0.02); scene.add(bg)
+      }
+      { const wf = new THREE.Group(); const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, 0.7, 12), toon(0xbcc2c0)); basin.position.y = 0.35; wf.add(basin); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.12, 12), toon(0xa8b0ae)); top.position.y = 0.72; wf.add(top); wf.traverse((o) => { if (o.isMesh) o.castShadow = true }); wf.position.set(cx + 9, ply, plz); mergedOutline(wf, 0.02); scene.add(wf) }
+    }
+    // ── 階段＋スロープ：広場(7.5)→高い校庭(10)へ一直線に西へ上がる（体育館を裏へ移し西側を開けた）。階段の右(北)にスロープ(坂)＝ユーザーの実体験 ──
+    {
+      const x0 = cx - 13, x1 = gx + gYW / 2 + 0.5, y0 = 7.5, y1 = gy, ang = -Math.atan2(y1 - y0, x0 - x1), len = Math.hypot(x1 - x0, y1 - y0) // 東(797,7.5)→西(783.5,10)
+      const sz = cz - 11 // 階段 z=-48
+      for (let i = 0; i < 7; i++) { const sx = x0 + (x1 - x0) * (i + 0.5) / 7, sy = heightAt(sx, sz); const tr = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x1 - x0) / 7 + 0.5, 0.5, 3.4), toonMap(0xcfc8b6, plasterTex)); tr.position.set(sx, sy + 0.18, sz); tr.castShadow = true; tr.receiveShadow = true; scene.add(tr) }
+      for (const dz of [sz - 1.8, sz + 1.8]) { const rl = new THREE.Mesh(new THREE.BoxGeometry(len, 0.1, 0.1), toon(0xb0a890)); rl.position.set((x0 + x1) / 2, (y0 + y1) / 2 + 0.95, dz); rl.rotation.z = ang; rl.castShadow = true; scene.add(rl) }
+      const rz = cz - 7 // スロープ z=-44（階段の右=北）
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(len, 0.3, 3.2), toonMap(0xc4bdac, plasterTex)); ramp.position.set((x0 + x1) / 2, (y0 + y1) / 2 + 0.12, rz); ramp.rotation.z = ang; ramp.castShadow = true; ramp.receiveShadow = true; scene.add(ramp)
+      for (const dz of [rz - 1.7, rz + 1.7]) { const rl = new THREE.Mesh(new THREE.BoxGeometry(len, 0.08, 0.08), toon(0xb0a890)); rl.position.set((x0 + x1) / 2, (y0 + y1) / 2 + 0.85, dz); rl.rotation.z = ang; scene.add(rl) }
+    }
+    // ── 渡り廊下：高い校庭(10)→校舎の2階（屋根付きの短い橋）。“校庭から校舎の上階に入れる”山の学校らしい造り（ユーザーの実体験）──
+    {
+      const wz = cz - 1.5, x0 = gx + gYW / 2 - 1, x1 = cx - W / 2 + 0.5, wy = gy
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.3, 3), toonMap(0xc8c0ae, plasterTex)); deck.position.set((x0 + x1) / 2, wy - 0.15, wz); deck.castShadow = true; deck.receiveShadow = true; scene.add(deck)
+      for (const dz of [wz - 1.5, wz + 1.5]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.7, 0.1), toon(0xc0b8a6)); rail.position.set((x0 + x1) / 2, wy + 0.45, dz); rail.castShadow = true; scene.add(rail) }
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 0.4, 0.12, 3.4), toonMap(0x8a9098, roofTex)); roof.position.set((x0 + x1) / 2, wy + 1.55, wz); roof.castShadow = true; scene.add(roof)
+      for (const rx of [x0 + 1.5, (x0 + x1) / 2, x1 - 1.5]) for (const dz of [wz - 1.5, wz + 1.5]) { const pst = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.5, 6), toon(0xb0a890)); pst.position.set(rx, wy + 0.78, dz); pst.castShadow = true; scene.add(pst) }
+    }
+    // ── 体育館（校舎の真裏＝北。ユーザーの実体験どおり校舎のすぐ後ろに建つ。2026-06-18修正）──
+    {
+      const bgx = cx - 1, bgz = cz + 12, gW = 11, gD = 16, gH = 7.5
       const gg = new THREE.Group()
       const gb = new THREE.Mesh(new THREE.BoxGeometry(gW, gH, gD), toonMap(0xdcd3bf, plasterTex)); gb.position.y = gH / 2; gg.add(gb)
       const groof = new THREE.Mesh(new THREE.BoxGeometry(gW + 0.4, 0.6, gD + 0.4), toonMap(0x8a9098, roofTex)); groof.position.y = gH + 0.3; gg.add(groof)
       for (let i = 0; i < 5; i++) { const w = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.4), toon(0x88a4b2)); w.position.set(-gD * 0 + 0, gH * 0.6, gD / 2 + 0.03); w.position.x = -gW / 2 + 1.4 + i * 2.0; gg.add(w) } // 高窓
       const gent = new THREE.Mesh(new THREE.BoxGeometry(3, 2.6, 0.3), toon(0x4a5258)); gent.position.set(0, 1.3, gD / 2 + 0.16); gg.add(gent)
       gg.traverse((o) => { if (o.isMesh) o.castShadow = true })
-      gg.position.set(gx, heightAt(gx, cz), cz); mergedOutline(gg, 0.05); addContactShadow(gg, gW * 0.7); addBox(gx, cz, gW / 2, gD / 2, 0); scene.add(gg)
+      gg.position.set(bgx, heightAt(bgx, bgz), bgz); mergedOutline(gg, 0.05); addContactShadow(gg, gW * 0.7); addBox(bgx, bgz, gW / 2, gD / 2, 0); scene.add(gg)
     }
-    // ── プール（夏！）：水面＋コンクリのデッキ＋フェンス＋飛び込み台 ──
+    // ── プール（夏！）＝広場の奥(南)へ移設。水面＋コンクリのデッキ＋フェンス＋飛び込み台（ユーザー要望2026-06-18：広場の奥にプール）──
     {
-      const px = cx + (W + 7) / 2 + 8, pz = yz + 1
-      const deck = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 9.5), toon(0xd2cdbe)); deck.position.set(px, fy + 0.15, pz); deck.receiveShadow = true; scene.add(deck)
-      const pool = new THREE.Mesh(new THREE.PlaneGeometry(10.5, 6.6), waterMat); pool.rotation.x = -Math.PI / 2; pool.position.set(px, fy + 0.33, pz); scene.add(pool)
-      for (let i = 0; i <= 7; i++) for (const zz of [pz - 4.6, pz + 4.6]) { const pl = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.3, 5), toon(0xb8b8ac)); pl.position.set(px - 6.5 + i * 13 / 7, fy + 0.8, zz); scene.add(pl) }
-      const dive = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.2, 1.4), toon(0x9aa0a4)); dive.position.set(px - 5.6, fy + 0.9, pz); dive.castShadow = true; scene.add(dive) // 飛び込み台
+      const px = cx + 4, pz = yz - 11, py = heightAt(px, pz)
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 9.5), toon(0xd2cdbe)); deck.position.set(px, py + 0.15, pz); deck.receiveShadow = true; scene.add(deck)
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(10.5, 6.6), waterMat); pool.rotation.x = -Math.PI / 2; pool.position.set(px, py + 0.33, pz); scene.add(pool)
+      for (let i = 0; i <= 7; i++) for (const zz of [pz - 4.6, pz + 4.6]) { const pl = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.3, 5), toon(0xb8b8ac)); pl.position.set(px - 6.5 + i * 13 / 7, py + 0.8, zz); scene.add(pl) }
+      const dive = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.2, 1.4), toon(0x9aa0a4)); dive.position.set(px - 5.6, py + 0.9, pz); dive.castShadow = true; scene.add(dive) // 飛び込み台
       addCollider(px, pz, 6)
     }
-    // ── 校門（門柱＋表札・原作不問の generic 表記）＋国旗掲揚台 ──
-    const gateZ = yz + 12.6
-    for (const sx of [-3.2, 3.2]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2.5, 0.6), toon(0xcac2b2)); post.position.set(cx + sx, fy + 1.25, gateZ); post.castShadow = true; addOutline(post, 0.02); scene.add(post) }
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.5), new THREE.MeshBasicMaterial({ map: textTex('しょうがっこう', '#3a3a3a', '#f2eee2', false) })); plate.position.set(cx - 3.2, fy + 1.55, gateZ + 0.33); scene.add(plate)
-    {
-      const fp = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 6.5, 8), toon(0xdadace)); fp.position.set(cx + W * 0.44, fy + 3.25, yz - 4); fp.castShadow = true; scene.add(fp)
-      const flagW = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.0), new THREE.MeshBasicMaterial({ color: 0xfafafa, side: THREE.DoubleSide })); flagW.position.set(cx + W * 0.44 + 0.8, fy + 5.8, yz - 4); scene.add(flagW)
-      const flagR = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16), new THREE.MeshBasicMaterial({ color: 0xd03a3a })); flagR.position.set(cx + W * 0.44 + 0.8, fy + 5.8, yz - 3.99); scene.add(flagR) // 日の丸（普遍）
+    // ── 校門（門柱＋表札・原作不問の generic 表記）＝広場の前(南・プールの手前) ──
+    const gateZ = yz - 3, gpy = heightAt(cx, gateZ)
+    for (const sx of [-3.2, 3.2]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2.5, 0.6), toon(0xcac2b2)); post.position.set(cx + sx, gpy + 1.25, gateZ); post.castShadow = true; addOutline(post, 0.02); scene.add(post) }
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.5), new THREE.MeshBasicMaterial({ map: textTex('しょうがっこう', '#3a3a3a', '#f2eee2', false) })); plate.position.set(cx - 3.2, gpy + 1.55, gateZ + 0.33); scene.add(plate)
+    { // 国旗掲揚台＝高い校庭のすみ（運動場の設備として一緒に高台へ）
+      const flx = gx + gYW * 0.4, flz = gz - gYD * 0.34
+      const fp = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 6.5, 8), toon(0xdadace)); fp.position.set(flx, gy + 3.25, flz); fp.castShadow = true; scene.add(fp)
+      const flagW = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.0), new THREE.MeshBasicMaterial({ color: 0xfafafa, side: THREE.DoubleSide })); flagW.position.set(flx + 0.8, gy + 5.8, flz); scene.add(flagW)
+      const flagR = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16), new THREE.MeshBasicMaterial({ color: 0xd03a3a })); flagR.position.set(flx + 0.8, gy + 5.8, flz + 0.01); scene.add(flagR) // 日の丸（普遍）
     }
     // 桜（門の両脇）
-    makeSakura(cx - (W + 7) / 2 - 1.5, gateZ, 1.1); makeSakura(cx + (W + 7) / 2 + 1.5, gateZ, 1.0)
+    makeSakura(cx - 9, gateZ, 1.1); makeSakura(cx + 9, gateZ, 1.0)
     // ── 盆踊りの会場（校庭の中央に櫓＋紅白幕＋太鼓＋提灯ガーランド）。開催日だけ bonOdori グループに姿を見せ、夜は提灯が灯る ──
     {
-      const ox = cx, oz = yz, oy = heightAt(cx, yz) // 校庭の中央
+      const ox = gx, oz = gz, oy = gy // 高い校庭の中央（盆踊りも運動場と一緒に高台へ）
       const wood = toonMap(0x8a6038, woodTex), woodD = toonMap(0x5e4226, woodTex)
       const yag = new THREE.Group(); yag.position.set(ox, oy, oz)
       const S = 1.35 // 櫓の半幅
@@ -3878,7 +3927,7 @@ function getNoise() {
   return noiseBuf
 }
 // ── 縁日のお囃子（自前合成・太鼓＋篠笛）。屋台からの距離で音量が変わる＝小さく聞こえる音をたどると縁日に着く（このゲームの核） ──
-const FEST_POS = new THREE.Vector2(TOWN.x - 166, TOWN.z - 42) // 盆踊りの会場＝小学校の校庭（櫓のあたり）。小学校の西移設に追従。お囃子はここから聞こえる＝音をたどって校庭の盆踊りへ
+const FEST_POS = new THREE.Vector2(TOWN.x - 232, TOWN.z - 44) // 盆踊りの会場＝小学校の“高い校庭”の櫓(768,-44)。段々校地への作り直しに追従(2026-06-18)。お囃子はここから聞こえる＝音をたどって校庭の盆踊りへ
 let festGain = null, festNextBar = 0
 function getFestOut() {
   const ctx = listener.context

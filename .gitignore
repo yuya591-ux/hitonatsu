@@ -1,6 +1,9 @@
 # 依存パッケージ
 node_modules/
 
+# 確認用に落としたChrome for Testing（Edge更新に左右されないheadless用・巨大なのでGit対象外）
+chrome/
+
 # ビルド成果物
 dist/
 
