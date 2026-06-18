@@ -1174,6 +1174,7 @@ function makeShop(x, z, rot, opt) {
   tent.position.set(0, 2.75, 3.2); tent.rotation.x = -0.18; g.add(tent)
   const sign = new THREE.Mesh(new THREE.BoxGeometry(5, 0.9, 0.2), toon(opt.sign)); sign.position.set(0, 3.55, 2.5); g.add(sign)
   const blade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.7, 0.72), toon(opt.sign)); blade.position.set(-3.05, 2.7, 2.7); g.add(blade)
+  if (opt.label) { const lp = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.74), new THREE.MeshBasicMaterial({ map: textTex(opt.label, '#fdf3da', '#' + opt.sign.toString(16).padStart(6, '0'), false), transparent: true })); lp.position.set(0, 3.55, 2.61); g.add(lp) } // 文字看板（たばこ屋/酒屋など）
   // 品物
   if (opt.kind === 'yaoya') {
     const crate = new THREE.Mesh(new THREE.BoxGeometry(4, 0.5, 1.1), toon(0x9c6b3a)); crate.position.set(0, 0.5, 3.4); g.add(crate)
@@ -1185,6 +1186,16 @@ function makeShop(x, z, rot, opt) {
     for (let i = 0; i < 4; i++) { const jar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.5), toon([0xe05a6a, 0x5aa0e0, 0xe0c040, 0x7ac060][i])); jar.position.set(-1.5 + i * 1, 0.85, 3.3); g.add(jar) }
   } else if (opt.kind === 'niku') {
     const caseM = new THREE.Mesh(new THREE.BoxGeometry(4, 0.7, 1.1), new THREE.MeshToonMaterial({ color: 0xdadfe2, gradientMap: GRAD, transparent: true, opacity: 0.7 })); caseM.position.set(0, 0.6, 3.4); g.add(caseM)
+  } else if (opt.kind === 'tabako') {
+    // たばこの自動販売機（昭和の街角）＋店先の小台
+    const vm = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 0.6), toon(0xcf4334)); vm.position.set(-1.6, 0.9, 3.2); g.add(vm)
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { const pk = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.15, 0.04), toon([0xf2e8d0, 0x3a6a4a, 0xd8b040][(r + c) % 3])); pk.position.set(-1.9 + c * 0.3, 1.32 - r * 0.3, 3.51); g.add(pk) } // たばこのパッケージ
+    const tray = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.5), toon(0x9c6b3a)); tray.position.set(1.3, 0.7, 3.3); g.add(tray)
+  } else if (opt.kind === 'sake') {
+    // 一升瓶のケース（茶箱に瓶）＋軒下の杉玉（新酒の目印）
+    for (let i = 0; i < 2; i++) { const crate = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 1.0), toon(0x8a6a3a)); crate.position.set(-1.2 + i * 2.4, 0.5, 3.3); g.add(crate)
+      for (let b = 0; b < 4; b++) { const bot = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 6), toon(0x3a5a3a)); bot.position.set(-1.85 + i * 2.4 + b * 0.42, 0.95, 3.3); g.add(bot) } }
+    const sugi = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 1), toon(0x7a6a3a)); sugi.position.set(1.7, 2.5, 2.7); g.add(sugi)
   }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
@@ -1268,7 +1279,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeSignpost(T.x - 74, T.z + 34, -Math.PI / 2, 'しんみせ →')
   // ── 商店街の本通り（店の列と家の列の「空き地」を舗装路にして街路を定義する）──
   // 西=商店街(T.x-12,東向き)／東=住宅(T.x+12,西向き)が向かい合う中央を南北に貫く。坂下(T.x-4,z+8)と東枝(パチンコ)へ繋ぐ。
-  makeRoadRibbon(T.x, T.z - 22, T.x, T.z + 25, 6, true, true)        // 商店街の本通り（コンクリ・センターライン）
+  makeRoadRibbon(T.x, T.z - 50, T.x, T.z + 25, 6, true, true)        // 商店街の本通り（コンクリ・センターライン）。北へ延長＝たばこ屋/酒屋の2軒ぶん
   makeRoadRibbon(T.x - 4, T.z + 8, T.x, T.z + 8, 6, false, true)     // 坂下からの道を商店街本通りへ合流
   makeRoadRibbon(T.x, T.z - 15, T.x + 5, T.z - 15, 5, false, true)   // 商店街本通り → 東（パチンコ・銭湯）へ
   // 右側：家＋ブロック塀（道を向く・屋根色をばらして“クローン感”を消す）
@@ -1288,6 +1299,9 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     { awn: 0xc85a95, sign: 0xa84080, kind: 'dagashi' },
   ]
   for (let i = 0; i < shopDefs.length; i++) makeShop(T.x - 12, T.z - 18 + i * 13, Math.PI / 2, shopDefs[i])
+  // 商店街の北側にたばこ屋・酒屋を増設（昭和の街角の定番。本通りを北へ延長して街路に面させる）
+  makeShop(T.x - 12, T.z - 31, Math.PI / 2, { awn: 0xd8a838, sign: 0xb84a3a, kind: 'tabako', label: 'たばこ' }) // たばこ屋（自販機つき）
+  makeShop(T.x - 12, T.z - 44, Math.PI / 2, { awn: 0x5a6a9a, sign: 0x3a5a8a, kind: 'sake', label: '酒' })       // 酒屋（一升瓶のケース＋杉玉）
   // ── 夜のあかり：街灯・窓あかり（昼は消え、夜にぽつぽつ灯る＝夏の夜のエモさ）──
   function addGlow(x, y, z, ry, w, h, color, base) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide }))
