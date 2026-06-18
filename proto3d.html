@@ -284,5 +284,28 @@
       </div>
     </div>
     <script type="module" src="/src/proto3d/main.js"></script>
+    <!-- 更新の自動反映：起動時に最新HTMLを no-store で取得し、今読み込んでいる本体JSと違えばキャッシュを跨いで読み直す。
+         ＝デプロイ後もアプリを開き直すだけで最新になる（GitHub PagesのHTML約10分キャッシュ対策・Service Worker不使用・依存なし）。 -->
+    <script>
+      (function () {
+        try {
+          if (/[?&]u=/.test(location.search)) return; // 直前に自動更新で読み直した直後＝再チェックしない（ループ防止）
+          var tag = document.querySelector('script[type="module"][src*="proto3d-"]');
+          if (!tag) return; // 開発サーバ等（ハッシュ名でない）は対象外
+          var m0 = tag.src.match(/proto3d-[\w-]+\.js/);
+          var loaded = m0 && m0[0];
+          if (!loaded) return;
+          var path = location.pathname; // 例 /hitonatsu/proto3d.html
+          fetch(path + '?cb=' + Date.now(), { cache: 'no-store' })
+            .then(function (r) { return r.text(); })
+            .then(function (t) {
+              var m = t.match(/proto3d-[\w-]+\.js/);
+              var latest = m && m[0];
+              if (latest && latest !== loaded) location.replace(path + '?u=' + Date.now()); // 新しい版があれば読み直す
+            })
+            .catch(function () {}); // オフライン等は無視（キャッシュのまま起動）
+        } catch (e) {}
+      })();
+    </script>
   </body>
 </html>
