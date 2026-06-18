@@ -4488,9 +4488,14 @@ const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
+// ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
+let flying = false, flyUp = 0, flyDown = 0
+const fly = { yaw: 0, pitch: -0.18, fov: 60, speedI: 1 }
+const FLY_SPEEDS = [12, 30, 72], FLY_SPEED_LABEL = ['ゆっくり', 'ふつう', 'はやい']
+const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new THREE.Vector3()
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 let jumpY = 0, jumpV = 0, airborne = false, landSquash = 0 // ジャンプ（高さ・上下速度・空中フラグ・着地のつぶれ）
-function doJump() { if (jumpY <= 0.02 && mode === 'walk') { jumpV = 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音
+function doJump() { if (jumpY <= 0.02 && mode === 'walk' && !flying) { jumpV = 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音
 
 function startPuni(id, x, y) {
   puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
@@ -4539,9 +4544,14 @@ canvas.addEventListener('pointermove', (e) => {
     knobEl.style.left = `calc(50% + ${dx}px)`; knobEl.style.top = `calc(50% + ${dy}px)`
     puni.vx = dx / STICK_R; puni.vy = dy / STICK_R
   } else if (lookIds.has(e.pointerId)) {
-    if (lookIds.size >= 2) { // 2本指ピンチ＝ズーム
+    if (lookIds.size >= 2) { // 2本指ピンチ＝ズーム（飛行中は画角ズーム）
       const a = [...lookIds].map((id) => pointers.get(id)).filter(Boolean)
-      if (a.length === 2) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); if (pinchD > 0 && d > 0) camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist); pinchD = d }
+      if (a.length === 2) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y)
+        if (pinchD > 0 && d > 0) { if (flying) fly.fov = THREE.MathUtils.clamp(fly.fov * (pinchD / d), 24, 88); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist) }
+        pinchD = d }
+    } else if (flying) { // 飛行：見回す（上下とも広く＝上を向いて進めば上昇）
+      fly.yaw -= (e.clientX - prevX) * 0.006 * lookSens
+      fly.pitch = THREE.MathUtils.clamp(fly.pitch - (e.clientY - prevY) * 0.005 * lookSens, -1.45, 1.45)
     } else { // 1本指＝視点を回す（手で回したら自動追従を一時停止＝マリオ式の手動優先）
       camCtl.yaw -= (e.clientX - prevX) * 0.006 * lookSens
       camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005 * lookSens, camCtl.minPitch, camCtl.maxPitch)
@@ -4771,6 +4781,7 @@ function update(dt) {
   // 雨＝紫がかった霞が立ちこめ奥行きが詰まる（全時間帯で「遠景が空気に溶ける」統一感を持たせ、雨で最大に）
   scene.fog.color.copy(_todFog).lerp(_rainFog, weather * 0.5)
   if (typeof window !== 'undefined' && window.__fogFar) { scene.fog.near = 9000; scene.fog.far = 12000 } // 検証用：俯瞰を見通す（本番では未設定）
+  else if (flying) { scene.fog.near = 80; scene.fog.far = 900 } // 飛行モード：空から遠景まで見渡せる
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
   // 光のボケ：雨×暗さ（夕暮れ〜夜）で軒の灯りがにじむ玉ボケ。ゆっくり昇って明滅
   { const nf = nightFactor(tday), vis = weather * THREE.MathUtils.clamp(nf * 1.5 + 0.14, 0, 1)
@@ -5178,6 +5189,7 @@ function update(dt) {
     if (puni.active && Math.hypot(puni.vx, puni.vy) > 0.06) { sx = puni.vx; sy = puni.vy }
     else if (kx || kz) { sx = kx; sy = kz }
     if (dialogue || diaryOpen || fishState !== 'idle') { sx = 0; sy = 0 } // 会話・絵日記・釣り中は歩かない
+    if (flying) { sx = 0; sy = 0 } // 飛行中は主人公は止まる（ぷにコンはカメラの移動に使う）
     const mag = Math.min(1, Math.hypot(sx, sy))
     // 目標速度（倒し量で“そろり〜小走り”）。慣性で滑らかに加減速。
     let tx = 0, tz = 0
@@ -5420,6 +5432,7 @@ function update(dt) {
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
+  if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
   if (window.__freezeCam) return // 検証用：カメラ固定（顔の確認など）
   // カメラを目標へなめらかに寄せる（ブランコは追従を速く＝ぶれない視点）
   camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 6 : 5)))
@@ -5533,6 +5546,82 @@ if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEP
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
 applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
+
+// ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
+{
+  const flyUI = document.getElementById('flyui')
+  const setFlyBtn = document.getElementById('set-fly')
+  const flySpeedBtn = document.getElementById('fly-speed')
+  const updFlySpeed = () => { if (flySpeedBtn) flySpeedBtn.innerHTML = '速さ<br>' + FLY_SPEED_LABEL[fly.speedI] }
+  const enterFly = () => {
+    if (flying) return
+    flying = true
+    flyPos.copy(camera.position); flyVel.set(0, 0, 0); flyUp = flyDown = 0
+    camera.getWorldDirection(flyTmp)
+    fly.yaw = Math.atan2(flyTmp.x, flyTmp.z); fly.pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(flyTmp.y, -1, 1)), -1.4, 1.4)
+    fly.fov = 60; fly.speedI = 1; updFlySpeed()
+    document.body.classList.add('flying'); if (flyUI) flyUI.classList.add('on')
+    if (settingsEl) settingsEl.classList.remove('on')
+    showToast('とんでみよう：左で すすむ・右で 見まわす・▲▼で 上下')
+  }
+  const exitFly = () => {
+    if (!flying) return
+    flying = false; flyVel.set(0, 0, 0); flyUp = flyDown = 0; endPuni()
+    document.body.classList.remove('flying'); if (flyUI) flyUI.classList.remove('on')
+    camera.fov = BASE_FOV; camera.updateProjectionMatrix()
+  }
+  window.__enterFly = enterFly; window.__exitFly = exitFly; window.__fly = fly; window.__flyPos = flyPos // 検証用
+  if (setFlyBtn) setFlyBtn.addEventListener('click', enterFly)
+  const flyExit = document.getElementById('fly-exit'); if (flyExit) flyExit.addEventListener('click', exitFly)
+  // ▲▼上昇下降（押している間だけ）
+  const hold = (id, set) => { const el = document.getElementById(id); if (!el) return
+    const on = (e) => { e.preventDefault(); set(1) }, off = () => set(0)
+    el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointerleave', off); el.addEventListener('pointercancel', off) }
+  hold('fly-up', (v) => { flyUp = v }); hold('fly-down', (v) => { flyDown = v })
+  // ＋／－ズーム（飛行中の画角）
+  const flyZ = (f) => { fly.fov = THREE.MathUtils.clamp(fly.fov * f, 24, 88) }
+  const fzin = document.getElementById('fly-zin'); if (fzin) fzin.addEventListener('click', () => flyZ(0.86))
+  const fzout = document.getElementById('fly-zout'); if (fzout) fzout.addEventListener('click', () => flyZ(1.16))
+  // 速さ切替（ゆっくり→ふつう→はやい）
+  if (flySpeedBtn) flySpeedBtn.addEventListener('click', () => { fly.speedI = (fly.speedI + 1) % FLY_SPEEDS.length; updFlySpeed() })
+  // 📷写真：今の画面をPNGで（preserveDrawingBuffer=true なので canvas から直接）。共有できなければ保存
+  const flyPhotoBtn = document.getElementById('fly-photo')
+  if (flyPhotoBtn) flyPhotoBtn.addEventListener('click', () => {
+    try {
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const file = new File([blob], 'hitonatsu_' + Date.now() + '.png', { type: 'image/png' })
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {})
+        else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); showToast('写真を ほぞんしました') }
+      }, 'image/png')
+    } catch (e) { showToast('写真に しっぱい しました') }
+  })
+}
+// 飛行カメラの更新（update から毎フレーム）。左=移動(視線方向)・右=見回す・上下ボタン＝高度・慣性でなめらか
+function flyCam(dt) {
+  const cp = Math.cos(fly.pitch), sp = Math.sin(fly.pitch)
+  const fwdx = Math.sin(fly.yaw) * cp, fwdy = sp, fwdz = Math.cos(fly.yaw) * cp // 視線（前）
+  const rgtx = Math.cos(fly.yaw), rgtz = -Math.sin(fly.yaw)                     // 右（水平）
+  let mf = 0, mr = 0
+  if (puni.active) { mf = -puni.vy; mr = puni.vx } // 左スティック：上=前進・横=左右
+  mf += (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0)
+  mr += (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0)
+  const keyUp = (keys['e'] || keys[' '] ? 1 : 0) - (keys['q'] || keys['shift'] ? 1 : 0)
+  const spd = FLY_SPEEDS[fly.speedI]
+  const tvx = (fwdx * mf + rgtx * mr) * spd                       // 前進は視線方向＝上を向いて進めば上昇
+  const tvy = (fwdy * mf + (flyUp - flyDown) + keyUp) * spd       // ＋ボタン/キーで純粋な縦移動
+  const tvz = (fwdz * mf + rgtz * mr) * spd
+  flyVel.x += (tvx - flyVel.x) * Math.min(1, dt * 4) // 慣性＝なめらかな加減速
+  flyVel.y += (tvy - flyVel.y) * Math.min(1, dt * 4)
+  flyVel.z += (tvz - flyVel.z) * Math.min(1, dt * 4)
+  flyPos.addScaledVector(flyVel, dt)
+  flyPos.y = THREE.MathUtils.clamp(flyPos.y, 2.5, 300) // 高度の上下限
+  camera.position.copy(flyPos)
+  camera.userData._look = camera.userData._look || new THREE.Vector3()
+  camera.userData._look.set(flyPos.x + fwdx, flyPos.y + fwdy, flyPos.z + fwdz)
+  camera.lookAt(camera.userData._look)
+  camera.fov += (fly.fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix()
+}
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {

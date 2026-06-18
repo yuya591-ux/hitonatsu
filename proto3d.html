@@ -191,6 +191,25 @@
       .map-sub { display: flex; gap: 7px; }
       .map-sub .map-btn { margin: 7px 0; }
       #map-close { color: #fdf7ec; background: #6a7088; }
+      /* ── 飛行モード（開発用・あとで外す。空を自由に飛んで景色を見る／写真）── */
+      #set-fly { background: #6a86c0; }
+      #flyui { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 8; }
+      #flyui.on { display: block; }
+      body.flying #jump, body.flying #act, body.flying #lie, body.flying #sleep, body.flying #npc,
+      body.flying #catch, body.flying #fish, body.flying #go, body.flying #zin, body.flying #zout,
+      body.flying #hint, body.flying #look { display: none !important; }
+      .fly-b { position: fixed; pointer-events: auto; appearance: none; border: none; cursor: pointer; font-family: inherit;
+        color: #fdf7ec; background: rgba(60,66,98,0.82); border-radius: 16px; box-shadow: 0 3px 12px rgba(20,24,40,0.34);
+        font-size: clamp(12px,2.4vw,16px); line-height: 1.2; text-align: center; }
+      .fly-b:active { transform: scale(0.93); background: rgba(82,90,126,0.94); }
+      #fly-up { right: calc(5% + env(safe-area-inset-right)); bottom: calc(9% + 150px + env(safe-area-inset-bottom)); width: 76px; height: 64px; }
+      #fly-down { right: calc(5% + env(safe-area-inset-right)); bottom: calc(9% + 78px + env(safe-area-inset-bottom)); width: 76px; height: 64px; }
+      #fly-zin { right: calc(5% + 12px + env(safe-area-inset-right)); bottom: calc(9% + env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; font-size: 26px; }
+      #fly-zout { right: calc(5% + 78px + env(safe-area-inset-right)); bottom: calc(9% + env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; font-size: 26px; }
+      #fly-speed { left: calc(3% + env(safe-area-inset-left)); bottom: calc(9% + env(safe-area-inset-bottom)); width: 92px; height: 58px; }
+      #fly-photo { left: 50%; bottom: calc(9% + env(safe-area-inset-bottom)); transform: translateX(-50%); width: 66px; height: 66px; border-radius: 50%; font-size: 30px; }
+      #fly-photo:active { transform: translateX(-50%) scale(0.93); }
+      #fly-exit { left: 50%; top: calc(3.5% + env(safe-area-inset-top)); transform: translateX(-50%); padding: 0.5em 1.2em; background: rgba(74,64,50,0.78); }
     </style>
   </head>
   <body>
@@ -222,6 +241,16 @@
       </div>
     </div>
     <div id="stick"><div id="knob"></div></div>
+    <!-- 飛行モードのボタン（開発用・飛行中だけ出る） -->
+    <div id="flyui">
+      <button id="fly-up" class="fly-b">▲<br>上昇</button>
+      <button id="fly-down" class="fly-b">▼<br>下降</button>
+      <button id="fly-zin" class="fly-b">＋</button>
+      <button id="fly-zout" class="fly-b">－</button>
+      <button id="fly-speed" class="fly-b">速さ<br>ふつう</button>
+      <button id="fly-photo" class="fly-b">📷</button>
+      <button id="fly-exit" class="fly-b">✕ もどる</button>
+    </div>
     <button id="set-btn" class="hud" title="せってい">⚙</button>
     <div id="settings">
       <div class="set-card">
@@ -232,6 +261,7 @@
         <div class="set-row"><span>画面のゆれを へらす</span><button class="set-toggle" id="set-motion">OFF</button></div>
         <div class="set-row"><span>手描きの線（おもいとき OFF）</span><button class="set-toggle on" id="set-ink">ON</button></div>
         <div class="set-row"><span>🗺 ばしょマップ（場所をつたえる）</span><button class="set-toggle" id="set-map">ひらく</button></div>
+        <div class="set-row"><span>✈ 飛んでみる（開発用）</span><button class="set-toggle" id="set-fly">とぶ</button></div>
         <button id="set-close">とじる</button>
         <button id="set-guide">あそびかたを みる</button>
       </div>
