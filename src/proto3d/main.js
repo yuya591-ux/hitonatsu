@@ -3320,7 +3320,7 @@ let fwTimer = 3
 function spawnFirework() {
   const N = 150
   // ★花火は“おまつり会場(校庭)の上空”に大きく開く。以前は原点(はらっぱ)上空に出ていて、町の会場からは遠くて見えなかった不具合を修正。
-  const cx = TOWN.x - 166 + (Math.random() - 0.5) * 90, cy = 46 + Math.random() * 26, cz = TOWN.z - 50 + (Math.random() - 0.5) * 70 // 会場(校庭)の西移設に追従
+  const cx = TOWN.x - 232 + (Math.random() - 0.5) * 70, cy = 50 + Math.random() * 26, cz = TOWN.z - 44 + (Math.random() - 0.5) * 60 // 会場＝高い校庭(768,-44)の上空へ追従（段々校地への作り直し2026-06-18）
   const pos = new Float32Array(N * 3); const vel = []
   for (let i = 0; i < N; i++) {
     pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
