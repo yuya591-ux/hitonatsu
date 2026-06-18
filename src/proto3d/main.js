@@ -2019,6 +2019,12 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makeRoadRibbon(T.x - 118, T.z + 131, T.x - 126, T.z + 133, 4, false, true)// (882,131)→(874,133) 地点3
   makeRoadRibbon(T.x - 126, T.z + 133, T.x - 132, T.z + 145, 4, false, true)// (874,133)→(868,145) 地点4＝谷底でおわり
   makeSignpost(T.x - 73, T.z + 92, Math.PI, '谷の道 ↓') // 二股の間＝谷を下る道の道しるべ
+  // ── 【新しい土地の東西の道／ユーザー要望2026-06-18：指定6点をたどる平らな道】谷底(高さ≈0.4〜1.6m)を東西に走り、西で谷の道の終点(868,145)とつながる。両端は原っぱで行き止まり ──
+  makeRoadRibbon(T.x - 65, T.z + 152, T.x - 83, T.z + 149, 4, false, true)   // (935,152)→(917,149) 地点1→2（東端は原っぱ）
+  makeRoadRibbon(T.x - 83, T.z + 149, T.x - 107, T.z + 150, 4, false, true)  // (917,149)→(893,150) 地点2→3
+  makeRoadRibbon(T.x - 107, T.z + 150, T.x - 133, T.z + 148, 4, false, true) // (893,150)→(867,148) 地点3→4（谷の道の終点と交差）
+  makeRoadRibbon(T.x - 133, T.z + 148, T.x - 150, T.z + 141, 4, false, true) // (867,148)→(850,141) 地点4→5
+  makeRoadRibbon(T.x - 150, T.z + 141, T.x - 172, T.z + 127, 4, false, true) // (850,141)→(828,127) 地点5→6（西の原っぱで行き止まり）
   // ── ブランコ（乗ってブランコ視点であそぶ）──
   {
     const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
