@@ -4519,6 +4519,7 @@ let flying = false, flyUp = 0, flyDown = 0
 const fly = { yaw: 0, pitch: -0.18, fov: 60, speedI: 1 }
 const FLY_SPEEDS = [12, 30, 72], FLY_SPEED_LABEL = ['ゆっくり', 'ふつう', 'はやい']
 const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new THREE.Vector3()
+const warpRay = new THREE.Raycaster() // 飛行中タップ→主人公をワープ
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 let jumpY = 0, jumpV = 0, airborne = false, landSquash = 0 // ジャンプ（高さ・上下速度・空中フラグ・着地のつぶれ）
 function doJump() { if (jumpY <= 0.02 && mode === 'walk' && !flying) { jumpV = 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音
@@ -4592,6 +4593,12 @@ function onUp(e) {
   if (mode !== 'walk') {
     if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else standUp() } // ブランコはタップで こぐ
     sitTap = null; return
+  }
+  if (flying) { // 飛行中：指を動かさず軽くタップ＝その場所へ主人公をワープ（ドラッグは移動/見回す）
+    if (e.pointerId === puni.id) endPuni()
+    else if (lookIds.has(e.pointerId)) { lookIds.delete(e.pointerId); if (lookIds.size === 2) pinchInit(); else pinchD = 0 }
+    if (!p.moved && performance.now() - p.t < 300) warpBoyTo(e.clientX, e.clientY)
+    return
   }
   if (e.pointerId === puni.id) { endPuni() }
   else if (lookIds.has(e.pointerId)) {
@@ -5596,7 +5603,7 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
     document.body.classList.remove('flying'); if (flyUI) flyUI.classList.remove('on')
     camera.fov = BASE_FOV; camera.updateProjectionMatrix()
   }
-  window.__enterFly = enterFly; window.__exitFly = exitFly; window.__fly = fly; window.__flyPos = flyPos // 検証用
+  window.__enterFly = enterFly; window.__exitFly = exitFly; window.__fly = fly; window.__flyPos = flyPos; window.__flyVel = flyVel; window.__puni = puni; window.__warpBoyTo = (sx, sy) => warpBoyTo(sx, sy); window.__flyStep = (dt) => flyCam(dt) // 検証用
   if (setFlyBtn) setFlyBtn.addEventListener('click', enterFly)
   const flyExit = document.getElementById('fly-exit'); if (flyExit) flyExit.addEventListener('click', exitFly)
   // ▲▼上昇下降（押している間だけ）
@@ -5627,7 +5634,7 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
 function flyCam(dt) {
   const cp = Math.cos(fly.pitch), sp = Math.sin(fly.pitch)
   const fwdx = Math.sin(fly.yaw) * cp, fwdy = sp, fwdz = Math.cos(fly.yaw) * cp // 視線（前）
-  const rgtx = Math.cos(fly.yaw), rgtz = -Math.sin(fly.yaw)                     // 右（水平）
+  const rgtx = -Math.cos(fly.yaw), rgtz = Math.sin(fly.yaw)                     // 右（水平）＝歩きの camRight=(-fwd.z,fwd.x) と同じ向き（スワイプ方向＝進む向き。2026-06-19反転修正）
   let mf = 0, mr = 0
   if (puni.active) { mf = -puni.vy; mr = puni.vx } // 左スティック：上=前進・横=左右
   mf += (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0)
@@ -5647,6 +5654,21 @@ function flyCam(dt) {
   camera.userData._look.set(flyPos.x + fwdx, flyPos.y + fwdy, flyPos.z + fwdz)
   camera.lookAt(camera.userData._look)
   camera.fov += (fly.fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix()
+}
+// 飛行中にタップした画面位置→地面の当たり所を求め、そこへ主人公をワープ（heightAtでレイマーチ＝メッシュ不要・堅牢）
+function warpBoyTo(sx, sy) {
+  warpRay.setFromCamera({ x: (sx / innerWidth) * 2 - 1, y: -(sy / innerHeight) * 2 + 1 }, camera)
+  const ro = warpRay.ray.origin, rd = warpRay.ray.direction
+  if (rd.y > -0.03) return // 上向き/ほぼ水平は地面に当たらない＝何もしない
+  let hx = null, hz = null
+  for (let t = 1; t < 800; t += 1.0) { // カメラから視線方向へ1mずつ進み、地面より下に潜った所が当たり
+    const x = ro.x + rd.x * t, y = ro.y + rd.y * t, z = ro.z + rd.z * t
+    if (y <= heightAt(x, z)) { hx = x; hz = z; break }
+  }
+  if (hx == null) return
+  const r = pushOutOfColliders(hx, hz) // 建物の中へワープしないよう外へ押し出す
+  boy.position.set(r.x, heightAt(r.x, r.z), r.z); vel.set(0, 0, 0)
+  showToast('ここへ ワープ！')
 }
 
 // 自己検証用の最小ハンドル
