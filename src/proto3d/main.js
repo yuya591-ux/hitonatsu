@@ -138,8 +138,8 @@ function heightAt(x, z) {
     // ── マリノスのグラウンド＝“崖下の平らな運動場”(≒4m)。東端(グラウンドのすぐ東)を草の土手で立ち上げてビスコ(10.5)へ。
     //    土手はビスコの基礎(西面x≈902)の手前で登りきり、灰色の擁壁を草で覆う（ユーザー要望2026-06-18：基礎を草で隠す）──
     {
-      const gk = smoothstep01((x - 842) / 12) * smoothstep01((898 - x) / 7) * smoothstep01((z + 14) / 10) * smoothstep01((30 - z) / 10) // 東端を西へ寄せ、土手をビスコ基礎の手前で登りきらせる
-      if (gk > 0) h = h * (1 - gk) + 4 * gk
+      const gk = smoothstep01((x - 836) / 10) * smoothstep01((900 - x) / 12) * smoothstep01((z + 34) / 8) * smoothstep01((10 - z) / 8) // グラウンドを北西へ移設(2026-06-19)：新footprint(x845〜889・z-26〜2)を5.5mで平らに（周りの道/森の高さに揃える）。東端はビスコ(10.5)へ土手
+      if (gk > 0) h = h * (1 - gk) + 5.5 * gk
     }
     // ── ゲーム屋ビスコ＝坂の途中の平らな“踊り場”の店先。グラウンド(4)から草の土手を上がった先を高く(10.5)に。
     // z幅を建物の足元(z-14〜2)まで・西側を基礎の手前(x≈890〜)まで広げ、建物が草の地面に座って基礎(灰色)が見えないように（ユーザー要望2026-06-18：基礎を草で隠す）
@@ -176,7 +176,7 @@ function heightAt(x, z) {
     }
     // ── 依頼B(2026-06-19)：森とビスコの間の鞍部(x884〜918・z-17〜-33)を、尾根(922,-29=12.8)と同じ高さへ均す（(902)の低い窪みを埋める）──
     {
-      const bk2 = smoothstep01((x - 884) / 7) * smoothstep01((918 - x) / 8) * smoothstep01((z + 33) / 8) * smoothstep01((-17 - z) / 8)
+      const bk2 = smoothstep01((x - 889) / 6) * smoothstep01((918 - x) / 8) * smoothstep01((z + 33) / 8) * smoothstep01((-17 - z) / 8) // 西端を884→889へ（移設したグラウンドのNE角に尾根が突き出ないように・2026-06-19）
       if (bk2 > 0) h = h * (1 - bk2) + 12.8 * bk2
     }
     // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
@@ -1632,6 +1632,14 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     [T.x - 255, T.z - 24, T.x - 266, T.z - 27], // →(734,-27)
     [T.x - 266, T.z - 27, T.x - 268, T.z - 38], // →(732,-38) 西の山を登る
   ]) makeRoadRibbon(s[0], s[1], s[2], s[3], 3.6, false)
+  // 依頼(2026-06-19)：しんみせ周りの土の道（指定6点・茶色）
+  for (const s of [
+    [T.x - 83, T.z + 20, T.x - 95, T.z + 20], // (917,20)→(905,20)
+    [T.x - 95, T.z + 20, T.x - 98, T.z + 25], // →(902,25)
+    [T.x - 98, T.z + 25, T.x - 100, T.z + 32], // →(900,32)
+    [T.x - 100, T.z + 32, T.x - 100, T.z + 36], // →(900,36)
+    [T.x - 100, T.z + 36, T.x - 96, T.z + 38], // →(904,38)
+  ]) makeRoadRibbon(s[0], s[1], s[2], s[3], 3.6, false)
   // ── 土のサッカーグラウンド（当時のマリノスのグラウンドのオマージュ。団地の西）──
   function makeGround(cx, cz) {
     const W = 44, D = 28, fy = heightAt(cx, cz) // もう少し広く（マリノスのグラウンドのオマージュ＝広い原っぱ）
@@ -1653,16 +1661,16 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       big.position.set(wx, fy + 0.42, wz); scene.add(big); swayables.push({ obj: big, ph: Math.random() * 6.28, amp: 0.07 })
     }
     // ゴール2基（使われず朽ちかけ＝白がくすみ、少し傾き、草に埋もれ気味）。白線・フェンスは草に消えて無し
-    function goal(gz, tilt) {
+    function goal(gx, tilt) {
       const gg = new THREE.Group(); const gm = toon(0xcfcbbd)
       for (const sx of [-3.6, 3.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4, 8), gm); p.position.set(sx, 1.2, 0); gg.add(p) }
       const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 7.4, 8), gm); bar.rotation.z = Math.PI / 2; bar.position.y = 2.4; gg.add(bar)
       gg.traverse((o) => { if (o.isMesh) o.castShadow = true })
-      gg.position.set(cx, fy, cz + gz); gg.rotation.z = tilt; mergedOutline(gg, 0.03); scene.add(gg)
+      gg.position.set(cx + gx, fy, cz); gg.rotation.y = Math.PI / 2; gg.rotation.z = tilt; mergedOutline(gg, 0.03); scene.add(gg) // ゴールを東西に向ける（プレイ方向＝ビスコ⇔小学校）
     }
-    goal(-D / 2 + 2.5, 0.04); goal(D / 2 - 2.5, -0.06)
+    goal(-W / 2 + 3, 0.04); goal(W / 2 - 3, -0.06) // 西(-x)=小学校側／東(+x)=ビスコ側にゴール（ユーザー要望2026-06-19）
   }
-  makeGround(T.x - 132, T.z + 8) // マリノスのグラウンド＝小学校側（迂回路で小学校へ向かう道中の左手・小学校の北）
+  makeGround(T.x - 133, T.z - 12) // マリノスのグラウンド＝(867,-12)へ北西移設(2026-06-19・ユーザー指定2点 886,-15／848,-14 のあたりへ)
   // ── 小さな公園（作者が幼少期に遊んだ場所のオマージュ）──
   function makePark(cx, cz) {
     const fy = heightAt(cx, cz)
@@ -4511,7 +4519,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260619-flyfix2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260619-ground-move2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5794,7 +5802,7 @@ window.__proto3d = {
     { x: T.x - 104, z: T.z - 70, t: 'こうえん', k: 'park', dy: 13 },            // makePark(896,-70)
     { x: T.x - 190, z: T.z - 37, t: '小学校', k: 'bld', dy: -11 },              // makeSchool(810,-37)＝南西へ移設
     { x: T.x - 190, z: T.z - 55, t: '校庭(盆おどり)', k: 'ground', dy: 13 },    // 校庭＝盆踊り会場(810,-55)＝学校と一緒に移設
-    { x: T.x - 132, z: T.z + 8, t: 'グラウンド', k: 'ground', dy: 13 },         // makeGround(868,8)
+    { x: T.x - 133, z: T.z - 12, t: 'グラウンド', k: 'ground', dy: 13 },         // makeGround(867,-12)へ移設(2026-06-19)
     { x: T.x - 124, z: T.z - 37, t: '森', k: 'forest', dy: -11 },               // 学校よこの森(876,-37)
     { x: T.x - 310, z: T.z - 8, t: 'ふたつ池', k: 'pond', dy: -11 },             // makePondPark(690,-8)＝道のすぐ下に移設
     // ── 東エリア＝街の中心（元の地図に欠けていた区画。商店街・パチンコ・銭湯・団地） ──
