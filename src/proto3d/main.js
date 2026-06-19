@@ -179,6 +179,12 @@ function heightAt(x, z) {
       const bk2 = smoothstep01((x - 889) / 6) * smoothstep01((918 - x) / 8) * smoothstep01((z + 33) / 8) * smoothstep01((-17 - z) / 8) // 西端を884→889へ（移設したグラウンドのNE角に尾根が突き出ないように・2026-06-19）
       if (bk2 > 0) h = h * (1 - bk2) + 12.8 * bk2
     }
+    // ── 依頼(2026-06-19)：移設したグラウンドだけ道より少し低く（段差≒0.6m）。指定矩形(x845〜888・z-25〜2)を4.9mへ下げる。
+    //    北の道(z-28=5.5)は残す＝道から一段下りる形。ビスコ/尾根(x>889)には掛けない。最後に下げるだけ＝他の地形は不変。
+    {
+      const gl = smoothstep01((x - 843) / 3) * smoothstep01((890 - x) / 2.5) * smoothstep01((z + 28) / 3) * smoothstep01((5 - z) / 3)
+      if (gl > 0 && h > 4.9) h = h * (1 - gl) + 4.9 * gl
+    }
     // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
     if (z < -200) {
       const t = Math.max(0, Math.min(1, (-200 - z) / 95)) // 線形の下り：0(z-200)→1(z-295)
@@ -4519,7 +4525,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260619-ground-move2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260619-ground-step' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
