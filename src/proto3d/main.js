@@ -87,6 +87,8 @@ function ridgeX(z) {
   if (z >= z1) { const u = (z0 - z) / (z0 - z1); return SLOPE.x - (z0 - z1) * (u * u * u - u * u * u * u / 2) } // 西へゆるやかに45°まで曲げる（傾きが0→1へなめらかに・ユーザー要望で東→西へ反転）
   return SLOPE.x - (z0 - z1) * 0.5 - (z1 - z) // 45°で南西へまっすぐ（傾き+1のまま延びる）
 }
+// req9(2026-06-20)：西一帯の高台の“東の境界線”xb(z)。ユーザー指定31点を z降順の折れ線に要約（東のふくらみも反映）。この西へ約80mを17mに
+const XB9 = [[-22, 751], [-30, 751], [-63, 751], [-70, 760], [-74, 800], [-77, 847], [-93, 846], [-107, 850], [-125, 849], [-134, 852], [-139, 866], [-143, 878], [-152, 871], [-162, 861], [-177, 845], [-188, 831], [-202, 820]]
 function heightAt(x, z) {
   if (x > 1500) {
     // 神社エリア：石段の先（+z奥）に社の小山がせり上がる
@@ -224,6 +226,24 @@ function heightAt(x, z) {
     {
       const tp = smoothstep01((x - 919) / 5) * smoothstep01((948 - x) / 5) * smoothstep01((z - 67) / 5) * smoothstep01((89 - z) / 4) // 北は峠道(z88〜)に掛けない
       if (tp > 0) h = h * (1 - tp) + 16 * tp
+    }
+    // ── 依頼(2026-06-20)：req10 小学校北の帯(x749〜822・z-14〜-23)を基準点(822,-17)=6.1mに均す ──
+    {
+      const q10 = smoothstep01((x - 745) / 5) * smoothstep01((826 - x) / 5) * smoothstep01((z + 28) / 5) * smoothstep01((-10 - z) / 5)
+      if (q10 > 0) h = h * (1 - q10) + 6.1 * q10
+    }
+    // ── 依頼(2026-06-20)：req8 小学校東(x830沿い)を徐々に登る坂。z-38(9.5)→z-73(17・結構高め) ──
+    {
+      const q8t = 9.5 + 7.5 * smoothstep01((-38 - z) / 35)
+      const q8 = smoothstep01((x - 824) / 4) * smoothstep01((836 - x) / 4) * smoothstep01((-36 - z) / 4) * smoothstep01((z + 76) / 4)
+      if (q8 > 0 && q8t > h) h = h * (1 - q8) + q8t * q8
+    }
+    // ── 依頼(2026-06-20)：req9 境界xb(z)より西へ約80mの帯を17m(校庭横の山mSch並み)の高台に。縁はすべてなだらかな坂 ──
+    if (z < -18 && z > -202 && x > 646 && x < 882) {
+      let xbz = 751
+      for (let i = 0; i < XB9.length - 1; i++) { const z0 = XB9[i][0], z1 = XB9[i + 1][0]; if (z <= z0 && z >= z1) { xbz = XB9[i][1] + (XB9[i + 1][1] - XB9[i][1]) * ((z0 - z) / (z0 - z1)); break } }
+      const q9 = smoothstep01((xbz - x) / 8) * smoothstep01((x - 660) / 13) * smoothstep01((z + 196) / 8) * smoothstep01((-22 - z) / 8) // 西端をxb-80→x660まで大きく拡張（ユーザー要望：もっと広く）
+      if (q9 > 0 && 17 > h) h = h * (1 - q9) + 17 * q9
     }
     // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
     if (z < -200) {
@@ -2134,7 +2154,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       const stone = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.9 + Math.random() * 0.3, 0.34), toon(0xc8c2b6)); stone.position.set(mx, my + 0.6, mz); stone.castShadow = true; addOutline(stone, 0.02); scene.add(stone)
     }
     makeRoadRibbon(cx, cz - 6, cx, cz - 1, 2.4, false) // 参道（南の山門→本堂）
-    for (const [dx, dz] of [[-7, -5], [7, -5], [8, 1]]) makeTree(cx + dx, cz + dz, 1.2)
+    for (const [dx, dz] of [[-9, 6], [7, -6], [8, 1]]) makeTree(cx + dx, cz + dz, 1.2) // 鐘楼(cx-6.5,cz-3)と被らない位置へ
   }
   makeTemple(934, 80)
   makeSignpost(T.x - 90, T.z + 44, Math.PI / 2, 'ふたつ池 →') // しんみせの角の道しるべ
@@ -3888,6 +3908,7 @@ camera.add(listener)
 // ── 音の調整パラメータ（後から数値だけで微調整できる。BGMは基本なし＝環境音で世界を作る。例外は縁日と雨のみ）──
 const AUDIO = {
   ambMaster: 0.5,     // 環境音(朝/蝉/ヒグラシ/夜)の基準音量。主張しすぎない控えめ
+  cicadaVol: 0.75,    // 昼の蝉の倍率＝他の時間帯より少し大きく感じたので基本を下げる（ユーザー要望2026-06-20）
   nightAmb: 0.34,     // 夜の虫(カエルのような音)の音量倍率＝大きく下げて「眠れる静けさ」に
   morningAmb: 0.85,   // 朝の鳥のさえずりの倍率
   rainStart: 0.1,     // 雨音が鳴り始めるweather。やさしい雨(0.4)もちゃんと聞こえる。低weatherはLPFでやわらかく＝“どしゃどしゃ”でなく癒しのポツポツに
@@ -4653,7 +4674,13 @@ try {
     if (st.day === day && st.flags) Object.assign(todayFlags, st.flags) // 同じ日だけ「見たこと」を引き継ぐ
   }
 } catch (e) {}
-addEventListener('visibilitychange', () => { if (document.hidden) saveState() }) // スマホでタブを離れた瞬間に保存
+// スマホでホーム/他アプリへ移ったら音を止め、戻ったら再開（iPhoneのPWA対応・ユーザー要望2026-06-20）＋タブ離脱時の保存
+function audioSleep() { try { if (audioStarted && listener.context.state === 'running') listener.context.suspend() } catch (e) {} }
+function audioWake() { try { if (audioStarted && listener.context.state === 'suspended') listener.context.resume() } catch (e) {} }
+addEventListener('visibilitychange', () => { if (document.hidden) { saveState(); audioSleep() } else audioWake() })
+addEventListener('pagehide', () => { saveState(); audioSleep() })  // iOSのPWAはvisibilitychangeが来ないことがあるので併用
+addEventListener('pageshow', () => audioWake())
+addEventListener('pointerdown', () => audioWake(), { passive: true }) // 復帰直後のタップでも確実に再開（iOSのresume制約対策）
 addEventListener('beforeunload', saveState)
 const floatMesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshToonMaterial({ color: 0xe0544a, gradientMap: GRAD }))
 floatMesh.visible = false; scene.add(floatMesh)
@@ -4689,7 +4716,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260620-temple2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260620-highland-wide' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5086,6 +5113,7 @@ function update(dt) {
       const a = ambients[id]; if (!a.buffer) continue
       let v = Math.min(1, w[id] || 0) * AUDIO.ambMaster
       if (id === 'cicada' || id === 'higurashi') v *= cicadaSwell
+      if (id === 'cicada') v *= AUDIO.cicadaVol      // 昼の蝉を少し控えめに（ユーザー要望2026-06-20）
       if (id === 'night') v *= AUDIO.nightAmb       // 夜の虫(カエルのような音)を大きく下げる＝眠れる静けさ
       if (id === 'morning') v *= AUDIO.morningAmb
       if (areaAmb && areaAmb[id]) v *= areaAmb[id]
