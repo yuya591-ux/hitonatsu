@@ -116,7 +116,7 @@ function heightAt(x, z) {
     let h = mtn + s + ((mtn > 0.5 || s > 0.5) ? undul : 0)
     // ── マンションの丘の上＝平らな台地（公園/マンションが斜面にめり込まないよう。周囲とは8mでなめらかにブレンド）──
     // x[884,910]・z[-103,-59]を高さPLATEAU_Yに均す（坂上へ移設＝z-23）。サンライズと南の公園が“平地に建つ/公園の形を保つ”ための地ならし。
-    const pk = smoothstep01((x - 876) / 8) * smoothstep01((918 - x) / 8) * smoothstep01((-51 - z) / 8) * smoothstep01((z + 122) / 8) // 南端を-111→-122へ拡張＝移設した公園(895,-106)も高さ23mの台地に乗せる(2026-06-19)
+    const pk = smoothstep01((x - 876) / 8) * smoothstep01((918 - x) / 8) * smoothstep01((-51 - z) / 8) * smoothstep01((z + 114) / 8) // 南端z-106＝マンション隣へ戻した公園(896,-90)を覆う範囲に（2026-06-19）
     if (pk > 0) h = h * (1 - pk) + PLATEAU_Y * pk
     // ── 西へ下る坂（標高3段／ユーザー要望2026-06-18 Phase2）：マンション(15)の西を、小学校あたり≒9→二つ池あたり≒2 とゆるやかに下げる。
     //    北の道(しんみせ→二つ池)が登らないよう、学校/池のある“南側(z≲10)”だけに乗せる。既存より高い時だけ持ち上げ＝くぼみは作らない。──
@@ -202,6 +202,13 @@ function heightAt(x, z) {
       const dtgt = 9 + 7.7 * Math.exp(-dd * dd)                  // 両側の尾根のてっぺんに合わせた目標高さ（zで山なりに）
       const dw = smoothstep01((x - 920) / 5) * smoothstep01((938 - x) / 5) * smoothstep01((z - 64) / 5) * smoothstep01((106 - z) / 6)
       if (dw > 0 && dtgt > h) h = h * (1 - dw) + dtgt * dw       // 谷より低い所だけ持ち上げ＝尾根は削らない・新たな窪みも作らない
+    }
+    // ── 依頼(2026-06-19→20)：尾根の家(x927〜940)の下の“山そのもの”を坂(尾根x922)と同じ高さまで盛り上げる。
+    //    東側を x946 まで延ばして家の擁壁(土台)を地中に埋め、そこから自然な山肌として東(町)へ下る。＝建物が土台でなく丘に乗って見える ──
+    {
+      const rtop = slopeHeight(z)                                // 尾根のてっぺんの高さ（x922の素の高さ）
+      const ew = smoothstep01((x - 924) / 3) * smoothstep01((946 - x) / 7) * smoothstep01((z + 116) / 6) * smoothstep01((-23 - z) / 6)
+      if (ew > 0 && rtop > h) h = h * (1 - ew) + rtop * ew       // 尾根より低い所だけ持ち上げ＝尾根の道は削らない
     }
     // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
     if (z < -200) {
@@ -1307,7 +1314,8 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const posts = new THREE.Mesh(mergeGeometries(pg), toon(0xc8ccce)); posts.castShadow = true; scene.add(posts); pg.forEach((g) => g.dispose())
     const beams = new THREE.Mesh(mergeGeometries(bg), toon(0xe9ebec)); beams.castShadow = true; scene.add(beams); bg.forEach((g) => g.dispose())
   }
-  makeGuardrail(T.x - 73, T.z + 4, T.x - 73, T.z - 58) // 坂道の東端（急な落ち側）に沿わせる
+  makeGuardrail(T.x - 73, T.z + 4, T.x - 73, T.z - 21) // 坂道の東端（急な落ち側）。道B横断部(z-23〜-27)で途切れさせる(2026-06-19)
+  makeGuardrail(T.x - 73, T.z - 29, T.x - 73, T.z - 58) // 横断部の南側を続ける
   // 延ばした尾根道の東端（急な落ち側＝中心線の東）にもガードレールを続ける＝丘の上から先も“道らしく”仕上げる（西カーブに沿わせる）
   makeGuardrail(T.x - 73, T.z - 92, T.x - 73, T.z - 120); makeGuardrail(T.x - 73, T.z - 120, T.x - 88, T.z - 150); makeGuardrail(T.x - 88, T.z - 150, T.x - 138, T.z - 200)
   // 上り(南)＝頂上→北寺尾の町方面／下り(北)＝ビスコ(踊り場)→しんみせ(一番下)→本通り
@@ -1752,22 +1760,24 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     }
     // ※公園内は歩けるよう当たり判定は置かない（遊具の細部は通り抜け可）
   }
-  makePark(T.x - 105, T.z - 106) // 公園を(895,-106)へさらに坂上へずらす（高さ23mは台地拡張で維持・ユーザー要望2026-06-19）
-  // マンションと公園をつなぐ小路（入口側＝東から南へ回り込む）＋地下出口からの小径（西＝裏から）。公園の移設に合わせ南へ延長
+  makePark(T.x - 104, T.z - 97) // 公園を(896,-97)へ＝マンション南隣に少し間をあけて（寄りすぎを修正・ユーザー要望2026-06-19）
+  // マンションと公園をつなぐ小路（入口側＝東から南へ回り込む）＋地下出口からの小径（西＝裏から）。公園の北口へ
   makeRoadRibbon(T.x - 96, T.z - 69, T.x - 100, T.z - 81, 2.4, false) // 小路：マンション入口わき→南の公園へ(1/2)
-  makeRoadRibbon(T.x - 100, T.z - 81, T.x - 104, T.z - 100, 2.4, false) // 小路：公園の北口へ(2/2・新公園まで延長)
+  makeRoadRibbon(T.x - 100, T.z - 81, T.x - 103, T.z - 89, 2.4, false) // 小路：公園の北口へ(2/2)
   makeRoadRibbon(T.x - 110, T.z - 69, T.x - 110, T.z - 83, 1.8, false) // 地下の小径：マンション地下出口(西)→南へ
-  makeRoadRibbon(T.x - 110, T.z - 83, T.x - 106, T.z - 100, 1.8, false) // 地下の小径：公園へ合流（新公園まで延長）
+  makeRoadRibbon(T.x - 110, T.z - 83, T.x - 106, T.z - 89, 1.8, false) // 地下の小径：公園へ合流
   // ── マンション正面(東)＝尾根道を渡った先(崖側)に「マンション・一軒家が並ぶ通り」を再現（まず代表3棟で試作・ユーザー要望）──
   // 東は急斜面なので各棟は“上り側(西)の地面の高さ”に建て、崖側(東)は擁壁(RC土台)で埋める＝めり込み/浮きを防ぐ。マンションに正対(西向き)。
   function eastBldg(cx, cz, kind, floors) {
     const we = kind === 'house' ? 2.5 : 3.25 // 上り側(西)の縁までの距離（rot=-π/2なので世界x方向の半幅）
     const yTop = heightAt(cx - we, cz)        // 西の縁の地面に合わせて建てる
     const Hf = 18
-    const found = new THREE.Mesh(new THREE.BoxGeometry(kind === 'house' ? 7.6 : 9.6, Hf, kind === 'house' ? 5.6 : 7.1), toonMap(0x8c8c86, plasterTex))
-    found.position.set(cx, yTop + 0.2 - Hf / 2, cz); found.rotation.y = -Math.PI / 2; found.castShadow = true; addOutline(found, 0.03); scene.add(found) // 崖側を埋める擁壁
+    const fW = kind === 'house' ? 7.6 : 9.6, fD = kind === 'house' ? 5.6 : 7.1
+    const found = new THREE.Mesh(new THREE.BoxGeometry(fW, Hf, fD), toonMap(0x8c8c86, plasterTex))
+    found.position.set(cx, yTop + 0.2 - Hf / 2, cz); found.rotation.y = -Math.PI / 2; found.castShadow = true; addOutline(found, 0.03); scene.add(found) // 崖側を埋める擁壁（山を盛ったのでほぼ地中）
+    const step = new THREE.Mesh(new THREE.BoxGeometry(fW + 0.7, 0.7, fD + 0.7), toonMap(0xc2bcae, plasterTex)); step.position.set(cx, yTop + 0.35, cz); step.rotation.y = -Math.PI / 2; step.castShadow = true; addOutline(step, 0.03); scene.add(step) // 石段＝家を地面から少し底上げ（めり込み防止・ユーザー要望2026-06-20）
     const g = kind === 'house' ? makeHouse(cx, cz, -Math.PI / 2, [0x6a5a4a, 0x556088, 0x705a52, 0x4a6a5a, 0x705048][Math.floor(Math.random() * 5)]) : makeDanchi(cx, cz, -Math.PI / 2, floors || 4)
-    if (g) g.position.y = yTop // 上り側の高さへ持ち上げ（崖側は擁壁で受ける）
+    if (g) g.position.y = yTop + 0.6 // 石段の上に乗せる（少し底上げ＝地面に食い込まない）
   }
   // ユーザー要望で数を増やす：一軒家を中心に“まばら”に、低めのマンション(3〜4階)も交ぜて尾根道沿いに並べ“通り”に
   for (const [dx, dz, kind, fl] of [
@@ -2005,6 +2015,21 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   {
     const bpts = [[T.x - 72, T.z - 25], [T.x - 64, T.z - 24], [T.x - 59, T.z - 25], [T.x - 57, T.z - 30], [T.x - 56, T.z - 34], [T.x - 54, T.z - 42], [T.x - 53, T.z - 50], [T.x - 52, T.z - 60]]
     for (let i = 0; i < bpts.length - 1; i++) makeRoadRibbon(bpts[i][0], bpts[i][1], bpts[i + 1][0], bpts[i + 1][1], 3.4, false, true, 0.05)
+  }
+  // ── スーパー→尾根の家(東側)をつなぐ道（ユーザー指定3点・2026-06-19・コンクリ）──
+  {
+    const sp = [[T.x - 53, T.z - 43], [T.x - 50, T.z - 26], [T.x - 50, T.z - 17]]
+    for (let i = 0; i < sp.length - 1; i++) makeRoadRibbon(sp[i][0], sp[i][1], sp[i + 1][0], sp[i + 1][1], 3.4, false, true, 0.05)
+  }
+  // ── 小学校の東を南北に通る土の道（ユーザー指定5点・2026-06-19・茶色）──
+  {
+    const se = [[T.x - 170, T.z - 56], [T.x - 171, T.z - 50], [T.x - 171, T.z - 41], [T.x - 171, T.z - 37], [T.x - 173, T.z - 34]]
+    for (let i = 0; i < se.length - 1; i++) makeRoadRibbon(se[i][0], se[i][1], se[i + 1][0], se[i + 1][1], 3.6, false)
+  }
+  // ── 谷の道の西・西の丘の北の道（ユーザー指定9点・2026-06-19）。SW(759,138)→NE(850,175)へ一本（コンクリ）──
+  {
+    const np = [[T.x - 241, T.z + 138], [T.x - 233, T.z + 140], [T.x - 224, T.z + 146], [T.x - 214, T.z + 149], [T.x - 196, T.z + 154], [T.x - 182, T.z + 159], [T.x - 170, T.z + 165], [T.x - 155, T.z + 171], [T.x - 150, T.z + 175]]
+    for (let i = 0; i < np.length - 1; i++) makeRoadRibbon(np[i][0], np[i][1], np[i + 1][0], np[i + 1][1], 3.6, false, true, 0.05)
   }
   makeSignpost(T.x - 90, T.z + 44, Math.PI / 2, 'ふたつ池 →') // しんみせの角の道しるべ
   for (const [dx, dz] of [[-145, 42], [-200, 28], [-255, 33]]) makeSakura(T.x + dx, T.z + dz, 0.95 + Math.random() * 0.15) // 桜並木（しんみせ→二つ池の道沿い・引き直した道に追従）
@@ -4558,7 +4583,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260619-dip-fill' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260620-house-step' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5838,7 +5863,7 @@ window.__proto3d = {
     { x: MANSION.x, z: MANSION.z, t: 'マンション', k: 'bld', dy: -11 },        // makeMansion(898,-50)
     { x: T.x - 92, z: T.z - 5, t: 'ビスコ', k: 'shop', dy: -11 },               // makeGameShop(908,-5)＝ゲーム屋
     { x: T.x - 92, z: T.z + 36, t: 'しんみせ', k: 'shop', dy: 13 },             // makeDagashi(908,36)＝駄菓子屋
-    { x: T.x - 105, z: T.z - 106, t: 'こうえん', k: 'park', dy: 13 },           // makePark(895,-106)＝さらに坂上へずらす(2026-06-19)
+    { x: T.x - 104, z: T.z - 97, t: 'こうえん', k: 'park', dy: 13 },            // makePark(896,-97)＝マンション南隣に少し間をあけて(2026-06-19)
     { x: T.x - 190, z: T.z - 37, t: '小学校', k: 'bld', dy: -11 },              // makeSchool(810,-37)＝南西へ移設
     { x: T.x - 190, z: T.z - 55, t: '校庭(盆おどり)', k: 'ground', dy: 13 },    // 校庭＝盆踊り会場(810,-55)＝学校と一緒に移設
     { x: T.x - 133, z: T.z - 12, t: 'グラウンド', k: 'ground', dy: 13 },         // makeGround(867,-12)へ移設(2026-06-19)
