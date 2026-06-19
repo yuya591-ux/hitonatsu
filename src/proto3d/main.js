@@ -4511,7 +4511,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260619-touchfix' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260619-flyfix2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5588,6 +5588,7 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
   const updFlySpeed = () => { if (flySpeedBtn) flySpeedBtn.innerHTML = '速さ<br>' + FLY_SPEED_LABEL[fly.speedI] }
   const enterFly = () => {
     if (flying) return
+    if (mode !== 'walk') standUp() // 座り/寝転び/ブランコ中に飛ぶと操作が死ぬので歩行へ戻してから入る
     flying = true
     flyPos.copy(camera.position); flyVel.set(0, 0, 0); flyUp = flyDown = 0
     camera.getWorldDirection(flyTmp)
@@ -5667,7 +5668,19 @@ function warpBoyTo(sx, sy) {
   }
   if (hx == null) return
   const r = pushOutOfColliders(hx, hz) // 建物の中へワープしないよう外へ押し出す
-  boy.position.set(r.x, heightAt(r.x, r.z), r.z); vel.set(0, 0, 0)
+  // エリアの外（霧の空間）や池の中へワープしないよう、歩行と同じ境界で丸める
+  let wx = r.x, wz = r.z
+  if (area === 'field') {
+    wx = THREE.MathUtils.clamp(wx, -92, 92); wz = THREE.MathUtils.clamp(wz, -92, 92)
+    let pdx = wx - POND.x, pdz = wz - POND.z
+    const pdist = Math.hypot(pdx, pdz), SHORE = POND.r - 0.6
+    if (pdist < SHORE) { if (pdist < 0.001) { pdx = 1; pdz = 0 } const k = SHORE / (pdist || 1); wx = POND.x + pdx * k; wz = POND.z + pdz * k }
+  } else if (area === 'town') {
+    wx = THREE.MathUtils.clamp(wx, TOWN.x - 350, TOWN.x + 100); wz = THREE.MathUtils.clamp(wz, TOWN.z - 345, TOWN.z + 230)
+  } else { // 神社
+    wx = THREE.MathUtils.clamp(wx, SHRINE.x - 38, SHRINE.x + 38); wz = THREE.MathUtils.clamp(wz, SHRINE.z - 30, SHRINE.z + 62)
+  }
+  boy.position.set(wx, heightAt(wx, wz), wz); vel.set(0, 0, 0)
   showToast('ここへ ワープ！')
 }
 
