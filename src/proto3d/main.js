@@ -4583,7 +4583,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260620-house-step' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260620-pin-tool' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5702,6 +5702,9 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
       }, 'image/png')
     } catch (e) { showToast('写真に しっぱい しました') }
   })
+  // 📍ピン：画面中央の十字の下にピンを置き、その(x,z)を一覧に控える ／ 🗑：全消し
+  const pinDropBtn = document.getElementById('pin-drop'); if (pinDropBtn) pinDropBtn.addEventListener('click', dropFlyPin)
+  const pinClearBtn = document.getElementById('pin-clear'); if (pinClearBtn) pinClearBtn.addEventListener('click', clearFlyPins)
 }
 // 飛行カメラの更新（update から毎フレーム）。左=移動(視線方向)・右=見回す・上下ボタン＝高度・慣性でなめらか
 function flyCam(dt) {
@@ -5727,6 +5730,7 @@ function flyCam(dt) {
   camera.userData._look.set(flyPos.x + fwdx, flyPos.y + fwdy, flyPos.z + fwdz)
   camera.lookAt(camera.userData._look)
   camera.fov += (fly.fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix()
+  updatePinReadout() // 中央十字の下の座標を毎フレーム更新
 }
 // 飛行中にタップした画面位置→地面の当たり所を求め、そこへ主人公をワープ（heightAtでレイマーチ＝メッシュ不要・堅牢）
 function warpBoyTo(sx, sy) {
@@ -5755,6 +5759,43 @@ function warpBoyTo(sx, sy) {
   boy.position.set(wx, heightAt(wx, wz), wz); vel.set(0, 0, 0)
   showToast('ここへ ワープ！')
 }
+
+// ── ピンで座標登録（開発用・飛行中）：画面の十字の下の地面の (x,z) を読む＋📍で印を置いて一覧に控える ──
+const flyPins = [] // {x, z, obj}
+const flyPinGroup = new THREE.Group(); scene.add(flyPinGroup)
+// 画面位置(sx,sy)からレイを飛ばし、地面に当たった所の {x,y,z} を返す（warpBoyToと同じレイマーチ＝メッシュ不要）
+function flyGroundPoint(sx, sy) {
+  warpRay.setFromCamera({ x: (sx / innerWidth) * 2 - 1, y: -(sy / innerHeight) * 2 + 1 }, camera)
+  const ro = warpRay.ray.origin, rd = warpRay.ray.direction
+  if (rd.y > -0.02) return null // 上向き/水平は地面に当たらない
+  for (let t = 1; t < 1200; t += 1.0) { const x = ro.x + rd.x * t, z = ro.z + rd.z * t, gy = heightAt(x, z); if (ro.y + rd.y * t <= gy) return { x, y: gy, z } }
+  return null
+}
+function makePinMarker(x, y, z) { // 空からでも見える大きめの旗ピン（霧を無視して映す）
+  const g = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 7, 6), new THREE.MeshBasicMaterial({ color: 0xfdf7ec, fog: false })); pole.position.y = 3.5; g.add(pole)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xe8443a, fog: false })); head.position.y = 7.4; g.add(head)
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.3, 20), new THREE.MeshBasicMaterial({ color: 0xe8443a, fog: false, transparent: true, opacity: 0.6, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; g.add(ring) // 地面の的
+  g.position.set(x, y, z); flyPinGroup.add(g); return g
+}
+const pinReadEl = typeof document !== 'undefined' ? document.getElementById('pin-read') : null
+const pinListEl = typeof document !== 'undefined' ? document.getElementById('pin-list') : null
+function refreshPinList() { if (pinListEl) pinListEl.innerHTML = flyPins.map((p, i) => '📍' + (i + 1) + '：(' + Math.round(p.x) + ', ' + Math.round(p.z) + ')').join('<br>') }
+function updatePinReadout() { // flyCamから毎フレーム：中央十字の下の座標を表示
+  if (!flying || !pinReadEl) return
+  camera.updateMatrixWorld(true)
+  const gp = flyGroundPoint(innerWidth / 2, innerHeight / 2)
+  pinReadEl.textContent = gp ? ('＋ ' + Math.round(gp.x) + ', ' + Math.round(gp.z)) : '＋ ----'
+}
+function dropFlyPin() {
+  camera.updateMatrixWorld(true)
+  const gp = flyGroundPoint(innerWidth / 2, innerHeight / 2)
+  if (!gp) { showToast('地面が画面の中央（十字）に来るように向けてね'); return }
+  flyPins.push({ x: gp.x, z: gp.z, obj: makePinMarker(gp.x, gp.y, gp.z) }); refreshPinList()
+  showToast('ピン' + flyPins.length + '：(' + Math.round(gp.x) + ', ' + Math.round(gp.z) + ')')
+}
+function clearFlyPins() { flyPins.forEach((p) => flyPinGroup.remove(p.obj)); flyPins.length = 0; refreshPinList() }
+window.__dropFlyPin = dropFlyPin; window.__clearFlyPins = clearFlyPins; window.__flyPins = flyPins; window.__flyGroundPoint = flyGroundPoint // 検証用
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {

@@ -213,6 +213,18 @@
       #fly-photo { left: 50%; bottom: calc(9% + env(safe-area-inset-bottom)); transform: translateX(-50%); width: 66px; height: 66px; border-radius: 50%; font-size: 30px; }
       #fly-photo:active { transform: translateX(-50%) scale(0.93); }
       #fly-exit { left: 50%; top: calc(3.5% + env(safe-area-inset-top)); transform: translateX(-50%); padding: 0.5em 1.2em; background: rgba(74,64,50,0.78); }
+      /* ピンで座標登録（開発用・飛行中）：画面中央の十字のところの (x,z) を読む＋📍で印を置く */
+      #fly-cross { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 28px; height: 28px; pointer-events: none; z-index: 9; }
+      #fly-cross::before, #fly-cross::after { content: ''; position: absolute; background: rgba(255,255,255,0.92); box-shadow: 0 0 3px rgba(0,0,0,0.7); }
+      #fly-cross::before { left: 50%; top: 0; width: 2px; height: 28px; transform: translateX(-50%); }
+      #fly-cross::after { top: 50%; left: 0; height: 2px; width: 28px; transform: translateY(-50%); }
+      #pin-read { position: fixed; left: 50%; top: calc(50% + 22px); transform: translateX(-50%); pointer-events: none; z-index: 9;
+        color: #fff; background: rgba(40,44,60,0.72); border-radius: 10px; padding: 2px 11px; font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      #pin-list { position: fixed; left: calc(3% + env(safe-area-inset-left)); top: calc(11% + env(safe-area-inset-top)); pointer-events: none; z-index: 9;
+        color: #fff; background: rgba(40,44,60,0.6); border-radius: 10px; padding: 6px 11px; font-size: 13px; line-height: 1.55; max-width: 46vw; font-variant-numeric: tabular-nums; }
+      #pin-list:empty { display: none; }
+      #pin-drop { left: calc(50% - 150px); bottom: calc(9% + env(safe-area-inset-bottom)); width: 80px; height: 66px; border-radius: 16px; background: rgba(196,72,58,0.86); }
+      #pin-clear { left: calc(50% + 70px); bottom: calc(9% + env(safe-area-inset-bottom)); width: 58px; height: 66px; border-radius: 16px; font-size: 26px; }
     </style>
   </head>
   <body>
@@ -253,6 +265,11 @@
       <button id="fly-speed" class="fly-b">速さ<br>ふつう</button>
       <button id="fly-photo" class="fly-b">📷</button>
       <button id="fly-exit" class="fly-b">✕ もどる</button>
+      <div id="fly-cross"></div>
+      <div id="pin-read">＋ ----</div>
+      <div id="pin-list"></div>
+      <button id="pin-drop" class="fly-b">📍<br>ピン</button>
+      <button id="pin-clear" class="fly-b">🗑</button>
     </div>
     <button id="set-btn" class="hud" title="せってい">⚙</button>
     <div id="settings">
