@@ -185,6 +185,16 @@ function heightAt(x, z) {
       const gl = smoothstep01((x - 843) / 3) * smoothstep01((890 - x) / 2.5) * smoothstep01((z + 28) / 3) * smoothstep01((5 - z) / 3)
       if (gl > 0 && h > 4.9) h = h * (1 - gl) + 4.9 * gl
     }
+    // ── 依頼(2026-06-19)：マンション北の坂(x891・z-57〜-32)のボコボコ＝谷を埋めて一定勾配の緩やかな坂に＋
+    //    グラウンド→ビスコ/尾根の急な西面(x884付近の壁)をなだらかに横へ広げる。フラットなグラウンド(z>-26)は触らない（最後に上書き）。
+    {
+      const tns = 22 - 9 * Math.max(0, Math.min(1, (z + 57) / 27))   // 南北：マンション台地22→尾根/北13へ一定勾配
+      const gx = Math.max(0, Math.min(1, (892 - x) / 14))            // 西(グラウンド側)ほど低く
+      const gz = Math.max(0, Math.min(1, (z + 40) / 11))            // グラウンド寄り(z>-29)で西を低く効かせる
+      const tgt = tns * (1 - gx * gz) + 5.5 * (gx * gz)
+      const sw = smoothstep01((x - 874) / 5) * smoothstep01((900 - x) / 4) * smoothstep01((z + 59) / 4) * smoothstep01((-26 - z) / 4)
+      if (sw > 0) h = h * (1 - sw) + tgt * sw
+    }
     // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
     if (z < -200) {
       const t = Math.max(0, Math.min(1, (-200 - z) / 95)) // 線形の下り：0(z-200)→1(z-295)
@@ -4529,7 +4539,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260619-mansion-up' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260619-slope-smooth' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
