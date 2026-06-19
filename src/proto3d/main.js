@@ -220,6 +220,11 @@ function heightAt(x, z) {
       const r4 = smoothstep01((x - 868) / 4) * smoothstep01((921 - x) / 4) * smoothstep01((z - 43) / 3) * smoothstep01((52 - z) / 3)
       if (r4 > 0 && h > 2.2) h = h * (1 - r4) + 2.2 * r4
     }
+    // ── 依頼(2026-06-20)：req3 お寺/お墓の敷地(x923〜944・z71〜95)を16mで平らな境内に ──
+    {
+      const tp = smoothstep01((x - 919) / 5) * smoothstep01((948 - x) / 5) * smoothstep01((z - 67) / 5) * smoothstep01((89 - z) / 4) // 北は峠道(z88〜)に掛けない
+      if (tp > 0) h = h * (1 - tp) + 16 * tp
+    }
     // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
     if (z < -200) {
       const t = Math.max(0, Math.min(1, (-200 - z) / 95)) // 線形の下り：0(z-200)→1(z-295)
@@ -2046,6 +2051,92 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const np = [[T.x - 241, T.z + 138], [T.x - 233, T.z + 140], [T.x - 224, T.z + 146], [T.x - 214, T.z + 149], [T.x - 196, T.z + 154], [T.x - 182, T.z + 159], [T.x - 170, T.z + 165], [T.x - 155, T.z + 171], [T.x - 150, T.z + 175]]
     for (let i = 0; i < np.length - 1; i++) makeRoadRibbon(np[i][0], np[i][1], np[i + 1][0], np[i + 1][1], 3.6, false, true, 0.05)
   }
+  // ── 横溝屋敷（旧横溝家住宅・獅子ヶ谷のオマージュ。江戸〜明治の農家屋敷＝長屋門・茅葺き主屋・白壁の蔵2棟・屋敷林。実在の文化財の“様式”をオリジナル造形で再現・2026-06-20）──
+  function makeYokomizo(cx, cz) {
+    const fy = heightAt(cx, cz)
+    const wallT = toonMap(0xcabfa2, plasterTex), woodT = toonMap(0x6a5238, woodTex), kuraW = toonMap(0xece7da, plasterTex)
+    // 寄棟屋根（低ポリ・トゥーン）：footprint w×d・高さrh。底面をy=0に置いた四角錐
+    const hip = (w, d, rh, col, tex) => { const geo = new THREE.ConeGeometry(1, rh, 4); geo.translate(0, rh / 2, 0); const m = new THREE.Mesh(geo, tex ? toonMap(col, tex) : toon(col)); m.rotation.y = Math.PI / 4; m.scale.set(w / 1.414, 1, d / 1.414); return m }
+    // 敷地（砂利/土の庭）
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(42, 30), new THREE.MeshToonMaterial({ color: 0xbcb29a, gradientMap: GRAD, map: watercolorTex })); yard.rotation.x = -Math.PI / 2; yard.position.set(cx, fy + 0.04, cz); yard.receiveShadow = true; scene.add(yard)
+    // ① 長屋門（南＝通り側の入口）。細長い門屋＋中央の通路＋瓦の寄棟屋根
+    { const g = new THREE.Group(); const W = 15, D = 4.2, H = 3.1
+      for (const sx of [-W / 2 + 3, W / 2 - 3]) { const room = new THREE.Mesh(new THREE.BoxGeometry(5.6, H, D), wallT); room.position.set(sx, H / 2, 0); g.add(room); const beam = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.3, D + 0.2), woodT); beam.position.set(sx, H - 0.2, 0); g.add(beam) }
+      for (const sx of [-1.8, 1.8]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.42, H, 0.5), woodT); post.position.set(sx, H / 2, -D / 2 + 0.3); g.add(post) }
+      const lint = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.7, D), woodT); lint.position.set(0, H - 0.35, 0); g.add(lint)
+      const roof = hip(W + 1.6, D + 2.2, 1.9, 0x586068, roofTex); roof.position.y = H - 0.2; g.add(roof)
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+      g.position.set(cx, fy, cz - 9); mergedOutline(g, 0.04); addContactShadow(g, 8); scene.add(g)
+      addBox(cx - 4.5, cz - 9, 2.8, 2.1, 0); addBox(cx + 4.5, cz - 9, 2.8, 2.1, 0) // 両脇の部屋だけ当たり（中央の通路は通れる）
+    }
+    // ② 主屋（茅葺き・木造2階建・寄棟）。縁側＋障子＋土間の大戸。屋敷の主役
+    { const g = new THREE.Group(); const W = 15, D = 11, H = 4.6
+      const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), wallT); body.position.y = H / 2; g.add(body)
+      for (const sx of [-W / 2 + 0.3, -W / 6, W / 6, W / 2 - 0.3]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.34, H, 0.34), woodT); p.position.set(sx, H / 2, -D / 2 + 0.18); g.add(p) }
+      const sill = new THREE.Mesh(new THREE.BoxGeometry(W, 0.3, D), woodT); sill.position.y = 0.15; g.add(sill)
+      const engawa = new THREE.Mesh(new THREE.BoxGeometry(W - 1, 0.25, 1.6), woodT); engawa.position.set(0, 0.7, -D / 2 - 0.7); g.add(engawa)
+      for (let i = 0; i < 5; i++) { const sho = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.2), toon(0xe8e2cf)); sho.position.set(-W / 2 + 2.2 + i * 2.7, 2.0, -D / 2 - 0.02); g.add(sho) }
+      const door = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.8, 0.2), woodT); door.position.set(W / 2 - 2.5, 1.4, -D / 2 - 0.05); g.add(door)
+      const roof = hip(W + 2.4, D + 2.4, 4.2, 0x8c7d5e); roof.position.y = H - 0.2; g.add(roof) // 茅葺きの大屋根
+      const mune = new THREE.Mesh(new THREE.BoxGeometry(W - 3, 0.7, 1.0), toon(0x6f6244)); mune.position.y = H + 4.0; g.add(mune) // 棟
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+      g.position.set(cx, fy, cz + 5); mergedOutline(g, 0.05); addContactShadow(g, 11); addBox(cx, cz + 5, W / 2, D / 2, 0); scene.add(g)
+    }
+    // ③ 白壁の蔵×2（文庫蔵・穀蔵）＝白漆喰＋なまこ壁の腰＋瓦＋小窓
+    for (const dz of [2, -5]) {
+      const g = new THREE.Group(); const W = 5.2, D = 4.2, H = 4.4
+      const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), kuraW); body.position.y = H / 2; g.add(body)
+      const base = new THREE.Mesh(new THREE.BoxGeometry(W + 0.2, 1.2, D + 0.2), toon(0x6a6e74)); base.position.y = 0.6; g.add(base)
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.2), toon(0x3a3a36)); win.position.set(0, H - 1.2, -D / 2 - 0.02); g.add(win)
+      const roof = hip(W + 1.4, D + 1.4, 1.7, 0x586068, roofTex); roof.position.y = H - 0.2; g.add(roof)
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+      g.position.set(cx + 12, fy, cz + dz); mergedOutline(g, 0.04); addContactShadow(g, 4); addBox(cx + 12, cz + dz, W / 2, D / 2, 0); scene.add(g)
+    }
+    // ④ 屋敷林（屋敷を囲む木立）＋門前の桜＋通りへの短い土の小道
+    for (const [dx, dz] of [[-17, 10], [-17, 0], [-16, -10], [-2, 13], [10, 13], [17, 10], [18, -2], [16, -11], [0, -14]]) makeTree(cx + dx, cz + dz, 1.3 + Math.random() * 0.5)
+    makeSakura(cx - 6, cz - 6, 1.1)
+    makeRoadRibbon(cx, cz - 11, cx + 6, cz - 17, 3.0, false)
+  }
+  makeYokomizo(753, 154)
+  // ── お寺とお墓（北の丘・見はらしベンチの西。本堂・山門・鐘楼＋墓地。低ポリ・トゥーン・2026-06-20）──
+  function makeTemple(cx, cz) {
+    const fy = heightAt(cx, cz)
+    const hip = (w, d, rh, col, tex) => { const geo = new THREE.ConeGeometry(1, rh, 4); geo.translate(0, rh / 2, 0); const m = new THREE.Mesh(geo, tex ? toonMap(col, tex) : toon(col)); m.rotation.y = Math.PI / 4; m.scale.set(w / 1.414, 1, d / 1.414); return m }
+    const woodT = toonMap(0x7a4a36, woodTex), wall = toonMap(0xd8cdb4, plasterTex)
+    const gnd = new THREE.Mesh(new THREE.PlaneGeometry(17, 14), new THREE.MeshToonMaterial({ color: 0xc2bca8, gradientMap: GRAD, map: watercolorTex })); gnd.rotation.x = -Math.PI / 2; gnd.position.set(cx, fy + 0.04, cz); gnd.receiveShadow = true; scene.add(gnd)
+    // 本堂（中央やや南＝道に掛からないよう南へ。瓦屋根・朱の柱・基壇）
+    { const g = new THREE.Group(); const W = 9, D = 6.5, H = 3.6
+      const plat = new THREE.Mesh(new THREE.BoxGeometry(W + 1.4, 0.8, D + 1.4), toon(0x9a8e74)); plat.position.y = 0.4; g.add(plat)
+      const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), wall); body.position.y = 0.8 + H / 2; g.add(body)
+      for (const sx of [-W / 2 + 0.5, W / 2 - 0.5]) for (const sz of [-D / 2 + 0.5, D / 2 - 0.5]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, H, 8), toon(0x9a3a2e)); p.position.set(sx, 0.8 + H / 2, sz); g.add(p) }
+      const door = new THREE.Mesh(new THREE.BoxGeometry(3, H - 0.6, 0.2), woodT); door.position.set(0, 0.8 + (H - 0.6) / 2, -D / 2 - 0.02); g.add(door)
+      const roof = hip(W + 3.4, D + 3.4, 3.0, 0x4a5560, roofTex); roof.position.y = 0.8 + H - 0.2; g.add(roof)
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(cx, fy, cz - 0.5); mergedOutline(g, 0.05); addContactShadow(g, 8); addBox(cx, cz - 0.5, W / 2, D / 2, 0); scene.add(g)
+    }
+    // 山門（参道の入口・南側・四脚門風）
+    { const g = new THREE.Group(); const H = 3.2
+      for (const sx of [-2, 2]) for (const sz of [-0.8, 0.8]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, H, 8), woodT); p.position.set(sx, H / 2, sz); g.add(p) }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.4, 0.4), woodT); beam.position.set(0, H - 0.3, 0); g.add(beam)
+      const roof = hip(5.6, 3.0, 1.5, 0x4a5560, roofTex); roof.position.y = H - 0.1; g.add(roof)
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(cx, fy, cz - 6); mergedOutline(g, 0.04); scene.add(g)
+    }
+    // 鐘楼（梵鐘の小さな櫓・西側）
+    { const g = new THREE.Group(); const H = 3.0
+      for (const sx of [-1.1, 1.1]) for (const sz of [-1.1, 1.1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, H, 7), woodT); p.position.set(sx, H / 2, sz); g.add(p) }
+      const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 1.2, 12), toon(0x5a6a5e)); bell.position.y = H - 0.9; g.add(bell)
+      const roof = hip(3.4, 3.4, 1.4, 0x4a5560, roofTex); roof.position.y = H - 0.1; g.add(roof)
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(cx - 6.5, fy, cz - 3); mergedOutline(g, 0.04); addContactShadow(g, 2.4); addBox(cx - 6.5, cz - 3, 1.5, 1.5, 0); scene.add(g)
+    }
+    // 墓地（墓石の列）＝本堂の北＝道路沿い（ユーザー要望2026-06-20）
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 7; c++) {
+      const mx = cx - 5 + c * 1.7, mz = cz + 5 + r * 1.5, my = heightAt(mx, mz)
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.7), toon(0xb8b2a6)); base.position.set(mx, my + 0.15, mz); base.castShadow = true; scene.add(base)
+      const stone = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.9 + Math.random() * 0.3, 0.34), toon(0xc8c2b6)); stone.position.set(mx, my + 0.6, mz); stone.castShadow = true; addOutline(stone, 0.02); scene.add(stone)
+    }
+    makeRoadRibbon(cx, cz - 6, cx, cz - 1, 2.4, false) // 参道（南の山門→本堂）
+    for (const [dx, dz] of [[-7, -5], [7, -5], [8, 1]]) makeTree(cx + dx, cz + dz, 1.2)
+  }
+  makeTemple(934, 80)
   makeSignpost(T.x - 90, T.z + 44, Math.PI / 2, 'ふたつ池 →') // しんみせの角の道しるべ
   for (const [dx, dz] of [[-145, 42], [-200, 28], [-255, 33]]) makeSakura(T.x + dx, T.z + dz, 0.95 + Math.random() * 0.15) // 桜並木（しんみせ→二つ池の道沿い・引き直した道に追従）
   // ── 二つ池(686,43)の周回路＝“南半分のアーチ”（北のへりは上の「しんみせ→二つ池の道」が兼ねる＝灰色どうしの重なりを作らない）。NE(702,59)とNW(670,59)で上の道とつながり環になる ──
@@ -4598,7 +4689,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260620-flatten-roads' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260620-temple2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
