@@ -1646,6 +1646,11 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     [T.x - 100, T.z + 32, T.x - 100, T.z + 36], // →(900,36)
     [T.x - 100, T.z + 36, T.x - 96, T.z + 38], // →(904,38)
   ]) makeRoadRibbon(s[0], s[1], s[2], s[3], 3.6, false)
+  // 依頼(2026-06-19)：森→ビスコ→南東をつなぐ土の道（指定3点・茶色。尾根を13.5→11.7となだらかに下る）
+  for (const s of [
+    [T.x - 108, T.z - 27, T.x - 97, T.z - 26], // (892,-27)→(903,-26)
+    [T.x - 97, T.z - 26, T.x - 83, T.z - 26],  // →(917,-26)
+  ]) makeRoadRibbon(s[0], s[1], s[2], s[3], 3.6, false)
   // ── 土のサッカーグラウンド（当時のマリノスのグラウンドのオマージュ。団地の西）──
   function makeGround(cx, cz) {
     const W = 44, D = 28, fy = heightAt(cx, cz) // もう少し広く（マリノスのグラウンドのオマージュ＝広い原っぱ）
@@ -1926,7 +1931,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   // ── 二つ池の公園（三ツ池公園のオマージュ。複数の池・桜並木・あずまや・おしどり）──
   function makePondPark(cx, cz) {
     const fy = heightAt(cx, cz)
-    const gnd = new THREE.Mesh(new THREE.CircleGeometry(22, 44), new THREE.MeshToonMaterial({ color: 0x88ad52, gradientMap: GRAD, map: watercolorTex })); gnd.rotation.x = -Math.PI / 2; gnd.position.set(cx, fy + 0.05, cz); gnd.receiveShadow = true; scene.add(gnd) // 公園ごと拡大(14→22)＝ユーザー要望でさらに大きく
+    const gnd = new THREE.Mesh(new THREE.CircleGeometry(36, 52), new THREE.MeshToonMaterial({ color: 0x88ad52, gradientMap: GRAD, map: watercolorTex })); gnd.rotation.x = -Math.PI / 2; gnd.position.set(cx, fy + 0.05, cz); gnd.receiveShadow = true; scene.add(gnd) // 公園の芝生(22→36)＝平らな北の土地(高さ0でtan)に移したので芝生を広げ、池/周回路/木立を緑の上に乗せる(2026-06-19)
     for (const [px, pz, pr] of [[cx - 9, cz + 3, 9.4], [cx + 9, cz - 3, 8.2]]) { // 池をさらに拡大(6.0→9.4/5.2→8.2)＋中心をより離して二つの大きな池に
       const w = new THREE.Mesh(new THREE.CircleGeometry(pr, 28), waterMat); w.rotation.x = -Math.PI / 2; w.position.set(px, fy + 0.08, pz); scene.add(w)
       for (let a = 0; a < 18; a++) { const rx = px + Math.cos(a / 18 * Math.PI * 2) * (pr + 0.2), rz = pz + Math.sin(a / 18 * Math.PI * 2) * (pr + 0.2); const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22 + Math.random() * 0.1, 0), toon(0x9a958c)); rock.position.set(rx, fy + 0.12, rz); rock.castShadow = true; scene.add(rock) }
@@ -1940,7 +1945,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     makeSakura(cx - 19, cz + 7, 1.3); makeSakura(cx + 15, cz + 7, 1.2); makeSakura(cx + 3, cz - 14, 1.2); makeSakura(cx - 6, cz + 15, 1.1) // 大きい池の外周に桜
     for (const [bx, bz, br2] of [[cx - 15, cz - 7, 0.4], [cx + 16, cz - 10, -0.6]]) { const bench = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.5), toon(0x9a6a3a)); bench.position.set(bx, fy + 0.45, bz); bench.rotation.y = br2; bench.castShadow = true; addOutline(bench, 0.02); scene.add(bench); for (const lx of [-0.9, 0.9]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.4), toon(0x7a5230)); leg.position.set(bx + Math.cos(br2) * lx, fy + 0.22, bz - Math.sin(br2) * lx); scene.add(leg) } }
   }
-  makePondPark(T.x - 310, T.z - 8) // 二つ池＝(690,-8)へ（しんみせ→二つ池の道のすぐ下に2池が並ぶ・ユーザー要望2026-06-18）。三ツ池公園オマージュ
+  makePondPark(T.x - 314, T.z + 43) // 二つ池＝(686,43)へ北へ約51m移設（ユーザー要望2026-06-19）。道・民家・木・公園も一緒に移動。三ツ池公園オマージュ
   // ── 街を囲む遠景の山々（盆地の町＝山に囲まれた鶴見の谷あい。歩行範囲の外周に低ポリの稜線を環状に）──
   {
     const near = new THREE.MeshToonMaterial({ color: 0x6f8a64, gradientMap: GRAD }), far = new THREE.MeshToonMaterial({ color: 0x8398a4, gradientMap: GRAD }) // 遠いほど青くかすむ
@@ -1966,23 +1971,22 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   makePachinko(T.x + 30, T.z - 16, Math.PI / 2)
   // ── 監査(ワールド)対応：孤立していたランドマークへ枝道を通す（回遊性を上げる）──
   makeRoadRibbon(T.x + 5, T.z - 15, T.x + 31, T.z - 14, 4, false, true) // 本通り東→パチンコ・銭湯のクラスタ(コンクリ)
-  // ── しんみせ→二つ池の道（ユーザー要望2026-06-18：消した散歩道を指定9点どおりに引き直し。灰色の細い一車線舗装路。二つ池の“北のへり”に沿う） ──
+  // ── しんみせ→二つ池の道（ユーザー要望2026-06-19：池を北(686,43)へ移設したので、しんみせ(917,46)から西へ引き直し。灰色の細い一車線舗装路。二つ池の“北のへり”に沿う） ──
   for (const s of [
-    [T.x - 83, T.z + 46, T.x - 100, T.z + 44], [T.x - 100, T.z + 44, T.x - 105, T.z + 40], // しんみせ(917,46)→(900,44)→(895,40)
-    [T.x - 105, T.z + 40, T.x - 139, T.z + 37], [T.x - 139, T.z + 37, T.x - 169, T.z + 32], // (861,37)→(831,32)
-    [T.x - 169, T.z + 32, T.x - 225, T.z + 21], [T.x - 225, T.z + 21, T.x - 269, T.z + 11], // (775,21)→(731,11)
-    [T.x - 269, T.z + 11, T.x - 293, T.z + 10], [T.x - 293, T.z + 10, T.x - 325, T.z + 9],  // (707,10)→(675,9) 二つ池の北へ
+    [T.x - 83, T.z + 46, T.x - 120, T.z + 48], [T.x - 120, T.z + 48, T.x - 180, T.z + 51], // しんみせ(917,46)→(880,48)→(820,51)
+    [T.x - 180, T.z + 51, T.x - 240, T.z + 55], [T.x - 240, T.z + 55, T.x - 285, T.z + 58], // (760,55)→(715,58)
+    [T.x - 285, T.z + 58, T.x - 298, T.z + 59], // (702,59) 二つ池の北のへり（周回路のNEへつながる）
   ]) makeRoadRibbon(s[0], s[1], s[2], s[3], 3.4, false, true, 0.05)
-  makeSignpost(T.x - 90, T.z + 40, Math.PI / 2, 'ふたつ池 →') // しんみせの角の道しるべ
-  for (const [dx, dz] of [[-150, 35], [-200, 26], [-250, 16]]) makeSakura(T.x + dx, T.z + dz + 3, 0.95 + Math.random() * 0.15) // 桜並木（しんみせ→二つ池の道沿い・北側）
-  // ── 二つ池(690,-8)の周回路＝“南半分のアーチ”（北のへりは上の「しんみせ→二つ池の道」が兼ねる＝灰色どうしの重なりを作らない）。NE(706,8)とNW(674,8)で上の道とつながり環になる ──
+  makeSignpost(T.x - 90, T.z + 44, Math.PI / 2, 'ふたつ池 →') // しんみせの角の道しるべ
+  for (const [dx, dz] of [[-150, 53], [-220, 57], [-280, 60]]) makeSakura(T.x + dx, T.z + dz, 0.95 + Math.random() * 0.15) // 桜並木（しんみせ→二つ池の道沿い・北側）
+  // ── 二つ池(686,43)の周回路＝“南半分のアーチ”（北のへりは上の「しんみせ→二つ池の道」が兼ねる＝灰色どうしの重なりを作らない）。NE(702,59)とNW(670,59)で上の道とつながり環になる ──
   const IKEW = 3.4 // 二つ池の周回路の幅（一車線の舗装）
-  makeRoadRibbon(T.x - 294, T.z + 8, T.x - 287, T.z - 8, IKEW, false, true, 0.05)  // NE→E
-  makeRoadRibbon(T.x - 287, T.z - 8, T.x - 294, T.z - 24, IKEW, false, true, 0.05) // E→SE
-  makeRoadRibbon(T.x - 294, T.z - 24, T.x - 310, T.z - 31, IKEW, false, true, 0.05)// SE→S
-  makeRoadRibbon(T.x - 310, T.z - 31, T.x - 326, T.z - 24, IKEW, false, true, 0.05)// S→SW
-  makeRoadRibbon(T.x - 326, T.z - 24, T.x - 333, T.z - 8, IKEW, false, true, 0.05) // SW→W
-  makeRoadRibbon(T.x - 333, T.z - 8, T.x - 326, T.z + 8, IKEW, false, true, 0.05)  // W→NW（上の道のNWへつながる）
+  makeRoadRibbon(T.x - 298, T.z + 59, T.x - 291, T.z + 43, IKEW, false, true, 0.05)  // NE→E
+  makeRoadRibbon(T.x - 291, T.z + 43, T.x - 298, T.z + 27, IKEW, false, true, 0.05) // E→SE
+  makeRoadRibbon(T.x - 298, T.z + 27, T.x - 314, T.z + 20, IKEW, false, true, 0.05)// SE→S
+  makeRoadRibbon(T.x - 314, T.z + 20, T.x - 330, T.z + 27, IKEW, false, true, 0.05)// S→SW
+  makeRoadRibbon(T.x - 330, T.z + 27, T.x - 337, T.z + 43, IKEW, false, true, 0.05) // SW→W
+  makeRoadRibbon(T.x - 337, T.z + 43, T.x - 330, T.z + 59, IKEW, false, true, 0.05)  // W→NW（上の道のNWへつながる）
   // ── 梅雨のあじさい：新しい散歩道と二つ池の周回路の沿道に点々と。雨の似合う青紫＝あの時代の夏の入り口の色 ──
   function makeAjisai(x, z, s = 1) {
     const fy = heightAt(x, z)
@@ -1992,19 +1996,19 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     addContactShadow(bush, 0.8 * s)
   }
   for (const [ax, az, as] of [
-    [T.x - 200, T.z + 28, 1.0], [T.x - 260, T.z + 16, 0.95], // しんみせ→二つ池の道沿い（北側）
-    [T.x - 278, T.z - 8, 1.0], [T.x - 288, T.z - 30, 0.9], [T.x - 310, T.z - 38, 1.1], // 二つ池の周回路(南半分)の外周
-    [T.x - 332, T.z - 30, 1.0], [T.x - 342, T.z - 8, 0.95]
+    [T.x - 200, T.z + 56, 1.0], [T.x - 250, T.z + 58, 0.95], // しんみせ→二つ池の道沿い（北側）
+    [T.x - 282, T.z + 43, 1.0], [T.x - 292, T.z + 21, 0.9], [T.x - 314, T.z + 13, 1.1], // 二つ池の周回路(南半分)の外周
+    [T.x - 336, T.z + 21, 1.0], [T.x - 346, T.z + 43, 0.95]
   ]) makeAjisai(ax, az, as)
-  // ── 二つ池の北の住宅（西へ広げた土地に田舎の家並み＝二つ池を“近所”に・回遊先を増やす）──
-  for (const [dx, dz] of [[-230, 32], [-262, 26], [-294, 25]]) { // 二つ池の北の家並み(770,32)(738,26)(706,25)＝しんみせ→二つ池の道の北側
+  // ── 二つ池の北の住宅（西へ広げた土地に田舎の家並み＝二つ池を“近所”に・回遊先を増やす。池の移設に合わせ北へ）──
+  for (const [dx, dz] of [[-234, 83], [-266, 77], [-298, 76]]) { // 二つ池の北の家並み(766,83)(734,77)(702,76)＝しんみせ→二つ池の道の北側
     makeHouse(T.x + dx, T.z + dz, Math.PI, roofs[Math.floor(Math.random() * roofs.length)]) // 道（南＝池側）を向く
     const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 0.9, 0.4), toonMap(0xbcb6a4, plasterTex)); wall.position.set(T.x + dx, 0.45, T.z + dz - 5); wall.castShadow = true; addOutline(wall, 0.03); scene.add(wall) // ブロック塀（道側）
   }
-  for (const [dx, dz, ts] of [[-282, -15, 1.0], [-290, -35, 1.1], [-312, -40, 1.0], [-335, -32, 0.95], [-340, -10, 1.05], [-280, 2, 0.9]]) makeTree(T.x + dx, T.z + dz, ts) // 二つ池(690,-8)の周りの木立
+  for (const [dx, dz, ts] of [[-286, 36, 1.0], [-294, 16, 1.1], [-316, 11, 1.0], [-339, 19, 0.95], [-344, 41, 1.05], [-284, 53, 0.9]]) makeTree(T.x + dx, T.z + dz, ts) // 二つ池(686,43)の周りの木立
   // ── 児童公園（住宅街の一角・昭和の遊具：滑り台・砂場・ベンチ）＝子どもの遊び場の気配 ──
   {
-    const px = T.x - 248, pz = T.z + 28, py = heightAt(px, pz) // 児童公園＝二つ池(690,-8)の北の住宅街の一角(752,28)
+    const px = T.x - 252, pz = T.z + 79, py = heightAt(px, pz) // 児童公園＝二つ池(686,43)の北の住宅街の一角(748,79)
     const sand = new THREE.Mesh(new THREE.CircleGeometry(2.0, 6), new THREE.MeshToonMaterial({ color: 0xcdb389, gradientMap: GRAD, map: watercolorTex })); sand.rotation.x = -Math.PI / 2; sand.position.set(px - 3.5, py + 0.06, pz + 1.5); scene.add(sand) // 砂場
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const edge = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.28, 0.22), toon(0x8a6a44)); edge.position.set(px - 3.5 + Math.cos(a) * 2, py + 0.14, pz + 1.5 + Math.sin(a) * 2); edge.rotation.y = -a; scene.add(edge) } // 砂場の木枠
     const sl = new THREE.Group() // 滑り台
@@ -4525,7 +4529,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260619-ground-step' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260619-pond-move' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5810,7 +5814,7 @@ window.__proto3d = {
     { x: T.x - 190, z: T.z - 55, t: '校庭(盆おどり)', k: 'ground', dy: 13 },    // 校庭＝盆踊り会場(810,-55)＝学校と一緒に移設
     { x: T.x - 133, z: T.z - 12, t: 'グラウンド', k: 'ground', dy: 13 },         // makeGround(867,-12)へ移設(2026-06-19)
     { x: T.x - 124, z: T.z - 37, t: '森', k: 'forest', dy: -11 },               // 学校よこの森(876,-37)
-    { x: T.x - 310, z: T.z - 8, t: 'ふたつ池', k: 'pond', dy: -11 },             // makePondPark(690,-8)＝道のすぐ下に移設
+    { x: T.x - 314, z: T.z + 43, t: 'ふたつ池', k: 'pond', dy: -11 },            // makePondPark(686,43)＝北へ移設(2026-06-19)
     // ── 東エリア＝街の中心（元の地図に欠けていた区画。商店街・パチンコ・銭湯・団地） ──
     { x: T.x - 12, z: T.z + 2, t: '商店街', k: 'shop', dy: -11 },               // makeShop×4(988,-18〜21)の中ほど
     { x: T.x - 49, z: T.z - 4, t: 'スーパー', k: 'bld', dy: 13 },               // makeSuperMarket(951,-4)
@@ -5850,10 +5854,10 @@ window.__proto3d = {
     [[T.x - 32, T.z - 35], [T.x - 15, T.z - 30], [T.x - 6, T.z - 4]],           // 中央高校前→本通り
     [[T.x - 122, T.z - 14], [T.x - 174, T.z - 9], [T.x - 205, T.z - 2]],        // 小学校前→二つ池へ
     [[T.x - 107, T.z - 48], [T.x - 122, T.z - 14], [T.x - 158, T.z - 24]],      // マンション地下→森を回り小学校へ
-    // 二つ池をぐるりと囲む周回路（半径≒23・中心772,-2）
-    [[T.x - 228, T.z + 21], [T.x - 205, T.z - 2], [T.x - 228, T.z - 25], [T.x - 251, T.z - 2], [T.x - 228, T.z + 21]],
-    // しんみせ交差点→二つ池への散歩道（西へS字）
-    [[T.x - 78, T.z + 42], [T.x - 116, T.z + 37], [T.x - 153, T.z + 37], [T.x - 197, T.z + 34], [T.x - 216, T.z + 21], [T.x - 228, T.z + 21]],
+    // 二つ池をぐるりと囲む周回路（中心686,43＝北へ移設2026-06-19）
+    [[T.x - 314, T.z + 59], [T.x - 298, T.z + 43], [T.x - 314, T.z + 27], [T.x - 330, T.z + 43], [T.x - 314, T.z + 59]],
+    // しんみせ交差点→二つ池への散歩道（西へ・池の移設に合わせ引き直し）
+    [[T.x - 78, T.z + 46], [T.x - 120, T.z + 48], [T.x - 180, T.z + 51], [T.x - 240, T.z + 55], [T.x - 298, T.z + 59]],
     // 裏山の峠道（交差路→頂上を越え霧の奥へ）
     [[T.x + 8, T.z + 22], [T.x + 8, T.z + 92], [T.x + 11, T.z + 148]],
     // しんみせ交差点→折り返して見晴らしベンチへ（ヘアピン）
