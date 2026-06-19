@@ -210,6 +210,16 @@ function heightAt(x, z) {
       const ew = smoothstep01((x - 924) / 3) * smoothstep01((946 - x) / 7) * smoothstep01((z + 116) / 6) * smoothstep01((-23 - z) / 6)
       if (ew > 0 && rtop > h) h = h * (1 - ew) + rtop * ew       // 尾根より低い所だけ持ち上げ＝尾根の道は削らない
     }
+    // ── 依頼(2026-06-20)：req1 尾根の家の東下(x942〜945・z-27〜-48)の道を少し下げて平らに ──
+    {
+      const r1 = smoothstep01((x - 939) / 3) * smoothstep01((948 - x) / 3) * smoothstep01((z + 52) / 4) * smoothstep01((-24 - z) / 4)
+      if (r1 > 0 && h > 4.5) h = h * (1 - r1) + 4.5 * r1         // 高い所だけ下げて＝段差を均し道を平らに
+    }
+    // ── 依頼(2026-06-20)：req4 しんみせ前(x872〜917・z45〜50)の道の凸凹を均して平らに ──
+    {
+      const r4 = smoothstep01((x - 868) / 4) * smoothstep01((921 - x) / 4) * smoothstep01((z - 43) / 3) * smoothstep01((52 - z) / 3)
+      if (r4 > 0 && h > 2.2) h = h * (1 - r4) + 2.2 * r4
+    }
     // ── 【北寺尾エリア／ユーザー要望A・急な崖(谷)を解消】丘の道(30m・細い尾根)から“ゆるく下りつつ横に広がって”、低い集落(約5m・広い)になる。崖をなくし自然に下る ──
     if (z < -200) {
       const t = Math.max(0, Math.min(1, (-200 - z) / 95)) // 線形の下り：0(z-200)→1(z-295)
@@ -2020,6 +2030,11 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
   {
     const sp = [[T.x - 53, T.z - 43], [T.x - 50, T.z - 26], [T.x - 50, T.z - 17]]
     for (let i = 0; i < sp.length - 1; i++) makeRoadRibbon(sp[i][0], sp[i][1], sp[i + 1][0], sp[i + 1][1], 3.4, false, true, 0.05)
+  }
+  // ── 尾根の家の南東へ下る道（ユーザー指定5点・2026-06-20・コンクリ）──
+  {
+    const sb = [[T.x - 52, T.z - 56], [T.x - 46, T.z - 66], [T.x - 42, T.z - 79], [T.x - 38, T.z - 86], [T.x - 37, T.z - 93]]
+    for (let i = 0; i < sb.length - 1; i++) makeRoadRibbon(sb[i][0], sb[i][1], sb[i + 1][0], sb[i + 1][1], 3.4, false, true, 0.05)
   }
   // ── 小学校の東を南北に通る土の道（ユーザー指定5点・2026-06-19・茶色）──
   {
@@ -4583,7 +4598,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260620-pin-tool' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260620-flatten-roads' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
