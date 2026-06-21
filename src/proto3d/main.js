@@ -1403,6 +1403,9 @@ function buildShishigaya() {
     while (got < want && tr < want * 10) { tr++; const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz); if (pip(x, z, poly)) { tp.push([x, z, 0]); got++ } } }
   let st = 0, sa = 0 // 山肌の木＝建物の無い急斜面に
   while (st < 750 && sa < 7000) { sa++; const x = SG.gx0 - SG.half + Math.random() * SG.half * 2, z = SG.gz0 - SG.half + Math.random() * SG.half * 2, c = cellOf(x, z); if (c < 0 || occ[c]) continue; const y = heightAtYato(x, z); if (y < 4) continue; const slope = Math.abs(heightAtYato(x + 6, z) - heightAtYato(x - 6, z)) + Math.abs(heightAtYato(x, z + 6) - heightAtYato(x, z - 6)); if (slope < 2.6) continue; tp.push([x, z, 0]); st++ }
+  for (const rd of SG.roads) { if (rd.w < 5 || tp.length > 2300) continue; const p = rd.p // 街路樹（主要道の脇の並木）
+    for (let k = 0; k < p.length - 1 && tp.length <= 2300; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1
+      for (let t = 12; t < l; t += 26) { const fx = x0 + dx * t / l, fz = z0 + dz * t / l, ox = -dz / l * (rd.w / 2 + 2.5), oz = dx / l * (rd.w / 2 + 2.5); for (const s of [1, -1]) { const x = fx + ox * s, z = fz + oz * s, c = cellOf(x, z); if (c >= 0 && !occ[c]) tp.push([x, z, 0]) } } } }
   if (big) for (let k = 0; k < 20; k++) { const a = k / 20 * 6.283; tp.push([big[0] + Math.cos(a) * (big[2] + 6), big[1] + Math.sin(a) * (big[3] + 6), 1]) } // 三ツ池の桜
   if (tp.length) {
     const canI = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshToonMaterial({ gradientMap: GRAD }), tp.length); canI.castShadow = true
@@ -1414,7 +1417,14 @@ function buildShishigaya() {
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length)
 }
 buildShishigaya()
-const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ等）は実配置の段で足す。update()が参照（空でも可）
+const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
+{
+  const wingMat = () => new THREE.MeshToonMaterial({ color: 0xeaf2f6, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+  const addTombo = (cx, cz) => { const g = new THREE.Group(); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 1.0, 5), toon(0x4a7ab2)); body.rotation.z = Math.PI / 2; g.add(body); const w = []; for (const [sx, sz] of [[0.1, 0.26], [0.1, -0.26], [-0.1, 0.26], [-0.1, -0.26]]) { const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.16), wingMat()); wing.position.set(sx, 0.02, sz); wing.rotation.x = -Math.PI / 2; g.add(wing); w.push(wing) } g.position.set(cx, heightAtYato(cx, cz) + 1.5, cz); scene.add(g); yatoBugs.push({ obj: g, cx, cz, sp: 0.5 + Math.random() * 0.4, ph: Math.random() * 6.28, r: 2.5 + Math.random() * 2, kind: 'tombo', w, h: 1.5 }) }
+  const addCho = (cx, cz, col) => { const g = new THREE.Group(); const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, side: THREE.DoubleSide })); wl.position.x = -0.15; g.add(wl); const wr = wl.clone(); wr.position.x = 0.15; g.add(wr); g.position.set(cx, heightAtYato(cx, cz) + 1.3, cz); scene.add(g); yatoBugs.push({ obj: g, cx, cz, sp: 0.6 + Math.random() * 0.5, ph: Math.random() * 6.28, r: 1.5 + Math.random() * 1.5, kind: 'cho', wl, wr, h: 1.3 }) }
+  for (const wt of SG.waters) { if (wt.p.length < 3) continue; let cx = 0, cz = 0; for (const q of wt.p) { cx += q[0]; cz += q[1] } cx /= wt.p.length; cz /= wt.p.length; addTombo(cx, cz); addTombo(cx + 8, cz - 6) } // 池の上のとんぼ
+  let cn = 0; for (const g of SG.greens) { if ((g.kind !== 'farm' && g.kind !== 'park') || cn >= 16) continue; let cx = 0, cz = 0; for (const q of g.p) { cx += q[0]; cz += q[1] } cx /= g.p.length; cz /= g.p.length; addCho(cx, cz, [0xf0e060, 0xffffff, 0xf0a0c0][cn % 3]); cn++ } // 田/公園の蝶
+}
 {
   const T = TOWN
   // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
@@ -4980,7 +4990,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo3' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo4' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
