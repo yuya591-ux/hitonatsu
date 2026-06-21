@@ -1369,8 +1369,14 @@ function buildShishigaya() {
   let sunIdx = -1, sunD = 1e9; SG.buildings.forEach((b, i) => { if (b[6] === 1) { const dd = Math.hypot(b[0] - 3008, b[1] - 8.5); if (dd < sunD) { sunD = dd; sunIdx = i } } }) // サンライズ北寺尾＝原点最寄りの集合住宅
   // サンライズ鶴見北寺尾I＝実輪郭(OSM Bing trace・雁行型21頂点)。7階RC85戸1995竣工。汎用の箱では出ない“特殊な構造”をこの形で再現
   const SUNRISE_POLY = [[2997.5, -2.1], [3041.8, -21.8], [3053.7, 0.9], [3040.7, 6.7], [3037.3, -0.8], [3032.3, 1.0], [3030.6, -2.1], [3006.3, 9.7], [3007.6, 13.0], [2999.8, 16.7], [3001.4, 19.6], [2996.9, 21.9], [2998.6, 25.2], [2985.9, 30.8], [2981.0, 20.7], [2990.8, 15.7], [2989.0, 10.3], [2994.4, 7.6], [2993.2, 5.2], [2999.0, 2.0]]
-  // 実ランドマークを置く区画は汎用建物を消す（小学校/橘学苑/グラウンド/ビスコ＝下で実物を描画）
-  const skipZones = [[3072, 160, 38], [3126, -38, 42], [3425, 462, 40], [2958, 82, 13], [3012, 56, 26]]
+  // 実在の名前付きランドマーク（OSM POI＋iタウンページ等を国土地理院でジオコーディングした実位置）。[x,z,type,name,clearR]
+  const NAMED = [
+    [2951, -42, 'shrine', '渋沢稲荷神社', 16], [2767, 188, 'rice', '香取米店', 14], [2767, 153, 'shop', 'しんみせ', 13],
+    [2672, 17, 'eat', '泉屋', 14], [2901, 252, 'conbini', 'セブン-イレブン', 16], [2712, 76, 'koban', '北寺尾駐在所', 12],
+    [3088, 173, 'school', '獅子ヶ谷小学校', 40], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18]
+  ]
+  // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森
+  const skipZones = [[3425, 462, 40], [2958, 82, 13], [3012, 56, 24], ...NAMED.map((n) => [n[0], n[1], n[4]])]
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
@@ -1447,9 +1453,27 @@ function buildShishigaya() {
     const schoolBldg = (cx, cz, w, d, floors, ry, roofCol) => { const gy = gmin4(cx, cz, w, d), h = floors * 3.3, tex = schoolTex.clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(2, Math.round(w / 4)), floors); grp.add(mk(new THREE.BoxGeometry(w, h, d), new THREE.MeshToonMaterial({ color: 0xd2cab6, gradientMap: GRAD, map: tex }), cx, gy + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), toon(roofCol || 0x9a4f3e), cx, gy + h + 0.3, cz, ry, true)) }
     const gmax4 = (cx, cz, w, d) => Math.max(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
     const ground = (cx, cz, w, d, col) => { const gT = gmax4(cx, cz, w, d), gB = gmin4(cx, cz, w, d), th = (gT - gB) + 0.4; grp.add(mk(new THREE.BoxGeometry(w, th, d), toon(col), cx, gT + 0.15 - th / 2, cz, 0, true)); const sy = gT + 0.3, fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.38, side: THREE.DoubleSide }); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz - d / 2)); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz + d / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx - w / 2, sy + 0.9, cz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx + w / 2, sy + 0.9, cz, Math.PI / 2)) } // 校庭/グラウンド＝最高角を天端にした造成平面(埋まらない)＋簡易フェンス
-    ground(3074, 170, 62, 44, 0xccb78a); schoolBldg(3066, 150, 50, 11, 3, 0, 0x9a4f3e); schoolBldg(3046, 162, 11, 26, 3, 0, 0x9a4f3e); schoolBldg(3096, 150, 16, 13, 2, 0, 0x5a6b72) // 獅子ヶ谷小学校＝校庭(土)＋L字3階校舎＋体育館
+    // 名前看板（業種色）。サンライズ向きに立てる
+    const signTex = (name, bg, fg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 64); x.fillStyle = fg; x.font = 'bold ' + (name.length > 6 ? 30 : 38) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, 128, 34); return new THREE.CanvasTexture(c) }
+    const signOn = (cx, cz, w, gy, yy, name, bg) => { const ry = Math.atan2(3008 - cx, 8 - cz); grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.7), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + yy, cz, ry)) }
+    const buildShop = (cx, cz, w, d, floors, wallCol, name, bg) => { const gB = gmin4(cx, cz, w, d), gT = gmax4(cx, cz, w, d), slope = Math.min(8, gT - gB), h = slope + floors * 3, ry = Math.atan2(3008 - cx, 8 - cz), fwd = [Math.sin(ry), Math.cos(ry)]
+      grp.add(mk(new THREE.BoxGeometry(w, h, d), toon(wallCol), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6), toon(0x6b5a48), cx, gB + h + 0.1, cz, ry, true)) // 箱＋庇
+      grp.add(mk(new THREE.PlaneGeometry(w * 0.78, 2.0), new THREE.MeshToonMaterial({ color: 0x88a8b8, gradientMap: GRAD, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), cx + fwd[0] * (d / 2 + 0.06), gT + 1.25, cz + fwd[1] * (d / 2 + 0.06), ry)) // 店先ガラス
+      grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.5), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (d / 2 + 0.12), gT + slope + floors * 3 - 0.8, cz + fwd[1] * (d / 2 + 0.12), ry)) } // 正面の看板
+    const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
+      const hg = gmin4(cx + 7, cz, 6, 6); grp.add(mk(new THREE.BoxGeometry(6, 4, 6), toon(0xb8a576), cx + 7, hg + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(5, 2.2, 4), toon(0x4a4a44), cx + 7, hg + 5.1, cz, Math.PI / 4, true)) // 社殿
+      signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a') }
+    for (const [x, z, type, name] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
+      if (type === 'shrine') buildShrine(x, z, name)
+      else if (type === 'school') { schoolBldg(x, z, 48, 12, 3, 0.1, 0x9a4f3e); schoolBldg(x - 15, z + 12, 12, 24, 3, 0.1, 0x9a4f3e); ground(x + 6, z - 24, 54, 38, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 48, 12), 11, name, '#2f5a8a') } // L字校舎＋校庭
+      else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
+      else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
+      else if (type === 'conbini') buildShop(x, z, 14, 10, 1, 0xeae6da, name, '#1f7a3a')
+      else if (type === 'rice') buildShop(x, z, 9, 8, 2, 0xcdbf9a, name, '#5a4a2a')
+      else if (type === 'eat') buildShop(x, z, 9, 8, 2, 0xd8b08a, name, '#9a3520')
+      else buildShop(x, z, 9, 8, 2, 0xd9cdb0, name, '#b5462f') // shop（しんみせ＝薬＋駄菓子）
+    }
     ground(3425, 462, 66, 46, 0xbda06a) // マリノスのグラウンド＝今のユーパリノスの丘(3467,442)の隣の公園（土のグラウンド）
-    schoolBldg(3120, -40, 44, 15, 4, 0.15, 0x6a6e74) // 橘学苑＝高台(頂の手前)の校舎。裏山(さらに東)は地形の頂。※当時のグラウンドは森だったので別途(下)
     // サンライズの地下一階(裏=谷側)の出口の先＝当時は森（今は橘学苑のグラウンド）。エラ時代として木立を置く
     const trMat = new THREE.MeshToonMaterial({ gradientMap: GRAD }), grn = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a]
     for (let i = 0; i < 16; i++) { const fx = 3012 + (Math.random() - 0.5) * 40, fz = 56 + (Math.random() - 0.5) * 34, fy = heightAtYato(fx, fz), s = 1.7 + Math.random() * 1.2
@@ -5104,7 +5128,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo22' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo23' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
