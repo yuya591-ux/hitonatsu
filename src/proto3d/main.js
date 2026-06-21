@@ -1375,14 +1375,16 @@ function buildShishigaya() {
   const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals()
   const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: winTex })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm)
   if (rfv.length) { const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg.setIndex(rfidx); rg.computeVertexNormals(); const rm2 = new THREE.Mesh(rg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD })); rm2.castShadow = true; scene.add(rm2) }
-  // 道（実OSM線形→地形追従リボンをマージ＝本物のカーブ）
-  const rv = [], ridx = []; let ro = 0
-  for (const rd of SG.roads) { const p = rd.p, hw = rd.w / 2
-    for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, px = -dz / l * hw, pz = dx / l * hw
-      for (const [qx, qz] of [[x0 + px, z0 + pz], [x0 - px, z0 - pz], [x1 + px, z1 + pz], [x1 - px, z1 - pz]]) rv.push(qx, heightAtYato(qx, qz) + 0.18, qz)
-      ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4 } }
-  const rgeo = new THREE.BufferGeometry(); rgeo.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rgeo.setIndex(ridx); rgeo.computeVertexNormals()
-  scene.add(new THREE.Mesh(rgeo, new THREE.MeshToonMaterial({ color: 0x8f9088, gradientMap: GRAD, side: THREE.DoubleSide })))
+  // 道（実OSM線形→地形追従リボンをマージ＝本物のカーブ）。舗装(グレー)／土の小道(茶)を分けて
+  const buildRoads = (kind, color, tex, lift) => { const rv = [], ruv = [], ridx = []; let ro = 0
+    for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = rd.w / 2
+      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, px = -dz / l * hw, pz = dx / l * hw
+        for (const [qx, qz] of [[x0 + px, z0 + pz], [x0 - px, z0 - pz], [x1 + px, z1 + pz], [x1 - px, z1 - pz]]) rv.push(qx, heightAtYato(qx, qz) + lift, qz)
+        ruv.push(0, 0, 1, 0, 0, l / 3, 1, l / 3); ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4 } }
+    if (!rv.length) return; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
+    scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color, map: tex, gradientMap: GRAD, side: THREE.DoubleSide }))) }
+  buildRoads('paved', 0x9a9a96, null, 0.18)   // 舗装路（幹線・住宅街）
+  buildRoads('path', 0xb0a488, dirtTex, 0.16)  // 土の小道（あぜ・階段・歩道）
   // 占有グリッド（建物の場所を記録→木を建物に重ねない）
   const GC = Math.ceil(SG.half * 2 / 6), occ = new Uint8Array(GC * GC)
   const cellOf = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / 6), j = Math.floor((z - SG.gz0 + SG.half) / 6); return (i < 0 || j < 0 || i >= GC || j >= GC) ? -1 : j * GC + i }
@@ -4994,7 +4996,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo5' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo6' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
