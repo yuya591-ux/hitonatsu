@@ -2454,6 +2454,13 @@ const yatoBugs = []
       const jx = gx + (Math.random() - 0.5) * 12, jz = gz + (Math.random() - 0.5) * 12
       makeHouse(jx, jz, Math.random() * 6.28, cols[Math.floor(Math.random() * cols.length)])
     } }
+  // 谷戸の生活感（かかし・物干し・ひまわり・本通りの桜並木）
+  const putKakashi2 = (kx, kz) => { const ky = heightAt(kx, kz), g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 5), toon(0x8a6a44)); pole.position.y = 0.85; g.add(pole); const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.3, 5), toon(0x8a6a44)); arm.rotation.z = Math.PI / 2; arm.position.y = 1.25; g.add(arm); const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7), toon(0xd9c89a)); head.position.y = 1.6; g.add(head); const hat = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.2, 10), toon(0xb89a5a)); hat.position.y = 1.72; g.add(hat); const body = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.66, 0.1), new THREE.MeshToonMaterial({ color: 0x6a7a4a, gradientMap: GRAD, side: THREE.DoubleSide })); body.position.y = 1.05; g.add(body); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(kx, ky, kz); g.rotation.y = Math.random() * 6.28; mergedOutline(g, 0.02); scene.add(g) }
+  for (const [kx, kz] of [[2972, 72], [2968, 118], [3048, 82], [3052, 128]]) putKakashi2(kx, kz) // 田のかかし
+  const putMono2 = (mx, mz) => { const my = heightAt(mx, mz); for (const sx of [-1.2, 1.2]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.7, 6), toon(0xb7b1a4)); post.position.set(mx + sx, my + 0.85, mz); post.castShadow = true; scene.add(post) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.4, 5), toon(0x9a948a)); bar.rotation.z = Math.PI / 2; bar.position.set(mx, my + 1.55, mz); scene.add(bar); const cl = [0xffffff, 0x6aa0c0, 0xe0d0a0]; for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.8), new THREE.MeshToonMaterial({ color: cl[i], gradientMap: GRAD, side: THREE.DoubleSide, map: watercolorTex })); c.position.set(mx - 0.85 + i * 0.85, my + 1.12, mz); scene.add(c) } }
+  for (const [mx, mz] of [[2962, -58], [3082, -48], [2902, -112], [3108, -120]]) putMono2(mx, mz) // 物干し（家のそば）
+  for (const [sx, sz] of [[2980, 28], [3030, 34], [2942, -22], [3084, -16], [2888, 150], [3066, 162]]) makeSunflower(sx, sz) // ひまわり
+  for (const dx of [-180, -80, 80, 180, 240]) makeSakura(3000 + dx, -28, 0.95 + Math.random() * 0.15) // 本通りの桜並木
   makeSignpost(T.x - 90, T.z + 44, Math.PI / 2, 'ふたつ池 →') // しんみせの角の道しるべ
   for (const [dx, dz] of [[-145, 42], [-200, 28], [-255, 33]]) makeSakura(T.x + dx, T.z + dz, 0.95 + Math.random() * 0.15) // 桜並木（しんみせ→二つ池の道沿い・引き直した道に追従）
   // ── 二つ池(686,43)の周回路＝“南半分のアーチ”（北のへりは上の「しんみせ→二つ池の道」が兼ねる＝灰色どうしの重なりを作らない）。NE(702,59)とNW(670,59)で上の道とつながり環になる ──
@@ -5013,7 +5020,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-town' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-town2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
