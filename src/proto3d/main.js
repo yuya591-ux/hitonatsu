@@ -1384,6 +1384,7 @@ function buildShishigaya() {
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
+    if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
     let gy = 1e9, gTop = -1e9; for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) { const ge = heightAtYato(cx + sx * co - sz * si, cz + sx * si + sz * co); if (ge < gy) gy = ge; if (ge > gTop) gTop = ge }
     const slope = Math.min(12, gTop - gy) // 斜面：床=最低角(gy)＋落差ぶん壁を上に伸ばす＝上手で山に埋まらず下手で浮かない
@@ -1456,7 +1457,7 @@ function buildShishigaya() {
     const schoolTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#e9e4d6'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#586774'; for (let yy = 8; yy < 60; yy += 16) for (let xx = 7; xx < 60; xx += 14) x.fillRect(xx, yy, 9, 10); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 校舎の窓列
     const gmax4 = (cx, cz, w, d) => Math.max(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
     const schoolBldg = (cx, cz, w, d, floors, ry, roofCol) => { const gB = gmin4(cx, cz, w, d), slope = Math.min(10, gmax4(cx, cz, w, d) - gB), h = slope + floors * 3.3, tex = schoolTex.clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(2, Math.round(w / 4)), floors); grp.add(mk(new THREE.BoxGeometry(w, h, d), new THREE.MeshToonMaterial({ color: 0xd2cab6, gradientMap: GRAD, map: tex }), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), toon(roofCol || 0x9a4f3e), cx, gB + h + 0.3, cz, ry, true)) } // 斜面でも埋まらないよう床=最低角＋落差ぶん上に伸ばす
-    const ground = (cx, cz, w, d, col) => { const gT = gmax4(cx, cz, w, d), gB = gmin4(cx, cz, w, d), th = (gT - gB) + 0.4; grp.add(mk(new THREE.BoxGeometry(w, th, d), toon(col), cx, gT + 0.15 - th / 2, cz, 0, true)); const sy = gT + 0.3, fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.38, side: THREE.DoubleSide }); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz - d / 2)); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz + d / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx - w / 2, sy + 0.9, cz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx + w / 2, sy + 0.9, cz, Math.PI / 2)) } // 校庭/グラウンド＝最高角を天端にした造成平面(埋まらない)＋簡易フェンス
+    const ground = (cx, cz, w, d, col) => { const gT = gmax4(cx, cz, w, d), gB = gmin4(cx, cz, w, d), th = Math.min(3.5, gT - gB) + 0.4; grp.add(mk(new THREE.BoxGeometry(w, th, d), toon(col), cx, gT + 0.15 - th / 2, cz, 0, true)); const sy = gT + 0.3, fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.38, side: THREE.DoubleSide }); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz - d / 2)); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz + d / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx - w / 2, sy + 0.9, cz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx + w / 2, sy + 0.9, cz, Math.PI / 2)) } // 校庭/グラウンド＝最高角を天端にした造成平面(埋まらない)＋簡易フェンス
     // 名前看板（業種色）。サンライズ向きに立てる
     const signTex = (name, bg, fg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 64); x.fillStyle = fg; x.font = 'bold ' + (name.length > 6 ? 30 : 38) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, 128, 34); return new THREE.CanvasTexture(c) }
     const signOn = (cx, cz, w, gy, yy, name, bg) => { const ry = Math.atan2(3008 - cx, -8 - cz); grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.7), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + yy, cz, ry)) }
@@ -5140,7 +5141,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo28' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo29' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
