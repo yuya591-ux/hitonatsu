@@ -122,9 +122,9 @@ function heightAtYato(x, z) {
   h -= smoothstep01((lz - 30) / 190) * 10   // 北の二ツ池谷・鶴見川低地へ（12→2）
   h -= smoothstep01((-110 - lz) / 170) * 6  // 南の馬場へ（12→6）
   h -= smoothstep01((-240 - lx) / 120) * 4  // 西の端で下る
-  const f1 = 15 * Math.exp(-(((lx + 190) ** 2) + ((lz - 200) ** 2)) / (2 * 110 * 110)) // 市民の森の丘（北西）
+  const f1 = 20 * Math.exp(-(((lx + 185) ** 2) + ((lz - 205) ** 2)) / (2 * 92 * 92)) // 市民の森の丘（北西・はっきり高く）
   if (f1 > h) h = f1
-  const f2 = 15 * Math.exp(-(((lx - 210) ** 2) + ((lz - 180) ** 2)) / (2 * 95 * 95))   // 三ツ池の丘（北東）
+  const f2 = 19 * Math.exp(-(((lx - 205) ** 2) + ((lz - 185) ** 2)) / (2 * 84 * 84))  // 三ツ池の丘（北東）
   if (f2 > h) h = f2
   h += (h > 4 ? 0.25 : 0.08) * Math.sin(lx * 0.05) * Math.cos(lz * 0.05) // ごく緩い起伏（里山）
   h = carveValley(h, x, z, Y.v_main, 14, 24) // 二ツ池の谷
@@ -1360,7 +1360,7 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
     const wx = ypos.getX(i) + YGX, wz = ypos.getZ(i) + YGZ
     const y = heightAt(wx, wz); ypos.setY(i, y)
     const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 1.5, 5))
-    c.lerp(cDark, THREE.MathUtils.smoothstep(y, 9, 16))
+    c.lerp(cDark, THREE.MathUtils.smoothstep(y, 11, 20))
     ycol.push(c.r, c.g, c.b)
   }
   ygeo.setAttribute('color', new THREE.Float32BufferAttribute(ycol, 3)); ygeo.computeVertexNormals()
@@ -1380,9 +1380,12 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
       }
     }
   }
-  // 谷戸田（中心→二ツ池の谷底・西の枝谷。歩いてすぐ・密に）
-  for (const [px, pz, w, d] of [[3008, 70, 16, 22], [3010, 120, 16, 22], [2940, 95, 14, 18], [2880, 130, 12, 16], [3040, 150, 14, 18]]) makeRicePaddy(px, pz, w, d)
-  makeStream([[3005, 30], [3009, 90], [3011, 150], [3012, 215], [3010, 275]], 2.2) // せせらぎ＝二ツ池の谷を北へ
+  // 谷戸田（せせらぎ x3013 の両側に・道や川と重ならない位置）
+  for (const [px, pz, w, d] of [[2972, 70, 16, 22], [2968, 118, 16, 22], [2974, 158, 14, 18], // 西側の田
+    [3048, 80, 14, 20], [3052, 128, 14, 18]]) makeRicePaddy(px, pz, w, d)                       // 東側の田
+  makeStream([[3008, 18], [3011, 70], [3013, 120], [3013, 168]], 2.0) // せせらぎ＝谷底を北へ→二ツ池へ注ぐ
+  makeRoadRibbon(2994, 55, 2992, 168, 1.4, false) // あぜ道（西の田ぎわ・土）
+  makeRoadRibbon(3032, 65, 3032, 162, 1.4, false) // あぜ道（東の田ぎわ・土）
   let tp = 0, tt = 0 // 雑木林＝市民の森(北西の丘)・三ツ池丘(北東)・台地の縁。谷底/田/中心の宅地は避ける
   while (tp < 130 && tt < 3000) {
     tt++
@@ -2423,24 +2426,34 @@ const yatoBugs = []
   { let gp = 0, gt = 0; while (gp < 80 && gt < 1200) { gt++; const x = 2900 + Math.random() * 200, z = -20 + Math.random() * 160, y = heightAt(x, z); if (y < 1.6 || y > 8) continue; const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 5), toon(0x6f9a3e)); tuft.position.set(x, y + 0.19, z); scene.add(tuft); gp++ } } // 地際の下草（接地をやわらかく）
   for (const [cx, cz] of [[3040, -70], [3026, -26], [3000, 128]]) { const g = new THREE.Group(); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 1.0, 5), toon(0x4a7ab2)); body.rotation.z = Math.PI / 2; g.add(body); const w = []; for (const [sx, sz] of [[0.1, 0.26], [0.1, -0.26], [-0.1, 0.26], [-0.1, -0.26]]) { const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.16), new THREE.MeshToonMaterial({ color: 0xeaf2f6, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide })); wing.position.set(sx, 0.02, sz); wing.rotation.x = -Math.PI / 2; g.add(wing); w.push(wing) } g.position.set(cx, heightAt(cx, cz) + 1.4, cz); scene.add(g); yatoBugs.push({ obj: g, cx, cz, sp: 0.5 + Math.random() * 0.4, ph: Math.random() * 6.28, r: 2 + Math.random() * 2, kind: 'tombo', w, h: 1.4 }) } // 池・土手の青いとんぼ
   } // ← 旧archetypeランドマークの無効化ここまで
-  // ───────── 新エリア『獅子ヶ谷（コンパクト・分かる谷戸）』ランドマークを実位置関係で配置（中心=サンライズ北寺尾／+x=東/+z=北・歩いてすぐ） ─────────
-  makeDanchi(3000, -6, 0, 7)        // サンライズ北寺尾（中心の7階建マンション）＝台地の上
-  makePondPark(3012, 185)           // 二ツ池（北の谷・大きな池）
-  makeYokomizo(2930, 130)           // 横溝屋敷（御園＝二ツ池の谷の口・北西）
-  makePondPark(3200, 165)           // 三ツ池公園（北東の丘の棚・桜の名所）
-  makeRoadRibbon(2700, 30, 3000, 0, 6, true, true)     // 主要道：西(師岡)→中心
-  makeRoadRibbon(3000, 0, 3290, 60, 6, true, true)     // 中心→東(三ツ池)
-  makeRoadRibbon(3002, 20, 3010, 150, 4, false, true)  // 中心→北(二ツ池/横溝)へ下る道
-  makeRoadRibbon(3000, -30, 2995, -260, 4, false, true) // 中心→南(馬場)へ下る道
-  makeKurumaJizo(3008, 95)          // 車地蔵（谷へ降りる道のかたわら）
-  makeSignpost(3012, 110, 0, 'ふたつ池 ／ 横溝屋敷 →') // 谷戸の道しるべ
-  makeSignpost(3120, 70, -Math.PI / 2, '三ツ池 →')
+  // ───────── 新エリア『獅子ヶ谷（コンパクト・住宅地のある谷戸）』ランドマーク（中心=サンライズ北寺尾／+x=東/+z=北） ─────────
+  makeDanchi(3000, -6, 0, 7)        // サンライズ北寺尾（中心の7階建マンション）
+  makeDanchi(2860, -155, 0.3, 4)    // 団地（南西・1990年代の集合住宅）
+  makeDanchi(3150, -165, -0.2, 4)   // 団地（南東）
+  makePondPark(3012, 188)           // 二ツ池（谷の頭・大きな池。せせらぎが注ぐ）
+  makeYokomizo(2895, 150)           // 横溝屋敷（御園＝二ツ池の谷の口・西）
+  makePondPark(3200, 165)           // 三ツ池公園（北東の丘の棚・桜）
+  makeKurumaJizo(2958, 78)          // 車地蔵（西のあぜ道ぎわ・川とは別）
+  makeRoadRibbon(2720, -22, 3280, -22, 6, true, true)   // 本通り（綱島街道ぞい・台地を東西）
+  for (const z of [-70, -120, -175]) makeRoadRibbon(2770, z, 3240, z, 4, false, true) // 住宅地のE-W街路
+  for (const x of [2840, 2940, 3060, 3170]) makeRoadRibbon(x, -210, x, -28, 4, false, true) // 住宅地のN-S街路
+  makeRoadRibbon(2948, -20, 2944, 150, 4, false, true)  // 谷の西を北へ下る道（→横溝/二ツ池。川x3013とは離す）
+  makeRoadRibbon(3000, -30, 2996, -250, 5, false, true) // 中心→南(馬場)
+  makeSignpost(2965, 55, 0, 'ふたつ池 ／ 横溝屋敷 →')
+  makeSignpost(3110, -10, -Math.PI / 2, '三ツ池 →')
   { makeTorii(2740, 30, Math.PI / 2) // 師岡熊野神社（西の台地の縁・homage）：鳥居＋小さな社
     const sy = heightAt(2710, 30), s = new THREE.Group()
     const body = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 3), toonMap(0xd8c8a8, plasterTex)); body.position.y = 1.5; s.add(body)
     const roof = new THREE.Mesh(new THREE.ConeGeometry(3.4, 1.8, 4), toonMap(0x6a4a36, roofTex)); roof.rotation.y = Math.PI / 4; roof.position.y = 3.6; s.add(roof)
     s.traverse((o) => { if (o.isMesh) o.castShadow = true }); s.position.set(2710, sy, 30); mergedOutline(s, 0.04); addContactShadow(s, 4); addBox(2710, 30, 2, 1.6, 0); scene.add(s) }
-  for (const [hx, hz, hr] of [[2930, -50, 0.2], [2890, -10, -0.3], [3070, -55, 0.4], [3100, -10, -0.5], [3060, 40, 0.1], [2935, 35, 0.6], [3120, -110, -0.2], [2880, -120, 0.3], [3030, -130, 0.5], [2960, -180, -0.4], [3090, -170, 0.2], [2840, -50, -0.6]]) makeHouse(hx, hz, hr, [0x6a7a86, 0x7a5a48, 0x586472, 0x88603e][Math.abs(hx + hz) % 4]) // 台地の宅地（1990年代前半の建売・低層）
+  { const cols = [0x6a7a86, 0x7a5a48, 0x586472, 0x88603e, 0xb0563f, 0x9a8a6a] // 住宅地（1990年代の獅子ヶ谷＝そこそこ密に建物）＝台地に多数
+    for (let gx = 2780; gx <= 3235; gx += 36) for (let gz = -225; gz <= 18; gz += 38) {
+      const y = heightAt(gx, gz)
+      if (y < 7.5 || y > 14) continue                  // 台地のみ（谷/低地/丘の森は避ける）
+      if (Math.hypot(gx - 3000, gz + 6) < 28) continue // 中心マンションは空ける
+      const jx = gx + (Math.random() - 0.5) * 12, jz = gz + (Math.random() - 0.5) * 12
+      makeHouse(jx, jz, Math.random() * 6.28, cols[Math.floor(Math.random() * cols.length)])
+    } }
   makeSignpost(T.x - 90, T.z + 44, Math.PI / 2, 'ふたつ池 →') // しんみせの角の道しるべ
   for (const [dx, dz] of [[-145, 42], [-200, 28], [-255, 33]]) makeSakura(T.x + dx, T.z + dz, 0.95 + Math.random() * 0.15) // 桜並木（しんみせ→二つ池の道沿い・引き直した道に追従）
   // ── 二つ池(686,43)の周回路＝“南半分のアーチ”（北のへりは上の「しんみせ→二つ池の道」が兼ねる＝灰色どうしの重なりを作らない）。NE(702,59)とNW(670,59)で上の道とつながり環になる ──
@@ -5000,7 +5013,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-compact' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-town' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
