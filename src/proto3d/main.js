@@ -1379,26 +1379,39 @@ function buildShishigaya() {
       ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4 } }
   const rgeo = new THREE.BufferGeometry(); rgeo.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rgeo.setIndex(ridx); rgeo.computeVertexNormals()
   scene.add(new THREE.Mesh(rgeo, new THREE.MeshToonMaterial({ color: 0x8f9088, gradientMap: GRAD, side: THREE.DoubleSide })))
-  // 田（農地＝谷戸田っぽい黄緑の面）と 池/川（水面）を多角形で
-  const fv = [], fidx = [], fo = { n: 0 }, wv = [], widx = [], wo = { n: 0 }
-  for (const g of SG.greens) if (g.kind === 'farm' && g.p.length >= 3) fanPoly(g.p, fv, fidx, (x, z) => heightAtYato(x, z) + 0.08, fo)
-  if (fv.length) { const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3)); fg.setIndex(fidx); fg.computeVertexNormals(); scene.add(new THREE.Mesh(fg, new THREE.MeshToonMaterial({ color: 0x9fae4e, gradientMap: GRAD, map: watercolorTex }))) }
-  for (const wt of SG.waters) if (wt.p.length >= 3) fanPoly(wt.p, wv, widx, (x, z) => heightAtYato(x, z) + 0.2, wo)
+  // 占有グリッド（建物の場所を記録→木を建物に重ねない）
+  const GC = Math.ceil(SG.half * 2 / 6), occ = new Uint8Array(GC * GC)
+  const cellOf = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / 6), j = Math.floor((z - SG.gz0 + SG.half) / 6); return (i < 0 || j < 0 || i >= GC || j >= GC) ? -1 : j * GC + i }
+  for (const [cx, cz, w, d] of SG.buildings) { const rad = Math.max(w, d) * 0.55 + 2; for (let dz = -rad; dz <= rad; dz += 6) for (let dx = -rad; dx <= rad; dx += 6) { const c = cellOf(cx + dx, cz + dz); if (c >= 0) occ[c] = 1 } }
+  // 田（農地＝谷戸田。黄緑の面＋稲の畝）と 池/川（水面＋葦）
+  const fv = [], fidx = [], fo = { n: 0 }, wv = [], widx = [], wo = { n: 0 }; let riceP = [], reedP = []
+  for (const g of SG.greens) if (g.kind === 'farm' && g.p.length >= 3) { fanPoly(g.p, fv, fidx, (x, z) => heightAtYato(x, z) + 0.08, fo)
+    let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
+    for (let z = mnz + 1.5; z < mxz && riceP.length < 2600; z += 2.4) for (let x = mnx + 1.5; x < mxx; x += 1.9) if (pip(x, z, g.p)) riceP.push([x, z]) }
+  if (fv.length) { const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3)); fg.setIndex(fidx); fg.computeVertexNormals(); scene.add(new THREE.Mesh(fg, new THREE.MeshToonMaterial({ color: 0x8fa84a, gradientMap: GRAD, map: watercolorTex }))) }
+  for (const wt of SG.waters) if (wt.p.length >= 3) { fanPoly(wt.p, wv, widx, (x, z) => heightAtYato(x, z) + 0.2, wo)
+    for (let k = 0; k < wt.p.length && reedP.length < 800; k++) { const a = wt.p[k], b = wt.p[(k + 1) % wt.p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 0; t < seg; t += 2.6) reedP.push([a[0] + (b[0] - a[0]) * t / seg, a[1] + (b[1] - a[1]) * t / seg]) } }
   if (wv.length) { const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wv, 3)); wg.setIndex(widx); wg.computeVertexNormals(); scene.add(new THREE.Mesh(wg, waterMat)) }
-  // 木：公園・森の多角形内に散らす（インスタンシングで多数を低負荷に）＝山や丘の緑
-  const tp = []
+  if (riceP.length) { const rcI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.5, 4), toon(0x6f9a3e), riceP.length), m = new THREE.Matrix4(); riceP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.3, z); rcI.setMatrixAt(i, m) }); scene.add(rcI) }
+  if (reedP.length) { const rdI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.8, 4), toon(0x6f8a3e), reedP.length), m = new THREE.Matrix4(); reedP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.4, z); rdI.setMatrixAt(i, m) }); scene.add(rdI) }
+  // 木：公園/森(多角形)＋山肌(建物の無い急斜面)＋三ツ池の桜。インスタンシングで多数を低負荷に
+  let big = null, bigA = 0; for (const wt of SG.waters) { if (wt.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of wt.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bigA) { bigA = ar; big = [(mnx + mxx) / 2, (mnz + mxz) / 2, (mxx - mnx) / 2, (mxz - mnz) / 2] } }
+  const tp = [] // [x,z,sakura?]
   for (const g of SG.greens) { if (g.kind !== 'wood' && g.kind !== 'park') continue; const poly = g.p
     let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of poly) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
-    const want = Math.min(90, Math.max(2, Math.round((mxx - mnx) * (mxz - mnz) / 130))); let got = 0, tr = 0
-    while (got < want && tr < want * 10) { tr++; const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz); if (pip(x, z, poly)) { tp.push([x, z]); got++ } } }
+    const want = Math.min(120, Math.max(3, Math.round((mxx - mnx) * (mxz - mnz) / 110))); let got = 0, tr = 0
+    while (got < want && tr < want * 10) { tr++; const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz); if (pip(x, z, poly)) { tp.push([x, z, 0]); got++ } } }
+  let st = 0, sa = 0 // 山肌の木＝建物の無い急斜面に
+  while (st < 750 && sa < 7000) { sa++; const x = SG.gx0 - SG.half + Math.random() * SG.half * 2, z = SG.gz0 - SG.half + Math.random() * SG.half * 2, c = cellOf(x, z); if (c < 0 || occ[c]) continue; const y = heightAtYato(x, z); if (y < 4) continue; const slope = Math.abs(heightAtYato(x + 6, z) - heightAtYato(x - 6, z)) + Math.abs(heightAtYato(x, z + 6) - heightAtYato(x, z - 6)); if (slope < 2.6) continue; tp.push([x, z, 0]); st++ }
+  if (big) for (let k = 0; k < 20; k++) { const a = k / 20 * 6.283; tp.push([big[0] + Math.cos(a) * (big[2] + 6), big[1] + Math.sin(a) * (big[3] + 6), 1]) } // 三ツ池の桜
   if (tp.length) {
-    const canG = new THREE.IcosahedronGeometry(1, 0), canM = new THREE.MeshToonMaterial({ gradientMap: GRAD }), canI = new THREE.InstancedMesh(canG, canM, tp.length); canI.castShadow = true
-    const trG = new THREE.CylinderGeometry(0.16, 0.24, 1.4, 5), trI = new THREE.InstancedMesh(trG, toon(0x6a4e34), tp.length)
+    const canI = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshToonMaterial({ gradientMap: GRAD }), tp.length); canI.castShadow = true
+    const trI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.24, 1.4, 5), toon(0x6a4e34), tp.length)
     const m4 = new THREE.Matrix4(), sc = new THREE.Vector3(), col = new THREE.Color(), gr = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a, 0x6a9445]
-    tp.forEach(([x, z], i) => { const y = heightAtYato(x, z), s = 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.3 + s * 0.7, z); m4.scale(sc.set(s, s * 1.15, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.7, z)) })
+    tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), s = sak ? 2.0 : 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.3 + s * 0.7, z); m4.scale(sc.set(s, s * 1.1, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(sak ? 0xf0b4cd : gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.7, z)) })
     canI.instanceColor.needsUpdate = true; scene.add(canI); scene.add(trI)
   }
-  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'greens', SG.greens.length, 'trees', tp.length)
+  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length)
 }
 buildShishigaya()
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ等）は実配置の段で足す。update()が参照（空でも可）
@@ -4967,7 +4980,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo3' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
