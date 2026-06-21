@@ -118,9 +118,14 @@ function carveValley(h, x, z, pts, wFlat, wEdge) {
 }
 // 新エリア『獅子ヶ谷』の地形＝実標高（国土地理院DEM5A）。中心サンライズ北寺尾=33.8m、急勾配の丘、北へ下って二ツ池の低地。
 const SG_HM = (() => { const b = atob(SG.hmB64), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new Int16Array(u.buffer) })() // 実標高ハイトマップ(Int16・×10)
-function heightAtYato(x, z) { // 実標高をバイリニア補間。±SG.half外は縁の値で頭打ち
+// ───── 鏡像補正：地理データを「東=+x／北=+z」で取り込むとThree.js(右手系・y上)では東西が鏡像になる。獅子ヶ谷の全データの z を反転(北=-z)して鏡像を解消 ─────
+for (const b of SG.buildings) { b[1] = -b[1]; b[4] = -b[4] } // 重心zと向きangを反転
+for (const r of SG.roads) for (const p of r.p) p[1] = -p[1]
+for (const w of SG.waters) for (const p of w.p) p[1] = -p[1]
+for (const g of SG.greens) for (const p of g.p) p[1] = -p[1]
+function heightAtYato(x, z) { // 実標高をバイリニア補間。zは反転サンプル(データ側を北=-zにしたため)。±SG.half外は縁の値で頭打ち
   const gn = SG.gn
-  let fi = (x - SG.gx0 + SG.half) / SG.cell - 0.5, fj = (z - SG.gz0 + SG.half) / SG.cell - 0.5
+  let fi = (x - SG.gx0 + SG.half) / SG.cell - 0.5, fj = (-z - SG.gz0 + SG.half) / SG.cell - 0.5
   fi = Math.max(0, Math.min(gn - 1.001, fi)); fj = Math.max(0, Math.min(gn - 1.001, fj))
   const i0 = Math.floor(fi), j0 = Math.floor(fj), tx = fi - i0, tz = fj - j0
   const a = SG_HM[j0 * gn + i0], b = SG_HM[j0 * gn + i0 + 1], c = SG_HM[(j0 + 1) * gn + i0], d = SG_HM[(j0 + 1) * gn + i0 + 1]
@@ -1362,17 +1367,19 @@ function buildShishigaya() {
     x.fillStyle = '#aca695'; for (let i = 6; i < 60; i += 7) x.fillRect(i, 42, 1.5, 12); x.fillStyle = '#979185'; x.fillRect(0, 57, 64, 7)
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
   const pushTri = (col, p0, p1, p2) => { rfv.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]); for (let q = 0; q < 3; q++) rfc.push(col[0], col[1], col[2]); rfidx.push(oRef.o, oRef.o + 1, oRef.o + 2); oRef.o += 3 }
-  let sunIdx = -1, sunD = 1e9; SG.buildings.forEach((b, i) => { if (b[6] === 1) { const dd = Math.hypot(b[0] - 3008, b[1] - 8.5); if (dd < sunD) { sunD = dd; sunIdx = i } } }) // サンライズ北寺尾＝原点最寄りの集合住宅
+  let sunIdx = -1, sunD = 1e9; SG.buildings.forEach((b, i) => { if (b[6] === 1) { const dd = Math.hypot(b[0] - 3008, b[1] + 8.5); if (dd < sunD) { sunD = dd; sunIdx = i } } }) // サンライズ北寺尾＝原点最寄りの集合住宅（z反転後なので+8.5）
   // サンライズ鶴見北寺尾I＝実輪郭(OSM Bing trace・雁行型21頂点)。7階RC85戸1995竣工。汎用の箱では出ない“特殊な構造”をこの形で再現
   const SUNRISE_POLY = [[2997.5, -2.1], [3041.8, -21.8], [3053.7, 0.9], [3040.7, 6.7], [3037.3, -0.8], [3032.3, 1.0], [3030.6, -2.1], [3006.3, 9.7], [3007.6, 13.0], [2999.8, 16.7], [3001.4, 19.6], [2996.9, 21.9], [2998.6, 25.2], [2985.9, 30.8], [2981.0, 20.7], [2990.8, 15.7], [2989.0, 10.3], [2994.4, 7.6], [2993.2, 5.2], [2999.0, 2.0]]
+  for (const p of SUNRISE_POLY) p[1] = -p[1] // 鏡像補正：zを反転
   // 実在の名前付きランドマーク（OSM POI＋iタウンページ等を国土地理院でジオコーディングした実位置）。[x,z,type,name,clearR]
   const NAMED = [
     [2951, -42, 'shrine', '渋沢稲荷神社', 16], [2767, 188, 'rice', '香取米店', 14], [2767, 153, 'shop', 'しんみせ', 13],
     [2672, 17, 'eat', '泉屋', 14], [2901, 252, 'conbini', 'セブン-イレブン', 16], [2712, 76, 'koban', '北寺尾駐在所', 12],
     [3088, 173, 'school', '獅子ヶ谷小学校', 40], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18]
   ]
-  // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森
-  const skipZones = [[2998, 142, 30], [2975, 110, 13], [3012, 56, 24], ...NAMED.map((n) => [n[0], n[1], n[4]])]
+  for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
+  // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
+  const skipZones = [[2998, -142, 30], [2975, -110, 13], [3012, -56, 24], ...NAMED.map((n) => [n[0], n[1], n[4]])]
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
@@ -1408,7 +1415,7 @@ function buildShishigaya() {
   { const poly = SUNRISE_POLY
     let gmin = 1e9, gmax = -1e9; for (const [x, z] of poly) { const e = heightAtYato(x, z); gmin = Math.min(gmin, e); gmax = Math.max(gmax, e) }
     const F = 3, base = gmax + 1.5, t6 = base + 6 * F, top = base + 7 * F, wc = [0.93, 0.88, 0.80], conc = [0.82, 0.80, 0.75] // 斜面：床を最高地盤+1.5の基壇に＝上手は数段上がって入る・下手ほど基礎/擁壁が高く見え、坂の途中に建つ姿に
-    const tzone = (x, z) => ((x - 2981) * 1.2 - (z - 20.7) * 15.9) < 0 // NW端=開放テラス領域（pt14→pt11の線で切る）
+    const tzone = (x, z) => ((x - 2981) * 1.2 - (-z - 20.7) * 15.9) < 0 // NW端=開放テラス領域（pt14→pt11・z反転後）
     for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], openEdge = tzone(a[0], a[1]) && tzone(b[0], b[1]) // テラス辺は6階まで＋手すり、他は7階まで
       const fl = openEdge ? 6 : 7, ht = base + fl * F, wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), uvq = [[0, 0], [u, 0], [u, fl], [0, fl]]
       const q = [[a[0], base, a[1]], [b[0], base, b[1]], [b[0], ht, b[1]], [a[0], ht, a[1]]]
@@ -1417,9 +1424,9 @@ function buildShishigaya() {
     let tris = null; try { tris = THREE.ShapeUtils.triangulateShape(poly.map((p) => new THREE.Vector2(p[0], p[1])), []) } catch (e) { tris = null }
     if (tris && tris.length) for (const t of tris) { const A = poly[t[0]], B = poly[t[1]], C = poly[t[2]], mx = (A[0] + B[0] + C[0]) / 3, mz = (A[1] + B[1] + C[1]) / 3, ter = tzone(mx, mz), y = ter ? t6 : top, col = ter ? [0.72, 0.70, 0.66] : flatTop; pushTri(col, [A[0], y, A[1]], [B[0], y, B[1]], [C[0], y, C[1]]) } // テラス床=base+18／本体陸屋根=base+21
     else { let cx2 = 0, cz2 = 0; for (const p of poly) { cx2 += p[0]; cz2 += p[1] } cx2 /= poly.length; cz2 /= poly.length; for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length]; pushTri(flatTop, [cx2, top, cz2], [a[0], top, a[1]], [b[0], top, b[1]]) } }
-    { const a = [2981.0, 20.7], b = [2996.9, 21.9]; pushTri([0.9, 0.86, 0.78], [a[0], t6, a[1]], [b[0], t6, b[1]], [b[0], top, b[1]]); pushTri([0.9, 0.86, 0.78], [a[0], t6, a[1]], [b[0], top, b[1]], [a[0], top, a[1]]) } // 本体7階がテラスに面する切り欠き壁
+    { const a = [2981.0, -20.7], b = [2996.9, -21.9]; pushTri([0.9, 0.86, 0.78], [a[0], t6, a[1]], [b[0], t6, b[1]], [b[0], top, b[1]]); pushTri([0.9, 0.86, 0.78], [a[0], t6, a[1]], [b[0], top, b[1]], [a[0], top, a[1]]) } // 本体7階がテラスに面する切り欠き壁（z反転後）
     const box = (bx, bz, sx, sz, y0, y1) => { const c4 = [[bx - sx, bz - sz], [bx + sx, bz - sz], [bx + sx, bz + sz], [bx - sx, bz + sz]]; for (let k = 0; k < 4; k++) { const a = c4[k], b = c4[(k + 1) % 4]; pushTri(rtBox, [a[0], y0, a[1]], [b[0], y0, b[1]], [b[0], y1, b[1]]); pushTri(rtBox, [a[0], y0, a[1]], [b[0], y1, b[1]], [a[0], y1, a[1]]) } pushTri(rtBox, [c4[0][0], y1, c4[0][1]], [c4[1][0], y1, c4[1][1]], [c4[2][0], y1, c4[2][1]]); pushTri(rtBox, [c4[0][0], y1, c4[0][1]], [c4[2][0], y1, c4[2][1]], [c4[3][0], y1, c4[3][1]]) }
-    box(3025, -2, 3.2, 2.6, top, top + 3); box(2992, 24, 2.4, 2.2, t6, t6 + 3.4) // 本体のEV/階段室＋テラスの階段室(下から上がってくる塔屋)
+    box(3025, 2, 3.2, 2.6, top, top + 3); box(2992, -24, 2.4, 2.2, t6, t6 + 3.4) // 本体のEV/階段室＋テラスの階段室（z反転後）
     // 基礎/擁壁：各辺で床(base)から地盤(下手ほど低い)までコンクリ基礎を回す＝坂の途中に建つ足元。上手側は地盤≒baseで隠れる
     for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], ga = heightAtYato(a[0], a[1]) - 1, gb = heightAtYato(b[0], b[1]) - 1; if (ga >= base - 0.3 && gb >= base - 0.3) continue
       pushTri(conc, [a[0], base, a[1]], [b[0], base, b[1]], [b[0], gb, b[1]]); pushTri(conc, [a[0], base, a[1]], [b[0], gb, b[1]], [a[0], ga, a[1]]) } }
@@ -1434,7 +1441,7 @@ function buildShishigaya() {
     grp.add(mk(new THREE.BoxGeometry(6.5, 3, 0.5), toon(0x60656b), ex, eg + 1.6, ez)) // シャッター本体
     for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(6.5, 0.12, 0.56), toon(0x808790), ex, eg + 0.55 + i * 0.55, ez)) // シャッターの横桟
     grp.add(mk(new THREE.BoxGeometry(8, 0.4, 2.6), toon(0xb0b0aa), ex, eg + 3.4, ez + 1.3, true)) // 入口の庇
-    const sx = 2975, sz = 110, sg = heightAtYato(sx, sz), shop = new THREE.Group(); shop.position.set(sx, sg, sz); shop.rotation.y = Math.atan2(3008 - sx, 8 - sz); grp.add(shop) // (2) ゲームショップ「ビスコ」：サンライズ北西の地点(ユーザー地図のピン)。正面を上手(サンライズ側)へ
+    const sx = 2975, sz = -110, sg = heightAtYato(sx, sz), shop = new THREE.Group(); shop.position.set(sx, sg, sz); shop.rotation.y = Math.atan2(3008 - sx, -8 - sz); grp.add(shop) // (2) ゲームショップ「ビスコ」：サンライズ北西の地点(ユーザー地図のピン・z反転後)。正面を上手(サンライズ側)へ
     shop.add(mk(new THREE.BoxGeometry(11, 6, 8), toon(0xd9cdb0), 0, 3, 0, true))
     shop.add(mk(new THREE.BoxGeometry(11.8, 0.6, 8.8), toon(0x65696e), 0, 6.3, 0, true)) // 陸屋根
     shop.add(mk(new THREE.PlaneGeometry(9.2, 2.8), new THREE.MeshToonMaterial({ color: 0x88aebf, gradientMap: GRAD, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), -0.6, 1.9, 4.02)) // 1階の店先ガラス
@@ -1451,8 +1458,8 @@ function buildShishigaya() {
     const ground = (cx, cz, w, d, col) => { const gT = gmax4(cx, cz, w, d), gB = gmin4(cx, cz, w, d), th = (gT - gB) + 0.4; grp.add(mk(new THREE.BoxGeometry(w, th, d), toon(col), cx, gT + 0.15 - th / 2, cz, 0, true)); const sy = gT + 0.3, fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.38, side: THREE.DoubleSide }); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz - d / 2)); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz + d / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx - w / 2, sy + 0.9, cz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx + w / 2, sy + 0.9, cz, Math.PI / 2)) } // 校庭/グラウンド＝最高角を天端にした造成平面(埋まらない)＋簡易フェンス
     // 名前看板（業種色）。サンライズ向きに立てる
     const signTex = (name, bg, fg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 64); x.fillStyle = fg; x.font = 'bold ' + (name.length > 6 ? 30 : 38) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, 128, 34); return new THREE.CanvasTexture(c) }
-    const signOn = (cx, cz, w, gy, yy, name, bg) => { const ry = Math.atan2(3008 - cx, 8 - cz); grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.7), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + yy, cz, ry)) }
-    const buildShop = (cx, cz, w, d, floors, wallCol, name, bg) => { const gB = gmin4(cx, cz, w, d), gT = gmax4(cx, cz, w, d), slope = Math.min(8, gT - gB), h = slope + floors * 3, ry = Math.atan2(3008 - cx, 8 - cz), fwd = [Math.sin(ry), Math.cos(ry)]
+    const signOn = (cx, cz, w, gy, yy, name, bg) => { const ry = Math.atan2(3008 - cx, -8 - cz); grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.7), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + yy, cz, ry)) }
+    const buildShop = (cx, cz, w, d, floors, wallCol, name, bg) => { const gB = gmin4(cx, cz, w, d), gT = gmax4(cx, cz, w, d), slope = Math.min(8, gT - gB), h = slope + floors * 3, ry = Math.atan2(3008 - cx, -8 - cz), fwd = [Math.sin(ry), Math.cos(ry)]
       grp.add(mk(new THREE.BoxGeometry(w, h, d), toon(wallCol), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6), toon(0x6b5a48), cx, gB + h + 0.1, cz, ry, true)) // 箱＋庇
       grp.add(mk(new THREE.PlaneGeometry(w * 0.78, 2.0), new THREE.MeshToonMaterial({ color: 0x88a8b8, gradientMap: GRAD, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), cx + fwd[0] * (d / 2 + 0.06), gT + 1.25, cz + fwd[1] * (d / 2 + 0.06), ry)) // 店先ガラス
       grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.5), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (d / 2 + 0.12), gT + slope + floors * 3 - 0.8, cz + fwd[1] * (d / 2 + 0.12), ry)) } // 正面の看板
@@ -1469,14 +1476,14 @@ function buildShishigaya() {
       else if (type === 'eat') buildShop(x, z, 9, 8, 2, 0xd8b08a, name, '#9a3520')
       else buildShop(x, z, 9, 8, 2, 0xd9cdb0, name, '#b5462f') // shop（しんみせ＝薬＋駄菓子）
     }
-    ground(2998, 142, 58, 44, 0xbda06a) // マリノスのグラウンド＝サンライズ目の前の公園(ユーザー地図/獅子ケ谷一丁目公園あたり)。土のグラウンド
+    ground(2998, -142, 58, 44, 0xbda06a) // マリノスのグラウンド＝サンライズ目の前の公園(z反転後)。土のグラウンド
     // サンライズの地下一階(裏=谷側)の出口の先＝当時は森（今は橘学苑のグラウンド）。エラ時代として木立を置く
     const trMat = new THREE.MeshToonMaterial({ gradientMap: GRAD }), grn = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a]
-    for (let i = 0; i < 16; i++) { const fx = 3012 + (Math.random() - 0.5) * 40, fz = 56 + (Math.random() - 0.5) * 34, fy = heightAtYato(fx, fz), s = 1.7 + Math.random() * 1.2
+    for (let i = 0; i < 16; i++) { const fx = 3012 + (Math.random() - 0.5) * 40, fz = -56 + (Math.random() - 0.5) * 34, fy = heightAtYato(fx, fz), s = 1.7 + Math.random() * 1.2
       const cn = mk(new THREE.IcosahedronGeometry(s, 0), trMat, fx, fy + 1.3 + s * 0.7, fz, 0, true); cn.material = new THREE.MeshToonMaterial({ color: grn[i % grn.length], gradientMap: GRAD }); grp.add(cn)
       grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5, 5), toon(0x6a4e34), fx, fy + 0.75, fz)) }
     // サンライズの表入口＝1階のみ(坂上=南東側・幹線通り側)。ドア＋小さな庇
-    const fg = heightAtYato(3034, -10); grp.add(mk(new THREE.BoxGeometry(2.2, 2.6, 0.3), toon(0x5a4636), 3034, fg + 1.3, -10)); grp.add(mk(new THREE.BoxGeometry(4, 0.4, 1.8), toon(0xb0b0aa), 3034, fg + 2.8, -9, 0, true)) } // 表玄関(1F)
+    const fg = heightAtYato(3034, 10); grp.add(mk(new THREE.BoxGeometry(2.2, 2.6, 0.3), toon(0x5a4636), 3034, fg + 1.3, 10)); grp.add(mk(new THREE.BoxGeometry(4, 0.4, 1.8), toon(0xb0b0aa), 3034, fg + 2.8, 9, 0, true)) } // 表玄関(1F・z反転後)
   // 道（実OSM線形→地形追従リボンをマージ＝本物のカーブ）。舗装(グレー)／土の小道(茶)を分けて
   const buildRoads = (kind, color, tex, lift) => { const rv = [], ruv = [], ridx = []; let ro = 0
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = rd.w / 2
@@ -5124,7 +5131,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo25' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo26' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
