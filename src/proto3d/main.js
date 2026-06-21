@@ -1376,7 +1376,7 @@ function buildShishigaya() {
     [3088, 173, 'school', '獅子ヶ谷小学校', 40], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18]
   ]
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森
-  const skipZones = [[3425, 462, 40], [2958, 82, 13], [3012, 56, 24], ...NAMED.map((n) => [n[0], n[1], n[4]])]
+  const skipZones = [[2998, 142, 30], [2975, 110, 13], [3012, 56, 24], ...NAMED.map((n) => [n[0], n[1], n[4]])]
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
@@ -1438,7 +1438,7 @@ function buildShishigaya() {
     grp.add(mk(new THREE.BoxGeometry(6.5, 3, 0.5), toon(0x60656b), ex, eg + 1.6, ez)) // シャッター本体
     for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(6.5, 0.12, 0.56), toon(0x808790), ex, eg + 0.55 + i * 0.55, ez)) // シャッターの横桟
     grp.add(mk(new THREE.BoxGeometry(8, 0.4, 2.6), toon(0xb0b0aa), ex, eg + 3.4, ez + 1.3, true)) // 入口の庇
-    const sx = 2958, sz = 82, sg = heightAtYato(sx, sz), shop = new THREE.Group(); shop.position.set(sx, sg, sz); shop.rotation.y = Math.atan2(3008 - sx, 8 - sz); grp.add(shop) // (2) ゲームショップ「ビスコ」：坂下の少し低い所。正面を上手(サンライズ側)へ
+    const sx = 2975, sz = 110, sg = heightAtYato(sx, sz), shop = new THREE.Group(); shop.position.set(sx, sg, sz); shop.rotation.y = Math.atan2(3008 - sx, 8 - sz); grp.add(shop) // (2) ゲームショップ「ビスコ」：サンライズ北西の地点(ユーザー地図のピン)。正面を上手(サンライズ側)へ
     shop.add(mk(new THREE.BoxGeometry(11, 6, 8), toon(0xd9cdb0), 0, 3, 0, true))
     shop.add(mk(new THREE.BoxGeometry(11.8, 0.6, 8.8), toon(0x65696e), 0, 6.3, 0, true)) // 陸屋根
     shop.add(mk(new THREE.PlaneGeometry(9.2, 2.8), new THREE.MeshToonMaterial({ color: 0x88aebf, gradientMap: GRAD, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), -0.6, 1.9, 4.02)) // 1階の店先ガラス
@@ -1473,7 +1473,7 @@ function buildShishigaya() {
       else if (type === 'eat') buildShop(x, z, 9, 8, 2, 0xd8b08a, name, '#9a3520')
       else buildShop(x, z, 9, 8, 2, 0xd9cdb0, name, '#b5462f') // shop（しんみせ＝薬＋駄菓子）
     }
-    ground(3425, 462, 66, 46, 0xbda06a) // マリノスのグラウンド＝今のユーパリノスの丘(3467,442)の隣の公園（土のグラウンド）
+    ground(2998, 142, 58, 44, 0xbda06a) // マリノスのグラウンド＝サンライズ目の前の公園(ユーザー地図/獅子ケ谷一丁目公園あたり)。土のグラウンド
     // サンライズの地下一階(裏=谷側)の出口の先＝当時は森（今は橘学苑のグラウンド）。エラ時代として木立を置く
     const trMat = new THREE.MeshToonMaterial({ gradientMap: GRAD }), grn = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a]
     for (let i = 0; i < 16; i++) { const fx = 3012 + (Math.random() - 0.5) * 40, fz = 56 + (Math.random() - 0.5) * 34, fy = heightAtYato(fx, fz), s = 1.7 + Math.random() * 1.2
@@ -5128,7 +5128,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo23' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo24' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
