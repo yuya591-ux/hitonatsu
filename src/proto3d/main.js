@@ -1352,29 +1352,34 @@ function buildShishigaya() {
   for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + SG.gx0, wz = gp.getZ(i) + SG.gz0, y = heightAtYato(wx, wz); gp.setY(i, y); const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 3, 9)); c.lerp(cDark, THREE.MathUtils.smoothstep(y, 18, 40)); gcol.push(c.r, c.g, c.b) }
   ggeo.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3)); ggeo.computeVertexNormals()
   const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex })); gm.position.set(SG.gx0, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
-  // 建物：壁(箱)＋屋根（低い家=寄棟ピラミッド／高いビル=陸屋根）。色は数種からばらつかせる
-  const bv = [], bc = [], buv = [], bidx = [], rfv = [], rfc = [], rfidx = []; let vo = 0, rfo = 0
-  const winTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#566275'; x.fillRect(13, 14, 38, 36); x.fillStyle = '#ffffff'; x.fillRect(30, 14, 4, 36); x.fillRect(13, 30, 38, 4); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 窓タイル(白壁＋暗い窓＋桟)。壁色×mapで窓が暗く出る
-  const walls = [[0.86, 0.82, 0.74], [0.80, 0.74, 0.64], [0.72, 0.77, 0.82], [0.90, 0.85, 0.74], [0.80, 0.73, 0.63], [0.84, 0.80, 0.70], [0.70, 0.72, 0.76]]
-  const roofs = [[0.36, 0.40, 0.46], [0.30, 0.26, 0.24], [0.46, 0.34, 0.28], [0.34, 0.38, 0.42], [0.40, 0.30, 0.26]]
-  for (const [cx, cz, w, d, ang, lv] of SG.buildings) {
-    const gy = heightAtYato(cx, cz), h = Math.min(36, Math.max(4, lv * 3)), co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
-    const seed = Math.abs(Math.round(cx) * 7 + Math.round(cz) * 3), wc = walls[seed % walls.length], rc = roofs[seed % roofs.length], cor = []
-    for (const sy of [0, h]) for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cor.push([cx + sx * co - sz * si, gy + sy, cz + sx * si + sz * co])
-    const faces = [[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [4, 5, 6, 7]]
-    faces.forEach((f, k) => { const col = k === 4 ? rc : wc
-      let uv; if (k < 4) { const a = cor[f[0]], b = cor[f[1]], L = Math.hypot(b[0] - a[0], b[2] - a[2]); uv = [[0, 0], [L / 3, 0], [L / 3, h / 3], [0, h / 3]] } else uv = [[0, 0], [0, 0], [0, 0], [0, 0]] // 壁=窓タイル/屋根=無地
-      f.forEach((id, qi) => { bv.push(cor[id][0], cor[id][1], cor[id][2]); bc.push(col[0], col[1], col[2]); buv.push(uv[qi][0], uv[qi][1]) })
-      bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 })
-    if (lv <= 3) { // 低い家＝寄棟屋根（4枚の三角）
-      const rh = Math.min(3.2, Math.min(w, d) * 0.42), apex = [cx, gy + h + rh, cz]
-      const tc = [cor[4], cor[5], cor[6], cor[7]]
-      for (let k = 0; k < 4; k++) { const a = tc[k], b = tc[(k + 1) % 4]; rfv.push(a[0], a[1], a[2], b[0], b[1], b[2], apex[0], apex[1], apex[2]); for (let q = 0; q < 3; q++) rfc.push(rc[0], rc[1], rc[2]); rfidx.push(rfo, rfo + 1, rfo + 2); rfo += 3 }
+  // 建物：壁(4側面)＋切妻屋根。高さは敷地面積でばらつかせ、壁/屋根色も数種から。窓グリッドは廃止（“壁の乱立”の元凶）。両面材で法線の裏返りによる黒面を防ぐ
+  const bv = [], bc = [], bidx = [], rfv = [], rfc = [], rfidx = []; let vo = 0; const oRef = { o: 0 }
+  const walls = [[0.90, 0.86, 0.76], [0.86, 0.80, 0.68], [0.82, 0.84, 0.80], [0.80, 0.76, 0.70], [0.88, 0.82, 0.72], [0.78, 0.80, 0.84], [0.84, 0.78, 0.66]]
+  const roofs = [[0.40, 0.46, 0.52], [0.46, 0.34, 0.28], [0.34, 0.42, 0.36], [0.30, 0.34, 0.40], [0.52, 0.42, 0.30], [0.38, 0.32, 0.30]]
+  const pushTri = (col, p0, p1, p2) => { rfv.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]); for (let q = 0; q < 3; q++) rfc.push(col[0], col[1], col[2]); rfidx.push(oRef.o, oRef.o + 1, oRef.o + 2); oRef.o += 3 }
+  for (const [cx, cz, w, d, ang] of SG.buildings) {
+    const gy = heightAtYato(cx, cz), co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
+    const seed = Math.abs(Math.round(cx) * 7 + Math.round(cz) * 3), area = w * d
+    let stories = area < 65 ? 1 : (area > 230 ? 3 : 2); if (stories === 2 && seed % 4 === 0) stories = 1; if (stories === 1 && seed % 6 === 0) stories = 2 // 高さをばらけさせる（一律6mの壁化を解消）
+    const h = stories * 3, wc = walls[seed % walls.length], rc = roofs[(seed >> 2) % roofs.length]
+    const L = (lx, ly, lz) => [cx + lx * co - lz * si, gy + ly, cz + lx * si + lz * co] // ローカル→ワールド（angで回転）
+    const baseXZ = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]
+    for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
+      for (const p of [p0, p1, p2, p3]) { bv.push(p[0], p[1], p[2]); bc.push(wc[0], wc[1], wc[2]) }
+      bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 } // 4側面（上面は屋根が覆う）
+    const rh = Math.min(4, Math.min(w, d) * 0.5 + 1), rg = h + rh // 切妻屋根：長辺方向に棟
+    const e0 = L(-hw, h, -hd), e1 = L(hw, h, -hd), e2 = L(hw, h, hd), e3 = L(-hw, h, hd)
+    if (w >= d) { const r0 = L(-hw, rg, 0), r1 = L(hw, rg, 0)
+      pushTri(rc, e3, e2, r1); pushTri(rc, e3, r1, r0); pushTri(rc, e1, e0, r0); pushTri(rc, e1, r0, r1) // 屋根2面
+      pushTri(wc, e0, e3, r0); pushTri(wc, e2, e1, r1) // 妻壁(±x)
+    } else { const r0 = L(0, rg, -hd), r1 = L(0, rg, hd)
+      pushTri(rc, e1, e2, r1); pushTri(rc, e1, r1, r0); pushTri(rc, e3, e0, r0); pushTri(rc, e3, r0, r1) // 屋根2面
+      pushTri(wc, e0, e1, r0); pushTri(wc, e2, e3, r1) // 妻壁(±z)
     }
   }
-  const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals()
-  const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: winTex })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm)
-  if (rfv.length) { const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg.setIndex(rfidx); rg.computeVertexNormals(); const rm2 = new THREE.Mesh(rg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD })); rm2.castShadow = true; scene.add(rm2) }
+  const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setIndex(bidx); bgeo.computeVertexNormals()
+  const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm)
+  if (rfv.length) { const rg2 = new THREE.BufferGeometry(); rg2.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg2.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg2.setIndex(rfidx); rg2.computeVertexNormals(); const rm2 = new THREE.Mesh(rg2, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, side: THREE.DoubleSide })); rm2.castShadow = true; rm2.receiveShadow = true; scene.add(rm2) }
   // 道（実OSM線形→地形追従リボンをマージ＝本物のカーブ）。舗装(グレー)／土の小道(茶)を分けて
   const buildRoads = (kind, color, tex, lift) => { const rv = [], ruv = [], ridx = []; let ro = 0
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = rd.w / 2
@@ -1400,8 +1405,10 @@ function buildShishigaya() {
   if (wv.length) { const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wv, 3)); wg.setIndex(widx); wg.computeVertexNormals(); scene.add(new THREE.Mesh(wg, waterMat)) }
   if (riceP.length) { const rcI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.5, 4), toon(0x6f9a3e), riceP.length), m = new THREE.Matrix4(); riceP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.3, z); rcI.setMatrixAt(i, m) }); scene.add(rcI) }
   if (reedP.length) { const rdI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.8, 4), toon(0x6f8a3e), reedP.length), m = new THREE.Matrix4(); reedP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.4, z); rdI.setMatrixAt(i, m) }); scene.add(rdI) }
+  // 池情報（面積順）と「水の中か」判定＝三ツ池公園の作り込みと桜配置に使う
+  const inWater = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p))
+  const pondInfo = SG.waters.filter((w) => w.p.length >= 3).map((w) => { let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9, cx = 0, cz = 0; for (const q of w.p) { cx += q[0]; cz += q[1]; if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } cx /= w.p.length; cz /= w.p.length; return { w, cx, cz, area: (mxx - mnx) * (mxz - mnz), r: Math.max(mxx - mnx, mxz - mnz) / 2 } }).sort((a, b) => b.area - a.area)
   // 木：公園/森(多角形)＋山肌(建物の無い急斜面)＋三ツ池の桜。インスタンシングで多数を低負荷に
-  let big = null, bigA = 0; for (const wt of SG.waters) { if (wt.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of wt.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bigA) { bigA = ar; big = [(mnx + mxx) / 2, (mnz + mxz) / 2, (mxx - mnx) / 2, (mxz - mnz) / 2] } }
   const tp = [] // [x,z,sakura?]
   for (const g of SG.greens) { if (g.kind !== 'wood' && g.kind !== 'park') continue; const poly = g.p
     let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of poly) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
@@ -1412,7 +1419,10 @@ function buildShishigaya() {
   for (const rd of SG.roads) { if (rd.w < 5 || tp.length > 2300) continue; const p = rd.p // 街路樹（主要道の脇の並木）
     for (let k = 0; k < p.length - 1 && tp.length <= 2300; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1
       for (let t = 12; t < l; t += 26) { const fx = x0 + dx * t / l, fz = z0 + dz * t / l, ox = -dz / l * (rd.w / 2 + 2.5), oz = dx / l * (rd.w / 2 + 2.5); for (const s of [1, -1]) { const x = fx + ox * s, z = fz + oz * s, c = cellOf(x, z); if (c >= 0 && !occ[c]) tp.push([x, z, 0]) } } } }
-  if (big) for (let k = 0; k < 20; k++) { const a = k / 20 * 6.283; tp.push([big[0] + Math.cos(a) * (big[2] + 6), big[1] + Math.sin(a) * (big[3] + 6), 1]) } // 三ツ池の桜
+  // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木
+  for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
+  let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
+  if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
   if (tp.length) {
     const canI = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshToonMaterial({ gradientMap: GRAD }), tp.length); canI.castShadow = true
     const trI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.24, 1.4, 5), toon(0x6a4e34), tp.length)
@@ -1420,6 +1430,27 @@ function buildShishigaya() {
     tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), s = sak ? 2.0 : 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.3 + s * 0.7, z); m4.scale(sc.set(s, s * 1.1, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(sak ? 0xf0b4cd : gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.7, z)) })
     canI.instanceColor.needsUpdate = true; scene.add(canI); scene.add(trI)
   }
+  // ───── 三ツ池公園の作り込み：あずまや（東屋）＋太鼓橋（朱塗りアーチ）─────
+  const shorePoint = (pi) => { for (let rr = pi.r + 2; rr < pi.r + 26; rr += 3) for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, x = pi.cx + Math.cos(a) * rr, z = pi.cz + Math.sin(a) * rr; if (!inWater(x, z)) { const sl = Math.abs(heightAtYato(x + 5, z) - heightAtYato(x - 5, z)) + Math.abs(heightAtYato(x, z + 5) - heightAtYato(x, z - 5)); if (sl < 3) return [x, z] } } return [pi.cx + pi.r + 8, pi.cz] }
+  const buildAzumaya = (x, z) => { const y = heightAtYato(x, z), g = new THREE.Group(), R = 2.6
+    const floor = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.4, 6), toon(0xb59264)); floor.position.y = 0.2; floor.receiveShadow = true; g.add(floor)
+    for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283, p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 2.4, 6), toon(0x8a6b46)); p.position.set(Math.cos(a) * R * 0.85, 1.6, Math.sin(a) * R * 0.85); p.castShadow = true; g.add(p) }
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(R * 1.3, 1.9, 6), toon(0x5a6b52)); roof.position.y = 3.7; roof.castShadow = true; g.add(roof)
+    g.position.set(x, y, z); scene.add(g) }
+  const buildTaiko = (x0, z0, x1, z1) => { const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz) || 1, px = -dz / len, pz = dx / len, hw = 1.5, rise = Math.min(2.4, len * 0.34), N = 16
+    const y0 = heightAtYato(x0, z0) + 0.25, y1 = heightAtYato(x1, z1) + 0.25
+    const ptAt = (t) => [x0 + dx * t, (y0 * (1 - t) + y1 * t) + Math.sin(Math.PI * t) * rise, z0 + dz * t]
+    const dv = [], didx = []; for (let k = 0; k <= N; k++) { const [bx, by, bz] = ptAt(k / N); dv.push(bx + px * hw, by, bz + pz * hw, bx - px * hw, by, bz - pz * hw) } for (let k = 0; k < N; k++) { const a = k * 2; didx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3) }
+    const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.Float32BufferAttribute(dv, 3)); dg.setIndex(didx); dg.computeVertexNormals(); const deck = new THREE.Mesh(dg, new THREE.MeshToonMaterial({ color: 0xb5462f, gradientMap: GRAD, side: THREE.DoubleSide })); deck.castShadow = true; scene.add(deck)
+    for (const s of [1, -1]) { const rv = [], ridx = []; for (let k = 0; k <= N; k++) { const [bx, by, bz] = ptAt(k / N); rv.push(bx + px * hw * s, by, bz + pz * hw * s, bx + px * hw * s, by + 0.75, bz + pz * hw * s) } for (let k = 0; k < N; k++) { const a = k * 2; ridx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3) } const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); rg.setIndex(ridx); rg.computeVertexNormals(); scene.add(new THREE.Mesh(rg, new THREE.MeshToonMaterial({ color: 0xc0392b, gradientMap: GRAD, side: THREE.DoubleSide }))) } }
+  for (const pi of pondInfo.slice(0, 2)) { const [sx, sz] = shorePoint(pi); buildAzumaya(sx, sz) } // 池ごとに東屋
+  // 太鼓橋：いちばん広い池の、いちばん狭い水路（入り江/くびれ）を縦横に走査して朱塗りアーチを架ける（必ず水上に）
+  if (pondInfo.length) { const pi = pondInfo[0], P = pi.w.p; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of P) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
+    let best = null
+    for (let z = mnz + 1; z <= mxz - 1; z += 1) { let run = null; for (let x = mnx - 2; x <= mxx + 2; x += 0.5) { const w = pip(x, z, P); if (w && run == null) run = x; else if (!w && run != null) { const span = (x - 0.5) - run; if (span >= 6 && span <= 24 && (!best || span < best.span)) best = { span, a: [run, z], b: [x - 0.5, z] }; run = null } } }
+    for (let x = mnx + 1; x <= mxx - 1; x += 1) { let run = null; for (let z = mnz - 2; z <= mxz + 2; z += 0.5) { const w = pip(x, z, P); if (w && run == null) run = z; else if (!w && run != null) { const span = (z - 0.5) - run; if (span >= 6 && span <= 24 && (!best || span < best.span)) best = { span, a: [x, run], b: [x, z - 0.5] }; run = null } } }
+    if (best) { const dx = best.b[0] - best.a[0], dz = best.b[1] - best.a[1], l = Math.hypot(dx, dz) || 1, ex = dx / l * 2, ez = dz / l * 2; buildTaiko(best.a[0] - ex, best.a[1] - ez, best.b[0] + ex, best.b[1] + ez) } // 両端を岸に2m延長
+    else buildTaiko(pi.cx - 8, pi.cz, pi.cx + 8, pi.cz) }
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length)
 }
 buildShishigaya()
@@ -4996,7 +5027,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo6' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo8' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
