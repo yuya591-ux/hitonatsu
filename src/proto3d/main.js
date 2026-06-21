@@ -1353,7 +1353,8 @@ function buildShishigaya() {
   ggeo.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3)); ggeo.computeVertexNormals()
   const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex })); gm.position.set(SG.gx0, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
   // 建物：壁(箱)＋屋根（低い家=寄棟ピラミッド／高いビル=陸屋根）。色は数種からばらつかせる
-  const bv = [], bc = [], bidx = [], rfv = [], rfc = [], rfidx = []; let vo = 0, rfo = 0
+  const bv = [], bc = [], buv = [], bidx = [], rfv = [], rfc = [], rfidx = []; let vo = 0, rfo = 0
+  const winTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#566275'; x.fillRect(13, 14, 38, 36); x.fillStyle = '#ffffff'; x.fillRect(30, 14, 4, 36); x.fillRect(13, 30, 38, 4); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 窓タイル(白壁＋暗い窓＋桟)。壁色×mapで窓が暗く出る
   const walls = [[0.86, 0.82, 0.74], [0.80, 0.74, 0.64], [0.72, 0.77, 0.82], [0.90, 0.85, 0.74], [0.80, 0.73, 0.63], [0.84, 0.80, 0.70], [0.70, 0.72, 0.76]]
   const roofs = [[0.36, 0.40, 0.46], [0.30, 0.26, 0.24], [0.46, 0.34, 0.28], [0.34, 0.38, 0.42], [0.40, 0.30, 0.26]]
   for (const [cx, cz, w, d, ang, lv] of SG.buildings) {
@@ -1361,15 +1362,18 @@ function buildShishigaya() {
     const seed = Math.abs(Math.round(cx) * 7 + Math.round(cz) * 3), wc = walls[seed % walls.length], rc = roofs[seed % roofs.length], cor = []
     for (const sy of [0, h]) for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cor.push([cx + sx * co - sz * si, gy + sy, cz + sx * si + sz * co])
     const faces = [[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [4, 5, 6, 7]]
-    faces.forEach((f, k) => { const col = k === 4 ? rc : wc; for (const id of f) { bv.push(cor[id][0], cor[id][1], cor[id][2]); bc.push(col[0], col[1], col[2]) } bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 })
+    faces.forEach((f, k) => { const col = k === 4 ? rc : wc
+      let uv; if (k < 4) { const a = cor[f[0]], b = cor[f[1]], L = Math.hypot(b[0] - a[0], b[2] - a[2]); uv = [[0, 0], [L / 3, 0], [L / 3, h / 3], [0, h / 3]] } else uv = [[0, 0], [0, 0], [0, 0], [0, 0]] // 壁=窓タイル/屋根=無地
+      f.forEach((id, qi) => { bv.push(cor[id][0], cor[id][1], cor[id][2]); bc.push(col[0], col[1], col[2]); buv.push(uv[qi][0], uv[qi][1]) })
+      bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 })
     if (lv <= 3) { // 低い家＝寄棟屋根（4枚の三角）
       const rh = Math.min(3.2, Math.min(w, d) * 0.42), apex = [cx, gy + h + rh, cz]
       const tc = [cor[4], cor[5], cor[6], cor[7]]
       for (let k = 0; k < 4; k++) { const a = tc[k], b = tc[(k + 1) % 4]; rfv.push(a[0], a[1], a[2], b[0], b[1], b[2], apex[0], apex[1], apex[2]); for (let q = 0; q < 3; q++) rfc.push(rc[0], rc[1], rc[2]); rfidx.push(rfo, rfo + 1, rfo + 2); rfo += 3 }
     }
   }
-  const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setIndex(bidx); bgeo.computeVertexNormals()
-  const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm)
+  const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals()
+  const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: winTex })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm)
   if (rfv.length) { const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg.setIndex(rfidx); rg.computeVertexNormals(); const rm2 = new THREE.Mesh(rg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD })); rm2.castShadow = true; scene.add(rm2) }
   // 道（実OSM線形→地形追従リボンをマージ＝本物のカーブ）
   const rv = [], ridx = []; let ro = 0
@@ -4990,7 +4994,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo4' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo5' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
