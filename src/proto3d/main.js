@@ -1842,6 +1842,33 @@ function buildShishigaya() {
     if (railP.length) { const rI = new THREE.InstancedMesh(GRAIL, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), railP.length); rI.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); railP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); rI.setMatrixAt(i, m4) }); scene.add(rI) }
     if (mirP.length) { const mI = new THREE.InstancedMesh(MIRROR, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), mirP.length); mI.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); mirP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); mI.setMatrixAt(i, m4) }); scene.add(mI) }
     console.log('[shishigaya] ガードレール', railP.length, 'カーブミラー', mirP.length) }
+  // ⑦ 家の前の生活感：植木鉢・自転車（家のある道ぞいに）＋ゴミ集積所（道角・ネット掛け）。すべてmergeParts＋インスタンシング＝軽い（ユーザー要望2026-06-22）
+  { const TR = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z)
+    const POT_GEO = mergeParts([ { g: new THREE.CylinderGeometry(0.17, 0.13, 0.34, 8), m: TR(0, 0.17, 0), c: [0.74, 0.43, 0.31] }, { g: new THREE.IcosahedronGeometry(0.27, 0), m: TR(0, 0.52, 0), c: [0.42, 0.6, 0.33] } ]) // 鉢＋植物
+    const BIKE_GEO = mergeParts([ // 簡単な自転車（+x向き）
+      { g: new THREE.TorusGeometry(0.3, 0.045, 6, 12), m: TR(0.55, 0.3, 0), c: [0.16, 0.16, 0.17] }, { g: new THREE.TorusGeometry(0.3, 0.045, 6, 12), m: TR(-0.55, 0.3, 0), c: [0.16, 0.16, 0.17] }, // 前後輪
+      { g: new THREE.BoxGeometry(1.0, 0.05, 0.05), m: TR(0, 0.42, 0), c: [0.72, 0.26, 0.26] }, { g: new THREE.BoxGeometry(0.05, 0.42, 0.05), m: TR(-0.28, 0.5, 0), c: [0.72, 0.26, 0.26] }, { g: new THREE.BoxGeometry(0.05, 0.5, 0.05), m: TR(0.42, 0.52, 0), c: [0.72, 0.26, 0.26] }, // フレーム＋シート/ハンドル支柱
+      { g: new THREE.BoxGeometry(0.24, 0.05, 0.11), m: TR(-0.3, 0.74, 0), c: [0.2, 0.2, 0.22] }, { g: new THREE.BoxGeometry(0.05, 0.05, 0.42), m: TR(0.44, 0.78, 0), c: [0.2, 0.2, 0.22] } ]) // サドル＋ハンドル
+    const GOMI_GEO = mergeParts([ { g: new THREE.BoxGeometry(2.3, 0.12, 1.5), m: TR(0, 0.06, 0), c: [0.7, 0.7, 0.66] }, // 土間
+      ...[[-1.05, -0.65], [1.05, -0.65], [-1.05, 0.65], [1.05, 0.65]].map(([px, pz]) => ({ g: new THREE.CylinderGeometry(0.04, 0.04, 1.2, 5), m: TR(px, 0.6, pz), c: [0.5, 0.52, 0.54] })), // 4柱
+      { g: new THREE.IcosahedronGeometry(0.42, 0), m: new THREE.Matrix4().compose(new THREE.Vector3(-0.5, 0.45, 0), new THREE.Quaternion(), new THREE.Vector3(1, 0.7, 1)), c: [0.38, 0.46, 0.6] }, { g: new THREE.IcosahedronGeometry(0.4, 0), m: new THREE.Matrix4().compose(new THREE.Vector3(0.5, 0.42, 0.2), new THREE.Quaternion(), new THREE.Vector3(1, 0.7, 1)), c: [0.85, 0.85, 0.82] } ]) // ゴミ袋（青/白）
+    const potP = [], bikeP = [], gomiP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
+    const cenD3 = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
+    const rds = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD3(a) - cenD3(b))
+    for (const rd of rds) { if (potP.length > 300) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
+      for (let k = 0; k < p.length - 1 && potP.length <= 300; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, ang = Math.atan2(-uz, ux)
+        for (let t = 4; t < l - 4; t += 8) for (const sd of [1, -1]) { const px = x0 + ux * t + nx * sd * (hw + 1.5), pz = z0 + uz * t + nz * sd * (hw + 1.5)
+          if (!occAt(px + nx * sd * 2.5, pz + nz * sd * 2.5)) continue // 家の前
+          if (Math.hypot(px - 3008, pz + 8) < 46 || inWater(px, pz) || heightAtYato(px, pz) < 3) continue
+          const seed = Math.abs(Math.round(px) * 3 + Math.round(pz) * 7); if (seed % 3 === 0) bikeP.push([px, pz, ang + 1.5708]); else potP.push([px, pz]) } } }
+    // ゴミ集積所＝主要道の角（始点）に点々と
+    for (const rd of rds) { if (gomiP.length >= 6) break; const a = rd.p[0]; if (occAt(a[0] + 4, a[1]) || occAt(a[0] - 4, a[1])) { if (Math.hypot(a[0] - 3008, a[1] + 8) > 46 && heightAtYato(a[0], a[1]) > 3) gomiP.push([a[0], a[1], Math.atan2(3010 - a[0], -60 - a[1])]) } }
+    const mkInst = (geo, mat, arr, useRot) => { if (!arr.length) return; const im = new THREE.InstancedMesh(geo, mat, arr.length); im.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); arr.forEach((a, i) => { e.set(0, useRot ? (a[2] || 0) : 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]), a[1]), q, s); im.setMatrixAt(i, m4) }); scene.add(im) }
+    mkInst(POT_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), potP, false)
+    mkInst(BIKE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), bikeP, true)
+    mkInst(GOMI_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), gomiP, true)
+    if (gomiP.length) { const ntex = netTex.clone(); ntex.repeat.set(3, 1.5); ntex.needsUpdate = true; const nI = new THREE.InstancedMesh(new THREE.BoxGeometry(2.3, 1.1, 1.5), new THREE.MeshBasicMaterial({ map: ntex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.6, color: 0x6f8a5a }), gomiP.length); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); nI.layers.set(1); gomiP.forEach((a, i) => { e.set(0, a[2] || 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]) + 0.6, a[1]), q, s); nI.setMatrixAt(i, m4) }); scene.add(nI) } // ゴミにかけるネット
+    console.log('[shishigaya] 植木鉢', potP.length, '自転車', bikeP.length, 'ゴミ集積所', gomiP.length) }
   // 生活感の小物（人がいた痕跡＝エモさ）：物干し・室外機を家のそばに、自販機・丸ポストを道角に。中心部(サンライズ〜小学校)に控えめに
   { const hoshi = (x, z, rot) => { const g = new THREE.Group(), pole = toon(0xb4b4b0); for (const px of [-1.6, 1.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), pole); p.position.set(px, 0.9, 0); g.add(p) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.65; g.add(bar); const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]; for (let i = 0; i < 4; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.78), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cl.position.set(-1.1 + i * 0.74, 1.25, 0); g.add(cl) } placeProp(g, x, z, rot, 0.03, 1.4) } // 物干し（洗濯もの）
     const shitsu = (x, z, rot) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.35), toon(0xcfcabd)); b.position.y = 0.4; g.add(b); const gr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), toon(0x8a8a86)); gr.position.set(0, 0.4, 0.181); g.add(gr); placeProp(g, x, z, rot, 0.02, 0.5) } // 室外機
@@ -5492,7 +5519,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-busstop' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-props7' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
