@@ -1809,6 +1809,27 @@ function buildShishigaya() {
     if (wallP.length) { const wI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.3, 0.28), new THREE.MeshToonMaterial({ color: 0xffffff, map: blockTex, gradientMap: GRAD }), wallP.length); wI.castShadow = wI.receiveShadow = true; wallP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.65, z), q, sc); wI.setMatrixAt(i, m4) }); scene.add(wI) } // ブロック塀
     if (hedgeP.length) { const hI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.0, 0.7), new THREE.MeshToonMaterial({ color: 0x5f8540, gradientMap: GRAD }), hedgeP.length); hI.castShadow = true; hedgeP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.5, z), q, sc); hI.setMatrixAt(i, m4) }); scene.add(hI) } // 生垣
     console.log('[shishigaya] 塀', wallP.length, '生垣', hedgeP.length) }
+  // ガードレール（坂・崖ぞいの道の下り側）＋カーブミラー（急カーブ）＝山あいの道の定番（ユーザー要望2026-06-22）。各1インスタンスメッシュ
+  { const TR = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z), RX = (x, y, z, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0)), new THREE.Vector3(1, 1, 1))
+    const GRAIL = mergeParts([ // 白いガードレール（桁2段＋支柱2本）長さ4m
+      { g: new THREE.BoxGeometry(4, 0.18, 0.06), m: TR(0, 0.72, 0), c: [0.93, 0.93, 0.9] }, { g: new THREE.BoxGeometry(4, 0.14, 0.06), m: TR(0, 0.42, 0), c: [0.9, 0.9, 0.87] },
+      { g: new THREE.BoxGeometry(0.09, 0.85, 0.09), m: TR(-1.8, 0.42, 0), c: [0.78, 0.78, 0.76] }, { g: new THREE.BoxGeometry(0.09, 0.85, 0.09), m: TR(1.8, 0.42, 0), c: [0.78, 0.78, 0.76] } ])
+    const MIRROR = mergeParts([ // カーブミラー＝灰ポール＋オレンジ枠＋鏡面（鏡は+zを向く）
+      { g: new THREE.CylinderGeometry(0.06, 0.075, 3.6, 6), m: TR(0, 1.8, 0), c: [0.58, 0.6, 0.62] },
+      { g: new THREE.CylinderGeometry(0.64, 0.64, 0.06, 16), m: RX(0, 3.4, 0.0, Math.PI / 2), c: [0.86, 0.5, 0.18] }, { g: new THREE.CylinderGeometry(0.56, 0.56, 0.06, 16), m: RX(0, 3.4, 0.07, Math.PI / 2), c: [0.72, 0.79, 0.83] } ])
+    const railP = [], mirP = []
+    for (const rd of SG.roads) { if (rd.k === 'path' || rd.w < 3) continue; const p = rd.p
+      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, ang = Math.atan2(-uz, ux), hw = Math.max(2.0, rd.w / 2)
+        for (let t = 2; t < l - 2; t += 4) for (const sd of [1, -1]) { if (railP.length > 360) break; const ex = x0 + ux * t + nx * sd * (hw + 0.5), ez = z0 + uz * t + nz * sd * (hw + 0.5)
+          const gEdge = heightAtYato(ex, ez), gOut = heightAtYato(ex + nx * sd * 4, ez + nz * sd * 4); if (gEdge - gOut < 1.6) continue // 下り側(崖/土手)だけ
+          if (Math.hypot(ex - 3008, ez + 8) < 46 || gEdge < 3) continue
+          railP.push([ex, ez, ang]) }
+        // カーブミラー：急カーブの頂点に
+        if (k > 0 && k < p.length - 1 && mirP.length < 44) { const a0 = Math.atan2(z0 - p[k - 1][1], x0 - p[k - 1][0]), a1 = Math.atan2(z1 - z0, x1 - x0); let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI
+          if (Math.abs(da) > 0.7 && heightAtYato(x0, z0) > 3 && Math.hypot(x0 - 3008, z0 + 8) > 46) { const mxx = x0 - uz * (hw + 1.4), mzz = z0 + ux * (hw + 1.4); mirP.push([mxx, mzz, a0 + Math.PI]) } } } }
+    if (railP.length) { const rI = new THREE.InstancedMesh(GRAIL, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), railP.length); rI.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); railP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); rI.setMatrixAt(i, m4) }); scene.add(rI) }
+    if (mirP.length) { const mI = new THREE.InstancedMesh(MIRROR, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), mirP.length); mI.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); mirP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); mI.setMatrixAt(i, m4) }); scene.add(mI) }
+    console.log('[shishigaya] ガードレール', railP.length, 'カーブミラー', mirP.length) }
   // 生活感の小物（人がいた痕跡＝エモさ）：物干し・室外機を家のそばに、自販機・丸ポストを道角に。中心部(サンライズ〜小学校)に控えめに
   { const hoshi = (x, z, rot) => { const g = new THREE.Group(), pole = toon(0xb4b4b0); for (const px of [-1.6, 1.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), pole); p.position.set(px, 0.9, 0); g.add(p) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.65; g.add(bar); const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]; for (let i = 0; i < 4; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.78), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cl.position.set(-1.1 + i * 0.74, 1.25, 0); g.add(cl) } placeProp(g, x, z, rot, 0.03, 1.4) } // 物干し（洗濯もの）
     const shitsu = (x, z, rot) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.35), toon(0xcfcabd)); b.position.y = 0.4; g.add(b); const gr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), toon(0x8a8a86)); gr.position.set(0, 0.4, 0.181); g.add(gr); placeProp(g, x, z, rot, 0.02, 0.5) } // 室外機
@@ -5459,7 +5480,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-playgrounds' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-guardrail-mirror' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
