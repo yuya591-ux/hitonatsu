@@ -1388,9 +1388,20 @@ function buildShishigaya() {
   const walls = [[0.90, 0.86, 0.76], [0.86, 0.80, 0.68], [0.82, 0.84, 0.80], [0.80, 0.76, 0.70], [0.88, 0.82, 0.72], [0.78, 0.80, 0.84], [0.84, 0.78, 0.66]]
   const roofs = [[0.40, 0.46, 0.52], [0.46, 0.34, 0.28], [0.34, 0.42, 0.36], [0.30, 0.34, 0.40], [0.52, 0.42, 0.30], [0.38, 0.32, 0.30]]
   const aptWalls = [[0.86, 0.84, 0.80], [0.82, 0.80, 0.75], [0.80, 0.82, 0.84], [0.88, 0.85, 0.78], [0.79, 0.80, 0.82]], flatTop = [0.34, 0.36, 0.38], rtBox = [0.30, 0.31, 0.33]
-  const balconyTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d') // マンションのバルコニー面(1階×1戸を反復＝窓+手すり+床スラブ)
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#7c8893'; x.fillRect(7, 5, 50, 30); x.fillStyle = '#d7d2c6'; x.fillRect(3, 40, 58, 16)
-    x.fillStyle = '#aca695'; for (let i = 6; i < 60; i += 7) x.fillRect(i, 42, 1.5, 12); x.fillStyle = '#979185'; x.fillRect(0, 57, 64, 7)
+  const balconyTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d') // マンションのバルコニー1戸を反復。窓=空の映り込み＋十字桟／床スラブ＋影／手すり=縦格子。2段陰影で団地の壁ののっぺりを解消（白基調＝壁色に掛け算）
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 128, 128)
+    x.fillStyle = '#9a9488'; x.fillRect(0, 124, 128, 4) // 上階スラブが下階に落とす影＝戸の境（2段陰影の段差）
+    x.fillStyle = '#e9e4d8'; x.fillRect(0, 4, 128, 11)  // 庇／床スラブ（明）
+    x.fillStyle = '#b7b1a2'; x.fillRect(0, 15, 128, 4)  // スラブ下の影（暗）
+    const gx0 = 16, gx1 = 112, gy0 = 22, gy1 = 74
+    const gg = x.createLinearGradient(0, gy0, 0, gy1); gg.addColorStop(0, '#b3bdc6'); gg.addColorStop(1, '#7c8893') // ガラス＝空(上=明)→室内(下=暗)の映り込み
+    x.fillStyle = gg; x.fillRect(gx0, gy0, gx1 - gx0, gy1 - gy0)
+    x.strokeStyle = '#ede9de'; x.lineWidth = 3.5; x.strokeRect(gx0 + 1, gy0 + 1, gx1 - gx0 - 2, gy1 - gy0 - 2) // サッシ枠（明）
+    x.strokeStyle = '#cbc6b9'; x.lineWidth = 2; x.beginPath(); x.moveTo(64, gy0); x.lineTo(64, gy1); x.moveTo(gx0, 48); x.lineTo(gx1, 48); x.stroke() // 十字桟
+    x.fillStyle = '#dbd6ca'; x.fillRect(0, 80, 128, 40) // 手すり壁（コンクリ・明）
+    x.fillStyle = '#c7c2b4'; x.fillRect(0, 80, 128, 5)  // 笠木（手すり上端）
+    x.fillStyle = '#b3ad9e'; for (let i = 10; i < 122; i += 12) x.fillRect(i, 88, 2, 30) // 手すりの縦格子（スリット）
+    x.fillStyle = 'rgba(120,114,100,0.5)'; x.fillRect(0, 0, 4, 128); x.fillRect(124, 0, 4, 128) // 戸境の柱の陰＝隣の戸との継ぎめがはっきり（単調な反復を割る）
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
   const pushTri = (col, p0, p1, p2) => { rfv.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]); rfuv.push(p0[0] / 2.4, p0[2] / 2.4, p1[0] / 2.4, p1[2] / 2.4, p2[0] / 2.4, p2[2] / 2.4); for (let q = 0; q < 3; q++) rfc.push(col[0], col[1], col[2]); rfidx.push(oRef.o, oRef.o + 1, oRef.o + 2); oRef.o += 3 } // UVは真上からの平面投影＝瓦目が世界グリッドに揃う
   let sunIdx = -1, sunD = 1e9; SG.buildings.forEach((b, i) => { if (b[6] === 1) { const dd = Math.hypot(b[0] - 3008, b[1] + 8.5); if (dd < sunD) { sunD = dd; sunIdx = i } } }) // サンライズ北寺尾＝原点最寄りの集合住宅（z反転後なので+8.5）
@@ -5307,7 +5318,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-yatograss' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-danchi-wall' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
