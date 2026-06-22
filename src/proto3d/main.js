@@ -1380,7 +1380,11 @@ function buildShishigaya() {
     [2368, 662, 'yashiki', '横溝屋敷', 24], // 旧横溝家住宅(獅子ケ谷3-10-4)
     // 当時(〜1995)実在のマンション（不動産DBで特定→GSIジオコーディング）。[x,z,'apt',名前,clearR,階数]
     [3362, -24, 'apt', 'ニューハイツ北寺尾', 22, 4], [2984, 354, 'apt', 'コスモ綱島グランステージ', 24, 6], [3387, 467, 'apt', '獅子ヶ谷ハイツ', 36, 5],
-    [2943, 557, 'apt', '二ツ池ハイネス', 22, 5] // 獅子ケ谷2-15-3・1980・二ツ池のそば。※エンゼルハイム(2-35-35)はワールド外(>680m)で保留
+    [2943, 557, 'apt', '二ツ池ハイネス', 22, 5], // 獅子ケ谷2-15-3・1980・二ツ池のそば。※エンゼルハイム(2-35-35)はワールド外(>680m)で保留
+    // 施設系（神社・寺・公園/広場）＝OSM POIを1件ずつ。地元感の核
+    [2395, 392, 'shrine', '上郷神明社', 14],
+    [2735, 427, 'temple', '光明寺', 18], [2518, 235, 'temple', '真如山本覺寺', 18], [3617, 208, 'temple', '妙光寺', 18],
+    [3412, -330, 'park', '馬場第一公園', 4], [3162, 384, 'park', '獅子ケ谷公園', 4], [3361, 513, 'park', '獅子ヶ谷第二公園', 4], [3565, 182, 'park', '北寺尾四丁目公園', 4], [2938, -198, 'park', '渋沢金井公園', 4], [2698, -300, 'park', '北寺尾渋沢公園', 4], [2354, -208, 'park', '北寺尾第四公園', 4], [3082, 538, 'park', '二ツ池公園', 4], [3059, -14, 'park', '獅子ヶ谷第三公園', 4], [3152, -118, 'park', '北寺尾五丁目公園', 4], [2683, -317, 'park', '北寺尾第二公園', 4], [2462, -500, 'park', '北寺尾第三公園', 4], [2836, -619, 'park', 'かに山公園', 4], [2987, 123, 'park', '獅子ヶ谷一丁目公園', 4], [2586, 378, 'park', '西谷広場', 4], [2740, 539, 'park', '下谷広場', 4], [2458, 161, 'park', '新池広場', 4], [2442, 24, 'park', '旭台広場', 4], [2385, 180, 'park', '灰ヶ久保広場', 4]
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
@@ -1488,8 +1492,15 @@ function buildShishigaya() {
       const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am)
       grp.add(mk(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), toon(0x42464c), cx, gB + h + 0.2, cz, ry, true)) // 陸屋根
       if (name) grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.9, 8), 1.6), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), cx + si * (hd + 0.12), gB + h - 1.3, cz + co * (hd + 0.12), ry)) } // 屋上ちかくの名前看板(正面)
+    const buildTemple = (cx, cz, name) => { const gy = gmin4(cx, cz, 12, 9) // 寺＝本堂(瓦の寄棟)＋山門＋名前
+      grp.add(mk(new THREE.BoxGeometry(12, 4, 9), toon(0xc8bda0), cx, gy + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(9, 3.2, 4), toon(0x4a4a50), cx, gy + 5.6, cz, Math.PI / 4, true)) // 本堂
+      grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
+      signOn(cx, cz - 11, 8, gy, 4, name, '#5a3a3a') }
+    const buildParkSign = (cx, cz, name) => { const gy = heightAtYato(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, Math.atan2(3008 - cx, -8 - cz))) } // 公園のなまえ看板（既存の緑地に立てる）
     for (const [x, z, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
       if (type === 'shrine') buildShrine(x, z, name)
+      else if (type === 'temple') buildTemple(x, z, name)
+      else if (type === 'park') buildParkSign(x, z, name)
       else if (type === 'yashiki') { const gy = gmin4(x, z, 18, 12) // 横溝屋敷＝茅葺きの大屋根の母屋＋長屋門（谷の奥の旧家）
         grp.add(mk(new THREE.BoxGeometry(18, 3.4, 12), toon(0xcdbfa2), x, gy + 1.7, z, 0, true)) // 母屋の壁(白漆喰)
         grp.add(mk(new THREE.ConeGeometry(12.5, 6, 4), toon(0x5f4a2e), x, gy + 6.4, z, Math.PI / 4, true)) // 茅葺きの寄棟大屋根(急で大きい)
@@ -5162,7 +5173,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo34' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo35' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
