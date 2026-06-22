@@ -1161,6 +1161,18 @@ function drawWire(a, b, sag) {
 }
 drawWire(poleA, poleB, 1.2)
 drawWire(poleB, new THREE.Vector3(HOUSE.x, heightAt(HOUSE.x, HOUSE.z) + 3.5, HOUSE.z), 0.8)
+// 金網（チェーンリンク）＝グラウンド/校庭の周りの網。透明地＋ダイヤ網目。netFence＝矩形のまわりに網パネル＋支柱（高さh）
+const netTex = (() => { const s = 64, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d'); x.strokeStyle = 'rgba(206,209,212,0.8)'; x.lineWidth = 1.3
+  for (let i = -s; i <= s; i += 8) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + s, s); x.stroke(); x.beginPath(); x.moveTo(i + s, 0); x.lineTo(i, s); x.stroke() } // ＼と／のダイヤ網
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t })()
+function netFence(parent, cx, cz, w, d, h, op = 0.85) { // グラウンドのまわりの金網
+  for (const [fx, fz, fw, ang] of [[cx, cz - d / 2, w, 0], [cx, cz + d / 2, w, 0], [cx - w / 2, cz, d, Math.PI / 2], [cx + w / 2, cz, d, Math.PI / 2]]) {
+    const tex = netTex.clone(); tex.repeat.set(Math.max(1, Math.round(fw / 2.0)), Math.max(1, Math.round(h / 2.0))); tex.needsUpdate = true
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(fw, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: op })); const gy = heightAtYato(fx, fz); m.position.set(fx, gy + h / 2, fz); if (ang) m.rotation.y = ang; m.layers.set(1); parent.add(m) // layer1＝細い網にインク線が暴れないよう除外
+    const pc = toon(0x8a8f88), n = Math.max(2, Math.round(fw / 6))
+    for (let i = 0; i <= n; i++) { const e = -fw / 2 + fw * i / n, ex = ang ? fx : fx + e, ez = ang ? fz + e : fz, py = heightAtYato(ex, ez); const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, h + 0.2, 6), pc); post.position.set(ex, py + (h + 0.2) / 2, ez); post.castShadow = true; parent.add(post) } // 支柱
+  }
+}
 
 // ── 野原の道づくり（田舎の集落の道）＝歩いて「町」だと感じる幹線の土道＋水辺への踏み跡 ──
 // 集落の一本道（締まった土道・幅3.4〜3.6）：町の門 → 池と田の「くびれ」を抜け → 池の南を西へ → 家の前。原っぱの背骨。
@@ -1607,7 +1619,8 @@ function buildShishigaya() {
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, toon(col)); m.receiveShadow = true; grp.add(m) }
       const fenceRect = (px, pz, w, d) => { const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.36, side: THREE.DoubleSide })
         for (const [fx, fz, fw, ang] of [[px, pz - d / 2, w, 0], [px, pz + d / 2, w, 0], [px - w / 2, pz, d, Math.PI / 2], [px + w / 2, pz, d, Math.PI / 2]]) grp.add(mk(new THREE.PlaneGeometry(fw, 1.6), fm, fx, heightAtYato(fx, fz) + 0.85, fz, ang)) }
-      dirtPatch(3124, -186, 56, 96, 0xc9b487); fenceRect(3124, -186, 56, 96) // 校庭（東の一段高い平地・ユーザー指定。地面に沿う＝平ら〜34.5m・浮かない・歩いて登れる）
+      dirtPatch(3124, -186, 56, 96, 0xc9b487); netFence(grp, 3124, -186, 56, 96, 2.8) // 校庭（東の一段高い平地）＝まわりは金網フェンス（実物どおり・ユーザー要望2026-06-22）
+      for (const nz2 of [-234, -138]) { const tex = netTex.clone(); tex.repeat.set(28, 3); tex.needsUpdate = true; const nh = 6, nm2 = mk(new THREE.PlaneGeometry(56, nh), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.8 }), 3124, heightAtYato(3124, nz2) + nh / 2, nz2); nm2.layers.set(1); grp.add(nm2) } // 南北の高い防球ネット
       // 広場＝緑で覆い、裏門→校舎沿いに細い一本道→渡り切ると校庭への階段（ユーザー修正2026-06-22）。緑一色で他の原っぱと紛れないよう低い柵で囲い“小学校の広場”とわかるように
       makeRoadRibbon(3038, -164, 3058, -161, 2.3, false) // 裏門から校舎に沿って東へ（細い土の通路・前半）
       makeRoadRibbon(3058, -161, 3076, -155, 2.3, false) // 階段の手前まで（渡り切ると目の前が校庭への階段）
@@ -1667,6 +1680,7 @@ function buildShishigaya() {
       const weed = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.55, 4), new THREE.MeshToonMaterial({ color: 0x6f8a3e, gradientMap: GRAD }), 220); let wi = 0
       for (let t = 0; t < 800 && wi < 220; t++) { const x = gx + (Math.random() - 0.5) * gw, z = gz + (Math.random() - 0.5) * gd, y = heightAtYato(x, z); if (y < 3) continue; const s = 0.8 + Math.random() * 0.9; m4.makeTranslation(x, y + 0.28 * s, z); m4.scale(sc.set(s, s, s)); weed.setMatrixAt(wi++, m4) }
       weed.count = wi; weed.castShadow = true; weed.receiveShadow = true; grp.add(weed) // 膝丈の雑草（伸びた草むら）
+      netFence(grp, gx, gz, gw, gd, 2.4) // グラウンドのまわりの金網（ユーザー要望2026-06-22）
       const gm = toon(0xededed), ggy = heightAtYato(gx, gz + 30), GW2 = 7.2, GH = 2.4, gzz = gz + 30 // サッカーゴール1基（白いパイプ枠＋ネット）南端に
       for (const sx of [-GW2 / 2, GW2 / 2]) grp.add(mk(new THREE.BoxGeometry(0.13, GH, 0.13), gm, gx + sx, ggy + GH / 2, gzz)) // 左右ポスト
       grp.add(mk(new THREE.BoxGeometry(GW2 + 0.13, 0.13, 0.13), gm, gx, ggy + GH, gzz)) // クロスバー
@@ -1727,17 +1741,26 @@ function buildShishigaya() {
   for (const rd of SG.roads) { if (rd.w < 5 || tp.length > 2300) continue; const p = rd.p // 街路樹（主要道の脇の並木）
     for (let k = 0; k < p.length - 1 && tp.length <= 2300; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1
       for (let t = 12; t < l; t += 26) { const fx = x0 + dx * t / l, fz = z0 + dz * t / l, ox = -dz / l * (rd.w / 2 + 2.5), oz = dx / l * (rd.w / 2 + 2.5); for (const s of [1, -1]) { const x = fx + ox * s, z = fz + oz * s, c = cellOf(x, z); if (c >= 0 && !occ[c]) tp.push([x, z, 0]) } } } }
-  // 電柱＋電線：昭和の空を走る電線（“電線越しの夕焼け”＝エモさの要）。主要道ぞいに点々と立て、隣どうしを電線でつなぐ。プレイヤーがよくいる中心部(サンライズ〜小学校)の道を優先
-  { let np = 0
+  // 電柱＋電線：昭和の空を走る電線（“電線越しの夕焼け”＝エモさの要）を町全体に普及（ユーザー要望2026-06-22）。多数でも軽いようインスタンシング＝電柱2種＋電線をまとめて3ドロー
+  { const poleP = [], wireSeg = [], catPt = (a, b, t, sag) => new THREE.Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * sag, a.z + (b.z - a.z) * t)
     const cenD = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
-    const mainRoads = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 4).sort((a, b) => cenD(a) - cenD(b))
-    for (const rd of mainRoads) { if (np > 50) break
+    const mainRoads = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD(a) - cenD(b)) // 細い路地以外の道ぜんぶ・中心部から優先
+    for (const rd of mainRoads) { if (poleP.length > 420) break
       const p = rd.p; let prev = null
-      for (let k = 0; k < p.length - 1 && np <= 50; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
-        for (let t = (k === 0 ? 8 : 0); t < l && np <= 50; t += 24) { const px = x0 + ux * t + nx * (rd.w / 2 + 1.6), pz = z0 + uz * t + nz * (rd.w / 2 + 1.6)
-          if (Math.hypot(px - 3008, pz + 8) < 48) { prev = null; continue } // サンライズの周りには電柱/電線を立てない（屋上の周りに物差し状の線が散らばる＝実物に無い・ユーザー要望2026-06-23。半径48mで建物まわりを確実に空ける）
+      for (let k = 0; k < p.length - 1 && poleP.length <= 420; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+        for (let t = (k === 0 ? 8 : 0); t < l && poleP.length <= 420; t += 28) { const px = x0 + ux * t + nx * (rd.w / 2 + 1.4), pz = z0 + uz * t + nz * (rd.w / 2 + 1.4)
+          if (Math.hypot(px - 3008, pz + 8) < 46) { prev = null; continue } // サンライズの建物まわりは空ける
           if (inWater(px, pz) || heightAtYato(px, pz) < 3) { prev = null; continue }
-          const top = makePole(px, pz); np++; if (prev) drawWire(prev, top, 1.1); prev = top } } } }
+          const y = heightAtYato(px, pz), top = new THREE.Vector3(px, y + 8.2, pz); poleP.push([px, pz, y])
+          if (prev && prev.distanceTo(top) < 55) for (let w = 0; w < 5; w++) wireSeg.push(catPt(prev, top, w / 5, 1.1), catPt(prev, top, (w + 1) / 5, 1.1)) // 電線＝たるみ(catenary)つき
+          prev = top } } }
+    if (poleP.length) { const m4 = new THREE.Matrix4()
+      const pI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.24, 9, 6), toon(0x9a958c), poleP.length); pI.castShadow = true
+      const aI = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 0.16, 0.16), toon(0x6a5a44), poleP.length)
+      poleP.forEach(([px, pz, y], i) => { m4.makeTranslation(px, y + 4.5, pz); pI.setMatrixAt(i, m4); m4.makeTranslation(px, y + 8.2, pz); aI.setMatrixAt(i, m4) })
+      scene.add(pI); scene.add(aI)
+      const wl = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(wireSeg), new THREE.LineBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.6 })); wl.layers.set(1); scene.add(wl) // 電線はインク線パスから除外
+      console.log('[shishigaya] 電柱', poleP.length) } }
   // 生活感の小物（人がいた痕跡＝エモさ）：物干し・室外機を家のそばに、自販機・丸ポストを道角に。中心部(サンライズ〜小学校)に控えめに
   { const hoshi = (x, z, rot) => { const g = new THREE.Group(), pole = toon(0xb4b4b0); for (const px of [-1.6, 1.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), pole); p.position.set(px, 0.9, 0); g.add(p) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.65; g.add(bar); const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]; for (let i = 0; i < 4; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.78), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cl.position.set(-1.1 + i * 0.74, 1.25, 0); g.add(cl) } placeProp(g, x, z, rot, 0.03, 1.4) } // 物干し（洗濯もの）
     const shitsu = (x, z, rot) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.35), toon(0xcfcabd)); b.position.y = 0.4; g.add(b); const gr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), toon(0x8a8a86)); gr.position.set(0, 0.4, 0.181); g.add(gr); placeProp(g, x, z, rot, 0.02, 0.5) } // 室外機
@@ -5388,7 +5411,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-camera-calm' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-poles-nets' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
