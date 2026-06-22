@@ -53,6 +53,7 @@ function addCollider(x, z, r) { const idx = colliders.length; colliders.push({ x
 function addBox(x, z, halfW, halfD, rot = 0, pad = 0.45) { const idx = colliders.length, hw = halfW + pad, hd = halfD + pad, ext = Math.hypot(hw, hd); colliders.push({ box: true, x, z, hw, hd, c: Math.cos(rot), s: Math.sin(rot) }); cgAdd(idx, x - ext, z - ext, x + ext, z + ext) }
 // 1点を近傍コライダーの外へ押し出す（移動解決と自己検証で共用）。hit=押し戻したか
 function pushOutOfColliders(px, pz) {
+  if (onYatoRoad(px, pz)) return { x: px, z: pz, hit: false } // 道の上では一切塞がない＝道に沿って必ず歩ける（見えない壁の解消）。道のマスクは下で構築（呼び出しは初期化後なのでTDZ問題なし）
   let hit = false; const ci = Math.floor(px / CG_CELL), cj = Math.floor(pz / CG_CELL), seen = new Set()
   for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue
     for (const idx of a) { if (seen.has(idx)) continue; seen.add(idx); const c = colliders[idx], dx = px - c.x, dz = pz - c.z
@@ -121,6 +122,14 @@ for (const b of SG.buildings) { b[1] = -b[1]; b[4] = -b[4] } // 重心zと向き
 for (const r of SG.roads) for (const p of r.p) p[1] = -p[1]
 for (const w of SG.waters) for (const p of w.p) p[1] = -p[1]
 for (const g of SG.greens) for (const p of g.p) p[1] = -p[1]
+// ── 道の通り道マスク（2m格子）：道に沿って歩けるよう「道の上では当たり判定を効かせない」＝見えない壁で塞がれない（ユーザー最重要要望2026-06-22）。建物と道が重なる箇所(OSMの重なり/道の最低幅ぶとり)で道が塞がる問題を全箇所まとめて解消 ──
+const RMASK_CELL = 2, RMASK_N = Math.ceil(SG.half * 2 / RMASK_CELL) + 1
+const yatoRoadMask = new Uint8Array(RMASK_N * RMASK_N)
+const rmaskIdx = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / RMASK_CELL), j = Math.floor((z - SG.gz0 + SG.half) / RMASK_CELL); return (i < 0 || j < 0 || i >= RMASK_N || j >= RMASK_N) ? -1 : j * RMASK_N + i }
+const onYatoRoad = (x, z) => { const id = rmaskIdx(x, z); return id >= 0 && yatoRoadMask[id] === 1 }
+for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2) + 0.6, p = rd.p // 描画の路肩＋少し余裕＝道の端で建物に引っかからない
+  for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+    for (let t = 0; t <= l; t += 1) for (let s = -hw; s <= hw; s += 1) { const id = rmaskIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0) yatoRoadMask[id] = 1 } } } // 中心線に沿って幅ぶん塗る
 function heightAtYato(x, z) { // 実標高をバイリニア補間。zは反転サンプル(データ側を北=-zにしたため)。±SG.half外は縁の値で頭打ち
   const gn = SG.gn
   let fi = (x - SG.gx0 + SG.half) / SG.cell - 0.5, fj = (-z - SG.gz0 + SG.half) / SG.cell - 0.5
@@ -1441,8 +1450,10 @@ function buildShishigaya() {
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
   const skipZones = [[2898, -63, 15], [3012, -56, 24], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ(移設先)/B1森＋NAMED(学校clearR66が広場/校舎/裏門area を消す)。校庭の東は実家屋を消さないよう個別skipしない
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
+  let nOnRoad = 0 // 道の上に重心がある建物を消した数（道ふさぎ対策・ログで確認）
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
+    if (onYatoRoad(cx, cz)) { nOnRoad++; return } // 重心が道の上に乗る建物は描かない（OSMの重なり＝道の真ん中に建物が立つのを防ぐ。道は必ず通れる）
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     addBox(cx, cz, w / 2, d / 2, ang, 0.3) // 当たり判定（すり抜け防止・空間グリッドで軽い）
     const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
@@ -1753,7 +1764,7 @@ function buildShishigaya() {
       const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
     console.log('[shishigaya] grass', ng) }
-  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length)
+  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad)
 }
 buildShishigaya()
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
@@ -5329,7 +5340,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-house-window' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-roadwalk' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -6656,6 +6667,7 @@ window.__proto3d = {
   villager, townLady, townKid, farmer, cat, // 検証用
   heightAt(x, z) { return heightAt(x, z) }, // 検証用：地形の高さを問い合わせ（接地点検）
   colliders, _collide(x, z) { return pushOutOfColliders(x, z) }, // 検証用：当たり判定（点を外へ押し出す）
+  SG, heightAtYato(x, z) { return heightAtYato(x, z) }, // 検証用：獅子ヶ谷の道/建物/水データ＋実標高（道ふさぎの洗い出しに使う）
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
 
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
