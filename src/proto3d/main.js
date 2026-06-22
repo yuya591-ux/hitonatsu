@@ -1391,7 +1391,7 @@ function buildShishigaya() {
   const NAMED = [
     [2951, -42, 'shrine', '渋沢稲荷神社', 16], [2767, 188, 'rice', '香取米店', 14], [2767, 153, 'shop', 'しんみせ', 13],
     [2672, 17, 'eat', '泉屋', 14], [2901, 252, 'conbini', 'セブン-イレブン', 16], [2712, 76, 'koban', '北寺尾駐在所', 12],
-    [3088, 173, 'school', '獅子ヶ谷小学校', 58], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18],
+    [3060, 155, 'school', '獅子ヶ谷小学校', 66], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18],
     [2368, 662, 'yashiki', '横溝屋敷', 24], // 旧横溝家住宅(獅子ケ谷3-10-4)
     // 当時(〜1995)実在のマンション（不動産DBで特定→GSIジオコーディング）。[x,z,'apt',名前,clearR,階数]
     [3362, -24, 'apt', 'ニューハイツ北寺尾', 22, 4], [2984, 354, 'apt', 'コスモ綱島グランステージ', 24, 6], [3387, 467, 'apt', '獅子ヶ谷ハイツ', 36, 5],
@@ -1520,14 +1520,17 @@ function buildShishigaya() {
     const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
       const hg = gmin4(cx + 7, cz, 6, 6); grp.add(mk(new THREE.BoxGeometry(6, 4, 6), toon(0xb8a576), cx + 7, hg + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(5, 2.2, 4), toon(0x4a4a44), cx + 7, hg + 5.1, cz, Math.PI / 4, true)) // 社殿
       signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a'); addCollider(cx + 7, cz, 3.2) } // 社殿に当たり判定（鳥居はくぐれる）
-    const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝入口に広場→奥に階段を上ってグラウンド（実際の形）
-      const up = heightAtYato(cx + 45, cz) >= heightAtYato(cx - 45, cz) ? 1 : -1 // 高い側＝奥＝グラウンド
-      schoolBldg(cx - up * 4, cz - 2, 40, 12, 3, 0, 0x9a4f3e); schoolBldg(cx - up * 4, cz + 15, 11, 20, 3, 0, 0x5a6b72) // 校舎(3F)＋体育館
-      const px = cx - up * 32, pg = gmin4(px, cz, 26, 30); grp.add(mk(new THREE.BoxGeometry(26, 0.4, 30), toon(0xc2bdb2), px, pg + 0.12, cz, 0, true)) // 入口の広場(舗装)
-      const gxx = cx + up * 36; ground(gxx, cz, 50, 42, 0xccb78a) // 奥の高い造成グラウンド(土)
-      const lo = pg + 0.3, hi = gmax4(gxx, cz, 50, 42) + 0.3, steps = Math.max(3, Math.round((hi - lo) / 0.7)) // 広場→グラウンドの階段
-      for (let s = 0; s < steps; s++) grp.add(mk(new THREE.BoxGeometry(1.6, 0.34, 11), toon(0xcac4b8), cx + up * (8 + s * 1.5), lo + (s + 0.5) * (hi - lo) / steps, cz, 0, true))
-      signOn(cx - up * 4, cz - 8, 12, gmax4(cx - up * 4, cz, 40, 12), 11.5, name, '#2f5a8a') }
+    const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝OSMの実footprintに忠実：北の長い校舎＋西の棟(L字)＋体育館＋プール(南・実位置)＋校庭(東)
+      ground(3086, -138, 38, 50, 0xc9b487) // 校庭（東〜南の開けた土のグラウンド・フェンス付）。先に造成して校舎を上に
+      schoolBldg(3060, -174, 56, 13, 3, 0, 0x9a4f3e) // 北の長い校舎(3F)＝実(3060,-155)の北辺
+      schoolBldg(3035, -156, 14, 40, 3, 0, 0x9a4f3e) // 西の棟(3F)＝実(3037,-174)/(3038,-152)。北棟とでL字
+      schoolBldg(3050, -134, 26, 20, 2, 0, 0x55636b) // 体育館（陸屋根・窓少なめの大きな棟）
+      { const pcx = 3055, pcz = -104, pg = gmin4(pcx, pcz, 24, 18) // プール（実位置3055,-104）＝コンクリのプールサイド＋水面＋フェンス
+        grp.add(mk(new THREE.BoxGeometry(24, 1.0, 18), toon(0xd0ccc0), pcx, pg + 0.5, pcz, 0, true))
+        grp.add(mk(new THREE.BoxGeometry(19, 0.3, 13), new THREE.MeshToonMaterial({ color: 0x57b1d0, gradientMap: GRAD }), pcx, pg + 1.02, pcz, 0, true))
+        const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+        grp.add(mk(new THREE.PlaneGeometry(24, 1.6), fm, pcx, pg + 1.3, pcz - 9, 0)); grp.add(mk(new THREE.PlaneGeometry(24, 1.6), fm, pcx, pg + 1.3, pcz + 9, 0)); grp.add(mk(new THREE.PlaneGeometry(18, 1.6), fm, pcx - 12, pg + 1.3, pcz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(18, 1.6), fm, pcx + 12, pg + 1.3, pcz, Math.PI / 2)) }
+      signOn(3060, -181, 14, gmax4(3060, -174, 56, 13), 12, name, '#2f5a8a') }
     const buildApt = (cx, cz, w, d, floors, name) => { const gB = gmin4(cx, cz, w, d), slope = Math.min(10, gmax4(cx, cz, w, d) - gB), h = slope + floors * 3, ry = Math.atan2(3008 - cx, -8 - cz), co = Math.cos(ry), si = Math.sin(ry), hw = w / 2, hd = d / 2 // 当時の中層マンション＝バルコニー面＋陸屋根＋名前看板
       const L = (lx, ly, lz) => [cx + lx * co - lz * si, gB + ly, cz + lx * si + lz * co], base = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], vv = [], uvv = [], ix = []; let o = 0
       for (let k = 0; k < 4; k++) { const a = base[k], b = base[(k + 1) % 4], wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), vt = Math.max(2, Math.round(h / 3)), q = [L(a[0], 0, a[1]), L(b[0], 0, b[1]), L(b[0], h, b[1]), L(a[0], h, a[1])], uq = [[0, 0], [u, 0], [u, vt], [0, vt]]
@@ -5217,7 +5220,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260622-walk-stairs-flat-roof' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260622-futatsuike-school' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
