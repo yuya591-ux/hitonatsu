@@ -5388,7 +5388,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-roof-occlude' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-camera-calm' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5629,6 +5629,7 @@ const seatEye = new THREE.Vector3()
 const lookTo = new THREE.Vector3()
 const camGoal = new THREE.Vector3()
 const lookGoal = new THREE.Vector3()
+let camOcclT = 1 // 遮蔽回避の寄せ量をなめらかに（瞬時に切り替えるとズームが頻発してうざい→時間でラグさせる）
 const tmp = new THREE.Vector3()
 let camManualTimer = 0 // 手動でカメラを回した直後は自動追従を止める秒数（マリオ式：手で回すと優先）
 let reduceMotion = false // 設定：画面のゆれを減らす（アクセシビリティ）
@@ -6248,7 +6249,7 @@ function update(dt) {
 
     // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
     idleTime = moving ? 0 : idleTime + dt
-    const calm = THREE.MathUtils.clamp((idleTime - 1.2) / 3, 0, 1) // 1.2秒後から3秒かけて
+    const calm = THREE.MathUtils.clamp((idleTime - 2.5) / 4, 0, 1) // 2.5秒立ち止まってから4秒かけて（短い停止では動かない＝歩行中のズーム切替を抑える）
     lookUp += ((moving ? 0 : calm * 0.18) - lookUp) * Math.min(1, dt * 2)
     boy.userData.head.rotation.x = -lookUp * 1.6 + (moving ? Math.sin(phase * 2) * 0.03 : 0) // 見上げる＋歩くと小さくうなずく
     // 立ち止まると あたりを見回す。歩くと踏み込んだ足の方へ重心が傾く（ローリング）＝人らしい歩き
@@ -6324,8 +6325,8 @@ function update(dt) {
       camCtl.yaw += dyaw * Math.min(1, dt * 1.0) // ゆっくり（ラグ感＝レイクツーカメラ風）
     }
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
-    camCtl.dist += (camDistTarget * (1 + calm * 0.18) - camCtl.dist) * Math.min(1, dt * 1.2)
-    camera.fov += ((BASE_FOV - calm * 4) - camera.fov) * Math.min(1, dt * 1.5)
+    camCtl.dist += (camDistTarget * (1 + calm * 0.05) - camCtl.dist) * Math.min(1, dt * 1.2) // 立ち止まりの自動引きはごく控えめ(18%→5%)＝ズームのうざさを解消
+    camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5)
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
     // ごく微かな“息”の揺れ（モーション軽減ONのときは止める）
@@ -6333,18 +6334,20 @@ function update(dt) {
     // カメラの遮蔽回避（マリオ式）：主人公とカメラの間に建物/木があれば手前へ寄せる。※屋上(高所)ではOFF＝建物の壁/手すりに反応してカメラが弾く・ズームするのを止める
     if (!boy.userData._high) {
       const hx = boy.position.x, hyc = boy.position.y + 1.3, hz = boy.position.z
-      let ct = 1
-      for (let s = 0.25; s <= 0.95; s += 0.1) {
+      let ctTarget = 1
+      for (let s = 0.35; s <= 0.92; s += 0.12) { // 主人公に近い側は無視(0.35〜)＝建物の角をかすめた程度では寄せない
         const px = hx + (camGoal.x - hx) * s, pz = hz + (camGoal.z - hz) * s
         let blocked = false
         for (const c of colliders) {
-          if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.7 && Math.abs(lz) < c.hd + 0.7) { blocked = true; break } }
-          else { const rr = c.r + 0.7; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } }
+          if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.3 && Math.abs(lz) < c.hd + 0.3) { blocked = true; break } }
+          else { const rr = c.r + 0.3; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } }
         }
-        if (blocked) { ct = Math.max(0.22, s - 0.1); break }
+        if (blocked) { ctTarget = Math.max(0.35, s - 0.08); break }
       }
-      if (ct < 1) { camGoal.x = hx + (camGoal.x - hx) * ct; camGoal.z = hz + (camGoal.z - hz) * ct; camGoal.y = hyc + (camGoal.y - hyc) * ct }
-    }
+      // 寄せ量を時間でなめらかに：塞がれたら少し速く寄り(dt*5)、空いたらゆっくり戻す(dt*1.5)＝走行中に頻繁にズームが切り替わるのを抑える
+      camOcclT += (ctTarget - camOcclT) * Math.min(1, dt * (ctTarget < camOcclT ? 5 : 1.5))
+      if (camOcclT < 0.999) { camGoal.x = hx + (camGoal.x - hx) * camOcclT; camGoal.z = hz + (camGoal.z - hz) * camOcclT; camGoal.y = hyc + (camGoal.y - hyc) * camOcclT }
+    } else camOcclT += (1 - camOcclT) * Math.min(1, dt * 1.5) // 屋上では戻す
     { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
   } else if (mode === 'lying') {
