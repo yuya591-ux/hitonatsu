@@ -1653,8 +1653,12 @@ function buildShishigaya() {
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m } // X軸回転対応（屋根の勾配/鰹木/千木用）
       const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)) } // 石灯籠
       const komainu = (kx, kz) => { const ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(0.5, 0.85, 0.5), stone, kx, ky + 0.42, kz, 0, true)); grp.add(mk(new THREE.BoxGeometry(0.36, 0.5, 0.62), stoneL, kx, ky + 1.05, kz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.19, 8, 6), stoneL, kx, ky + 1.4, kz + 0.16, 0, true)) } // 狛犬（台座＋体＋頭）
-      // 神明鳥居（木造・直線。柱2＋まっすぐな笠木＋貫）front=南(cz+11)
-      { const tz = cz + 11, ty = heightAtYato(cx, tz), tw = 1.9; for (const sx of [-tw, tw]) grp.add(mk(new THREE.CylinderGeometry(0.15, 0.18, 4.4, 8), wood, cx + sx, ty + 2.2, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 1.1, 0.32, 0.46), woodD, cx, ty + 4.45, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 0.3, 0.24, 0.34), woodD, cx, ty + 3.6, tz)); addCollider(cx - tw, tz, 0.4); addCollider(cx + tw, tz, 0.4) }
+      // 神明鳥居（木造・直線。柱2＋まっすぐな笠木＋貫＋注連縄）front=南(cz+11)。木造はWeb調査で確認
+      { const tz = cz + 11, ty = heightAtYato(cx, tz), tw = 1.9; for (const sx of [-tw, tw]) grp.add(mk(new THREE.CylinderGeometry(0.15, 0.18, 4.4, 8), wood, cx + sx, ty + 2.2, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 1.1, 0.32, 0.46), woodD, cx, ty + 4.45, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 0.3, 0.24, 0.34), woodD, cx, ty + 3.6, tz))
+        grp.add(mk(new THREE.BoxGeometry(tw * 2 - 0.2, 0.3, 0.32), toon(0xd9c89a), cx, ty + 3.15, tz, 0, true)) // 注連縄（しめなわ）
+        for (const dx of [-1.1, 0, 1.1]) grp.add(mk(new THREE.PlaneGeometry(0.16, 0.42), new THREE.MeshBasicMaterial({ color: 0xf4f2ea, side: THREE.DoubleSide }), cx + dx, ty + 2.78, tz + 0.02)) // 紙垂（しで）
+        addCollider(cx - tw, tz, 0.4); addCollider(cx + tw, tz, 0.4) }
+      grp.add(mk(new THREE.BoxGeometry(0.42, 2.5, 0.42), toon(0xc6c2b6), cx - 2.9, gy + 1.25, cz + 10.5, 0, true)) // 社号標（石柱）
       grp.add(mk(new THREE.BoxGeometry(2.6, 0.1, 11), toon(0xc7c3b6), cx, gy + 0.07, cz + 5.5, 0, true)) // 参道（石畳）
       for (const lz of [cz + 9, cz + 5.5]) { lantern(cx - 2.4, lz); lantern(cx + 2.4, lz) } // 参道の石灯籠（2対）
       komainu(cx - 2.0, cz + 2.8); komainu(cx + 2.0, cz + 2.8) // 狛犬
@@ -5569,7 +5573,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-shinmei' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-shinmei2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
