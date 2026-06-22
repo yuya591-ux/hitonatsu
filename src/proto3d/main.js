@@ -1640,18 +1640,19 @@ function buildShishigaya() {
   const yatoDirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#c39a55'; x.fillRect(0, 0, 64, 64); for (let i = 0; i < 520; i++) { const r = 150 + Math.random() * 55 | 0; x.fillStyle = 'rgba(' + r + ',' + (r - 30) + ',' + (r - 78) + ',' + (0.07 + Math.random() * 0.15).toFixed(2) + ')'; const s = 1 + Math.random() * 2.5; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 土の道＝草地と差がつく濃いめの黄土
   const buildRoads = (kind, tex, lift, edgeCol) => { const rv = [], ruv = [], ridx = [], ev = [], eidx = []; let ro = 0, eo = 0
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = Math.max(kind === 'path' ? 1.25 : 2.0, rd.w / 2) // 細い道も見える/歩ける最低幅を確保
-      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, px = -uz * hw, pz = ux * hw, ex = -uz * (hw + 0.5), ez = ux * (hw + 0.5), n = Math.max(1, Math.ceil(l / 5))
-        for (let s = 0; s < n; s++) { const t0 = s / n, t1 = (s + 1) / n, ax = x0 + dx * t0, az = z0 + dz * t0, bx = x0 + dx * t1, bz = z0 + dz * t1
-          for (const [qx, qz] of [[ax + px, az + pz], [ax - px, az - pz], [bx + px, bz + pz], [bx - px, bz - pz]]) rv.push(qx, heightAtYato(qx, qz) + lift, qz)
-          ruv.push(0, l * t0 / 3, 1, l * t0 / 3, 0, l * t1 / 3, 1, l * t1 / 3); ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4
-          for (const [qx, qz] of [[ax + ex, az + ez], [ax - ex, az - ez], [bx + ex, bz + ez], [bx - ex, bz - ez]]) ev.push(qx, heightAtYato(qx, qz) + lift - 0.04, qz) // 道のふち（少し広い下地）＝縁取りで“道”がはっきり
-          eidx.push(eo, eo + 2, eo + 1, eo + 1, eo + 2, eo + 3); eo += 4 } } }
+      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, n = Math.max(2, Math.ceil(l / 4)) // 4m刻み＋中央頂点で地形に沿わせる（埋もれ防止・三角数を抑える）
+        const rb = ro, eb = eo
+        for (let s = 0; s <= n; s++) { const t = s / n, cx = x0 + dx * t, cz = z0 + dz * t // 中心線に沿って 左/中央/右 の3点を地形高で（中央頂点があるので尾根で地形が路面を突き抜けない＝埋もれ防止）
+          for (const sd of [-1, 0, 1]) { const qx = cx + nx * hw * sd, qz = cz + nz * hw * sd; rv.push(qx, heightAtYato(qx, qz) + lift, qz); ruv.push((sd + 1) / 2, l * t / 3) }
+          for (const sd of [-1, 1]) { const qx = cx + nx * (hw + 0.5) * sd, qz = cz + nz * (hw + 0.5) * sd; ev.push(qx, heightAtYato(qx, qz) + lift - 0.05, qz) } } // 道のふち（少し広い下地）＝縁取り
+        for (let s = 0; s < n; s++) { const a = rb + s * 3; ridx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5); const e = eb + s * 2; eidx.push(e, e + 2, e + 1, e + 1, e + 2, e + 3) }
+        ro += (n + 1) * 3; eo += (n + 1) * 2 } }
     if (!rv.length) return
     if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, side: THREE.DoubleSide }))) }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
     scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, side: THREE.DoubleSide }))) }
-  buildRoads('paved', asphaltTex, 0.34, 0x5b5e64)   // 舗装路（アスファルト＋濃い縁取り）
-  buildRoads('path', yatoDirtTex, 0.28, 0x8a6f3e)   // 土の小道（＋濃い土の縁取り）
+  buildRoads('paved', asphaltTex, 0.42, 0x5b5e64)   // 舗装路（アスファルト＋濃い縁取り・地形追従で埋もれ防止）
+  buildRoads('path', yatoDirtTex, 0.34, 0x8a6f3e)   // 土の小道（＋濃い土の縁取り）
   // 占有グリッド（建物の場所を記録→木を建物に重ねない）
   const GC = Math.ceil(SG.half * 2 / 6), occ = new Uint8Array(GC * GC)
   const cellOf = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / 6), j = Math.floor((z - SG.gz0 + SG.half) / 6); return (i < 0 || j < 0 || i >= GC || j >= GC) ? -1 : j * GC + i }
