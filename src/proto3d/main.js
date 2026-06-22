@@ -1553,7 +1553,7 @@ function buildShishigaya() {
     shop.add(mk(new THREE.PlaneGeometry(9.4, 2.0), new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide }), 0, 4.7, 4.05)) // 看板「ゲーム ビスコ」
     // ───── (3) サンライズの歩行者エントランス（南面）＝実物の“立派なエントランス”。道→ちょっとした上り坂→ポーチ(柱＋庇＋自動ドア)。出て左手(東)の敷地内路地で隣の獅子ヶ谷第三公園へ抜けられる（ユーザー実体験＋Web調査「公園が隣接」2026-06-22）─────
     // ポーチ＝建物南面(3001,3)-(3009,7)の向きに合わせて角度をつける（ユーザー座標2026-06-22）。グループを回転＝床/柱/庇/ドアがまとめて南面に正対
-    { const fth = Math.atan2(-(7 - 3), 3009 - 3001), ent = new THREE.Group(); ent.position.set(3005, heightAtYato(3005, 5), 5); ent.rotation.y = fth; grp.add(ent)
+    { const fth = Math.atan2(-(7 - 3), 3009 - 3001), ent = new THREE.Group(); ent.position.set(3003.8, heightAtYato(3003.8, 7.5), 7.5); ent.rotation.y = fth; grp.add(ent) // 建物に埋もれないよう南へ少し手前に出す（ユーザー要望2026-06-22）
       const lmk = (geo, mat, lx, ly, lz, sh) => { const m = new THREE.Mesh(geo, mat); m.position.set(lx, ly, lz); if (sh) { m.castShadow = true; m.receiveShadow = true } ent.add(m); return m }
       lmk(new THREE.BoxGeometry(8, 0.3, 4), toon(0xbdb6a8), 0, 0.16, 2.0, true) // 御影石風のポーチ床（外へ張り出す）
       for (const dx of [-3.2, 3.2]) lmk(new THREE.CylinderGeometry(0.22, 0.22, 3.0, 8), toon(0xe7e3d7), dx, 1.6, 3.4, true) // 柱2本
@@ -1563,7 +1563,16 @@ function buildShishigaya() {
     makeRoadRibbon(2999, 11.5, 2991, 22.5, 8, false) // 茶色の太い道（土・ユーザー座標範囲）＝エントランス西側の前庭
     makeRoadRibbon(3014.5, 11, 3005.5, 31, 10, false, true) // コンクリートの道（ユーザー座標範囲）＝エントランス前〜開始位置の本通り
     // 出て東の敷地内路地＝建物の南を東へ回り込み、隣の獅子ヶ谷第三公園(3059,14)へ
-    for (const [ax, az, bx, bz] of [[3009, 11, 3028, 21], [3028, 21, 3044, 23], [3044, 23, 3055, 16], [3055, 16, 3059, 14]]) makeRoadRibbon(ax, az, bx, bz, 2.6, false, true) } // 第三公園へ接続
+    for (const [ax, az, bx, bz] of [[3009, 11, 3028, 21], [3028, 21, 3044, 23], [3044, 23, 3055, 16], [3055, 16, 3059, 14]]) makeRoadRibbon(ax, az, bx, bz, 2.6, false, true) // 第三公園へ接続
+    // エントランスの少し右＝車がマンション内に入るためのシャッター（駐車場入口）(3010,8)-(3021,12)＝ユーザー座標2026-06-22。建物南面に沿う向きで設置
+    { const ax = 3010, az = 8, bx = 3021, bz = 12, mx = (ax + bx) / 2, mz = (az + bz) / 2, len = Math.hypot(bx - ax, bz - az), sgrp = new THREE.Group(); sgrp.position.set(mx, heightAtYato(mx, mz), mz); sgrp.rotation.y = Math.atan2(-(bz - az), bx - ax); grp.add(sgrp)
+      const sadd = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; sgrp.add(m) }
+      sadd(new THREE.BoxGeometry(len + 0.6, 0.6, 0.5), toon(0x8a8f96), 0, 3.3, 0) // まぐさ（上枠）
+      for (const lx of [-len / 2 - 0.25, len / 2 + 0.25]) sadd(new THREE.BoxGeometry(0.5, 3.6, 0.6), toon(0x8a8f96), lx, 1.8, 0) // 左右の柱
+      sadd(new THREE.BoxGeometry(len, 3.0, 0.4), toon(0x565b62), 0, 1.5, 0.02) // シャッター本体
+      for (let i = 0; i < 6; i++) sadd(new THREE.BoxGeometry(len - 0.2, 0.1, 0.46), toon(0x7a818a), 0, 0.5 + i * 0.5, 0.05) // 横桟
+      sadd(new THREE.BoxGeometry(len + 1.5, 0.3, 4.5), toon(0x9a9a92), 0, 0.04, 3.0) // 車路の舗装スロープ（前に張り出す）
+      addBox(mx, mz, len / 2, 0.4, Math.atan2(-(bz - az), bx - ax), 0.3) } } // シャッター壁の当たり判定
   // ───── 周辺の実ランドマーク：獅子ヶ谷小学校(実位置3074,155)・橘学苑(実位置3123,-42＝裏山は地形の頂)・マリノスのグラウンド(前面・位置は要確認) ─────
   { const grp = new THREE.Group(); grp.name = 'landmarks2'; scene.add(grp)
     const mk = (geo, mat, x, y, z, ry, sh) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; if (sh) { m.castShadow = true; m.receiveShadow = true } return m }
@@ -5376,7 +5385,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-ent-school2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-ent-shutter' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
