@@ -1568,7 +1568,10 @@ function buildShishigaya() {
       const fenceRect = (px, pz, w, d) => { const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.36, side: THREE.DoubleSide })
         for (const [fx, fz, fw, ang] of [[px, pz - d / 2, w, 0], [px, pz + d / 2, w, 0], [px - w / 2, pz, d, Math.PI / 2], [px + w / 2, pz, d, Math.PI / 2]]) grp.add(mk(new THREE.PlaneGeometry(fw, 1.6), fm, fx, heightAtYato(fx, fz) + 0.85, fz, ang)) }
       dirtPatch(3124, -186, 56, 96, 0xc9b487); fenceRect(3124, -186, 56, 96) // 校庭（東の一段高い平地・ユーザー指定。地面に沿う＝平ら〜34.5m・浮かない・歩いて登れる）
-      dirtPatch(3062, -154, 24, 28, 0xc2bdb2) // 広場（舗装・ユーザー指定3050-3075,-139..-169）
+      // 広場＝緑で覆い、校舎へ向かう一本道だけ（ユーザー要望2026-06-22）。舗装はやめて地面の緑を見せ、夏草(全体散布)＋木立で覆う。池は残す
+      dirtPatch(3069, -156, 3.6, 36, 0xb9a06a) // 広場→校舎の一本道（池の東を南北に・土の道）
+      for (const [tx, tz, ts, cc] of [[3052, -144, 1.15, 0x5f8a40], [3074, -146, 1.0, 0x6f9a47], [3050, -166, 1.05, 0x577e3a], [3076, -168, 0.95, 0x5f8a40], [3058, -140, 0.9, 0x6a9445]]) { const ty = heightAtYato(tx, tz) // 広場の木立（緑をたくさん）
+        grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5 * ts, 5), toon(0x6a4e34), tx, ty + 0.75 * ts, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(1.8 * ts, 0), toon(cc), tx, ty + 1.5 * ts + 1.2 * ts, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) }
       { const px = 3062, pz = -150, py = heightAtYato(px, pz) + 0.1 // 広場の小さな池（ユーザー記憶）
         const edge = new THREE.Mesh(new THREE.CircleGeometry(3.9, 24), toon(0x9a8b66)); edge.rotation.x = -Math.PI / 2; edge.position.set(px, py + 0.04, pz); grp.add(edge)
         const pond = new THREE.Mesh(new THREE.CircleGeometry(3.3, 24), waterMat); pond.rotation.x = -Math.PI / 2; pond.position.set(px, py + 0.09, pz); grp.add(pond) } // 水面＝本物の水シェーダ
@@ -1739,7 +1742,7 @@ function buildShishigaya() {
   // ── 夏草の茂み：歩く谷あいの地面のベタ塗りを解消＝足元のエモさ。建物/水/道/急斜面を避け、平〜緩斜面の低〜中標高に密に。風になびく（InstancedMeshで1ドロー） ──
   { const roadOcc = new Uint8Array(GC * GC) // 道の通るセルは草を生やさない（路面に草が刺さらない。セル6mなので路肩1mほどから生える）
     for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1; for (let t = 0; t <= l; t += 3) { const c = cellOf(x0 + dx * t / l, z0 + dz * t / l); if (c >= 0) roadOcc[c] = 1 } } }
-    const bareZones = [[3124, -186, 31, 51], [3062, -154, 14, 16], [3055, -104, 14, 11]] // 草を生やさない裸地＝小学校の[校庭][広場(＋小池)][プール]。校庭がぼうぼうだと学校に見えない（マリノスのグラウンドは“雑草の原っぱ”が正解なので除外しない）
+    const bareZones = [[3124, -186, 31, 51], [3062, -150, 5, 5], [3069, -156, 2.8, 19], [3055, -104, 14, 11]] // 草を生やさない裸地＝[校庭][広場の池][広場→校舎の一本道][プール]。広場の残りは緑(夏草)で覆う＝ユーザー要望。マリノスG(雑草原っぱ)は除外しない
     const inBare = (x, z) => bareZones.some(([bx, bz, hw, hd]) => Math.abs(x - bx) < hw && Math.abs(z - bz) < hd)
     const tuft = new THREE.IcosahedronGeometry(0.5, 0); tuft.scale(1, 0.5, 1) // 低い茂みのかたまり
     const gmat = new THREE.MeshToonMaterial({ gradientMap: GRAD }) // 色はinstanceColorで標高ごとに（白×instanceColor）
@@ -5343,7 +5346,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-roadwalk' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-school-green' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
