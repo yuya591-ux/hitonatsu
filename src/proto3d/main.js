@@ -45,24 +45,22 @@ const YATO = {
 const SWING = { x: TOWN.x - 16, z: TOWN.z + 37, py: 3.0, L: 2.2 } // 裏山ふもとのブランコ（乗ると街を見おろすブランコ視点）
 // 当たり判定（建物・木などをすり抜けない）：円＋矩形(箱)のリスト。移動時に外へ押し戻す
 const colliders = []
-function addCollider(x, z, r) { colliders.push({ x, z, r }) }
-// 長方形の建物は箱で囲う（円1個だと角がはみ出てすり抜け／前後に見えない壁ができるため）。halfW/halfDは footprint の半分、rotは建物のrotation.y、padは体のゆとり
-function addBox(x, z, halfW, halfD, rot = 0, pad = 0.45) { colliders.push({ box: true, x, z, hw: halfW + pad, hd: halfD + pad, c: Math.cos(rot), s: Math.sin(rot) }) }
-// 1点を全コライダーの外へ押し出す（移動解決と自己検証で共用）。hit=押し戻したか
+// 衝突は空間グリッドで近傍だけ判定（獅子ヶ谷の数千棟でもスマホで軽い）。各コライダーは自分のbboxが重なる全セルに登録
+const CG_CELL = 12, cgrid = new Map(), cgKey = (i, j) => i + ',' + j
+function cgAdd(idx, minx, minz, maxx, maxz) { const i0 = Math.floor(minx / CG_CELL), i1 = Math.floor(maxx / CG_CELL), j0 = Math.floor(minz / CG_CELL), j1 = Math.floor(maxz / CG_CELL); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = cgKey(i, j); let a = cgrid.get(k); if (!a) cgrid.set(k, a = []); a.push(idx) } }
+function addCollider(x, z, r) { const idx = colliders.length; colliders.push({ x, z, r }); cgAdd(idx, x - r, z - r, x + r, z + r) }
+// 長方形の建物は箱で囲う（円1個だと角がはみ出てすり抜け）。halfW/halfDは footprint の半分、rotは建物のrotation.y、padは体のゆとり
+function addBox(x, z, halfW, halfD, rot = 0, pad = 0.45) { const idx = colliders.length, hw = halfW + pad, hd = halfD + pad, ext = Math.hypot(hw, hd); colliders.push({ box: true, x, z, hw, hd, c: Math.cos(rot), s: Math.sin(rot) }); cgAdd(idx, x - ext, z - ext, x + ext, z + ext) }
+// 1点を近傍コライダーの外へ押し出す（移動解決と自己検証で共用）。hit=押し戻したか
 function pushOutOfColliders(px, pz) {
-  let hit = false
-  for (const c of colliders) {
-    const dx = px - c.x, dz = pz - c.z
-    if (c.box) { // 回転矩形：ローカル座標へ移し、めり込んでいたら一番近い面の外へ
-      const lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz
-      if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) {
-        const penX = c.hw - Math.abs(lx), penZ = c.hd - Math.abs(lz)
-        let nlx = lx, nlz = lz
-        if (penX < penZ) nlx = c.hw * (Math.sign(lx) || 1); else nlz = c.hd * (Math.sign(lz) || 1)
-        px = c.x + c.c * nlx + c.s * nlz; pz = c.z - c.s * nlx + c.c * nlz; hit = true
-      }
-    } else { const d = Math.hypot(dx, dz); if (d < c.r && d > 0.0001) { const k = c.r / d; px = c.x + dx * k; pz = c.z + dz * k; hit = true } }
-  }
+  let hit = false; const ci = Math.floor(px / CG_CELL), cj = Math.floor(pz / CG_CELL), seen = new Set()
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue
+    for (const idx of a) { if (seen.has(idx)) continue; seen.add(idx); const c = colliders[idx], dx = px - c.x, dz = pz - c.z
+      if (c.box) { // 回転矩形：ローカル座標へ移し、めり込んでいたら一番近い面の外へ
+        const lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz
+        if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) { const penX = c.hw - Math.abs(lx), penZ = c.hd - Math.abs(lz); let nlx = lx, nlz = lz; if (penX < penZ) nlx = c.hw * (Math.sign(lx) || 1); else nlz = c.hd * (Math.sign(lz) || 1); px = c.x + c.c * nlx + c.s * nlz; pz = c.z - c.s * nlx + c.c * nlz; hit = true }
+      } else { const d = Math.hypot(dx, dz); if (d < c.r && d > 0.0001) { const k = c.r / d; px = c.x + dx * k; pz = c.z + dz * k; hit = true } }
+    } }
   return { x: px, z: pz, hit }
 }
 let swingSeat = null, swingPhase = 0, swingAmp = 0.3, swingCreakN = 0 // 振り子の状態（CreakNはきしみ音の折り返し検出）
@@ -1393,6 +1391,7 @@ function buildShishigaya() {
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
+    addBox(cx, cz, w / 2, d / 2, ang, 0.3) // 当たり判定（すり抜け防止・空間グリッドで軽い）
     const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
     let gy = 1e9, gTop = -1e9; for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) { const ge = heightAtYato(cx + sx * co - sz * si, cz + sx * si + sz * co); if (ge < gy) gy = ge; if (ge > gTop) gTop = ge }
     const slope = Math.min(12, gTop - gy) // 斜面：床=最低角(gy)＋落差ぶん壁を上に伸ばす＝上手で山に埋まらず下手で浮かない
@@ -1424,6 +1423,7 @@ function buildShishigaya() {
   // ───── サンライズ鶴見北寺尾I：実輪郭(雁行型)を7階RCで忠実再現。斜面の途中に建ち、NW端(谷=二ツ池/眺望側)の7階は部屋でなく開放テラス＋下から上がる階段室 ─────
   { const poly = SUNRISE_POLY
     let gmin = 1e9, gmax = -1e9; for (const [x, z] of poly) { const e = heightAtYato(x, z); gmin = Math.min(gmin, e); gmax = Math.max(gmax, e) }
+    for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len > 1) addBox((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, len / 2, 0.6, Math.atan2(b[1] - a[1], b[0] - a[0]), 0.3) } // 雁行の各辺を壁コライダーに＝外周ですり抜け防止
     const F = 3, base = gmax + 1.5, t6 = base + 6 * F, top = base + 7 * F, wc = [0.93, 0.88, 0.80], conc = [0.82, 0.80, 0.75] // 斜面：床を最高地盤+1.5の基壇に＝上手は数段上がって入る・下手ほど基礎/擁壁が高く見え、坂の途中に建つ姿に
     const tzone = (x, z) => ((x - 2981) * 1.2 - (-z - 20.7) * 15.9) < 0 // NW端=開放テラス領域（pt14→pt11・z反転後）
     for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], openEdge = tzone(a[0], a[1]) && tzone(b[0], b[1]) // テラス辺は6階まで＋手すり、他は7階まで
@@ -1464,7 +1464,7 @@ function buildShishigaya() {
     const gmin4 = (cx, cz, w, d) => Math.min(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
     const schoolTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#e9e4d6'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#586774'; for (let yy = 8; yy < 60; yy += 16) for (let xx = 7; xx < 60; xx += 14) x.fillRect(xx, yy, 9, 10); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 校舎の窓列
     const gmax4 = (cx, cz, w, d) => Math.max(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
-    const schoolBldg = (cx, cz, w, d, floors, ry, roofCol) => { const gB = gmin4(cx, cz, w, d), slope = Math.min(10, gmax4(cx, cz, w, d) - gB), h = slope + floors * 3.3, tex = schoolTex.clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(2, Math.round(w / 4)), floors); grp.add(mk(new THREE.BoxGeometry(w, h, d), new THREE.MeshToonMaterial({ color: 0xd2cab6, gradientMap: GRAD, map: tex }), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), toon(roofCol || 0x9a4f3e), cx, gB + h + 0.3, cz, ry, true)) } // 斜面でも埋まらないよう床=最低角＋落差ぶん上に伸ばす
+    const schoolBldg = (cx, cz, w, d, floors, ry, roofCol) => { const gB = gmin4(cx, cz, w, d), slope = Math.min(10, gmax4(cx, cz, w, d) - gB), h = slope + floors * 3.3, tex = schoolTex.clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(2, Math.round(w / 4)), floors); grp.add(mk(new THREE.BoxGeometry(w, h, d), new THREE.MeshToonMaterial({ color: 0xd2cab6, gradientMap: GRAD, map: tex }), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), toon(roofCol || 0x9a4f3e), cx, gB + h + 0.3, cz, ry, true)); addBox(cx, cz, w / 2, d / 2, ry, 0.3) } // 斜面でも埋まらないよう床=最低角＋落差ぶん上に伸ばす＋当たり判定
     const ground = (cx, cz, w, d, col) => { const gT = gmax4(cx, cz, w, d), gB = gmin4(cx, cz, w, d), th = Math.min(3.5, gT - gB) + 0.4; grp.add(mk(new THREE.BoxGeometry(w, th, d), toon(col), cx, gT + 0.15 - th / 2, cz, 0, true)); const sy = gT + 0.3, fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.38, side: THREE.DoubleSide }); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz - d / 2)); grp.add(mk(new THREE.PlaneGeometry(w, 1.8), fm, cx, sy + 0.9, cz + d / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx - w / 2, sy + 0.9, cz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(d, 1.8), fm, cx + w / 2, sy + 0.9, cz, Math.PI / 2)) } // 校庭/グラウンド＝最高角を天端にした造成平面(埋まらない)＋簡易フェンス
     // 名前看板（業種色）。サンライズ向きに立てる
     const signTex = (name, bg, fg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 64); x.fillStyle = fg; x.font = 'bold ' + (name.length > 6 ? 30 : 38) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, 128, 34); return new THREE.CanvasTexture(c) }
@@ -1472,10 +1472,10 @@ function buildShishigaya() {
     const buildShop = (cx, cz, w, d, floors, wallCol, name, bg) => { const gB = gmin4(cx, cz, w, d), gT = gmax4(cx, cz, w, d), slope = Math.min(8, gT - gB), h = slope + floors * 3, ry = Math.atan2(3008 - cx, -8 - cz), fwd = [Math.sin(ry), Math.cos(ry)]
       grp.add(mk(new THREE.BoxGeometry(w, h, d), toon(wallCol), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6), toon(0x6b5a48), cx, gB + h + 0.1, cz, ry, true)) // 箱＋庇
       grp.add(mk(new THREE.PlaneGeometry(w * 0.78, 2.0), new THREE.MeshToonMaterial({ color: 0x88a8b8, gradientMap: GRAD, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), cx + fwd[0] * (d / 2 + 0.06), gT + 1.25, cz + fwd[1] * (d / 2 + 0.06), ry)) // 店先ガラス
-      grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.5), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (d / 2 + 0.12), gT + slope + floors * 3 - 0.8, cz + fwd[1] * (d / 2 + 0.12), ry)) } // 正面の看板
+      grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.5), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (d / 2 + 0.12), gT + slope + floors * 3 - 0.8, cz + fwd[1] * (d / 2 + 0.12), ry)); addBox(cx, cz, w / 2, d / 2, ry, 0.3) } // 正面の看板＋当たり判定
     const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
       const hg = gmin4(cx + 7, cz, 6, 6); grp.add(mk(new THREE.BoxGeometry(6, 4, 6), toon(0xb8a576), cx + 7, hg + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(5, 2.2, 4), toon(0x4a4a44), cx + 7, hg + 5.1, cz, Math.PI / 4, true)) // 社殿
-      signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a') }
+      signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a'); addCollider(cx + 7, cz, 3.2) } // 社殿に当たり判定（鳥居はくぐれる）
     const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝入口に広場→奥に階段を上ってグラウンド（実際の形）
       const up = heightAtYato(cx + 45, cz) >= heightAtYato(cx - 45, cz) ? 1 : -1 // 高い側＝奥＝グラウンド
       schoolBldg(cx - up * 4, cz - 2, 40, 12, 3, 0, 0x9a4f3e); schoolBldg(cx - up * 4, cz + 15, 11, 20, 3, 0, 0x5a6b72) // 校舎(3F)＋体育館
@@ -1489,10 +1489,10 @@ function buildShishigaya() {
       for (let k = 0; k < 4; k++) { const a = base[k], b = base[(k + 1) % 4], wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), vt = Math.max(2, Math.round(h / 3)), q = [L(a[0], 0, a[1]), L(b[0], 0, b[1]), L(b[0], h, b[1]), L(a[0], h, a[1])], uq = [[0, 0], [u, 0], [u, vt], [0, vt]]
         q.forEach((p, qi) => { vv.push(p[0], p[1], p[2]); uvv.push(uq[qi][0], uq[qi][1]) }); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); o += 4 }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(vv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvv, 2)); g.setIndex(ix); g.computeVertexNormals()
-      const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am)
+      const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am); addBox(cx, cz, hw, hd, ry, 0.3) // 当たり判定
       grp.add(mk(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), toon(0x42464c), cx, gB + h + 0.2, cz, ry, true)) // 陸屋根
       if (name) grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.9, 8), 1.6), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), cx + si * (hd + 0.12), gB + h - 1.3, cz + co * (hd + 0.12), ry)) } // 屋上ちかくの名前看板(正面)
-    const buildTemple = (cx, cz, name) => { const gy = gmin4(cx, cz, 12, 9) // 寺＝本堂(瓦の寄棟)＋山門＋名前
+    const buildTemple = (cx, cz, name) => { const gy = gmin4(cx, cz, 12, 9); addBox(cx, cz, 6, 4.5, 0, 0.3) // 寺＝本堂(瓦の寄棟)＋山門＋名前＋当たり判定
       grp.add(mk(new THREE.BoxGeometry(12, 4, 9), toon(0xc8bda0), cx, gy + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(9, 3.2, 4), toon(0x4a4a50), cx, gy + 5.6, cz, Math.PI / 4, true)) // 本堂
       grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
       signOn(cx, cz - 11, 8, gy, 4, name, '#5a3a3a') }
@@ -1505,7 +1505,7 @@ function buildShishigaya() {
         grp.add(mk(new THREE.BoxGeometry(18, 3.4, 12), toon(0xcdbfa2), x, gy + 1.7, z, 0, true)) // 母屋の壁(白漆喰)
         grp.add(mk(new THREE.ConeGeometry(12.5, 6, 4), toon(0x5f4a2e), x, gy + 6.4, z, Math.PI / 4, true)) // 茅葺きの寄棟大屋根(急で大きい)
         grp.add(mk(new THREE.BoxGeometry(11, 3, 3.6), toon(0xb8a576), x, gy + 1.5, z - 11, 0, true)); grp.add(mk(new THREE.ConeGeometry(3.4, 1.8, 4), toon(0x5f4a2e), x, gy + 3.7, z - 11, Math.PI / 4, true)) // 長屋門＋茅葺き
-        signOn(x, z - 14, 10, gy, 4.2, name, '#5a4a2a') }
+        signOn(x, z - 14, 10, gy, 4.2, name, '#5a4a2a'); addBox(x, z, 9, 6, 0, 0.3) } // 母屋に当たり判定
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 校舎＋校庭
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { buildApt(x, z, 34, 11, floors, name); buildApt(x + 4, z + 26, 11, 28, floors, ''); buildApt(x - 24, z + 14, 28, 11, floors, '') } else buildApt(x, z, name === 'コスモ綱島グランステージ' ? 30 : 24, 12, floors, name) } // 実在の中層マンション(団地は複数棟)
       else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
@@ -5173,7 +5173,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo35' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo36' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
