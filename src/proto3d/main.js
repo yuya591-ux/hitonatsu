@@ -159,6 +159,9 @@ function sunriseYatoClimbY(x, z, curY) { // 平らな陸屋上＋外階段（ど
   return null
 }
 function climbYAt(x, z, curY) { return x < 2200 ? sunriseClimbY(x, z) : sunriseYatoClimbY(x, z, curY) } // 旧町のマンション屋上 と 獅子ヶ谷の実サンライズ屋上 を一本化
+// 外階段の足元〜帯を道マスクに塗る＝建物の壁コライダーに引っかからず階段に入れる（階段周りの見えない壁を解消・ユーザー要望2026-06-22）
+{ const S = SUN_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+  for (let t = -3; t <= l; t += 1) { const cx = S.bx + ux * t, cz = S.bz + uz * t; for (let s = -(S.hw + 0.8); s <= S.hw + 0.8; s += 1) { const id = rmaskIdx(cx + nx * s, cz + nz * s); if (id >= 0) yatoRoadMask[id] = 1 } } } // 下端の手前3mから帯ぜんぶ＝近づくだけで当たらず登れる
 function heightAt(x, z) {
   if (x > 2200) return heightAtYato(x, z) // 新エリア『獅子ヶ谷（実地形・x2300〜3700）』。神社(x1945-2055)より東。先に判定
   if (x > 1500) {
@@ -1518,7 +1521,7 @@ function buildShishigaya() {
     // 基礎/擁壁：各辺で床(base)から地盤(下手ほど低い)までコンクリ基礎を回す＝坂の途中に建つ足元。上手側は地盤≒baseで隠れる
     for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], ga = heightAtYato(a[0], a[1]) - 1, gb = heightAtYato(b[0], b[1]) - 1; if (ga >= base - 0.3 && gb >= base - 0.3) continue
       sunTri(conc, [a[0], base, a[1]], [b[0], base, b[1]], [b[0], gb, b[1]]); sunTri(conc, [a[0], base, a[1]], [b[0], gb, b[1]], [a[0], ga, a[1]]) }
-    if (srv.length) { const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(srv, 3)); sg.setAttribute('color', new THREE.Float32BufferAttribute(src, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(sruv, 2)); sg.setIndex(srvidx); sg.computeVertexNormals(); const sm = new THREE.Mesh(sg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); sm.castShadow = true; sm.receiveShadow = true; sm.layers.set(1); scene.add(sm) } } // サンライズの屋根/塔屋/基礎＝専用メッシュ(layer1=インク線除外)。真上から物差し状の黒線が散らばらない
+    if (srv.length) { const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(srv, 3)); sg.setAttribute('color', new THREE.Float32BufferAttribute(src, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(sruv, 2)); sg.setIndex(srvidx); sg.computeVertexNormals(); const sm = new THREE.Mesh(sg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); sm.castShadow = true; sm.receiveShadow = true; scene.add(sm) } } // サンライズの屋根/塔屋/基礎＝専用メッシュ。layer0のまま＝屋上が下の家々のインク線を遮蔽(屋上から下の建物が透けない)。平らな陸屋上の三角分割は同一平面なのでインク線は出ない
   if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
   if (av.length) { const ageo = new THREE.BufferGeometry(); ageo.setAttribute('position', new THREE.Float32BufferAttribute(av, 3)); ageo.setAttribute('color', new THREE.Float32BufferAttribute(ac, 3)); ageo.setAttribute('uv', new THREE.Float32BufferAttribute(auv, 2)); ageo.setIndex(aidx); ageo.computeVertexNormals(); const am = new THREE.Mesh(ageo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = true; am.receiveShadow = true; scene.add(am) }
   if (rfv.length) { const rg2 = new THREE.BufferGeometry(); rg2.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg2.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg2.setAttribute('uv', new THREE.Float32BufferAttribute(rfuv, 2)); rg2.setIndex(rfidx); rg2.computeVertexNormals(); const rm2 = new THREE.Mesh(rg2, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); rm2.castShadow = true; rm2.receiveShadow = true; scene.add(rm2) }
@@ -1533,7 +1536,7 @@ function buildShishigaya() {
     { const S = SUN_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ang = Math.atan2(dx, dz), yB = heightAtYato(S.bx, S.bz), N = 18, stepCol = toon(0xcac4b8)
       for (let i = 0; i < N; i++) { const t = (i + 0.5) / N, surf = yB + (top - yB) * (i + 1) / N; RM(new THREE.BoxGeometry(3.4, 1.6, L / N + 0.4), stepCol, S.bx + dx * t, surf - 0.8, S.bz + dz * t, ang) } // 段（厚め＝段どうし隙間なし）
       for (const s of [-1, 1]) for (let i = 1; i < N; i += 3) { const t = i / N, surf = yB + (top - yB) * t, ox = -uz * (S.hw + 0.05) * s, oz = ux * (S.hw + 0.05) * s; RM(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 5), conc, S.bx + dx * t + ox, surf + 0.55, S.bz + dz * t + oz) } } // 両脇の手すり支柱
-    grp.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // インク線(法線エッジ)パスから除外＝屋上のパラペット/タンク/階段に物差し状の黒線が散らばらない（見た目はそのまま映る）
+    // パラペット/タンク/階段は layer0 のまま＝屋上の縁でも下の建物のインク線を遮蔽（屋上から透けない）。パラペットの回転バグは修正済なので物差し状の線は出ない
   }
   // ───── サンライズ直下の坂のランドマーク（住人情報）：谷側(NW)の駐車場入口(シャッター兼マンション入口)＋坂を下った先のゲームショップ「ビスコ」 ─────
   { const grp = new THREE.Group(); grp.name = 'sunriseSurround'; scene.add(grp)
@@ -5385,7 +5388,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-ent-shutter' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-roof-occlude' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
