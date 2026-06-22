@@ -1520,8 +1520,19 @@ function buildShishigaya() {
     const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
       const hg = gmin4(cx + 7, cz, 6, 6); grp.add(mk(new THREE.BoxGeometry(6, 4, 6), toon(0xb8a576), cx + 7, hg + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(5, 2.2, 4), toon(0x4a4a44), cx + 7, hg + 5.1, cz, Math.PI / 4, true)) // 社殿
       signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a'); addCollider(cx + 7, cz, 3.2) } // 社殿に当たり判定（鳥居はくぐれる）
-    const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝OSMの実footprintに忠実：北の長い校舎＋西の体育館(L字)＋プール(実位置)＋校庭(平らな所だけ)。※東(x>3078)は急坂なので校庭を広げない＝浮き防止
-      ground(3059, -131, 28, 38, 0xc9b487) // 校庭（平らな谷側だけ・フェンス付）。先に造成して校舎を上に
+    const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝斜面の段々校地：西の道から入口広場→階段→校庭(地面に沿う＝歩ける・浮かない・道を塞がない)。校舎/体育館はOSM実footprint、プールは実位置
+      // 地面に沿う面（造成スラブでなく地形に貼る＝段差で塞がない＝歩いて入れる）
+      const dirtPatch = (px, pz, w, d, col) => { const nx = Math.max(2, Math.round(w / 4)), nz = Math.max(2, Math.round(d / 4)), v = [], idx = []
+        for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = px - w / 2 + w * i / nx, z = pz - d / 2 + d * j / nz; v.push(x, heightAtYato(x, z) + 0.06, z) }
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i; idx.push(a, a + nx + 1, a + 1, a + 1, a + nx + 1, a + nx + 2) }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, toon(col)); m.receiveShadow = true; grp.add(m) }
+      dirtPatch(3036, -116, 20, 22, 0xc2bdb2) // 入口の広場（舗装・西の道から入る）
+      dirtPatch(3060, -138, 32, 48, 0xc9b487) // 校庭（地面に沿う土のグラウンド・歩いて入れる）
+      // 入口広場→校庭の段差をつなぐ短い階段（斜面の段々校地らしさ）
+      { const lo = heightAtYato(3048, -126), hi = heightAtYato(3058, -126), n = 5; for (let s = 0; s < n; s++) grp.add(mk(new THREE.BoxGeometry(8, 0.28, 1.4), toon(0xcac4b8), 3048 + s * 2.2, Math.min(lo, hi) + 0.1 + s * Math.abs(hi - lo) / n, -126, 0, true)) }
+      // 校庭まわりの簡易フェンス（東＝坂側と南）
+      const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+      for (const [fx, fz, fw, ang] of [[3076, -138, 48, Math.PI / 2], [3060, -162, 32, 0]]) grp.add(mk(new THREE.PlaneGeometry(fw, 1.5), fm, fx, heightAtYato(fx, fz) + 0.85, fz, ang))
       schoolBldg(3061, -176, 52, 12, 3, 0, 0x9a4f3e) // 北の長い校舎(3F)＝実(3060,-155)の北辺
       schoolBldg(3037, -160, 18, 30, 3, 0, 0x55636b) // 西の棟＝体育館(実3037,-174/3038,-152)。北棟とでL字
       { const pcx = 3055, pcz = -104, pg = gmin4(pcx, pcz, 24, 18) // プール（実位置3055,-104）＝コンクリのプールサイド＋水面＋フェンス
@@ -5223,7 +5234,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260622-futatsuike-school' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260622-school-terrace' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
