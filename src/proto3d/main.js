@@ -1658,6 +1658,17 @@ function buildShishigaya() {
         for (let t = (k === 0 ? 8 : 0); t < l && np <= 50; t += 24) { const px = x0 + ux * t + nx * (rd.w / 2 + 1.6), pz = z0 + uz * t + nz * (rd.w / 2 + 1.6)
           if (inWater(px, pz) || heightAtYato(px, pz) < 3) continue
           const top = makePole(px, pz); np++; if (prev) drawWire(prev, top, 1.1); prev = top } } } }
+  // 生活感の小物（人がいた痕跡＝エモさ）：物干し・室外機を家のそばに、自販機・丸ポストを道角に。中心部(サンライズ〜小学校)に控えめに
+  { const hoshi = (x, z, rot) => { const g = new THREE.Group(), pole = toon(0xb4b4b0); for (const px of [-1.6, 1.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), pole); p.position.set(px, 0.9, 0); g.add(p) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.65; g.add(bar); const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]; for (let i = 0; i < 4; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.78), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cl.position.set(-1.1 + i * 0.74, 1.25, 0); g.add(cl) } placeProp(g, x, z, rot, 0.03, 1.4) } // 物干し（洗濯もの）
+    const shitsu = (x, z, rot) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.35), toon(0xcfcabd)); b.position.y = 0.4; g.add(b); const gr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), toon(0x8a8a86)); gr.position.set(0, 0.4, 0.181); g.add(gr); placeProp(g, x, z, rot, 0.02, 0.5) } // 室外機
+    let nh = 0
+    for (const b of SG.buildings) { if (nh >= 6) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 120) continue; const seed = Math.abs(Math.round(x) * 7 + Math.round(z) * 3); if (seed % 5 !== 0) continue
+      const rot = b[4], hx = x + Math.cos(rot) * (b[3] / 2 + 2.6), hz = z + Math.sin(rot) * (b[3] / 2 + 2.6); if (!inWater(hx, hz) && heightAtYato(hx, hz) > 3) { hoshi(hx, hz, rot); nh++ } }
+    let ns = 0
+    for (const b of SG.buildings) { if (ns >= 9) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 130) continue; const seed = Math.abs(Math.round(x) * 5 + Math.round(z) * 2); if (seed % 4 !== 0) continue
+      const rot = b[4]; shitsu(x + Math.cos(rot) * (b[2] / 2 + 0.3), z + Math.sin(rot) * (b[2] / 2 + 0.3), rot + Math.PI / 2); ns++ }
+    makeVending(2900, -50, 1.0, 0xc23a2c); makeVending(3052, -118, -0.6, 0x2a7ab0); makeVending(3120, -100, 0.4, 0xe0a838) // 道角の自販機（風呂上がり/夏のラムネ）
+    { const g = new THREE.Group(), red = toon(0xc0392b); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red); body.position.y = 1.05; g.add(body); const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red); top.position.y = 2.1; g.add(top); placeProp(g, 2960, -86, 0, 0.04, 0.7) } } // 丸ポスト
   // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木
   for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
   let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
@@ -5266,7 +5277,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-camera-closer' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-yato-props' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
