@@ -1610,7 +1610,19 @@ function buildShishigaya() {
       sadd(new THREE.BoxGeometry(len, 3.0, 0.4), toon(0x565b62), 0, 1.5, 0.02) // シャッター本体
       for (let i = 0; i < 6; i++) sadd(new THREE.BoxGeometry(len - 0.2, 0.1, 0.46), toon(0x7a818a), 0, 0.5 + i * 0.5, 0.05) // 横桟
       sadd(new THREE.BoxGeometry(len + 1.5, 0.3, 4.5), toon(0x9a9a92), 0, 0.04, 3.0) // 車路の舗装スロープ（前に張り出す）
-      addBox(mx, mz, len / 2, 0.4, Math.atan2(-(bz - az), bx - ax), 0.3) } } // シャッター壁の当たり判定
+      addBox(mx, mz, len / 2, 0.4, Math.atan2(-(bz - az), bx - ax), 0.3) } // シャッター壁の当たり判定
+    // ───── (4) バス停「獅子ヶ谷」＝サンライズ前のバス通り（実在・徒歩2分・ユーザー指摘）。上屋＋ベンチ＋丸看板＋時刻表。開始位置のすぐ東＝歩き出してすぐ目に入る ─────
+    { const busSignTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#f4f4ee'; x.beginPath(); x.arc(64, 64, 60, 0, 6.283); x.fill(); x.lineWidth = 8; x.strokeStyle = '#2a5aa0'; x.stroke(); x.fillStyle = '#2a5aa0'; x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('バス', 64, 38); x.font = 'bold 24px sans-serif'; x.fillText('獅子ヶ谷', 64, 82); return new THREE.CanvasTexture(c) })()
+      const bx = 3018, bz = 24, by = heightAtYato(bx, bz), post = toon(0x8a8d90)
+      for (const dz of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.07, 0.07, 2.5, 6), post, bx + 0.7, by + 1.25, bz + dz, true)) // 上屋の2柱（背側=東）
+      grp.add(mk(new THREE.BoxGeometry(1.9, 0.12, 3.3), toon(0xcfd2d4), bx + 0.15, by + 2.5, bz, true)) // 屋根
+      grp.add(mk(new THREE.BoxGeometry(0.12, 1.7, 3.1), toon(0xe0e3e5), bx + 1.05, by + 1.45, bz, true)) // 背板（東）
+      grp.add(mk(new THREE.BoxGeometry(1.0, 0.1, 2.7), toon(0x9c7a4a), bx + 0.45, by + 0.5, bz, true)) // ベンチ
+      for (const dz of [-1.1, 1.1]) grp.add(mk(new THREE.BoxGeometry(0.8, 0.46, 0.12), toon(0x8a6f48), bx + 0.45, by + 0.25, bz + dz)) // ベンチ脚
+      grp.add(mk(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 6), post, bx - 1.2, by + 1.7, bz - 1.4, true)) // 標識ポール（道側=西）
+      const sgn = mk(new THREE.CircleGeometry(0.5, 20), new THREE.MeshBasicMaterial({ map: busSignTex, side: THREE.DoubleSide }), bx - 1.2, by + 3.3, bz - 1.4); sgn.rotation.y = -Math.PI / 2; grp.add(sgn) // 丸看板（西＝道を向く）
+      const ttp = mk(new THREE.PlaneGeometry(0.5, 0.7), new THREE.MeshBasicMaterial({ color: 0xf0f0e8, side: THREE.DoubleSide }), bx + 0.98, by + 1.5, bz + 1.2); ttp.rotation.y = -Math.PI / 2; grp.add(ttp) // 時刻表
+      addCollider(bx + 0.7, bz, 1.3) } } // 上屋に当たり判定
   // ───── 周辺の実ランドマーク：獅子ヶ谷小学校(実位置3074,155)・橘学苑(実位置3123,-42＝裏山は地形の頂)・マリノスのグラウンド(前面・位置は要確認) ─────
   { const grp = new THREE.Group(); grp.name = 'landmarks2'; scene.add(grp)
     const mk = (geo, mat, x, y, z, ry, sh) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; if (sh) { m.castShadow = true; m.receiveShadow = true } return m }
@@ -5480,7 +5492,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-guardrail-mirror' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-busstop' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
