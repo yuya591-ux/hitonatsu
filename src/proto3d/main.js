@@ -584,6 +584,19 @@ const watercolorTex = (() => {
   t.repeat.set(7, 7)
   return t
 })()
+// 獅子ヶ谷の地面テクスチャ（ベタ塗り解消＝足元のエモさ）。頂点色(標高で乾いた黄緑→緑→濃緑)に“掛け算”されるので、白基調＋低彩度の濃淡で色相を壊さず質感だけ足す：草地のまだら＋短い草の筆致＋乾いた土の斑
+const yatoGroundTex = (() => {
+  const s = 256, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
+  const blob = (col, a, n, rmin, rmax) => { for (let i = 0; i < n; i++) { const px = Math.random() * s, py = Math.random() * s, r = rmin + Math.random() * (rmax - rmin); x.globalAlpha = a; x.fillStyle = col; for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, 6.283); x.fill() } } }
+  blob('#9aa882', 0.24, 100, 10, 40)  // 草地のまだら（やや暗い緑灰＝陰る所）
+  blob('#d6ccab', 0.22, 60, 8, 26)    // 乾いた土／枯れ草の斑（暖色灰）
+  blob('#d4e0b6', 0.18, 80, 6, 22)    // 明るい草のかたまり（光る所）
+  x.lineCap = 'round' // 短い草の筆致＝近くで見たときの細かな手ざわり
+  for (let i = 0; i < 1800; i++) { const px = Math.random() * s, py = Math.random() * s, a = (Math.random() - 0.5) * 0.9 - 1.57, len = 2 + Math.random() * 5, dark = Math.random() < 0.5; x.globalAlpha = 0.13 + Math.random() * 0.10; x.strokeStyle = dark ? '#8a987080' : '#ecf0dc'; x.lineWidth = 0.8 + Math.random() * 0.8; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len); x.stroke() }
+  x.globalAlpha = 1
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t
+})()
 // 土道専用テクスチャ（田舎道の主役。布/社の参道と共有しないよう独立。白初期＝画像が来るまでは無地）
 const dirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 4; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 4, 4); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t })()
 // グレーのレンガタイル（平成初期の中層マンションの外装＝小口タイル張り。馬目地・タイルごとの微妙な濃淡・目地）
@@ -1360,13 +1373,15 @@ function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分
   for (let k = 0; k < p.length; k++) { const i1 = base + 1 + k, i2 = base + 1 + ((k + 1) % p.length); if (area > 0) iArr.push(base, i2, i1); else iArr.push(base, i1, i2) } // 巻きを揃えて法線を必ず上向きに（z反転後の座標系。二ツ池の片方が裏面カリングで消えていた不具合の修正）
 }
 
+let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
 function buildShishigaya() {
   const seg = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(SG.half * 2, SG.half * 2, seg, seg); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子はhalfに比例＝約7m）
   const gp = ggeo.attributes.position, gcol = []
   const cLow = new THREE.Color(0xb6ad99), cGrass = new THREE.Color(0x86b257), cDark = new THREE.Color(0x5f8a3e)
   for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + SG.gx0, wz = gp.getZ(i) + SG.gz0, y = heightAtYato(wx, wz); gp.setY(i, y); const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 3, 9)); c.lerp(cDark, THREE.MathUtils.smoothstep(y, 18, 40)); gcol.push(c.r, c.g, c.b) }
   ggeo.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3)); ggeo.computeVertexNormals()
-  const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: watercolorTex })); gm.position.set(SG.gx0, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
+  const groundTex = yatoGroundTex.clone(); groundTex.needsUpdate = true; groundTex.repeat.set(Math.round(SG.half * 2 / 42), Math.round(SG.half * 2 / 42)) // タイル≒42mで地面の質感を出す（頂点色に掛け算＝色相は標高グラデのまま）
+  const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })); gm.position.set(SG.gx0, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
   // 建物：種別で描き分け。集合住宅(apartments)=陸屋根の中層棟＋バルコニー面／家(house等)=低い切妻／事務所・大箱=陸屋根。中心のサンライズ北寺尾は7階の主役マンション
   const bv = [], bc = [], bidx = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
   const kawaraTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(0,0,0,0.11)'; x.lineWidth = 1.4; for (let y = 0; y < 64; y += 9) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(64, y + 0.5); x.stroke() } x.strokeStyle = 'rgba(0,0,0,0.05)'; for (let xx = 0; xx < 64; xx += 8) { x.beginPath(); x.moveTo(xx + 0.5, 0); x.lineTo(xx + 0.5, 64); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 瓦の控えめなタイル目（白地＝頂点色で着色）
@@ -1685,6 +1700,37 @@ function buildShishigaya() {
     for (let x = mnx + 1; x <= mxx - 1; x += 1) { let run = null; for (let z = mnz - 2; z <= mxz + 2; z += 0.5) { const w = pip(x, z, P); if (w && run == null) run = z; else if (!w && run != null) { const span = (z - 0.5) - run; if (span >= 6 && span <= 24 && (!best || span < best.span)) best = { span, a: [x, run], b: [x, z - 0.5] }; run = null } } }
     if (best) { const dx = best.b[0] - best.a[0], dz = best.b[1] - best.a[1], l = Math.hypot(dx, dz) || 1, ex = dx / l * 2, ez = dz / l * 2; buildTaiko(best.a[0] - ex, best.a[1] - ez, best.b[0] + ex, best.b[1] + ez) } // 両端を岸に2m延長
     else buildTaiko(pi.cx - 8, pi.cz, pi.cx + 8, pi.cz) }
+  // ── 夏草の茂み：歩く谷あいの地面のベタ塗りを解消＝足元のエモさ。建物/水/道/急斜面を避け、平〜緩斜面の低〜中標高に密に。風になびく（InstancedMeshで1ドロー） ──
+  { const roadOcc = new Uint8Array(GC * GC) // 道の通るセルは草を生やさない（路面に草が刺さらない。セル6mなので路肩1mほどから生える）
+    for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1; for (let t = 0; t <= l; t += 3) { const c = cellOf(x0 + dx * t / l, z0 + dz * t / l); if (c >= 0) roadOcc[c] = 1 } } }
+    const bareZones = [[3124, -186, 31, 51], [3062, -154, 14, 16], [3055, -104, 14, 11]] // 草を生やさない裸地＝小学校の[校庭][広場(＋小池)][プール]。校庭がぼうぼうだと学校に見えない（マリノスのグラウンドは“雑草の原っぱ”が正解なので除外しない）
+    const inBare = (x, z) => bareZones.some(([bx, bz, hw, hd]) => Math.abs(x - bx) < hw && Math.abs(z - bz) < hd)
+    const tuft = new THREE.IcosahedronGeometry(0.5, 0); tuft.scale(1, 0.5, 1) // 低い茂みのかたまり
+    const gmat = new THREE.MeshToonMaterial({ gradientMap: GRAD }) // 色はinstanceColorで標高ごとに（白×instanceColor）
+    gmat.onBeforeCompile = (sh) => { sh.uniforms.uTime = { value: 0 }; sh.uniforms.uWind = { value: 0.5 }
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float gw = sin(uTime * 1.3 + (instanceMatrix[3].x + instanceMatrix[3].z) * 0.25);
+        transformed.x += gw * (0.08 + uWind * 0.2) * max(position.y, 0.0);
+        transformed.z += gw * (0.03 + uWind * 0.07) * max(position.y, 0.0);`)
+      yatoGrassShader = sh }
+    const NG = 5000, gI = new THREE.InstancedMesh(tuft, gmat, NG)
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), gcol2 = new THREE.Color()
+    const cLo = new THREE.Color(0xbcd07a), cHi = new THREE.Color(0x86a64e) // みずみずしい夏草＝地面よりやや明るい黄緑〜緑。暗いと“ごみ”に見えるので明るめに
+    const ACX = 3010, ACZ = -120, CORE = 320 // 歩く中心(サンライズ〜小学校〜二ツ池の谷)。ここを密に
+    let ng = 0, ga = 0
+    while (ng < NG && ga < NG * 18) { ga++
+      let x, z
+      if (Math.random() < 0.72) { const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * CORE; x = ACX + Math.cos(a) * r; z = ACZ + Math.sin(a) * r } // 7割は中心の谷あいに密集
+      else { x = SG.gx0 - SG.half + Math.random() * SG.half * 2; z = SG.gz0 - SG.half + Math.random() * SG.half * 2 } // 3割は全域に点々と
+      const c = cellOf(x, z); if (c < 0 || occ[c] || roadOcc[c]) continue
+      const y = heightAtYato(x, z); if (y < 2.5 || inWater(x, z) || inBare(x, z)) continue // 水際のごく低い所/水面/学校の裸地は除外
+      const slope = Math.abs(heightAtYato(x + 5, z) - heightAtYato(x - 5, z)) + Math.abs(heightAtYato(x, z + 5) - heightAtYato(x, z - 5)); if (slope > 6) continue // 急斜面は山肌の木に任せる＝草は平〜緩斜面
+      const s = 0.6 + Math.random() * 0.95, yh = Math.random() < 0.4 ? 1.2 + Math.random() * 0.8 : 0.7 + Math.random() * 0.5 // 約4割は丈のあるこんもり夏草
+      q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, 0)); sc.set(s, s * yh, s); m4.compose(new THREE.Vector3(x, y + 0.15, z), q, sc); gI.setMatrixAt(ng, m4)
+      const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
+    gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
+    console.log('[shishigaya] grass', ng) }
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length)
 }
 buildShishigaya()
@@ -5261,7 +5307,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-roof-noink' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-yatograss' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5551,6 +5597,7 @@ function update(dt) {
   const wind = THREE.MathUtils.clamp(0.42 + 0.3 * Math.sin(tsec * 0.21) + 0.22 * Math.sin(tsec * 0.55 + 1.4) + 0.12 * Math.sin(tsec * 1.27 + 0.4), 0.05, 1.25)
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp * (0.5 + wind)
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
+  if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
   waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
   { // 水面を時間帯になじませる（空を映し、夕は橙、夜は紺・暗く）
     const wnf = nightFactor(tday)
