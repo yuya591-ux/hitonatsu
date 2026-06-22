@@ -1350,7 +1350,7 @@ function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分
   for (let k = 0; k < p.length; k++) iArr.push(base, base + 1 + k, base + 1 + ((k + 1) % p.length))
 }
 function buildShishigaya() {
-  const seg = 220, ggeo = new THREE.PlaneGeometry(SG.half * 2, SG.half * 2, seg, seg); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋高さで色分け
+  const seg = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(SG.half * 2, SG.half * 2, seg, seg); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子はhalfに比例＝約7m）
   const gp = ggeo.attributes.position, gcol = []
   const cLow = new THREE.Color(0xb6ad99), cGrass = new THREE.Color(0x86b257), cDark = new THREE.Color(0x5f8a3e)
   for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + SG.gx0, wz = gp.getZ(i) + SG.gz0, y = heightAtYato(wx, wz); gp.setY(i, y); const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 3, 9)); c.lerp(cDark, THREE.MathUtils.smoothstep(y, 18, 40)); gcol.push(c.r, c.g, c.b) }
@@ -1382,7 +1382,8 @@ function buildShishigaya() {
     // 施設系（神社・寺・公園/広場）＝OSM POIを1件ずつ。地元感の核
     [2395, 392, 'shrine', '上郷神明社', 14],
     [2735, 427, 'temple', '光明寺', 18], [2518, 235, 'temple', '真如山本覺寺', 18], [3617, 208, 'temple', '妙光寺', 18],
-    [3412, -330, 'park', '馬場第一公園', 4], [3162, 384, 'park', '獅子ケ谷公園', 4], [3361, 513, 'park', '獅子ヶ谷第二公園', 4], [3565, 182, 'park', '北寺尾四丁目公園', 4], [2938, -198, 'park', '渋沢金井公園', 4], [2698, -300, 'park', '北寺尾渋沢公園', 4], [2354, -208, 'park', '北寺尾第四公園', 4], [3082, 538, 'park', '二ツ池公園', 4], [3059, -14, 'park', '獅子ヶ谷第三公園', 4], [3152, -118, 'park', '北寺尾五丁目公園', 4], [2683, -317, 'park', '北寺尾第二公園', 4], [2462, -500, 'park', '北寺尾第三公園', 4], [2836, -619, 'park', 'かに山公園', 4], [2987, 123, 'park', '獅子ヶ谷一丁目公園', 4], [2586, 378, 'park', '西谷広場', 4], [2740, 539, 'park', '下谷広場', 4], [2458, 161, 'park', '新池広場', 4], [2442, 24, 'park', '旭台広場', 4], [2385, 180, 'park', '灰ヶ久保広場', 4]
+    [3412, -330, 'park', '馬場第一公園', 4], [3162, 384, 'park', '獅子ケ谷公園', 4], [3361, 513, 'park', '獅子ヶ谷第二公園', 4], [3565, 182, 'park', '北寺尾四丁目公園', 4], [2938, -198, 'park', '渋沢金井公園', 4], [2698, -300, 'park', '北寺尾渋沢公園', 4], [2354, -208, 'park', '北寺尾第四公園', 4], [3082, 538, 'park', '二ツ池公園', 4], [3059, -14, 'park', '獅子ヶ谷第三公園', 4], [3152, -118, 'park', '北寺尾五丁目公園', 4], [2683, -317, 'park', '北寺尾第二公園', 4], [2462, -500, 'park', '北寺尾第三公園', 4], [2836, -619, 'park', 'かに山公園', 4], [2987, 123, 'park', '獅子ヶ谷一丁目公園', 4], [2586, 378, 'park', '西谷広場', 4], [2740, 539, 'park', '下谷広場', 4], [2458, 161, 'park', '新池広場', 4], [2442, 24, 'park', '旭台広場', 4], [2385, 180, 'park', '灰ヶ久保広場', 4],
+    [1983, 493, 'park', '師岡町公園', 6] // 港北区師岡町401-2＝獅子ヶ谷市民の森に隣接。西へワールド拡張(HALF=1080)して収録
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
@@ -5173,7 +5174,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo36' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo37' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5947,8 +5948,8 @@ function update(dt) {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 350, TOWN.x + 100) // 西をさらに拡張（南西へ動かした二つ池まで歩ける・2026-06-18）
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 345, TOWN.z + 230) // 南は獅子ヶ谷/北寺尾・北は裏山の谷を下った先まで歩ける（ユーザー要望・北へ拡張）
     } else if (area === 'yato') { // 獅子ヶ谷の谷戸（本格トレース・新エリア）
-      boy.position.x = THREE.MathUtils.clamp(boy.position.x, YATO.x - 660, YATO.x + 660)
-      boy.position.z = THREE.MathUtils.clamp(boy.position.z, YATO.z - 660, YATO.z + 660)
+      boy.position.x = THREE.MathUtils.clamp(boy.position.x, YATO.x - (SG.half - 20), YATO.x + (SG.half - 20))
+      boy.position.z = THREE.MathUtils.clamp(boy.position.z, YATO.z - (SG.half - 20), YATO.z + (SG.half - 20))
     } else { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
@@ -6373,7 +6374,7 @@ function warpBoyTo(sx, sy) {
   } else if (area === 'town') {
     wx = THREE.MathUtils.clamp(wx, TOWN.x - 350, TOWN.x + 100); wz = THREE.MathUtils.clamp(wz, TOWN.z - 345, TOWN.z + 230)
   } else if (area === 'yato') {
-    wx = THREE.MathUtils.clamp(wx, YATO.x - 660, YATO.x + 660); wz = THREE.MathUtils.clamp(wz, YATO.z - 660, YATO.z + 660)
+    wx = THREE.MathUtils.clamp(wx, YATO.x - (SG.half - 20), YATO.x + (SG.half - 20)); wz = THREE.MathUtils.clamp(wz, YATO.z - (SG.half - 20), YATO.z + (SG.half - 20))
   } else { // 神社
     wx = THREE.MathUtils.clamp(wx, SHRINE.x - 38, SHRINE.x + 38); wz = THREE.MathUtils.clamp(wz, SHRINE.z - 30, SHRINE.z + 62)
   }
