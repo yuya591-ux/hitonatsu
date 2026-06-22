@@ -6407,6 +6407,7 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
   // 📍ピン：画面中央の十字の下にピンを置き、その(x,z)を一覧に控える ／ 🗑：全消し
   const pinDropBtn = document.getElementById('pin-drop'); if (pinDropBtn) pinDropBtn.addEventListener('click', dropFlyPin)
   const pinClearBtn = document.getElementById('pin-clear'); if (pinClearBtn) pinClearBtn.addEventListener('click', clearFlyPins)
+  const pinCopyAllBtn = document.getElementById('pin-copyall'); if (pinCopyAllBtn) pinCopyAllBtn.addEventListener('click', copyAllPins)
 }
 // 飛行カメラの更新（update から毎フレーム）。左=移動(視線方向)・右=見回す・上下ボタン＝高度・慣性でなめらか
 function flyCam(dt) {
@@ -6487,6 +6488,11 @@ const pinListEl = typeof document !== 'undefined' ? document.getElementById('pin
 function copyPinText(s) { // ワンクリックでクリップボードへ（失敗時はtextareaでフォールバック）
   try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(s).then(() => showToast('コピー：' + s)).catch(() => showToast('コピー：' + s)); return } } catch (e) {}
   try { const ta = document.createElement('textarea'); ta.value = s; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); showToast('コピー：' + s) } catch (e) { showToast(s) }
+}
+function copyAllPins() { // 全ピンをまとめて1タップでコピー（番号つき＝そのまま私に渡せる）
+  if (!flyPins.length) { showToast('ピンが ありません'); return }
+  const s = flyPins.map((p, i) => '📍' + (i + 1) + ': ' + Math.round(p.x) + ', ' + Math.round(p.z)).join('\n')
+  copyPinText(s); showToast('全' + flyPins.length + '個 コピーしました')
 }
 function refreshPinList() { // 各ピン＝行。文字タップでコピー／×でその1個だけ消す（ユーザー要望2026-06-20）
   if (!pinListEl) return
