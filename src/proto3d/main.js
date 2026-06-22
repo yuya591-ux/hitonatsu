@@ -1360,9 +1360,11 @@ const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori
 const pip = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) c = !c } return c } // 点が多角形内か
 function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分割（vArr/iArrへ追記）。yfn(cx,cz)=面の高さ
   let cx = 0, cz = 0; for (const q of p) { cx += q[0]; cz += q[1] } cx /= p.length; cz /= p.length; const y = yfn(cx, cz), base = off.n
+  let area = 0; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; area += a[0] * b[1] - b[0] * a[1] } // 符号付き面積＝巻き方向。時計回り(負)だと扇の法線が下を向き、裏面カリングで池/緑が消える
   vArr.push(cx, y, cz); off.n++; for (const [x, z] of p) { vArr.push(x, y, z); off.n++ }
-  for (let k = 0; k < p.length; k++) iArr.push(base, base + 1 + k, base + 1 + ((k + 1) % p.length))
+  for (let k = 0; k < p.length; k++) { const i1 = base + 1 + k, i2 = base + 1 + ((k + 1) % p.length); if (area > 0) iArr.push(base, i2, i1); else iArr.push(base, i1, i2) } // 巻きを揃えて法線を必ず上向きに（z反転後の座標系。二ツ池の片方が裏面カリングで消えていた不具合の修正）
 }
+
 function buildShishigaya() {
   const seg = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(SG.half * 2, SG.half * 2, seg, seg); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子はhalfに比例＝約7m）
   const gp = ggeo.attributes.position, gcol = []
@@ -1601,7 +1603,7 @@ function buildShishigaya() {
   for (const g of SG.greens) { if (g.kind !== 'wood' && g.kind !== 'park') continue; const poly = g.p
     let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of poly) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
     const want = Math.min(120, Math.max(3, Math.round((mxx - mnx) * (mxz - mnz) / 110))); let got = 0, tr = 0
-    while (got < want && tr < want * 10) { tr++; const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz); if (pip(x, z, poly)) { tp.push([x, z, 0]); got++ } } }
+    while (got < want && tr < want * 10) { tr++; const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz); if (pip(x, z, poly) && !inWater(x, z)) { tp.push([x, z, 0]); got++ } } } // 池の上には木を置かない（二ツ池公園など公園が池を含む場合）
   let st = 0, sa = 0 // 山肌の木＝建物の無い急斜面に
   while (st < 750 && sa < 7000) { sa++; const x = SG.gx0 - SG.half + Math.random() * SG.half * 2, z = SG.gz0 - SG.half + Math.random() * SG.half * 2, c = cellOf(x, z); if (c < 0 || occ[c]) continue; const y = heightAtYato(x, z); if (y < 4) continue; const slope = Math.abs(heightAtYato(x + 6, z) - heightAtYato(x - 6, z)) + Math.abs(heightAtYato(x, z + 6) - heightAtYato(x, z - 6)); if (slope < 2.6) continue; tp.push([x, z, 0]); st++ }
   for (const rd of SG.roads) { if (rd.w < 5 || tp.length > 2300) continue; const p = rd.p // 街路樹（主要道の脇の並木）
