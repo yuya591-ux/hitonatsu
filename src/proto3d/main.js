@@ -1520,11 +1520,10 @@ function buildShishigaya() {
     const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
       const hg = gmin4(cx + 7, cz, 6, 6); grp.add(mk(new THREE.BoxGeometry(6, 4, 6), toon(0xb8a576), cx + 7, hg + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(5, 2.2, 4), toon(0x4a4a44), cx + 7, hg + 5.1, cz, Math.PI / 4, true)) // 社殿
       signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a'); addCollider(cx + 7, cz, 3.2) } // 社殿に当たり判定（鳥居はくぐれる）
-    const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝OSMの実footprintに忠実：北の長い校舎＋西の棟(L字)＋体育館＋プール(南・実位置)＋校庭(東)
-      ground(3086, -138, 38, 50, 0xc9b487) // 校庭（東〜南の開けた土のグラウンド・フェンス付）。先に造成して校舎を上に
-      schoolBldg(3060, -174, 56, 13, 3, 0, 0x9a4f3e) // 北の長い校舎(3F)＝実(3060,-155)の北辺
-      schoolBldg(3035, -156, 14, 40, 3, 0, 0x9a4f3e) // 西の棟(3F)＝実(3037,-174)/(3038,-152)。北棟とでL字
-      schoolBldg(3050, -134, 26, 20, 2, 0, 0x55636b) // 体育館（陸屋根・窓少なめの大きな棟）
+    const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝OSMの実footprintに忠実：北の長い校舎＋西の体育館(L字)＋プール(実位置)＋校庭(平らな所だけ)。※東(x>3078)は急坂なので校庭を広げない＝浮き防止
+      ground(3059, -131, 28, 38, 0xc9b487) // 校庭（平らな谷側だけ・フェンス付）。先に造成して校舎を上に
+      schoolBldg(3061, -176, 52, 12, 3, 0, 0x9a4f3e) // 北の長い校舎(3F)＝実(3060,-155)の北辺
+      schoolBldg(3037, -160, 18, 30, 3, 0, 0x55636b) // 西の棟＝体育館(実3037,-174/3038,-152)。北棟とでL字
       { const pcx = 3055, pcz = -104, pg = gmin4(pcx, pcz, 24, 18) // プール（実位置3055,-104）＝コンクリのプールサイド＋水面＋フェンス
         grp.add(mk(new THREE.BoxGeometry(24, 1.0, 18), toon(0xd0ccc0), pcx, pg + 0.5, pcz, 0, true))
         grp.add(mk(new THREE.BoxGeometry(19, 0.3, 13), new THREE.MeshToonMaterial({ color: 0x57b1d0, gradientMap: GRAD }), pcx, pg + 1.02, pcz, 0, true))
@@ -1571,18 +1570,22 @@ function buildShishigaya() {
     // サンライズの表入口＝1階のみ(坂上=南東側・幹線通り側)。ドア＋小さな庇
     const fg = heightAtYato(3034, 10); grp.add(mk(new THREE.BoxGeometry(2.2, 2.6, 0.3), toon(0x5a4636), 3034, fg + 1.3, 10)); grp.add(mk(new THREE.BoxGeometry(4, 0.4, 1.8), toon(0xb0b0aa), 3034, fg + 2.8, 9, 0, true)) } // 表玄関(1F・z反転後)
   // 道（実OSM線形→地形追従リボン）。5m分割で起伏に追従＋アスファルト/土テクスチャ＋持ち上げで“透明化(地面に沈む)”を防ぐ
-  const asphaltTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#9a9a96'; x.fillRect(0, 0, 64, 64); for (let i = 0; i < 520; i++) { const g = 130 + Math.random() * 55 | 0; x.fillStyle = 'rgba(' + g + ',' + g + ',' + (g - 5) + ',' + (0.05 + Math.random() * 0.12).toFixed(2) + ')'; const s = 1 + Math.random() * 2; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // アスファルトの粒状感
-  const yatoDirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#b3a585'; x.fillRect(0, 0, 64, 64); for (let i = 0; i < 520; i++) { const r = 150 + Math.random() * 50 | 0; x.fillStyle = 'rgba(' + r + ',' + (r - 18) + ',' + (r - 50) + ',' + (0.05 + Math.random() * 0.13).toFixed(2) + ')'; const s = 1 + Math.random() * 2.5; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 土の道
-  const buildRoads = (kind, tex, lift) => { const rv = [], ruv = [], ridx = []; let ro = 0
-    for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = rd.w / 2
-      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, px = -dz / l * hw, pz = dx / l * hw, n = Math.max(1, Math.ceil(l / 5))
+  const asphaltTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#80848b'; x.fillRect(0, 0, 64, 64); for (let i = 0; i < 520; i++) { const g = 115 + Math.random() * 55 | 0; x.fillStyle = 'rgba(' + g + ',' + g + ',' + (g + 4) + ',' + (0.06 + Math.random() * 0.13).toFixed(2) + ')'; const s = 1 + Math.random() * 2; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } x.strokeStyle = 'rgba(60,62,68,0.5)'; x.lineWidth = 2; x.strokeRect(1, 1, 62, 62); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // アスファルト＝はっきりした灰＋粒
+  const yatoDirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#c39a55'; x.fillRect(0, 0, 64, 64); for (let i = 0; i < 520; i++) { const r = 150 + Math.random() * 55 | 0; x.fillStyle = 'rgba(' + r + ',' + (r - 30) + ',' + (r - 78) + ',' + (0.07 + Math.random() * 0.15).toFixed(2) + ')'; const s = 1 + Math.random() * 2.5; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 土の道＝草地と差がつく濃いめの黄土
+  const buildRoads = (kind, tex, lift, edgeCol) => { const rv = [], ruv = [], ridx = [], ev = [], eidx = []; let ro = 0, eo = 0
+    for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = Math.max(kind === 'path' ? 1.25 : 2.0, rd.w / 2) // 細い道も見える/歩ける最低幅を確保
+      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, px = -uz * hw, pz = ux * hw, ex = -uz * (hw + 0.5), ez = ux * (hw + 0.5), n = Math.max(1, Math.ceil(l / 5))
         for (let s = 0; s < n; s++) { const t0 = s / n, t1 = (s + 1) / n, ax = x0 + dx * t0, az = z0 + dz * t0, bx = x0 + dx * t1, bz = z0 + dz * t1
           for (const [qx, qz] of [[ax + px, az + pz], [ax - px, az - pz], [bx + px, bz + pz], [bx - px, bz - pz]]) rv.push(qx, heightAtYato(qx, qz) + lift, qz)
-          ruv.push(0, l * t0 / 3, 1, l * t0 / 3, 0, l * t1 / 3, 1, l * t1 / 3); ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4 } } }
-    if (!rv.length) return; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
+          ruv.push(0, l * t0 / 3, 1, l * t0 / 3, 0, l * t1 / 3, 1, l * t1 / 3); ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4
+          for (const [qx, qz] of [[ax + ex, az + ez], [ax - ex, az - ez], [bx + ex, bz + ez], [bx - ex, bz - ez]]) ev.push(qx, heightAtYato(qx, qz) + lift - 0.04, qz) // 道のふち（少し広い下地）＝縁取りで“道”がはっきり
+          eidx.push(eo, eo + 2, eo + 1, eo + 1, eo + 2, eo + 3); eo += 4 } } }
+    if (!rv.length) return
+    if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, side: THREE.DoubleSide }))) }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
     scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, side: THREE.DoubleSide }))) }
-  buildRoads('paved', asphaltTex, 0.28)   // 舗装路（アスファルト）
-  buildRoads('path', yatoDirtTex, 0.22)   // 土の小道
+  buildRoads('paved', asphaltTex, 0.34, 0x5b5e64)   // 舗装路（アスファルト＋濃い縁取り）
+  buildRoads('path', yatoDirtTex, 0.28, 0x8a6f3e)   // 土の小道（＋濃い土の縁取り）
   // 占有グリッド（建物の場所を記録→木を建物に重ねない）
   const GC = Math.ceil(SG.half * 2 / 6), occ = new Uint8Array(GC * GC)
   const cellOf = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / 6), j = Math.floor((z - SG.gz0 + SG.half) / 6); return (i < 0 || j < 0 || i >= GC || j >= GC) ? -1 : j * GC + i }
