@@ -1500,16 +1500,19 @@ function buildShishigaya() {
       grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5, 5), toon(0x6a4e34), fx, fy + 0.75, fz)) }
     // サンライズの表入口＝1階のみ(坂上=南東側・幹線通り側)。ドア＋小さな庇
     const fg = heightAtYato(3034, 10); grp.add(mk(new THREE.BoxGeometry(2.2, 2.6, 0.3), toon(0x5a4636), 3034, fg + 1.3, 10)); grp.add(mk(new THREE.BoxGeometry(4, 0.4, 1.8), toon(0xb0b0aa), 3034, fg + 2.8, 9, 0, true)) } // 表玄関(1F・z反転後)
-  // 道（実OSM線形→地形追従リボンをマージ＝本物のカーブ）。舗装(グレー)／土の小道(茶)を分けて
-  const buildRoads = (kind, color, tex, lift) => { const rv = [], ruv = [], ridx = []; let ro = 0
+  // 道（実OSM線形→地形追従リボン）。5m分割で起伏に追従＋アスファルト/土テクスチャ＋持ち上げで“透明化(地面に沈む)”を防ぐ
+  const asphaltTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#9a9a96'; x.fillRect(0, 0, 64, 64); for (let i = 0; i < 520; i++) { const g = 130 + Math.random() * 55 | 0; x.fillStyle = 'rgba(' + g + ',' + g + ',' + (g - 5) + ',' + (0.05 + Math.random() * 0.12).toFixed(2) + ')'; const s = 1 + Math.random() * 2; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // アスファルトの粒状感
+  const yatoDirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#b3a585'; x.fillRect(0, 0, 64, 64); for (let i = 0; i < 520; i++) { const r = 150 + Math.random() * 50 | 0; x.fillStyle = 'rgba(' + r + ',' + (r - 18) + ',' + (r - 50) + ',' + (0.05 + Math.random() * 0.13).toFixed(2) + ')'; const s = 1 + Math.random() * 2.5; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 土の道
+  const buildRoads = (kind, tex, lift) => { const rv = [], ruv = [], ridx = []; let ro = 0
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = rd.w / 2
-      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, px = -dz / l * hw, pz = dx / l * hw
-        for (const [qx, qz] of [[x0 + px, z0 + pz], [x0 - px, z0 - pz], [x1 + px, z1 + pz], [x1 - px, z1 - pz]]) rv.push(qx, heightAtYato(qx, qz) + lift, qz)
-        ruv.push(0, 0, 1, 0, 0, l / 3, 1, l / 3); ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4 } }
+      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, px = -dz / l * hw, pz = dx / l * hw, n = Math.max(1, Math.ceil(l / 5))
+        for (let s = 0; s < n; s++) { const t0 = s / n, t1 = (s + 1) / n, ax = x0 + dx * t0, az = z0 + dz * t0, bx = x0 + dx * t1, bz = z0 + dz * t1
+          for (const [qx, qz] of [[ax + px, az + pz], [ax - px, az - pz], [bx + px, bz + pz], [bx - px, bz - pz]]) rv.push(qx, heightAtYato(qx, qz) + lift, qz)
+          ruv.push(0, l * t0 / 3, 1, l * t0 / 3, 0, l * t1 / 3, 1, l * t1 / 3); ridx.push(ro, ro + 2, ro + 1, ro + 1, ro + 2, ro + 3); ro += 4 } } }
     if (!rv.length) return; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
-    scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color, map: tex, gradientMap: GRAD, side: THREE.DoubleSide }))) }
-  buildRoads('paved', 0x9a9a96, null, 0.18)   // 舗装路（幹線・住宅街）
-  buildRoads('path', 0xb0a488, dirtTex, 0.16)  // 土の小道（あぜ・階段・歩道）
+    scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, side: THREE.DoubleSide }))) }
+  buildRoads('paved', asphaltTex, 0.28)   // 舗装路（アスファルト）
+  buildRoads('path', yatoDirtTex, 0.22)   // 土の小道
   // 占有グリッド（建物の場所を記録→木を建物に重ねない）
   const GC = Math.ceil(SG.half * 2 / 6), occ = new Uint8Array(GC * GC)
   const cellOf = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / 6), j = Math.floor((z - SG.gz0 + SG.half) / 6); return (i < 0 || j < 0 || i >= GC || j >= GC) ? -1 : j * GC + i }
@@ -5147,7 +5150,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo31' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo32' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
