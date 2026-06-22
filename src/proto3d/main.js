@@ -1376,7 +1376,8 @@ function buildShishigaya() {
   const NAMED = [
     [2951, -42, 'shrine', '渋沢稲荷神社', 16], [2767, 188, 'rice', '香取米店', 14], [2767, 153, 'shop', 'しんみせ', 13],
     [2672, 17, 'eat', '泉屋', 14], [2901, 252, 'conbini', 'セブン-イレブン', 16], [2712, 76, 'koban', '北寺尾駐在所', 12],
-    [3088, 173, 'school', '獅子ヶ谷小学校', 58], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18]
+    [3088, 173, 'school', '獅子ヶ谷小学校', 58], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18],
+    [2368, 662, 'yashiki', '横溝屋敷', 24] // 旧横溝家住宅(獅子ケ谷3-10-4)。広域OSM取得で周辺を埋めたので追加
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
@@ -1478,6 +1479,11 @@ function buildShishigaya() {
       signOn(cx - up * 4, cz - 8, 12, gmax4(cx - up * 4, cz, 40, 12), 11.5, name, '#2f5a8a') }
     for (const [x, z, type, name] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
       if (type === 'shrine') buildShrine(x, z, name)
+      else if (type === 'yashiki') { const gy = gmin4(x, z, 18, 12) // 横溝屋敷＝茅葺きの大屋根の母屋＋長屋門（谷の奥の旧家）
+        grp.add(mk(new THREE.BoxGeometry(18, 3.4, 12), toon(0xcdbfa2), x, gy + 1.7, z, 0, true)) // 母屋の壁(白漆喰)
+        grp.add(mk(new THREE.ConeGeometry(12.5, 6, 4), toon(0x5f4a2e), x, gy + 6.4, z, Math.PI / 4, true)) // 茅葺きの寄棟大屋根(急で大きい)
+        grp.add(mk(new THREE.BoxGeometry(11, 3, 3.6), toon(0xb8a576), x, gy + 1.5, z - 11, 0, true)); grp.add(mk(new THREE.ConeGeometry(3.4, 1.8, 4), toon(0x5f4a2e), x, gy + 3.7, z - 11, Math.PI / 4, true)) // 長屋門＋茅葺き
+        signOn(x, z - 14, 10, gy, 4.2, name, '#5a4a2a') }
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 校舎＋校庭
       else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
       else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
@@ -5141,7 +5147,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260621-shishigaya-geo29' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260621-shishigaya-geo31' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
