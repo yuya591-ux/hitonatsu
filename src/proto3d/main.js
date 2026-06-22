@@ -1647,6 +1647,42 @@ function buildShishigaya() {
     const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
       const hg = gmin4(cx + 7, cz, 6, 6); grp.add(mk(new THREE.BoxGeometry(6, 4, 6), toon(0xb8a576), cx + 7, hg + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(5, 2.2, 4), toon(0x4a4a44), cx + 7, hg + 5.1, cz, Math.PI / 4, true)) // 社殿
       signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a'); addCollider(cx + 7, cz, 3.2) } // 社殿に当たり判定（鳥居はくぐれる）
+    // 上郷神明社＝獅子ヶ谷の鎮守(1362創建・神明造)を作り込み。木造の神明鳥居→参道(石灯籠)→手水舎/狛犬→拝殿→神明造の本殿(千木・鰹木)。南(+z)向き（ユーザー要望2026-06-23・Web調査）
+    const buildShinmei = (cx, cz, name) => { const gy = heightAtYato(cx, cz)
+      const wood = toon(0xa9895f), woodD = toon(0x7d6340), wall = toon(0xd8caa6), roofC = toon(0x5b6b62), stone = toon(0xa8a59a), stoneL = toon(0xcac6ba), gold = toon(0xb79a4a)
+      const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m } // X軸回転対応（屋根の勾配/鰹木/千木用）
+      const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)) } // 石灯籠
+      const komainu = (kx, kz) => { const ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(0.5, 0.85, 0.5), stone, kx, ky + 0.42, kz, 0, true)); grp.add(mk(new THREE.BoxGeometry(0.36, 0.5, 0.62), stoneL, kx, ky + 1.05, kz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.19, 8, 6), stoneL, kx, ky + 1.4, kz + 0.16, 0, true)) } // 狛犬（台座＋体＋頭）
+      // 神明鳥居（木造・直線。柱2＋まっすぐな笠木＋貫）front=南(cz+11)
+      { const tz = cz + 11, ty = heightAtYato(cx, tz), tw = 1.9; for (const sx of [-tw, tw]) grp.add(mk(new THREE.CylinderGeometry(0.15, 0.18, 4.4, 8), wood, cx + sx, ty + 2.2, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 1.1, 0.32, 0.46), woodD, cx, ty + 4.45, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 0.3, 0.24, 0.34), woodD, cx, ty + 3.6, tz)); addCollider(cx - tw, tz, 0.4); addCollider(cx + tw, tz, 0.4) }
+      grp.add(mk(new THREE.BoxGeometry(2.6, 0.1, 11), toon(0xc7c3b6), cx, gy + 0.07, cz + 5.5, 0, true)) // 参道（石畳）
+      for (const lz of [cz + 9, cz + 5.5]) { lantern(cx - 2.4, lz); lantern(cx + 2.4, lz) } // 参道の石灯籠（2対）
+      komainu(cx - 2.0, cz + 2.8); komainu(cx + 2.0, cz + 2.8) // 狛犬
+      // 手水舎（西側）
+      { const hx = cx + 4.8, hz = cz + 6, hy2 = heightAtYato(hx, hz); for (const [dx, dz] of [[-0.8, -0.7], [0.8, -0.7], [-0.8, 0.7], [0.8, 0.7]]) grp.add(mk(new THREE.CylinderGeometry(0.08, 0.08, 2.1, 6), woodD, hx + dx, hy2 + 1.05, hz + dz)); grp.add(mk(new THREE.BoxGeometry(2.2, 0.18, 2.0), roofC, hx, hy2 + 2.15, hz, 0, true)); grp.add(mk(new THREE.ConeGeometry(1.6, 0.7, 4), roofC, hx, hy2 + 2.5, hz, Math.PI / 4, true)); grp.add(mk(new THREE.BoxGeometry(1.5, 0.55, 1.0), stone, hx, hy2 + 0.45, hz, 0, true)) }
+      // 拝殿（南向き・切妻）＋基壇
+      grp.add(mk(new THREE.BoxGeometry(6.2, 0.5, 4.6), stoneL, cx, gy + 0.25, cz + 0.2, 0, true)) // 基壇
+      grp.add(mk(new THREE.BoxGeometry(5.4, 2.8, 3.8), wall, cx, gy + 1.9, cz, 0, true)) // 拝殿本体
+      for (const sz of [-1, 1]) mr(new THREE.BoxGeometry(5.8, 0.16, 2.3), roofC, cx, gy + 3.75, cz + sz * 1.0, sz * 0.42) // 切妻屋根の2斜面（X軸で勾配）
+      grp.add(mk(new THREE.BoxGeometry(5.9, 0.2, 0.25), woodD, cx, gy + 4.05, cz)) // 棟
+      grp.add(mk(new THREE.BoxGeometry(1.2, 1.8, 0.2), woodD, cx, gy + 1.4, cz + 1.95)) // 正面の入口（暗い板戸）
+      grp.add(mk(new THREE.BoxGeometry(2.2, 0.25, 0.3), toon(0x6a5236), cx, gy + 3.0, cz + 2.0)) // 注連縄がわりの梁
+      grp.add(mk(new THREE.BoxGeometry(0.9, 0.7, 0.5), woodD, cx, gy + 0.7, cz + 2.2, 0, true)) // 賽銭箱
+      grp.add(mk(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 6), toon(0xcfc0a0), cx, gy + 2.3, cz + 2.0)) // 鈴緒
+      // 本殿（神明造・高床・千木/鰹木）背後(cz-6)
+      { const bx = cx, bz = cz - 6, by = heightAtYato(bx, bz)
+        for (const [dx, dz] of [[-1.4, -0.9], [1.4, -0.9], [-1.4, 0.9], [1.4, 0.9], [-1.7, 0], [1.7, 0]]) grp.add(mk(new THREE.CylinderGeometry(0.1, 0.1, 1.4, 6), woodD, bx + dx, by + 0.7, bz + dz)) // 高床の床下柱＋棟持柱
+        grp.add(mk(new THREE.BoxGeometry(3.8, 0.25, 2.6), wood, bx, by + 1.45, bz, 0, true)) // 高床
+        grp.add(mk(new THREE.BoxGeometry(3.2, 1.7, 2.0), wall, bx, by + 2.45, bz, 0, true)) // 身舎
+        for (const sz of [-1, 1]) mr(new THREE.BoxGeometry(3.8, 0.16, 1.8), roofC, bx, by + 3.65, bz + sz * 0.8, sz * 0.45) // 切妻屋根（X軸で勾配）
+        grp.add(mk(new THREE.BoxGeometry(3.9, 0.16, 0.2), woodD, bx, by + 4.0, bz)) // 棟
+        for (let i = 0; i < 5; i++) mr(new THREE.CylinderGeometry(0.1, 0.1, 1.1, 8), gold, bx - 1.4 + i * 0.7, by + 4.1, bz, Math.PI / 2) // 鰹木（棟の上に前後向きの横木5本＝神明造の象徴）
+        for (const sx of [-1.7, 1.7]) for (const d of [-1, 1]) mr(new THREE.BoxGeometry(0.12, 1.5, 0.12), woodD, bx + sx, by + 4.35, bz, d * 0.5) // 千木（破風の先がV字に交差＝神明造の象徴）
+        addCollider(bx, bz, 2.4) }
+      // 玉垣（本殿のまわりの低い木柵）
+      { const bz = cz - 6; for (const [px, pz, w, a] of [[cx, bz - 2.0, 6, 0], [cx - 3, bz, 4, Math.PI / 2], [cx + 3, bz, 4, Math.PI / 2]]) grp.add(mk(new THREE.BoxGeometry(w, 1.0, 0.12), toon(0xbfae8a), px, heightAtYato(px, pz) + 0.5, pz, a, true)) }
+      grp.add(mk(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 6), toon(0x6a5236), cx - 6, gy + 1.75, cz - 2, 0, true)); grp.add(mk(new THREE.IcosahedronGeometry(2.6, 0), toon(0x4f7a3a), cx - 6, gy + 4.8, cz - 2, 0, true)) // 御神木
+      signOn(cx, cz + 12.5, 4, gy, 2.4, name, '#2e6b3a'); addCollider(cx, cz, 3.2) }
     const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝ユーザー指定ピン(2026-06-22)に忠実：裏門(西)→広場+小池→校舎(北西)→階段→校庭(東の一段高い平地・約34.5m)。プールは実位置。全部地面に沿う＝浮かない・歩ける
       const dirtPatch = (px, pz, w, d, col) => { const nx = Math.max(2, Math.round(w / 4)), nz = Math.max(2, Math.round(d / 4)), v = [], idx = []
         for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = px - w / 2 + w * i / nx, z = pz - d / 2 + d * j / nz; v.push(x, heightAtYato(x, z) + 0.06, z) }
@@ -1694,7 +1730,7 @@ function buildShishigaya() {
     const buildParkSign = (cx, cz, name) => { const gy = heightAtYato(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, Math.atan2(3008 - cx, -8 - cz))) } // 公園のなまえ看板（既存の緑地に立てる）
     const parkPos = [] // 公園の位置（遊具を後でまとめて配置）
     for (const [x, z, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
-      if (type === 'shrine') buildShrine(x, z, name)
+      if (type === 'shrine') { if (name === '上郷神明社') buildShinmei(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') buildTemple(x, z, name)
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') { const gy = gmin4(x, z, 18, 12) // 横溝屋敷＝茅葺きの大屋根の母屋＋長屋門（谷の奥の旧家）
@@ -5533,7 +5569,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-gutters8' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-shinmei' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
