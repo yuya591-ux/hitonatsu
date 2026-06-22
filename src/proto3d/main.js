@@ -644,6 +644,8 @@ function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = fal
     mk(width, 0.06, 0xb0a488, dirtTex)       // 田舎道（土のテクスチャ＝歩く主役）
     if (centerline) mk(0.3, 0.09, 0xcfc9bb, dirtTex)
   }
+  // 手描きリボンも獅子ヶ谷の道マスクに塗る＝この道に沿って必ず歩ける（SG.roadsに無い手置きの道の取りこぼし対策）。範囲外(旧エリア/町)はrmaskIdx=-1で自動的に無視
+  const hwm = width / 2 + 0.6, nm = Math.max(2, Math.round(len)); for (let i = 0; i <= nm; i++) { const t = i / nm, cx = x0 + (x1 - x0) * t, cz = z0 + (z1 - z0) * t; for (let s = -hwm; s <= hwm; s += 1) { const id = rmaskIdx(cx + px * s, cz + pz * s); if (id >= 0) yatoRoadMask[id] = 1 } }
 }
 // ── 質感テクスチャ（低ポリ＋トゥーンのまま“底上げ”：瓦・土壁・木目）──
 const toonMap = (color, map) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD, map })
