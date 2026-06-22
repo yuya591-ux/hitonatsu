@@ -1869,6 +1869,20 @@ function buildShishigaya() {
     mkInst(GOMI_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), gomiP, true)
     if (gomiP.length) { const ntex = netTex.clone(); ntex.repeat.set(3, 1.5); ntex.needsUpdate = true; const nI = new THREE.InstancedMesh(new THREE.BoxGeometry(2.3, 1.1, 1.5), new THREE.MeshBasicMaterial({ map: ntex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.6, color: 0x6f8a5a }), gomiP.length); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); nI.layers.set(1); gomiP.forEach((a, i) => { e.set(0, a[2] || 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]) + 0.6, a[1]), q, s); nI.setMatrixAt(i, m4) }); scene.add(nI) } // ゴミにかけるネット
     console.log('[shishigaya] 植木鉢', potP.length, '自転車', bikeP.length, 'ゴミ集積所', gomiP.length) }
+  // ⑧ 側溝（U字溝のフタ）＋マンホール＝道の足元のディテール。どちらも平らで軽い（ユーザー要望2026-06-22）
+  { const mhTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.fillStyle = '#54585e'; x.beginPath(); x.arc(24, 24, 23, 0, 6.283); x.fill(); x.strokeStyle = '#3c4046'; x.lineWidth = 2; for (const r of [19, 13, 7]) { x.beginPath(); x.arc(24, 24, r, 0, 6.283); x.stroke() } for (let a = 0; a < 8; a++) { x.beginPath(); x.moveTo(24, 24); x.lineTo(24 + Math.cos(a / 8 * 6.283) * 22, 24 + Math.sin(a / 8 * 6.283) * 22); x.stroke() } return new THREE.CanvasTexture(c) })()
+    const gv = [], gidx = []; let go = 0, mhP = []
+    const cenD4 = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
+    const rds = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD4(a) - cenD4(b))
+    for (const rd of rds) { if (go > 5200) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
+      for (let k = 0; k < p.length - 1 && go <= 5200; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+        for (const sd of [1, -1]) { const i0 = hw + 0.05, i1 = hw + 0.45 // 路肩のすぐ外＝側溝のフタ
+          const aIn = [x0 + nx * sd * i0, z0 + nz * sd * i0], aOut = [x0 + nx * sd * i1, z0 + nz * sd * i1], bIn = [x1 + nx * sd * i0, z1 + nz * sd * i0], bOut = [x1 + nx * sd * i1, z1 + nz * sd * i1]
+          for (const q of [aIn, aOut, bIn, bOut]) gv.push(q[0], heightAtYato(q[0], q[1]) + 0.07, q[1]); gidx.push(go, go + 2, go + 1, go + 1, go + 2, go + 3); go += 4 } // 側溝フタ（薄い帯）
+        for (let t = 14; t < l; t += 26) { const mx = x0 + ux * t, mz = z0 + uz * t; if (Math.hypot(mx - 3008, mz + 8) > 30) mhP.push([mx, mz]) } } } // マンホール（道の中央寄り）
+    if (gv.length) { const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gv, 3)); gg.setIndex(gidx); gg.computeVertexNormals(); scene.add(new THREE.Mesh(gg, new THREE.MeshToonMaterial({ color: 0x9a9c98, gradientMap: GRAD, side: THREE.DoubleSide }))) } // 側溝のフタ（コンクリ色）
+    if (mhP.length) { const mI = new THREE.InstancedMesh(new THREE.CircleGeometry(0.42, 14), new THREE.MeshBasicMaterial({ map: mhTex, side: THREE.DoubleSide }), mhP.length); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), s = new THREE.Vector3(1, 1, 1); mhP.forEach(([x, z], i) => { m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.06, z), q, s); mI.setMatrixAt(i, m4) }); mI.layers.set(1); scene.add(mI) } // マンホール（平・インク除外）
+    console.log('[shishigaya] 側溝quad', go, 'マンホール', mhP.length) }
   // 生活感の小物（人がいた痕跡＝エモさ）：物干し・室外機を家のそばに、自販機・丸ポストを道角に。中心部(サンライズ〜小学校)に控えめに
   { const hoshi = (x, z, rot) => { const g = new THREE.Group(), pole = toon(0xb4b4b0); for (const px of [-1.6, 1.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), pole); p.position.set(px, 0.9, 0); g.add(p) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.65; g.add(bar); const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]; for (let i = 0; i < 4; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.78), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cl.position.set(-1.1 + i * 0.74, 1.25, 0); g.add(cl) } placeProp(g, x, z, rot, 0.03, 1.4) } // 物干し（洗濯もの）
     const shitsu = (x, z, rot) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.35), toon(0xcfcabd)); b.position.y = 0.4; g.add(b); const gr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), toon(0x8a8a86)); gr.position.set(0, 0.4, 0.181); g.add(gr); placeProp(g, x, z, rot, 0.02, 0.5) } // 室外機
@@ -5519,7 +5533,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-props7' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-gutters8' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
