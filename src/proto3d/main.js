@@ -1648,6 +1648,16 @@ function buildShishigaya() {
   for (const rd of SG.roads) { if (rd.w < 5 || tp.length > 2300) continue; const p = rd.p // 街路樹（主要道の脇の並木）
     for (let k = 0; k < p.length - 1 && tp.length <= 2300; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1
       for (let t = 12; t < l; t += 26) { const fx = x0 + dx * t / l, fz = z0 + dz * t / l, ox = -dz / l * (rd.w / 2 + 2.5), oz = dx / l * (rd.w / 2 + 2.5); for (const s of [1, -1]) { const x = fx + ox * s, z = fz + oz * s, c = cellOf(x, z); if (c >= 0 && !occ[c]) tp.push([x, z, 0]) } } } }
+  // 電柱＋電線：昭和の空を走る電線（“電線越しの夕焼け”＝エモさの要）。主要道ぞいに点々と立て、隣どうしを電線でつなぐ。プレイヤーがよくいる中心部(サンライズ〜小学校)の道を優先
+  { let np = 0
+    const cenD = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
+    const mainRoads = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 4).sort((a, b) => cenD(a) - cenD(b))
+    for (const rd of mainRoads) { if (np > 50) break
+      const p = rd.p; let prev = null
+      for (let k = 0; k < p.length - 1 && np <= 50; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+        for (let t = (k === 0 ? 8 : 0); t < l && np <= 50; t += 24) { const px = x0 + ux * t + nx * (rd.w / 2 + 1.6), pz = z0 + uz * t + nz * (rd.w / 2 + 1.6)
+          if (inWater(px, pz) || heightAtYato(px, pz) < 3) continue
+          const top = makePole(px, pz); np++; if (prev) drawWire(prev, top, 1.1); prev = top } } } }
   // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木
   for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
   let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
@@ -5256,7 +5266,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260622-bisco-school-pins' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-yato-powerlines' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
