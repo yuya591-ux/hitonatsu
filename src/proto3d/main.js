@@ -4281,7 +4281,7 @@ bokeh.frustumCulled = false; scene.add(bokeh)
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
 camera.layers.enable(1) // メイン描画では layer0(実体)＋layer1(輪郭ハル・空) の両方を映す。法線パスでは一時的にlayer1を外す
 // 視点の制御値（球面）。yaw=水平角, pitch=見下ろし角, dist=距離。
-const camCtl = { yaw: 0.32, pitch: 0.62, dist: 19, minDist: 4.5, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 } // minDistを下げて主人公にぐっと寄れるように
+const camCtl = { yaw: 0.32, pitch: 0.54, dist: 14, minDist: 4.5, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 } // 主人公に寄せ(19→14)・俯角をゆるめ(0.62→0.54)＝主人公が大きく写り、空も多めに入る（レビュー反映2026-06-23）
 let lookSens = 1 // 設定：視点を回す感度（ひくい/ふつう/たかい）
 function camOffset(out) {
   const cp = Math.cos(camCtl.pitch)
@@ -4983,7 +4983,7 @@ const vel = new THREE.Vector3() // 歩きの慣性（世界速度 x,z）
 let idleTime = 0 // 立ち止まっている時間（“間”の演出用）
 let lookUp = 0 // 立ち止まると少し空を見上げる量(0..1)
 const BASE_FOV = 45
-const BASE_DIST = 19
+const BASE_DIST = 14
 let camDistTarget = BASE_DIST // ユーザーのズーム基準（立ち止まり時の自動引きはこれを基準にする）
 const lieBtn = document.getElementById('lie')
 const npcEl = document.getElementById('npc')
@@ -5266,7 +5266,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-yato-powerlines' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-camera-closer' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -6202,6 +6202,7 @@ function update(dt) {
       }
       if (ct < 1) { camGoal.x = hx + (camGoal.x - hx) * ct; camGoal.z = hz + (camGoal.z - hz) * ct; camGoal.y = hyc + (camGoal.y - hyc) * ct }
     }
+    { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
   } else if (mode === 'lying') {
     // 「よいしょ」と その場に “必ず仰向け” で横になる所作（約1.05秒）。固定アングルでお腹が上を向くのを見せる
