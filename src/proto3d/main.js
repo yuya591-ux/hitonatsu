@@ -5535,9 +5535,12 @@ function update(dt) {
   gradePass.uniforms.rain.value = weather
   // 雨＝紫がかった霞が立ちこめ奥行きが詰まる（全時間帯で「遠景が空気に溶ける」統一感を持たせ、雨で最大に）
   scene.fog.color.copy(_todFog).lerp(_rainFog, weather * 0.5)
+  const onRoofHi = area === 'yato' && boy.userData._cy != null && boy.userData._cy > PLATEAU_Y + 3 // サンライズの屋上にいる（高所）
   if (typeof window !== 'undefined' && window.__fogFar) { scene.fog.near = 9000; scene.fog.far = 12000 } // 検証用：俯瞰を見通す（本番では未設定）
   else if (flying) { scene.fog.near = 80; scene.fog.far = 900 } // 飛行モード：空から遠景まで見渡せる
+  else if (onRoofHi) { scene.fog.near = 80; scene.fog.far = 720 - weather * 200 } // 屋上：高所は霞が晴れて、町・二ツ池・遠くの山まで見渡せる
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
+  if (typeof window === 'undefined' || !window.__freezeCam) { const wf = (flying || onRoofHi) ? 1300 : 600; if (camera.far !== wf) { camera.far = wf; camera.updateProjectionMatrix() } } // 屋上/飛行は遠くまで描画（検証のフリーズカメラには触れない）
   // 光のボケ：雨×暗さ（夕暮れ〜夜）で軒の灯りがにじむ玉ボケ。ゆっくり昇って明滅
   { const nf = nightFactor(tday), vis = weather * THREE.MathUtils.clamp(nf * 1.5 + 0.14, 0, 1)
     bokeh.material.opacity = vis * 0.5
