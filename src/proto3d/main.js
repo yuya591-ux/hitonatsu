@@ -1383,7 +1383,7 @@ function buildShishigaya() {
   const groundTex = yatoGroundTex.clone(); groundTex.needsUpdate = true; groundTex.repeat.set(Math.round(SG.half * 2 / 42), Math.round(SG.half * 2 / 42)) // タイル≒42mで地面の質感を出す（頂点色に掛け算＝色相は標高グラデのまま）
   const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })); gm.position.set(SG.gx0, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
   // 建物：種別で描き分け。集合住宅(apartments)=陸屋根の中層棟＋バルコニー面／家(house等)=低い切妻／事務所・大箱=陸屋根。中心のサンライズ北寺尾は7階の主役マンション
-  const bv = [], bc = [], bidx = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
+  const bv = [], bc = [], bidx = [], buv = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
   const kawaraTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(0,0,0,0.11)'; x.lineWidth = 1.4; for (let y = 0; y < 64; y += 9) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(64, y + 0.5); x.stroke() } x.strokeStyle = 'rgba(0,0,0,0.05)'; for (let xx = 0; xx < 64; xx += 8) { x.beginPath(); x.moveTo(xx + 0.5, 0); x.lineTo(xx + 0.5, 64); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 瓦の控えめなタイル目（白地＝頂点色で着色）
   const walls = [[0.90, 0.86, 0.76], [0.86, 0.80, 0.68], [0.82, 0.84, 0.80], [0.80, 0.76, 0.70], [0.88, 0.82, 0.72], [0.78, 0.80, 0.84], [0.84, 0.78, 0.66]]
   const roofs = [[0.40, 0.46, 0.52], [0.46, 0.34, 0.28], [0.34, 0.42, 0.36], [0.30, 0.34, 0.40], [0.52, 0.42, 0.30], [0.38, 0.32, 0.30]]
@@ -1402,6 +1402,16 @@ function buildShishigaya() {
     x.fillStyle = '#c7c2b4'; x.fillRect(0, 80, 128, 5)  // 笠木（手すり上端）
     x.fillStyle = '#b3ad9e'; for (let i = 10; i < 122; i += 12) x.fillRect(i, 88, 2, 30) // 手すりの縦格子（スリット）
     x.fillStyle = 'rgba(120,114,100,0.5)'; x.fillRect(0, 0, 4, 128); x.fillRect(124, 0, 4, 128) // 戸境の柱の陰＝隣の戸との継ぎめがはっきり（単調な反復を割る）
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
+  const houseTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d') // 一軒家の壁1区画＝下見板＋窓（昭和の家。テクスチャで模倣＝形は箱のまま低ポリ。白基調で壁の頂点色に掛け算）
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 128, 128)
+    x.strokeStyle = 'rgba(150,142,124,0.26)'; x.lineWidth = 1; for (let y = 8; y < 128; y += 11) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(128, y + 0.5); x.stroke() } // 下見板（横の段）
+    const wx0 = 36, wx1 = 92, wy0 = 30, wy1 = 80
+    const gg = x.createLinearGradient(0, wy0, 0, wy1); gg.addColorStop(0, '#aab6c0'); gg.addColorStop(1, '#838f99'); x.fillStyle = gg; x.fillRect(wx0, wy0, wx1 - wx0, wy1 - wy0) // 窓ガラス（空の映り込み）
+    x.strokeStyle = '#f0ece1'; x.lineWidth = 4; x.strokeRect(wx0, wy0, wx1 - wx0, wy1 - wy0) // 窓枠（明＝アルミサッシ）
+    x.strokeStyle = '#c9c4b7'; x.lineWidth = 2; x.beginPath(); x.moveTo(64, wy0); x.lineTo(64, wy1); x.moveTo(wx0, 55); x.lineTo(wx1, 55); x.stroke() // 十字桟（引き違い窓）
+    x.fillStyle = '#d8d2c4'; x.fillRect(wx0 - 3, wy1, wx1 - wx0 + 6, 4) // 窓台（水切り）
+    x.fillStyle = 'rgba(120,112,96,0.16)'; x.fillRect(0, 0, 3, 128); x.fillRect(125, 0, 3, 128) // 区画の継ぎめ（柱／角）
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
   const pushTri = (col, p0, p1, p2) => { rfv.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]); rfuv.push(p0[0] / 2.4, p0[2] / 2.4, p1[0] / 2.4, p1[2] / 2.4, p2[0] / 2.4, p2[2] / 2.4); for (let q = 0; q < 3; q++) rfc.push(col[0], col[1], col[2]); rfidx.push(oRef.o, oRef.o + 1, oRef.o + 2); oRef.o += 3 } // UVは真上からの平面投影＝瓦目が世界グリッドに揃う
   let sunIdx = -1, sunD = 1e9; SG.buildings.forEach((b, i) => { if (b[6] === 1) { const dd = Math.hypot(b[0] - 3008, b[1] + 8.5); if (dd < sunD) { sunD = dd; sunIdx = i } } }) // サンライズ北寺尾＝原点最寄りの集合住宅（z反転後なので+8.5）
@@ -1457,7 +1467,8 @@ function buildShishigaya() {
       let stories = tc === 4 ? 1 : (area < 65 ? 1 : (area > 230 ? 3 : 2)); if (stories === 2 && seed % 4 === 0) stories = 1; if (stories === 1 && seed % 6 === 0 && tc !== 4) stories = 2
       const h = slope + stories * 3, wc = walls[seed % walls.length], rc = roofs[(seed >> 2) % roofs.length]
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
-        for (const p of [p0, p1, p2, p3]) { bv.push(p[0], p[1], p[2]); bc.push(wc[0], wc[1], wc[2]) }; bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 }
+        const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 3.5)), vt = Math.max(1, Math.round(h / 3)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=窓の間口, v=階＝壁に窓が並ぶ
+        ;[p0, p1, p2, p3].forEach((p, qi) => { bv.push(p[0], p[1], p[2]); bc.push(wc[0], wc[1], wc[2]); buv.push(uvq[qi][0], uvq[qi][1]) }); bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 }
       const rh = Math.min(4, Math.min(w, d) * 0.5 + 1), rg = h + rh, e0 = L(-hw, h, -hd), e1 = L(hw, h, -hd), e2 = L(hw, h, hd), e3 = L(-hw, h, hd)
       if (w >= d) { const r0 = L(-hw, rg, 0), r1 = L(hw, rg, 0); pushTri(rc, e3, e2, r1); pushTri(rc, e3, r1, r0); pushTri(rc, e1, e0, r0); pushTri(rc, e1, r0, r1); pushTri(wc, e0, e3, r0); pushTri(wc, e2, e1, r1) }
       else { const r0 = L(0, rg, -hd), r1 = L(0, rg, hd); pushTri(rc, e1, e2, r1); pushTri(rc, e1, r1, r0); pushTri(rc, e3, e0, r0); pushTri(rc, e3, r0, r1); pushTri(wc, e0, e1, r0); pushTri(wc, e2, e3, r1) }
@@ -1484,7 +1495,7 @@ function buildShishigaya() {
     for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], ga = heightAtYato(a[0], a[1]) - 1, gb = heightAtYato(b[0], b[1]) - 1; if (ga >= base - 0.3 && gb >= base - 0.3) continue
       sunTri(conc, [a[0], base, a[1]], [b[0], base, b[1]], [b[0], gb, b[1]]); sunTri(conc, [a[0], base, a[1]], [b[0], gb, b[1]], [a[0], ga, a[1]]) }
     if (srv.length) { const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(srv, 3)); sg.setAttribute('color', new THREE.Float32BufferAttribute(src, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(sruv, 2)); sg.setIndex(srvidx); sg.computeVertexNormals(); const sm = new THREE.Mesh(sg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); sm.castShadow = true; sm.receiveShadow = true; sm.layers.set(1); scene.add(sm) } } // サンライズの屋根/塔屋/基礎＝専用メッシュ(layer1=インク線除外)。真上から物差し状の黒線が散らばらない
-  if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
+  if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
   if (av.length) { const ageo = new THREE.BufferGeometry(); ageo.setAttribute('position', new THREE.Float32BufferAttribute(av, 3)); ageo.setAttribute('color', new THREE.Float32BufferAttribute(ac, 3)); ageo.setAttribute('uv', new THREE.Float32BufferAttribute(auv, 2)); ageo.setIndex(aidx); ageo.computeVertexNormals(); const am = new THREE.Mesh(ageo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = true; am.receiveShadow = true; scene.add(am) }
   if (rfv.length) { const rg2 = new THREE.BufferGeometry(); rg2.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg2.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg2.setAttribute('uv', new THREE.Float32BufferAttribute(rfuv, 2)); rg2.setIndex(rfidx); rg2.computeVertexNormals(); const rm2 = new THREE.Mesh(rg2, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); rm2.castShadow = true; rm2.receiveShadow = true; scene.add(rm2) }
   // ───── サンライズの屋上：実物の陸屋上＝外周パラペット＋給水タンク。外階段は廃止（真上から物差し状に見える＝実物に無い・ユーザー要望2026-06-23）。屋上へは入口の「のぼる」操作で ─────
@@ -5318,7 +5329,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-danchi-wall' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-house-window' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
