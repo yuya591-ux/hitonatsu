@@ -1761,6 +1761,25 @@ function buildShishigaya() {
       scene.add(pI); scene.add(aI)
       const wl = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(wireSeg), new THREE.LineBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.6 })); wl.layers.set(1); scene.add(wl) // 電線はインク線パスから除外
       console.log('[shishigaya] 電柱', poleP.length) } }
+  // 道ぞいのブロック塀・生垣（家の前＝日本の住宅地の核・ユーザー要望2026-06-22）。家がある側だけ・中心部優先・ところどころ出入口で開ける。塀/生垣を各1インスタンスメッシュ＝軽い
+  { const blockTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#bdb8ac'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(120,116,106,0.45)'; x.lineWidth = 2
+      for (let y = 0; y <= 64; y += 16) { x.beginPath(); x.moveTo(0, y); x.lineTo(64, y); x.stroke() } // 横目地
+      for (let r = 0; r < 4; r++) { const off = (r % 2) * 16; for (let xx = off; xx <= 64; xx += 32) { x.beginPath(); x.moveTo(xx, r * 16); x.lineTo(xx, r * 16 + 16); x.stroke() } } // 馬目地の縦
+      const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.5, 1); return t })()
+    const wallP = [], hedgeP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
+    const cenD2 = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
+    const rds = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD2(a) - cenD2(b))
+    for (const rd of rds) { if (wallP.length + hedgeP.length > 760) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
+      for (let k = 0; k < p.length - 1 && wallP.length + hedgeP.length <= 760; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, ang = Math.atan2(-uz, ux)
+        for (let t = 2.5; t < l - 2.5; t += 5) for (const sd of [1, -1]) { const wx = x0 + ux * t + nx * sd * (hw + 0.8), wz = z0 + uz * t + nz * sd * (hw + 0.8)
+          if (!occAt(wx + nx * sd * 3.5, wz + nz * sd * 3.5)) continue // 家がある側だけ＝塀の向こうに家
+          if (Math.hypot(wx - 3008, wz + 8) < 50 || inWater(wx, wz) || heightAtYato(wx, wz) < 3) continue
+          const seed = Math.abs(Math.round(wx) * 7 + Math.round(wz) * 5); if (seed % 5 === 0) continue // 5区画に1つは開ける（門/車庫の出入口）
+          ;(seed % 3 === 0 ? hedgeP : wallP).push([wx, wz, ang]) } } }
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), eu = new THREE.Euler()
+    if (wallP.length) { const wI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.3, 0.28), new THREE.MeshToonMaterial({ color: 0xffffff, map: blockTex, gradientMap: GRAD }), wallP.length); wI.castShadow = wI.receiveShadow = true; wallP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.65, z), q, sc); wI.setMatrixAt(i, m4) }); scene.add(wI) } // ブロック塀
+    if (hedgeP.length) { const hI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.0, 0.7), new THREE.MeshToonMaterial({ color: 0x5f8540, gradientMap: GRAD }), hedgeP.length); hI.castShadow = true; hedgeP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.5, z), q, sc); hI.setMatrixAt(i, m4) }); scene.add(hI) } // 生垣
+    console.log('[shishigaya] 塀', wallP.length, '生垣', hedgeP.length) }
   // 生活感の小物（人がいた痕跡＝エモさ）：物干し・室外機を家のそばに、自販機・丸ポストを道角に。中心部(サンライズ〜小学校)に控えめに
   { const hoshi = (x, z, rot) => { const g = new THREE.Group(), pole = toon(0xb4b4b0); for (const px of [-1.6, 1.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), pole); p.position.set(px, 0.9, 0); g.add(p) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.65; g.add(bar); const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]; for (let i = 0; i < 4; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.78), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cl.position.set(-1.1 + i * 0.74, 1.25, 0); g.add(cl) } placeProp(g, x, z, rot, 0.03, 1.4) } // 物干し（洗濯もの）
     const shitsu = (x, z, rot) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.35), toon(0xcfcabd)); b.position.y = 0.4; g.add(b); const gr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), toon(0x8a8a86)); gr.position.set(0, 0.4, 0.181); g.add(gr); placeProp(g, x, z, rot, 0.02, 0.5) } // 室外機
@@ -5411,7 +5430,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-poles-nets' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-walls-hedges' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
