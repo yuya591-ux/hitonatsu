@@ -1538,7 +1538,7 @@ function buildShishigaya() {
       dirtPatch(3062, -154, 24, 28, 0xc2bdb2) // 広場（舗装・ユーザー指定3050-3075,-139..-169）
       { const px = 3062, pz = -150, py = heightAtYato(px, pz) + 0.1 // 広場の小さな池（ユーザー記憶）
         const edge = new THREE.Mesh(new THREE.CircleGeometry(3.9, 24), toon(0x9a8b66)); edge.rotation.x = -Math.PI / 2; edge.position.set(px, py + 0.04, pz); grp.add(edge)
-        const pond = new THREE.Mesh(new THREE.CircleGeometry(3.3, 24), new THREE.MeshToonMaterial({ color: 0x57a7c4, gradientMap: GRAD })); pond.rotation.x = -Math.PI / 2; pond.position.set(px, py + 0.09, pz); grp.add(pond) }
+        const pond = new THREE.Mesh(new THREE.CircleGeometry(3.3, 24), waterMat); pond.rotation.x = -Math.PI / 2; pond.position.set(px, py + 0.09, pz); grp.add(pond) } // 水面＝本物の水シェーダ
       for (let s = 0; s < 7; s++) { const x = 3078 + s * 2.4, y = heightAtYato(x, -154); grp.add(mk(new THREE.BoxGeometry(9, 0.3, 1.7), toon(0xcac4b8), x, y + 0.12, -154, 0, true)) } // 広場→校庭の階段（西から東の一段高い校庭へ・実斜面を登る）
       schoolBldg(3061, -178, 50, 12, 3, 0, 0x9a4f3e) // 校舎（北西の長い3F）
       { const gx = 3037, gN = -156, gS = -172, gm = toon(0xcabfa0) // 裏門（西の道から入る門・人が通れる）＝ユーザー指定の建物(3037,-164)を門に
@@ -1549,7 +1549,7 @@ function buildShishigaya() {
         for (const fz of [-146, -182]) grp.add(mk(new THREE.PlaneGeometry(10, 1.4), ffm, gx, heightAtYato(gx, fz) + 0.8, fz, Math.PI / 2)) } // 門の両脇の短いフェンス
       { const pcx = 3055, pcz = -104, pg = gmin4(pcx, pcz, 24, 18) // プール（実位置3055,-104）
         grp.add(mk(new THREE.BoxGeometry(24, 1.0, 18), toon(0xd0ccc0), pcx, pg + 0.5, pcz, 0, true))
-        grp.add(mk(new THREE.BoxGeometry(19, 0.3, 13), new THREE.MeshToonMaterial({ color: 0x57b1d0, gradientMap: GRAD }), pcx, pg + 1.02, pcz, 0, true))
+        const pw = new THREE.Mesh(new THREE.PlaneGeometry(19, 13), waterMat); pw.rotation.x = -Math.PI / 2; pw.position.set(pcx, pg + 1.02, pcz); grp.add(pw) // 水面＝本物の水シェーダ(さざ波/きらめき/空の映り込み)
         const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
         grp.add(mk(new THREE.PlaneGeometry(24, 1.6), fm, pcx, pg + 1.3, pcz - 9, 0)); grp.add(mk(new THREE.PlaneGeometry(24, 1.6), fm, pcx, pg + 1.3, pcz + 9, 0)); grp.add(mk(new THREE.PlaneGeometry(18, 1.6), fm, pcx - 12, pg + 1.3, pcz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(18, 1.6), fm, pcx + 12, pg + 1.3, pcz, Math.PI / 2)) }
       signOn(3061, -185, 14, gmax4(3061, -178, 50, 12), 12, name, '#2f5a8a') }
@@ -5277,7 +5277,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-yato-props' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-water-shader' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
