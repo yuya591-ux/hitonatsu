@@ -1578,7 +1578,17 @@ function buildShishigaya() {
       else if (type === 'eat') buildShop(x, z, 9, 8, 2, 0xd8b08a, name, '#9a3520')
       else buildShop(x, z, 9, 8, 2, 0xd9cdb0, name, '#b5462f') // shop（しんみせ＝薬＋駄菓子）
     }
-    ground(3002, -148, 52, 40, 0xbda06a) // マリノスのグラウンド＝サンライズ目の前の公園(ビスコと離す)。土のグラウンド
+    // マリノスのグラウンド＝獅子ヶ谷一丁目公園(2987,-123・ビスコの右上＝ユーパリノス家の隣の公園)。あまり使われず膝丈の雑草が伸びた“芝生の原っぱ”＋サッカーゴールだけ（茶色い土ではない）
+    { const gx = 2987, gz = -123, gw = 50, gd = 84, m4 = new THREE.Matrix4(), sc = new THREE.Vector3()
+      const weed = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.55, 4), new THREE.MeshToonMaterial({ color: 0x6f8a3e, gradientMap: GRAD }), 220); let wi = 0
+      for (let t = 0; t < 800 && wi < 220; t++) { const x = gx + (Math.random() - 0.5) * gw, z = gz + (Math.random() - 0.5) * gd, y = heightAtYato(x, z); if (y < 3) continue; const s = 0.8 + Math.random() * 0.9; m4.makeTranslation(x, y + 0.28 * s, z); m4.scale(sc.set(s, s, s)); weed.setMatrixAt(wi++, m4) }
+      weed.count = wi; weed.castShadow = true; weed.receiveShadow = true; grp.add(weed) // 膝丈の雑草（伸びた草むら）
+      const gm = toon(0xededed), ggy = heightAtYato(gx, gz + 30), GW2 = 7.2, GH = 2.4, gzz = gz + 30 // サッカーゴール1基（白いパイプ枠＋ネット）南端に
+      for (const sx of [-GW2 / 2, GW2 / 2]) grp.add(mk(new THREE.BoxGeometry(0.13, GH, 0.13), gm, gx + sx, ggy + GH / 2, gzz)) // 左右ポスト
+      grp.add(mk(new THREE.BoxGeometry(GW2 + 0.13, 0.13, 0.13), gm, gx, ggy + GH, gzz)) // クロスバー
+      for (const sx of [-GW2 / 2, GW2 / 2]) grp.add(mk(new THREE.BoxGeometry(0.1, 1.4, 0.1), gm, gx + sx, ggy + 0.7, gzz + 2.2)) // 後ろの短い柱
+      grp.add(mk(new THREE.BoxGeometry(GW2, 0.1, 0.1), gm, gx, ggy + 0.05, gzz + 2.2)) // 後ろ下バー
+      const net = new THREE.Mesh(new THREE.PlaneGeometry(GW2, 3.2), new THREE.MeshToonMaterial({ color: 0xf2f2f2, gradientMap: GRAD, transparent: true, opacity: 0.22, side: THREE.DoubleSide })); net.position.set(gx, ggy + GH / 2, gzz + 1.1); net.rotation.x = -0.6; net.castShadow = false; grp.add(net) }
     // サンライズの地下一階(裏=谷側)の出口の先＝当時は森（今は橘学苑のグラウンド）。エラ時代として木立を置く
     const trMat = new THREE.MeshToonMaterial({ gradientMap: GRAD }), grn = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a]
     for (let i = 0; i < 16; i++) { const fx = 3012 + (Math.random() - 0.5) * 40, fz = -56 + (Math.random() - 0.5) * 34, fy = heightAtYato(fx, fz), s = 1.7 + Math.random() * 1.2
@@ -5240,7 +5250,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260622-ground-flush' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260622-marinos-grass' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
