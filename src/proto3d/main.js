@@ -1410,6 +1410,29 @@ function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分
   for (let k = 0; k < p.length; k++) { const i1 = base + 1 + k, i2 = base + 1 + ((k + 1) % p.length); if (area > 0) iArr.push(base, i2, i1); else iArr.push(base, i1, i2) } // 巻きを揃えて法線を必ず上向きに（z反転後の座標系。二ツ池の片方が裏面カリングで消えていた不具合の修正）
 }
 
+// 複数パーツ(箱/円柱)を1つの頂点色つきジオメトリに結合＝公園の遊具一式などを1ドローでインスタンシングするため
+function mergeParts(parts) { const V = [], C = [], v = new THREE.Vector3()
+  for (const p of parts) { const g = p.g.index ? p.g.toNonIndexed() : p.g, pos = g.attributes.position
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(p.m); V.push(v.x, v.y, v.z); C.push(p.c[0], p.c[1], p.c[2]) } }
+  const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(V, 3)); bg.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); bg.computeVertexNormals(); return bg }
+// 公園の遊具一式（すべり台・ブランコ・砂場・鉄棒・ベンチ）を1ジオメトリに結合＝全公園にインスタンシング（1ドロー）
+const PLAYGROUND_GEO = (() => {
+  const M = (x, y, z, sx, sy, sz, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, 0, 0)), new THREE.Vector3(sx, sy, sz))
+  const box = new THREE.BoxGeometry(1, 1, 1), cyl = new THREE.CylinderGeometry(1, 1, 1, 6)
+  const sand = [0.87, 0.79, 0.57], poleC = [0.64, 0.68, 0.72], red = [0.78, 0.42, 0.36], wood = [0.6, 0.45, 0.3], plat = [0.5, 0.62, 0.72], P = []
+  P.push({ g: box, m: M(4, 0.2, 4, 5, 0.4, 5), c: sand }) // 砂場
+  for (const sx of [-1.7, 1.7]) for (const dz of [-0.9, 0.9]) P.push({ g: cyl, m: M(-4.5 + sx, 1.3, dz, 0.07, 2.6, 0.07), c: poleC }) // ブランコ4脚
+  P.push({ g: box, m: M(-4.5, 2.55, 0, 3.7, 0.12, 0.12), c: poleC }) // ブランコ上バー
+  for (const sx of [-0.8, 0.8]) { P.push({ g: box, m: M(-4.5 + sx, 1.0, 0, 0.5, 0.08, 0.28), c: wood }); P.push({ g: box, m: M(-4.5 + sx, 1.78, 0, 0.04, 1.5, 0.04), c: poleC }) } // 席＋鎖
+  P.push({ g: box, m: M(0, 1.5, -4.5, 1.3, 0.12, 1.3), c: plat }) // すべり台の踊り場
+  for (const sx of [-0.5, 0.5]) P.push({ g: cyl, m: M(sx, 0.75, -4.5, 0.07, 1.5, 0.07), c: poleC }) // 踊り場の脚
+  for (const sx of [-0.5, 0.5]) for (let r = 0; r < 4; r++) P.push({ g: box, m: M(sx, 0.4 + r * 0.35, -5.05, 0.04, 0.04, 0.55), c: poleC }) // はしごの桟
+  P.push({ g: box, m: M(0, 0.92, -2.9, 0.9, 0.08, 3.4, -0.5), c: plat }) // 滑り面（傾き）
+  for (const sx of [-1, 1]) P.push({ g: cyl, m: M(4.5 + sx, 0.6, -3, 0.06, 1.3, 0.06), c: red }) // 鉄棒の脚
+  P.push({ g: box, m: M(4.5, 1.2, -3, 2.1, 0.06, 0.06), c: red }) // 鉄棒
+  P.push({ g: box, m: M(-4, 0.45, 4.5, 1.7, 0.1, 0.45), c: wood }); for (const sx of [-0.7, 0.7]) P.push({ g: box, m: M(-4 + sx, 0.2, 4.5, 0.1, 0.4, 0.4), c: wood }) // ベンチ
+  return mergeParts(P)
+})()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
 function buildShishigaya() {
   const seg = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(SG.half * 2, SG.half * 2, seg, seg); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子はhalfに比例＝約7m）
@@ -1657,10 +1680,11 @@ function buildShishigaya() {
       grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
       signOn(cx, cz - 11, 8, gy, 4, name, '#5a3a3a') }
     const buildParkSign = (cx, cz, name) => { const gy = heightAtYato(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, Math.atan2(3008 - cx, -8 - cz))) } // 公園のなまえ看板（既存の緑地に立てる）
+    const parkPos = [] // 公園の位置（遊具を後でまとめて配置）
     for (const [x, z, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
       if (type === 'shrine') buildShrine(x, z, name)
       else if (type === 'temple') buildTemple(x, z, name)
-      else if (type === 'park') buildParkSign(x, z, name)
+      else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') { const gy = gmin4(x, z, 18, 12) // 横溝屋敷＝茅葺きの大屋根の母屋＋長屋門（谷の奥の旧家）
         grp.add(mk(new THREE.BoxGeometry(18, 3.4, 12), toon(0xcdbfa2), x, gy + 1.7, z, 0, true)) // 母屋の壁(白漆喰)
         grp.add(mk(new THREE.ConeGeometry(12.5, 6, 4), toon(0x5f4a2e), x, gy + 6.4, z, Math.PI / 4, true)) // 茅葺きの寄棟大屋根(急で大きい)
@@ -1675,6 +1699,11 @@ function buildShishigaya() {
       else if (type === 'eat') buildShop(x, z, 9, 8, 2, 0xd8b08a, name, '#9a3520')
       else buildShop(x, z, 9, 8, 2, 0xd9cdb0, name, '#b5462f') // shop（しんみせ＝薬＋駄菓子）
     }
+    // 公園の遊具（すべり台/ブランコ/砂場/鉄棒/ベンチ）を全公園にインスタンシング配置（1ドロー）。公園ごとに向きを少し変える
+    if (parkPos.length) { const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
+      const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
+      for (const [px, pz] of parkPos) { const seed = Math.abs(Math.round(px) + Math.round(pz) * 3); e2.set(0, (seed % 4) * 1.5708, 0); q2.setFromEuler(e2); m4b.compose(new THREE.Vector3(px, heightAtYato(px, pz), pz), q2, s2); pgI.setMatrixAt(pn++, m4b) }
+      pgI.count = pn; scene.add(pgI); console.log('[shishigaya] 公園遊具', pn) }
     // マリノスのグラウンド＝獅子ヶ谷一丁目公園(2987,-123・ビスコの右上＝ユーパリノス家の隣の公園)。あまり使われず膝丈の雑草が伸びた“芝生の原っぱ”＋サッカーゴールだけ（茶色い土ではない）
     { const gx = 2987, gz = -123, gw = 50, gd = 84, m4 = new THREE.Matrix4(), sc = new THREE.Vector3()
       const weed = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.55, 4), new THREE.MeshToonMaterial({ color: 0x6f8a3e, gradientMap: GRAD }), 220); let wi = 0
@@ -5430,7 +5459,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-walls-hedges' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-playgrounds' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
