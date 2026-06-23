@@ -1522,6 +1522,12 @@ function buildShishigaya() {
   // フットプリントを格子サンプルして「testに該当する面積の割合」を返す。割合がしきい値超＝建物がその上に“乗っている”＝不自然
   const fpCover = (cx, cz, w, d, ang, test) => { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2, nx = Math.max(2, Math.round(w / 2)), nz = Math.max(2, Math.round(d / 2)); let on = 0, tot = 0
     for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) { const lx = -hw + w * i / nx, lz = -hd + d * j / nz; tot++; if (test(cx + lx * co - lz * si, cz + lx * si + lz * co)) on++ } return on / tot }
+  // 実在マンション(NAMED apt)がジオコード点のせいで道/水に重なる時、最寄りの空き地へずらす（実在だが住所点が道路上＝適切な配置に移動。ユーザー要望2026-06-23）
+  const nudgeOffRoad = (cx, cz, w, d) => { const ry = Math.atan2(3008 - cx, -8 - cz)
+    const bad = (x, z) => fpCover(x, z, w, d, ry, onYatoRoad) > 0.04 || inWaterAny(x, z) || fpCover(x, z, w + 4, d + 4, ry, inWaterAny) > 0.04
+    if (!bad(cx, cz)) return [cx, cz]
+    for (let r = 4; r <= 44; r += 4) for (let a = 0; a < 24; a++) { const th = a / 24 * 6.2832, x = cx + Math.cos(th) * r, z = cz + Math.sin(th) * r; if (!bad(x, z)) return [x, z] } // 4mずつ外へ螺旋探索＝最小移動で道/水を外れる空き地へ
+    return [cx, cz] }
   let nOnRoad = 0, nOnWater = 0 // 道/水の上に重なる建物を消した数（不自然な配置の除去・ログで確認）
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
@@ -2008,7 +2014,7 @@ function buildShishigaya() {
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 校舎＋校庭
-      else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { buildApt(x, z, 34, 11, floors, name); buildApt(x + 4, z + 26, 11, 28, floors, ''); buildApt(x - 24, z + 14, 28, 11, floors, '') } else buildApt(x, z, name === 'コスモ綱島グランステージ' ? 30 : 24, 12, floors, name) } // 実在の中層マンション(団地は複数棟)
+      else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 34, 28); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
       else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
       else if (type === 'conbini') buildConbini(x, z, name) // 90年代の郊外型コンビニ（一面ガラス＋電照看板＋駐車場＋のぼり＋自販機）
