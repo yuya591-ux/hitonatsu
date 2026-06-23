@@ -1707,6 +1707,35 @@ function buildShishigaya() {
       { const bz = cz - 6; for (const [px, pz, w, a] of [[cx, bz - 2.0, 6, 0], [cx - 3, bz, 4, Math.PI / 2], [cx + 3, bz, 4, Math.PI / 2]]) grp.add(mk(new THREE.BoxGeometry(w, 1.0, 0.12), toon(0xbfae8a), px, heightAtYato(px, pz) + 0.5, pz, a, true)) }
       grp.add(mk(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 6), toon(0x6a5236), cx - 6, gy + 1.75, cz - 2, 0, true)); grp.add(mk(new THREE.IcosahedronGeometry(2.6, 0), toon(0x4f7a3a), cx - 6, gy + 4.8, cz - 2, 0, true)) // 御神木
       signOn(cx, cz + 12.5, 4, gy, 2.4, name, '#2e6b3a'); addCollider(cx, cz, 3.2) }
+    // 旧横溝家住宅（横溝屋敷）＝獅子ヶ谷の名主の屋敷(幕末〜明治)。長屋門→主屋(木造2階・寄棟・茅葺)＋文庫蔵(白漆喰の土蔵)＋穀蔵(板蔵)＋蚕小屋＋生垣。南(+z)向き（ユーザー要望2026-06-23・Web調査）
+    const buildYokomizo = (cx, cz, name) => { const gy = gmin4(cx, cz, 20, 20)
+      const wall = toon(0xcabfa2), woodD = toon(0x6a5236), thatch = toon(0x7d6a47), kura = toon(0xe9e5d9), tile = toon(0x595d61), post = toon(0x836a44), board = toon(0x9a7e54)
+      const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
+      groundPatch(grp, cx, cz + 3, 34, 32, 0xc3b899) // 前庭（踏み固めた土＝屋敷だと分かる地面色）
+      // 長屋門（茅葺き・中央が通路）front=南(cz+13)
+      { const tz = cz + 13, ty = heightAtYato(cx, tz)
+        for (const sx of [-5.5, 5.5]) grp.add(mk(new THREE.BoxGeometry(3.0, 2.8, 3.4), wall, cx + sx, ty + 1.4, tz, 0, true)) // 門の両脇（部屋）
+        grp.add(mk(new THREE.BoxGeometry(2.6, 3.0, 0.4), woodD, cx, ty + 1.5, tz - 1.6, 0, true)) // 通路の奥の梁/扉枠（奥）
+        mr(new THREE.ConeGeometry(8.4, 2.8, 4), thatch, cx, ty + 4.0, tz, 0, Math.PI / 4).scale.set(1.0, 1, 0.45) // 茅葺き寄棟(横長＝門に合わせ薄く)
+        addBox(cx - 5.5, tz, 1.6, 1.8, 0, 0.3); addBox(cx + 5.5, tz, 1.6, 1.8, 0, 0.3) } // 両脇に当たり判定（中央は通れる）
+      // 主屋（木造2階・寄棟・茅葺の大屋根）中央(cz-3)
+      { const mxc = cx, mzc = cz - 3, my = heightAtYato(mxc, mzc)
+        grp.add(mk(new THREE.BoxGeometry(16, 5.0, 11), wall, mxc, my + 2.5, mzc, 0, true)) // 2階建ての壁
+        for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(1.4, 1.2, 0.15), toon(0x4a4036), mxc - 5.6 + i * 2.8, my + 1.3, mzc + 5.55)) // 1階の格子戸/窓
+        for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(1.2, 0.9, 0.15), toon(0x6a5a48), mxc - 5.6 + i * 2.8, my + 3.6, mzc + 5.55)) // 2階の窓
+        const roof = mr(new THREE.ConeGeometry(13.5, 6.5, 4), thatch, mxc, my + 8.0, mzc, 0, Math.PI / 4); roof.scale.set(1.0, 1, 0.72) // 茅葺き寄棟の大屋根
+        grp.add(mk(new THREE.BoxGeometry(7, 0.5, 0.5), woodD, mxc, my + 11.0, mzc)) // 棟（茅葺きの押え）
+        addBox(mxc, mzc, 8, 5.5, 0, 0.4) } // 主屋の当たり判定
+      // 文庫蔵（白漆喰の土蔵・瓦）西(cx-12)
+      { const kx = cx - 12, kz = cz - 5, ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(5.0, 4.2, 6.0), kura, kx, ky + 2.1, kz, 0, true)); mr(new THREE.ConeGeometry(4.6, 1.8, 4), tile, kx, ky + 5.1, kz, 0, Math.PI / 4).scale.set(1.0, 1, 1.3); grp.add(mk(new THREE.BoxGeometry(1.0, 1.2, 0.2), woodD, kx, ky + 1.4, kz + 3.05)); addBox(kx, kz, 2.6, 3.1, 0, 0.3) } // 土蔵＋瓦寄棟＋扉
+      // 穀蔵（板張りの蔵・瓦）東(cx+12)
+      { const sx2 = cx + 12, sz2 = cz - 5, sy = heightAtYato(sx2, sz2); grp.add(mk(new THREE.BoxGeometry(5.0, 3.6, 5.6), board, sx2, sy + 1.8, sz2, 0, true)); mr(new THREE.ConeGeometry(4.4, 1.7, 4), tile, sx2, sy + 4.5, sz2, 0, Math.PI / 4).scale.set(1.0, 1, 1.25); addBox(sx2, sz2, 2.6, 2.9, 0, 0.3) } // 板蔵＋瓦
+      // 蚕小屋（木造の小屋・瓦）東前(cx+11, cz+6)
+      { const cx2 = cx + 11, cz2 = cz + 6, cy = heightAtYato(cx2, cz2); grp.add(mk(new THREE.BoxGeometry(6.0, 2.6, 4.0), board, cx2, cy + 1.3, cz2, 0, true)); mr(new THREE.ConeGeometry(4.6, 1.5, 4), tile, cx2, cy + 3.3, cz2, 0, Math.PI / 4).scale.set(1.0, 1, 0.7); addBox(cx2, cz2, 3.1, 2.1, 0, 0.3) } // 蚕小屋
+      precinctFence(grp, cx, cz + 1, 34, 32, 0x5f7a44, 1.3, 's') // 生垣（屋敷の境・南＝長屋門側を開ける）
+      for (const [tx2, tz2, ts] of [[cx - 14, cz + 8, 1.3], [cx + 15, cz - 12, 1.4], [cx - 5, cz - 12, 1.2]]) { const ty2 = heightAtYato(tx2, tz2); grp.add(mk(new THREE.CylinderGeometry(0.3, 0.42, 3.2 * ts, 6), woodD, tx2, ty2 + 1.6 * ts, tz2, 0, true)); grp.add(mk(new THREE.IcosahedronGeometry(2.4 * ts, 0), toon(0x4f7a3a), tx2, ty2 + 3.2 * ts + 1.6 * ts, tz2, 0, true)) } // 屋敷林
+      grp.add(mk(new THREE.CylinderGeometry(0.6, 0.6, 1.0, 8), toon(0x8a8f88), cx + 6, gy + 0.5, cz + 4, 0, true)) // 井戸
+      signOn(cx, cz + 15, 10, gy, 3.5, name, '#5a4a2a') }
     const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝ユーザー指定ピン(2026-06-22)に忠実：裏門(西)→広場+小池→校舎(北西)→階段→校庭(東の一段高い平地・約34.5m)。プールは実位置。全部地面に沿う＝浮かない・歩ける
       const dirtPatch = (px, pz, w, d, col) => { const nx = Math.max(2, Math.round(w / 4)), nz = Math.max(2, Math.round(d / 4)), v = [], idx = []
         for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = px - w / 2 + w * i / nx, z = pz - d / 2 + d * j / nz; v.push(x, heightAtYato(x, z) + 0.06, z) }
@@ -1757,11 +1786,7 @@ function buildShishigaya() {
       if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') buildTemple(x, z, name)
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
-      else if (type === 'yashiki') { const gy = gmin4(x, z, 18, 12) // 横溝屋敷＝茅葺きの大屋根の母屋＋長屋門（谷の奥の旧家）
-        grp.add(mk(new THREE.BoxGeometry(18, 3.4, 12), toon(0xcdbfa2), x, gy + 1.7, z, 0, true)) // 母屋の壁(白漆喰)
-        grp.add(mk(new THREE.ConeGeometry(12.5, 6, 4), toon(0x5f4a2e), x, gy + 6.4, z, Math.PI / 4, true)) // 茅葺きの寄棟大屋根(急で大きい)
-        grp.add(mk(new THREE.BoxGeometry(11, 3, 3.6), toon(0xb8a576), x, gy + 1.5, z - 11, 0, true)); grp.add(mk(new THREE.ConeGeometry(3.4, 1.8, 4), toon(0x5f4a2e), x, gy + 3.7, z - 11, Math.PI / 4, true)) // 長屋門＋茅葺き
-        signOn(x, z - 14, 10, gy, 4.2, name, '#5a4a2a'); addBox(x, z, 9, 6, 0, 0.3) } // 母屋に当たり判定
+      else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 校舎＋校庭
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { buildApt(x, z, 34, 11, floors, name); buildApt(x + 4, z + 26, 11, 28, floors, ''); buildApt(x - 24, z + 14, 28, 11, floors, '') } else buildApt(x, z, name === 'コスモ綱島グランステージ' ? 30 : 24, 12, floors, name) } // 実在の中層マンション(団地は複数棟)
       else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
@@ -5604,7 +5629,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-marinos-move' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-yokomizo' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
