@@ -7067,6 +7067,8 @@ renderer.setAnimationLoop(() => {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   if (frameAcc < 1 / 30) return
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
+  // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
+  if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'suspended') { try { listener.context.resume() } catch (e) {} }
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
