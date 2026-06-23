@@ -6387,7 +6387,7 @@ function update(dt) {
     waterMat.uniforms.tint.value.setRGB(1, 1, 1).lerp(_a.set(0xffc59a), duskF * 0.55).lerp(_b.set(0x6a7cb0), wnf * 0.85)
     waterMat.uniforms.bright.value = 1.0 - wnf * 0.52
   }
-  if (window.__motes) window.__motes.rotation.y = tsec * 0.02
+  if (window.__motes) { const mo = window.__motes; mo.rotation.y = tsec * 0.02; mo.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z), boy.position.z); mo.material.opacity = 0.5 * (1 - nightFactor(tday)) * (0.5 + 0.5 * THREE.MathUtils.smoothstep(tday, 0.12, 0.4)) } // 陽に舞うちりをプレイヤーの周りに（以前は旧町の原点に取り残され谷戸で見えず）＋夜はフェード（日中の光の粒なので）
   // 雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
