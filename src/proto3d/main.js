@@ -542,8 +542,8 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe9c8, li: 1.62, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xdbe7f0, hi: 1.3, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.5 }, // 朝＝低照度・青白くひんやり・靄がかる
-  noon: { light: 0xfff6e8, li: 2.3, sky: 0x84bce2, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.58, hsky: 0xdaf0fb, hgnd: 0x95a766, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.3 },
+  morn: { light: 0xffe9c8, li: 1.7, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xdbe7f0, hi: 1.16, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.55 }, // 朝＝低照度・青白くひんやり・靄がかる。環境光を少し下げて朝陽の影を出す
+  noon: { light: 0xfff4e2, li: 2.45, sky: 0x84bce2, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.3, hsky: 0xdaf0fb, hgnd: 0x95a766, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.32 }, // 真昼＝環境光のベタ塗りを下げ(1.58→1.3)・直射を上げ(2.3→2.45)＝夏のくっきりした陰影（のっぺり解消）。光は少し暖色へ
   dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xd98860, bot: 0xe6a890, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd29a86, hgnd: 0x5a5e72, ball: 0xff8f48, rim: 0xff7a30, ri: 1.32 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)。灯りの暖色だけ残し、空気は紫灰へ
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる
 }
