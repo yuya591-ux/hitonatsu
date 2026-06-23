@@ -1550,14 +1550,23 @@ function buildShishigaya() {
     if (!bad(cx, cz)) return [cx, cz]
     for (let r = 4; r <= 44; r += 4) for (let a = 0; a < 24; a++) { const th = a / 24 * 6.2832, x = cx + Math.cos(th) * r, z = cz + Math.sin(th) * r; if (!bad(x, z)) return [x, z] } // 4mずつ外へ螺旋探索＝最小移動で道/水を外れる空き地へ
     return [cx, cz] }
-  let nOnRoad = 0, nOnWater = 0 // 道/水の上に重なる建物を消した数（不自然な配置の除去・ログで確認）
+  // 建物どうしの重なり対策（OSM2014でfootprintが重なる/二重に建つのを防ぐ）。代表点が“先に建てた建物”のOBB内に入る数で判定＝隣接(辺で接する)は残し、乗り上げ/二重だけ消す
+  const BCELL = 20, bgrid = new Map(), placedB = []
+  const inOBB = (px, pz, b) => { const dx = px - b.cx, dz = pz - b.cz, lx = b.co * dx + b.si * dz, lz = -b.si * dx + b.co * dz; return Math.abs(lx) <= b.hw && Math.abs(lz) <= b.hd }
+  const ptOverPlaced = (px, pz) => { const ci = Math.floor(px / BCELL), cj = Math.floor(pz / BCELL); for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const arr = bgrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const b of arr) if (inOBB(px, pz, b)) return true } return false }
+  const regPlaced = (cx, cz, hw, hd, co, si) => { const b = { cx, cz, hw, hd, co, si }; placedB.push(b); const cells = new Set(); for (const [lx, lz] of [[0, 0], [-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cells.add(Math.floor((cx + lx * co - lz * si) / BCELL) + ',' + Math.floor((cz + lx * si + lz * co) / BCELL)); for (const k of cells) { let arr = bgrid.get(k); if (!arr) { arr = []; bgrid.set(k, arr) } arr.push(b) } }
+  let nOnRoad = 0, nOnWater = 0, nOverlap = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
     if (inWaterAny(cx, cz) || fpCover(cx, cz, w + 6, d + 6, ang, inWaterAny) > 0.12) { nOnWater++; return } // 水面＋岸から約3mの緩衝帯に重なる建物は描かない（水に浮く/水際ギリギリの家を防ぐ＝最優先のユーザー指摘2026-06-23。フットプリントを6m膨らませて判定）
     if (fpCover(cx, cz, w, d, ang, onYatoRoad) > 0.34) { nOnRoad++; return } // フットプリントの1/3超が道に乗る建物は描かない（道のテクスチャの上に家が立って塞ぐのを防ぐ。端が触れるだけの“路傍の家”は残す）
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
+    { const co0 = Math.cos(ang), si0 = Math.sin(ang), hw0 = w / 2, hd0 = d / 2; let ov = 0
+      for (const [lx, lz] of [[0, 0], [-hw0, -hd0], [hw0, -hd0], [hw0, hd0], [-hw0, hd0], [-hw0, 0], [hw0, 0], [0, -hd0], [0, hd0]]) if (ptOverPlaced(cx + lx * co0 - lz * si0, cz + lx * si0 + lz * co0)) ov++
+      if (ov >= 3) { nOverlap++; return } } // 代表9点のうち3点以上が先に建てた建物の内側＝重なって建つ→描かない（辺で接するだけの密集は残す）
     addBox(cx, cz, w / 2, d / 2, ang, 0.3) // 当たり判定（すり抜け防止・空間グリッドで軽い）
     const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
+    regPlaced(cx, cz, hw, hd, co, si) // 重なり判定用に登録
     let gy = 1e9, gTop = -1e9; for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) { const ge = heightAtYato(cx + sx * co - sz * si, cz + sx * si + sz * co); if (ge < gy) gy = ge; if (ge > gTop) gTop = ge }
     const slope = Math.min(12, gTop - gy) // 斜面：床=最低角(gy)＋落差ぶん壁を上に伸ばす＝上手で山に埋まらず下手で浮かない
     const seed = Math.abs(Math.round(cx) * 7 + Math.round(cz) * 3), area = w * d
@@ -2317,7 +2326,7 @@ function buildShishigaya() {
       const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
     console.log('[shishigaya] grass', ng) }
-  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater)
+  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap)
 }
 buildShishigaya()
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
