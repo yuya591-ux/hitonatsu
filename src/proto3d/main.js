@@ -130,6 +130,8 @@ const onYatoRoad = (x, z) => { const id = rmaskIdx(x, z); return id >= 0 && yato
 for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2) + 0.6, p = rd.p // 描画の路肩＋少し余裕＝道の端で建物に引っかからない
   for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
     for (let t = 0; t <= l; t += 1) for (let s = -hw; s <= hw; s += 1) { const id = rmaskIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0) yatoRoadMask[id] = 1 } } } // 中心線に沿って幅ぶん塗る
+let onYato = false // 実行時に獅子ヶ谷(谷戸)エリアにいるか。trueなら heightAt/climbYAt を全域 DEM に切替＝西の師岡など x<2200 の谷戸拡張も正しく歩ける。モジュール評価中はfalse＝旧プロト(町/野原/神社)のビルドはx帯分岐のまま安全
+const WEST_EXT = 120 // 世界を西へ少しだけ拡張する量（m）。師岡町＝ビエント横濱菊名(game約1894,-160)を地続きにする（ユーザー要望2026-06-23）
 function heightAtYato(x, z) { // 実標高をバイリニア補間。zは反転サンプル(データ側を北=-zにしたため)。±SG.half外は縁の値で頭打ち
   const gn = SG.gn
   let fi = (x - SG.gx0 + SG.half) / SG.cell - 0.5, fj = (-z - SG.gz0 + SG.half) / SG.cell - 0.5
@@ -158,11 +160,12 @@ function sunriseYatoClimbY(x, z, curY) { // 平らな陸屋上＋外階段（ど
   if (pointInSunPoly(x, z)) return SUN_ROOF.top
   return null
 }
-function climbYAt(x, z, curY) { return x < 2200 ? sunriseClimbY(x, z) : sunriseYatoClimbY(x, z, curY) } // 旧町のマンション屋上 と 獅子ヶ谷の実サンライズ屋上 を一本化
+function climbYAt(x, z, curY) { return onYato ? sunriseYatoClimbY(x, z, curY) : (x < 2200 ? sunriseClimbY(x, z) : sunriseYatoClimbY(x, z, curY)) } // 谷戸エリアは全域 sunriseYatoClimbY（サンライズ＋ビエントの屋上/階段）。旧町はマンション屋上
 // 外階段の足元〜帯を道マスクに塗る＝建物の壁コライダーに引っかからず階段に入れる（階段周りの見えない壁を解消・ユーザー要望2026-06-22）
 { const S = SUN_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
   for (let t = -3; t <= l; t += 1) { const cx = S.bx + ux * t, cz = S.bz + uz * t; for (let s = -(S.hw + 0.8); s <= S.hw + 0.8; s += 1) { const id = rmaskIdx(cx + nx * s, cz + nz * s); if (id >= 0) yatoRoadMask[id] = 1 } } } // 下端の手前3mから帯ぜんぶ＝近づくだけで当たらず登れる
 function heightAt(x, z) {
+  if (onYato) return heightAtYato(x, z) // 谷戸エリアは全域 DEM（西の師岡=ビエントの拡張 x<2200 も正しい高さに。旧プロトの神社/町は area が別なので onYato=false で従来式）
   if (x > 2200) return heightAtYato(x, z) // 新エリア『獅子ヶ谷（実地形・x2300〜3700）』。神社(x1945-2055)より東。先に判定
   if (x > 1500) {
     // 神社エリア：石段の先（+z奥）に社の小山がせり上がる
@@ -1452,13 +1455,14 @@ const PARKFENCE_GEO = (() => { const box = new THREE.BoxGeometry(1, 1, 1), TR = 
   return mergeParts(P) })()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
 function buildShishigaya() {
-  const seg = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(SG.half * 2, SG.half * 2, seg, seg); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子はhalfに比例＝約7m）
+  const gw = SG.half * 2 + WEST_EXT, gcx = SG.gx0 - WEST_EXT / 2 // 西へWEST_EXTだけ広げた地面（中心を西へずらす＝師岡まで地続き。heightAtYatoは±half外を縁の値でクランプ＝平らに延びる）
+  const seg = Math.min(360, Math.round(gw / 7)), segZ = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(gw, SG.half * 2, seg, segZ); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子≒7m）
   const gp = ggeo.attributes.position, gcol = []
   const cLow = new THREE.Color(0xb6ad99), cGrass = new THREE.Color(0x86b257), cDark = new THREE.Color(0x5f8a3e)
-  for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + SG.gx0, wz = gp.getZ(i) + SG.gz0, y = heightAtYato(wx, wz); gp.setY(i, y); const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 3, 9)); c.lerp(cDark, THREE.MathUtils.smoothstep(y, 18, 40)); gcol.push(c.r, c.g, c.b) }
+  for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + gcx, wz = gp.getZ(i) + SG.gz0, y = heightAtYato(wx, wz); gp.setY(i, y); const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 3, 9)); c.lerp(cDark, THREE.MathUtils.smoothstep(y, 18, 40)); gcol.push(c.r, c.g, c.b) }
   ggeo.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3)); ggeo.computeVertexNormals()
-  const groundTex = yatoGroundTex.clone(); groundTex.needsUpdate = true; groundTex.repeat.set(Math.round(SG.half * 2 / 42), Math.round(SG.half * 2 / 42)) // タイル≒42mで地面の質感を出す（頂点色に掛け算＝色相は標高グラデのまま）
-  const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })); gm.position.set(SG.gx0, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
+  const groundTex = yatoGroundTex.clone(); groundTex.needsUpdate = true; groundTex.repeat.set(Math.round(gw / 42), Math.round(SG.half * 2 / 42)) // タイル≒42mで地面の質感を出す（頂点色に掛け算＝色相は標高グラデのまま）
+  const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })); gm.position.set(gcx, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
   // 建物：種別で描き分け。集合住宅(apartments)=陸屋根の中層棟＋バルコニー面／家(house等)=低い切妻／事務所・大箱=陸屋根。中心のサンライズ北寺尾は7階の主役マンション
   const bv = [], bc = [], bidx = [], buv = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
   const kawaraTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(0,0,0,0.11)'; x.lineWidth = 1.4; for (let y = 0; y < 64; y += 9) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(64, y + 0.5); x.stroke() } x.strokeStyle = 'rgba(0,0,0,0.05)'; for (let xx = 0; xx < 64; xx += 8) { x.beginPath(); x.moveTo(xx + 0.5, 0); x.lineTo(xx + 0.5, 64); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 瓦の控えめなタイル目（白地＝頂点色で着色）
@@ -6650,7 +6654,7 @@ function update(dt) {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 350, TOWN.x + 100) // 西をさらに拡張（南西へ動かした二つ池まで歩ける・2026-06-18）
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 345, TOWN.z + 230) // 南は獅子ヶ谷/北寺尾・北は裏山の谷を下った先まで歩ける（ユーザー要望・北へ拡張）
     } else if (area === 'yato') { // 獅子ヶ谷の谷戸（本格トレース・新エリア）
-      boy.position.x = THREE.MathUtils.clamp(boy.position.x, YATO.x - (SG.half - 20), YATO.x + (SG.half - 20))
+      boy.position.x = THREE.MathUtils.clamp(boy.position.x, YATO.x - (SG.half - 20) - WEST_EXT, YATO.x + (SG.half - 20)) // 西は師岡(ビエント)まで歩けるようWEST_EXTぶん拡張
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, YATO.z - (SG.half - 20), YATO.z + (SG.half - 20))
     } else { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
@@ -6902,6 +6906,7 @@ renderer.setAnimationLoop(() => {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   if (frameAcc < 1 / 30) return
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
+  onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   update(dt)
   if (inkPass.enabled) { // インク線用にシーンの法線/深度を別RTへ（layer1の輪郭ハル・空は外す＝実体だけのきれいな法線）
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
@@ -7170,7 +7175,7 @@ window.__proto3d = {
   setGameDay(d) { day = d; refreshBadge() }, // 検証用
   spawnFirework() { spawnFirework() }, // 検証用
   goArea(a) { // 検証用：エリアへ瞬間移動
-    area = a
+    area = a; onYato = a === 'yato'
     if (a === 'town') { boy.position.set(TOWN.x - 2, 0, TOWN.z); facing = 0 }
     else if (a === 'shrine') { boy.position.set(SHRINE.x, 0, SHRINE.z - 18); facing = 0 }
     else if (a === 'yato') { boy.position.set(YATO.x, 0, YATO.z + 30); facing = 0 }
