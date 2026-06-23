@@ -4439,8 +4439,22 @@ function makeBoy() {
     for (const s of [-1, 1]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.17, 0.022), steel); arm.position.set(s * 0.05, -0.06 * s, 0); crank.add(arm); const ped = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.028, 0.11), toon(0x2d2d2f)); ped.position.set(s * 0.08, -0.12 * s, 0); crank.add(ped) } // クランク＋ペダル
     bike.traverse((o) => { if (o.isMesh) o.castShadow = false }); bike.userData = { wheelF, wheelB, crank } }
   g.add(bike)
+  // ── ふわり浮遊の風船（ゼルダのチンクル風＝頭の上にカラフルな風船を数個、紐で結ぶ。浮遊中だけ表示） ──
+  const balloons = new THREE.Group(); balloons.visible = false
+  { const cols = [0xe0584e, 0xf0c84a, 0x5a9bd4, 0x6abf6a, 0xe07ab0], bRefs = []
+    const handY = P.shoulderY + 0.05 // 紐の集まる手元（肩のあたり）
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * 6.2832, rr = 0.26 + (i % 2) * 0.12, bx = Math.cos(a) * rr, bz = Math.sin(a) * rr * 0.7, by = P.headY + 1.05 + (i % 2) * 0.22
+      const bg = new THREE.Group(); bg.position.set(bx, by, bz); g.add(bg)
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 11), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD })); ball.scale.set(1, 1.2, 1); bg.add(ball)
+      const knot = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 5), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD })); knot.position.y = -0.3; bg.add(knot)
+      // 紐＝風船の結び目(by-0.34)→手元(handY)。中点に置き長さ/傾きを合わせる
+      const dx = bx - 0.06, dy = (by - 0.34) - handY, dz = bz, len = Math.hypot(dx, dy, dz), str = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, len, 4), toon(0xefe9dd))
+      str.position.set(0.06 + dx / 2, handY + dy / 2, dz / 2); str.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / len, dy / len, dz / len)); g.add(str)
+      balloons.add(bg); balloons.add(str); bRefs.push({ bg, by, ph: Math.random() * 6.28 }) }
+    balloons.userData = { bRefs } }
+  g.add(balloons)
   g.traverse((o) => { if (o.isMesh && !bike.children.includes(o) && o.parent !== bike) o.castShadow = false }) // 動く主人公を固定影マップに焼くと“残像(ゴースト)”が残るので落とさない＝接地は専用の丸影で表現
-  g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, bike, swing: 0, char: true } // char:true＝細棒除外の対象外（手足は細いがインク線を残す）
+  g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, bike, balloons, swing: 0, char: true } // char:true＝細棒除外の対象外（手足は細いがインク線を残す）
   return g
 }
 const boy = makeBoy()
@@ -5985,8 +5999,10 @@ let flying = false, flyUp = 0, flyDown = 0
 let fpv = false // 主観視点（一人称）。設定でON＝頭の高さからyaw/pitch方向を見る。屋上の一望に（ユーザー要望2026-06-23）
 let fpvFov = 45 // 主観視点の画角（ピンチ/＋－で自由にズーム。小=ズームイン）
 let riding = false // 自転車に乗っているか（歩行の約2.6倍速＋こぐアニメ。ボタンでON/OFF・ユーザー要望2026-06-23）
-let floatMode = false, floatExiting = false, floatUp = 0, floatDown = 0 // ふわり浮遊モード（プレイヤー向け＝開発用✈とは別。ゆっくり空に浮いて漂う・ユーザー要望2026-06-23）
+let floatMode = false, floatExiting = false, floatUp = 0, floatDown = 0 // ふわり浮遊モード（プレイヤー向け＝開発用✈とは別。風船で空に浮いて漂う・ユーザー要望2026-06-23）
 const floatVel = new THREE.Vector3()
+const FLOAT_SPEEDS = [{ v: 4.5, lbl: 'ゆっくり' }, { v: 9, lbl: 'ふつう' }, { v: 16, lbl: 'はやい' }] // 飛行速度3段（速度調整）
+let floatSpeedI = 1, floatMaxH = 150 // 速度段・高度上限（メーター用）
 const fly = { yaw: 0, pitch: -0.18, fov: 60, speedI: 1 }
 const FLY_SPEEDS = [12, 30, 72], FLY_SPEED_LABEL = ['ゆっくり', 'ふつう', 'はやい']
 const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new THREE.Vector3()
@@ -6052,7 +6068,7 @@ canvas.addEventListener('pointermove', (e) => {
       fly.pitch = THREE.MathUtils.clamp(fly.pitch - (e.clientY - prevY) * 0.005 * lookSens, -1.45, 1.45)
     } else { // 1本指＝視点を回す（手で回したら自動追従を一時停止＝マリオ式の手動優先）
       camCtl.yaw -= (e.clientX - prevX) * 0.006 * lookSens
-      const pLo = fpv ? -1.4 : camCtl.minPitch, pHi = fpv ? 1.4 : camCtl.maxPitch // 主観視点では上も向ける（見上げ可）。3人称は地面に潜らないよう従来範囲
+      const pLo = (fpv || floatMode) ? -1.4 : camCtl.minPitch, pHi = (fpv || floatMode) ? 1.4 : camCtl.maxPitch // 主観視点/飛行では上も向ける（アングル自由）。地上3人称は地面に潜らないよう従来範囲
       camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005 * lookSens, pLo, pHi)
       camManualTimer = 1.8
     }
@@ -6101,6 +6117,21 @@ if (floatEl) floatEl.addEventListener('click', () => { if (mode !== 'walk') retu
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 if (zinEl) zinEl.addEventListener('click', () => zoomStep(0.8))
 if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
+// ── 風船飛行のUI：ズーム＋−／速さ3段／主観視点トグル（飛行中だけ出る） ──
+{ const flZin = document.getElementById('fl-zin'), flZout = document.getElementById('fl-zout'), flSpeed = document.getElementById('fl-speed'), flFpv = document.getElementById('fl-fpv')
+  if (flZin) flZin.addEventListener('click', () => zoomStep(0.82))
+  if (flZout) flZout.addEventListener('click', () => zoomStep(1 / 0.82))
+  const updFlSpeed = () => { if (flSpeed) flSpeed.innerHTML = 'はやさ<br>' + FLOAT_SPEEDS[floatSpeedI].lbl }
+  if (flSpeed) flSpeed.addEventListener('click', () => { floatSpeedI = (floatSpeedI + 1) % FLOAT_SPEEDS.length; updFlSpeed() }); updFlSpeed()
+  if (flFpv) flFpv.addEventListener('click', () => { fpv = !fpv; flFpv.classList.toggle('on', fpv); if (setFpvBtn) { setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF' } }) // 飛行中の主観視点トグル（設定の👁とも同期）
+  window.__updFlightHud = () => { // 毎フレーム：高度/速さ/ズームのメーターを更新
+    const alt = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / floatMaxH, 0, 1)
+    const zoomN = fpv ? (78 - fpvFov) / 52 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
+    const ea = document.getElementById('flg-alt'), es = document.getElementById('flg-spd'), ez = document.getElementById('flg-zoom')
+    if (ea) ea.style.transform = 'scaleY(' + alt.toFixed(3) + ')'
+    if (es) es.style.transform = 'scaleY(' + ((floatSpeedI + 1) / FLOAT_SPEEDS.length).toFixed(3) + ')'
+    if (ez) ez.style.transform = 'scaleY(' + THREE.MathUtils.clamp(zoomN, 0, 1).toFixed(3) + ')'
+    if (flFpv) flFpv.classList.toggle('on', fpv) } }
 // 上の操作ヒントは数秒で やさしく消す（ずっと出ていると邪魔なので）
 const hintEl = document.getElementById('hint')
 if (hintEl) { setTimeout(() => hintEl.classList.add('gone'), 6500); canvas.addEventListener('pointerdown', () => hintEl.classList.add('gone'), { once: true }) }
@@ -6757,7 +6788,7 @@ function update(dt) {
       const wx = camRight.x * sx + camFwd.x * (-sy)
       const wz = camRight.z * sx + camFwd.z * (-sy)
       const l = Math.hypot(wx, wz) || 1
-      const speed = (floatMode ? 8 : riding ? 18 : 7) * mag // 自転車は約2.6倍速／浮遊はゆっくり漂う
+      const speed = (floatMode ? FLOAT_SPEEDS[floatSpeedI].v : riding ? 18 : 7) * mag // 自転車は約2.6倍速／浮遊は速度3段
       tx = (wx / l) * speed; tz = (wz / l) * speed
     }
     if (autoWalk) { tx = autoWalk.x * 4.4; tz = autoWalk.z * 4.4 } // 往来中は門の先へ自動で歩く
@@ -6800,7 +6831,7 @@ function update(dt) {
       floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 2.4) // ふんわり上下
       boy.position.y += floatVel.y * dt
       if (boy.position.y < gFloor) { boy.position.y = gFloor; if (floatVel.y < 0) floatVel.y = 0; if (floatExiting) { floatMode = false; floatExiting = false; document.body.classList.remove('floating') } }
-      boy.position.y = Math.min(boy.position.y, gFloor + 150) // 上限
+      boy.position.y = Math.min(boy.position.y, gFloor + floatMaxH) // 上限
       boy.position.y += Math.sin(tsec * 0.8) * 0.03 // ごく僅かなふわふわ
       boy.userData._cy = null; boy.userData._high = (boy.position.y - heightAt(boy.position.x, boy.position.z)) > 6
     } else {
@@ -6869,15 +6900,16 @@ function update(dt) {
       boy.userData.armL.rotation.x = -1.12; boy.userData.armR.rotation.x = -1.12; boy.userData.elbowL.rotation.x = -0.22; boy.userData.elbowR.rotation.x = -0.22
       boy.rotation.x = 0.12 } // ごく軽い前傾（自転車本体は傾けすぎない）
     else if (boy.userData.bike.visible) boy.userData.bike.visible = false
-    // ふわり浮遊：手足をゆったり広げた“浮いてる”ポーズ（上の歩行ポーズを上書き）
-    if (floatMode) { const fb = Math.sin(tsec * 0.9) * 0.12
-      boy.userData.legL.rotation.x = -0.12 + fb * 0.2; boy.userData.legR.rotation.x = -0.08 - fb * 0.2
-      boy.userData.kneeL.rotation.x = 0.22; boy.userData.kneeR.rotation.x = 0.28
-      boy.userData.armL.rotation.x = -0.35; boy.userData.armR.rotation.x = -0.35
-      boy.userData.armL.rotation.z = 0.55 + fb * 0.1; boy.userData.armR.rotation.z = -0.55 - fb * 0.1 // 腕を横にひろげる
-      boy.userData.elbowL.rotation.x = -0.1; boy.userData.elbowR.rotation.x = -0.1
-      boy.rotation.x = 0.04 }
-    else { boy.userData.armL.rotation.z += (-0.05 - boy.userData.armL.rotation.z) * Math.min(1, dt * 8); boy.userData.armR.rotation.z += (0.05 - boy.userData.armR.rotation.z) * Math.min(1, dt * 8) } // 浮遊を解いたら腕の横ひらきを戻す
+    // ふわり浮遊＝チンクル風：両腕を上げて頭上の風船の紐を握り、脚はぶらりと垂らす。風船はふわふわ揺れる
+    if (floatMode) { const fb = Math.sin(tsec * 0.9) * 0.1
+      boy.userData.legL.rotation.x = 0.06 + fb * 0.25; boy.userData.legR.rotation.x = 0.0 - fb * 0.25 // ぶらり脚
+      boy.userData.kneeL.rotation.x = 0.3; boy.userData.kneeR.rotation.x = 0.36
+      boy.userData.armL.rotation.x = -2.6; boy.userData.armR.rotation.x = -2.6 // 両腕を上げて紐を握る
+      boy.userData.armL.rotation.z = 0.2; boy.userData.armR.rotation.z = -0.2
+      boy.userData.elbowL.rotation.x = -0.25; boy.userData.elbowR.rotation.x = -0.25
+      boy.rotation.x = 0.02
+      const bd = boy.userData.balloons; bd.visible = true; for (const b of bd.userData.bRefs) { b.bg.position.y = b.by + Math.sin(tsec * 1.1 + b.ph) * 0.06; b.bg.rotation.z = Math.sin(tsec * 0.8 + b.ph) * 0.12 } } // 風船ふわふわ
+    else { if (boy.userData.balloons.visible) boy.userData.balloons.visible = false; boy.userData.armL.rotation.z += (-0.05 - boy.userData.armL.rotation.z) * Math.min(1, dt * 8); boy.userData.armR.rotation.z += (0.05 - boy.userData.armR.rotation.z) * Math.min(1, dt * 8) } // 浮遊を解いたら風船を消し腕を戻す
 
     // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
     idleTime = moving ? 0 : idleTime + dt
@@ -7091,6 +7123,7 @@ renderer.setAnimationLoop(() => {
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
+  if (floatMode && window.__updFlightHud) window.__updFlightHud() // 風船飛行のメーター更新
   if (inkPass.enabled) { // インク線用にシーンの法線/深度を別RTへ（layer1の輪郭ハル・空は外す＝実体だけのきれいな法線）
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     renderer.setRenderTarget(normalRT); renderer.clear(); renderer.render(scene, camera)

@@ -61,15 +61,29 @@
       #float.on { background: rgba(120,150,200,0.95); color: #fff; }
       body.flying #dock { display: none !important; }
       body.pm-on #dock { display: none !important; }
-      /* ふわり浮遊（プレイヤー向け）：🎈トグル＋浮遊中だけ▲うく/▼おりる */
-      #fl-up, #fl-down { right: calc(5% + env(safe-area-inset-right)); appearance: none; border: none; cursor: pointer; width: 76px; height: 60px;
-        border-radius: 16px; font-size: clamp(12px,2.4vw,16px); line-height: 1.15; font-family: inherit; color: #fdf7ec;
+      /* ── ふわり浮遊（風船飛行）の操作UI：🎈トグル→浮遊中だけ出る。右に高度▲▼＋ズーム＋−、上に速さ/主観、左にステータスメーター ── */
+      #fl-up, #fl-down, #fl-zin, #fl-zout { appearance: none; border: none; cursor: pointer; width: 66px; height: 58px;
+        border-radius: 16px; font-size: clamp(13px,2.5vw,17px); line-height: 1.15; font-family: inherit; color: #fdf7ec;
         background: rgba(96,120,176,0.86); box-shadow: 0 3px 12px rgba(30,40,70,0.34); display: none; }
-      #fl-up { bottom: calc(9% + 150px + env(safe-area-inset-bottom)); }
-      #fl-down { bottom: calc(9% + 82px + env(safe-area-inset-bottom)); }
-      #fl-up:active, #fl-down:active { transform: scale(0.93); background: rgba(116,140,196,0.96); }
-      body.floating #fl-up, body.floating #fl-down { display: block; }
-      body.floating #jump, body.floating #zin, body.floating #zout, body.floating #lie, body.floating #bike, body.floating #act, body.floating #npc, body.floating #catch, body.floating #fish { display: none !important; }
+      #fl-up { right: calc(5% + env(safe-area-inset-right)); bottom: calc(9% + 70px + env(safe-area-inset-bottom)); }
+      #fl-down { right: calc(5% + env(safe-area-inset-right)); bottom: calc(9% + env(safe-area-inset-bottom)); }
+      #fl-zin { right: calc(5% + 74px + env(safe-area-inset-right)); bottom: calc(9% + 70px + env(safe-area-inset-bottom)); font-size: 28px; }
+      #fl-zout { right: calc(5% + 74px + env(safe-area-inset-right)); bottom: calc(9% + env(safe-area-inset-bottom)); font-size: 28px; }
+      #fl-speed, #fl-fpv { top: calc(3.5% + env(safe-area-inset-top)); appearance: none; border: none; cursor: pointer; padding: 0.4em 0.9em;
+        border-radius: 14px; font-size: clamp(11px,2.2vw,15px); line-height: 1.2; text-align: center; font-family: inherit; color: #fdf7ec;
+        background: rgba(96,120,176,0.86); box-shadow: 0 3px 12px rgba(30,40,70,0.34); display: none; }
+      #fl-speed { left: 50%; transform: translateX(calc(-50% - 52px)); }
+      #fl-fpv { left: 50%; transform: translateX(calc(-50% + 52px)); }
+      #fl-fpv.on { background: rgba(120,150,200,0.97); }
+      #fl-up:active, #fl-down:active, #fl-zin:active, #fl-zout:active, #fl-speed:active, #fl-fpv:active { transform: scale(0.93); background: rgba(116,140,196,0.96); }
+      #fl-fpv { } /* activeでtransform上書きされるが許容 */
+      #fl-gauges { left: calc(3% + env(safe-area-inset-left)); top: 28%; display: none; gap: 9px; pointer-events: none; z-index: 6; }
+      .flg { position: relative; width: 13px; height: 100px; border-radius: 7px; background: rgba(40,44,60,0.5); box-shadow: 0 2px 8px rgba(20,24,40,0.3); overflow: hidden; display: inline-block; vertical-align: top; margin-right: 9px; }
+      .flg-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; transform-origin: bottom center; transform: scaleY(0.5); background: linear-gradient(#cfe8ff, #6aa8e0); transition: transform 0.12s ease; }
+      .flg-lbl { position: absolute; left: -2px; right: -2px; bottom: -19px; text-align: center; font-size: 12px; color: #fdf7ec; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+      body.floating #fl-up, body.floating #fl-down, body.floating #fl-zin, body.floating #fl-zout, body.floating #fl-speed, body.floating #fl-fpv { display: block; }
+      body.floating #fl-gauges { display: block; }
+      body.floating #jump, body.floating #zin, body.floating #zout, body.floating #lie, body.floating #bike, body.floating #act, body.floating #npc, body.floating #catch, body.floating #fish, body.floating #hint, body.floating #sleep, body.floating #pm-btn { display: none !important; }
       /* 横向きのおすすめ（縦持ちのスマホにだけ・やさしく・閉じれる） */
       #rotate { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); display: none;
         padding: 0.5em 1.2em; font-size: clamp(13px,3vw,18px); letter-spacing: 0.06em; color: #fdf7ec;
@@ -291,6 +305,16 @@
     <div id="dock" class="hud"><button id="lie">ねころぶ</button><button id="bike">🚲</button><button id="float">🎈</button></div>
     <button id="fl-up" class="hud">▲<br>うく</button>
     <button id="fl-down" class="hud">▼<br>おりる</button>
+    <button id="fl-zin" class="hud">＋</button>
+    <button id="fl-zout" class="hud">－</button>
+    <button id="fl-speed" class="hud">はやさ<br>ふつう</button>
+    <button id="fl-fpv" class="hud">👁<br>主観</button>
+    <!-- 飛行中のステータスメーター（高度・速さ・ズーム）。今どの状態かが一目でわかる -->
+    <div id="fl-gauges" class="hud">
+      <div class="flg"><div class="flg-fill" id="flg-alt"></div><span class="flg-lbl">高</span></div>
+      <div class="flg"><div class="flg-fill" id="flg-spd"></div><span class="flg-lbl">速</span></div>
+      <div class="flg"><div class="flg-fill" id="flg-zoom"></div><span class="flg-lbl">寄</span></div>
+    </div>
     <div id="look" class="hud">スワイプで見回す ・ もう一度タップで立つ</div>
     <div id="rotate" class="hud">横にすると、もっと広く見渡せます</div>
     <button id="npc" class="hud">はなしかける</button>
