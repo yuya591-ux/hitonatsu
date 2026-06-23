@@ -4276,6 +4276,22 @@ function makeCrow() {
 }
 for (let i = 0; i < 5; i++) makeCrow()
 
+// ── ツバメ（昼〜夕に低く速く弧を描いて舞う＝夏の空の生気。プレイヤーの周りを8の字に飛び、夜は塒へ）──
+const swallows = []
+function makeSwallow() {
+  const g = new THREE.Group()
+  const back = new THREE.MeshBasicMaterial({ color: 0x2a3340, fog: false, side: THREE.DoubleSide, transparent: true, opacity: 0 }) // 紺黒の背
+  const belly = new THREE.MeshBasicMaterial({ color: 0xf2eee4, fog: false, side: THREE.DoubleSide, transparent: true, opacity: 0 }) // 白い腹
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), back); body.scale.set(1, 0.7, 2.6); g.add(body)
+  const bel = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), belly); bel.scale.set(1, 0.55, 2.0); bel.position.y = -0.04; g.add(bel)
+  const wl = new THREE.Group(); g.add(wl); const wlm = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.26), back); wlm.position.x = -0.5; wlm.rotation.x = -Math.PI / 2; wl.add(wlm)
+  const wr = new THREE.Group(); g.add(wr); const wrm = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.26), back); wrm.position.x = 0.5; wrm.rotation.x = -Math.PI / 2; wr.add(wrm)
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.5, 4), back); tail.rotation.x = -Math.PI / 2; tail.position.z = -0.4; tail.scale.set(0.5, 1, 1); g.add(tail) // 燕尾
+  g.userData = { wl, wr, back, belly, off: Math.random() * 6.28, sp: 0.42 + Math.random() * 0.22, R: 24 + Math.random() * 22, R2: 13 + Math.random() * 12, alt: 10 + Math.random() * 8, flap: 15 + Math.random() * 6, fph: Math.random() * 6.28, px: 0, pz: 0, hd: 0 }
+  g.visible = false; scene.add(g); swallows.push(g)
+}
+for (let i = 0; i < 5; i++) makeSwallow()
+
 // ── 足元の砂ぼこり（走ると ふっと土が舞う）──
 const DUSTN = 36
 const dustPos = new Float32Array(DUSTN * 3).fill(-9999)
@@ -4347,8 +4363,9 @@ function makeCat() {
   return g
 }
 const cat = makeCat()
-cat.position.set(-10, heightAt(-10, 18), 18)
-Object.assign(cat.userData, { tx: -10, tz: 18, rest: 2000, phase: 0 })
+const CAT_HOME = { x: 3016, z: 34 } // 猫の縄張り＝サンライズ前(開始地点のそば)。以前は旧フィールド(-10,18)でプレイヤーが一生出会えなかった→歩く場所へ
+cat.position.set(CAT_HOME.x, heightAt(CAT_HOME.x, CAT_HOME.z), CAT_HOME.z)
+Object.assign(cat.userData, { tx: CAT_HOME.x, tz: CAT_HOME.z, rest: 2000, phase: 0 })
 
 // ── 主人公（丸っこく立体的な少年・麦わら帽子。あどけない頭でっかちの体つき）──
 // ※特定作品のキャラ・顔の模倣はしない。素朴で可愛い普遍的なトゥーン顔。
@@ -6573,7 +6590,7 @@ function update(dt) {
       const dx = u.tx - cat.position.x, dz = u.tz - cat.position.z; const d = Math.hypot(dx, dz)
       if (d < 0.3) {
         if (Math.random() < 0.5) u.rest = 2000 + Math.random() * 4000
-        else { u.tx = HOUSE.x + (Math.random() - 0.5) * 18; u.tz = HOUSE.z + (Math.random() - 0.5) * 18 }
+        else { u.tx = CAT_HOME.x + (Math.random() - 0.5) * 18; u.tz = CAT_HOME.z + (Math.random() - 0.5) * 18 }
       } else { const s = 1.1 * dt; cat.position.x += (dx / d) * s; cat.position.z += (dz / d) * s; cat.rotation.y = Math.atan2(dx, dz); u.phase += dt * 8 }
     }
     cat.position.y = heightAt(cat.position.x, cat.position.z) + (u.rest <= 0 ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
@@ -6716,6 +6733,20 @@ function update(dt) {
     const f = Math.sin(tsec * u.flap + u.fph) * 0.7
     u.wl.rotation.z = f; u.wr.rotation.z = -f // はばたき
     u.mat.opacity = crowF
+  }
+  // ツバメ（昼〜夕に低く弧を描いて舞う。夜は塒へ＝消える）
+  const swF = 1 - THREE.MathUtils.smoothstep(tday, 0.80, 0.94)
+  for (const s of swallows) { const u = s.userData
+    s.visible = swF > 0.02; if (!s.visible) continue
+    const a = tsec * u.sp + u.off
+    const px = boy.position.x + Math.cos(a) * u.R + Math.cos(a * 2.1) * 6
+    const pz = boy.position.z + Math.sin(a * 1.3) * u.R2 + Math.sin(a * 1.7) * 6
+    const py = heightAt(boy.position.x, boy.position.z) + u.alt + Math.sin(a * 2.0) * 3.2 + Math.sin(a * 0.7) * 2.0 // プレイヤー足元の地面高を基準に上下スウープ（谷戸は地面が高いので絶対高だと地中に潜る）
+    const dx = px - u.px, dz = pz - u.pz
+    if (dx * dx + dz * dz > 1e-5) { const hd = Math.atan2(dx, dz); let turn = ((hd - u.hd + Math.PI * 3) % (Math.PI * 2)) - Math.PI; s.rotation.y = hd; s.rotation.z = THREE.MathUtils.clamp(-turn * 5, -0.7, 0.7); u.hd = hd } // 進行方向を向き、旋回方向へバンク
+    s.position.set(px, Math.max(py, heightAt(px, pz) + 2.5), pz); u.px = px; u.pz = pz
+    const fl = Math.sin(tsec * u.flap + u.fph) * 0.85; u.wl.rotation.z = fl; u.wr.rotation.z = -fl
+    u.back.opacity = swF * 0.96; u.belly.opacity = swF * 0.92
   }
   // メダカの群れ：池の中をゆるく回遊し、近づくと さっと散る
   {
@@ -6999,7 +7030,7 @@ function update(dt) {
     // いちばん近い人を話し相手に
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
-    const nearCat = area === 'field' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2
+    const nearCat = area === 'yato' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2 // 猫は獅子ヶ谷(サンライズ前)に居る＝撫でられる
     const nearVending = area === 'town' && Math.hypot(boy.position.x - VENDING.x, boy.position.z - VENDING.z) < 2.8
     const nearGarden = area === 'field' && Math.hypot(boy.position.x - GARDEN.x, boy.position.z - GARDEN.z) < 3.6
     const nearNpc = !!talkTarget
