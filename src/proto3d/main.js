@@ -6827,12 +6827,17 @@ function update(dt) {
     // ── サンライズの屋上/外階段：足の高さに屋上の高さを足す（heightAtより上に乗る）。旧町と獅子ヶ谷の実サンライズを climbYAt で一本化 ──
     if (floatMode) { // ── ふわり浮遊：上下は▲▼でゆっくり、建物はすり抜けて空を漂う。地面より上に保つ ──
       const gFloor = heightAt(boy.position.x, boy.position.z) + 0.9
-      const ty = floatExiting ? -6 : (floatUp - floatDown) * 6.0 // 終了中はゆっくり降りる
-      floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 2.4) // ふんわり上下
-      boy.position.y += floatVel.y * dt
-      if (boy.position.y < gFloor) { boy.position.y = gFloor; if (floatVel.y < 0) floatVel.y = 0; if (floatExiting) { floatMode = false; floatExiting = false; document.body.classList.remove('floating') } }
-      boy.position.y = Math.min(boy.position.y, gFloor + floatMaxH) // 上限
-      boy.position.y += Math.sin(tsec * 0.8) * 0.03 // ごく僅かなふわふわ
+      if (floatExiting) { // 着地＝最低14m/sは必ず降りる時間ベース＋高所では速く（fps非依存で必ず着く）
+        boy.position.y -= Math.max(dt * 14, (boy.position.y - gFloor) * Math.min(1, dt * 3)); floatVel.set(0, 0, 0)
+        if (boy.position.y <= gFloor + 0.05) { boy.position.y = gFloor; floatMode = false; floatExiting = false; document.body.classList.remove('floating'); if (fpv) { fpv = false; if (setFpvBtn) { setFpvBtn.classList.remove('on'); setFpvBtn.textContent = 'OFF' } } } // 着地したら主観視点は解除＝地上で一人称のまま取り残されない
+      } else {
+        const ty = (floatUp - floatDown) * 6.0 // ▲うく/▼おりる
+        floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 2.4) // ふんわり上下
+        boy.position.y += floatVel.y * dt
+        if (boy.position.y < gFloor) { boy.position.y = gFloor; if (floatVel.y < 0) floatVel.y = 0 }
+        boy.position.y = Math.min(boy.position.y, gFloor + floatMaxH) // 上限
+        boy.position.y += Math.sin(tsec * 0.8) * 0.03 // ごく僅かなふわふわ
+      }
       boy.userData._cy = null; boy.userData._high = (boy.position.y - heightAt(boy.position.x, boy.position.z)) > 6
     } else {
     let climbY = climbYAt(boy.position.x, boy.position.z, boy.position.y)
