@@ -1697,6 +1697,25 @@ function buildShishigaya() {
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, toon(col)); m.receiveShadow = true; grp.add(m)
       const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.34, side: THREE.DoubleSide })
       for (const [fx, fz, fw, ang] of [[cx, cz - d / 2, w, 0], [cx, cz + d / 2, w, 0], [cx - w / 2, cz, d, Math.PI / 2], [cx + w / 2, cz, d, Math.PI / 2]]) grp.add(mk(new THREE.PlaneGeometry(fw, 1.6), fm, fx, heightAtYato(fx, fz) + 0.85, fz, ang)) }
+    // 橘学苑（私立中高一貫・1942創立・男女共学・1957鉄骨体育館・デザイン美術コース）。校門＋L字校舎＋鉄骨かまぼこ体育館＋グラウンド(トラック)＋夏の緑（Web調査2026-06-23）
+    const buildTachibana = (cx, cz, name, floors) => {
+      ground(cx + 2, cz + 20, 48, 26, 0xc9b487) // グラウンド（土・地面に沿う＋フェンス）
+      { const fx = cx + 2, fz = cz + 20, rx = 20, rz = 9.5, seg = 44, v = [], idx = [] // 楕円のトラック（地面に沿う帯・赤茶）
+        for (let i = 0; i <= seg; i++) { const a = i / seg * 6.2832, ca = Math.cos(a), sa = Math.sin(a); for (const r of [0.82, 1.0]) { const x = fx + ca * rx * r, z = fz + sa * rz * r; v.push(x, heightAtYato(x, z) + 0.09, z) } }
+        for (let i = 0; i < seg; i++) { const b = i * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2) }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, toon(0xb5623a)); m.receiveShadow = true; grp.add(m) }
+      schoolBldg(cx - 6, cz - 9, 36, 12, floors, 0, 0x8a5443) // 本棟（長いRC校舎・落ち着いたテラコッタ屋根）
+      schoolBldg(cx - 21, cz + 3, 12, 20, floors, 0, 0x8a5443) // 直交ウィング（L字）
+      { const bx = cx + 22, bz = cz - 8, bg = gmin4(bx, bz, 20, 16), bh = 5.5 // 鉄骨体育館（かまぼこアーチ屋根）
+        grp.add(mk(new THREE.BoxGeometry(20, bh, 16), toon(0xcfcabe), bx, bg + bh / 2, bz, 0, true))
+        const arch = new THREE.Mesh(new THREE.CylinderGeometry(9.0, 9.0, 20, 18, 1), toon(0x9fb0b8)); arch.rotation.z = Math.PI / 2; arch.position.set(bx, bg + bh - 1.3, bz); arch.scale.set(1, 1, 0.62); arch.castShadow = arch.receiveShadow = true; grp.add(arch)
+        grp.add(mk(new THREE.PlaneGeometry(5.5, 1.0), new THREE.MeshBasicMaterial({ map: signTex('たいいくかん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), bx, bg + 2.2, bz + 8.1, 0)); addBox(bx, bz, 10, 8, 0, 0.3) }
+      { const gx = cx + 2, gz = cz - 24, gg = heightAtYato(gx, gz) // 校門（前＝サンライズ向き。門柱2本＋校名）
+        for (const sx of [-3.4, 3.4]) grp.add(mk(new THREE.BoxGeometry(1.0, 3.2, 1.0), toon(0xcabfa0), gx + sx, gg + 1.6, gz, 0, true))
+        grp.add(mk(new THREE.BoxGeometry(8.2, 0.5, 0.6), toon(0x8a6f48), gx, gg + 3.3, gz, 0, true)) // 門の梁（木）
+        grp.add(mk(new THREE.PlaneGeometry(5.0, 0.95), new THREE.MeshBasicMaterial({ map: signTex(name, '#2f5a8a', '#fff8e8'), side: THREE.DoubleSide }), gx - 3.4, gg + 1.8, gz, Math.PI / 2)) }
+      for (const [tx, tz] of [[cx - 24, cz - 16], [cx + 14, cz + 4], [cx - 2, cz - 21], [cx + 27, cz + 12]]) { const ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.28, 1.7, 5), toon(0x6a4e34), tx, ty + 0.85, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(2.0, 0), toon(0x5f8a40), tx, ty + 1.7 + 1.5, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) } // 夏の緑の木立
+      signOn(cx - 6, cz - 16, 14, gmax4(cx - 6, cz - 9, 36, 12), floors * 3.3 + 1.4, name, '#2f5a8a') }
     // 名前看板（業種色）。サンライズ向きに立てる
     const signTex = (name, bg, fg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 64); x.fillStyle = fg; x.font = 'bold ' + (name.length > 6 ? 30 : 38) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, 128, 34); return new THREE.CanvasTexture(c) }
     const signOn = (cx, cz, w, gy, yy, name, bg) => { const ry = Math.atan2(3008 - cx, -8 - cz); grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.7), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + yy, cz, ry)) }
@@ -2077,7 +2096,7 @@ function buildShishigaya() {
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
-      else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 校舎＋校庭
+      else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 34, 28); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
       else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
