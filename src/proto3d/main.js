@@ -1516,7 +1516,7 @@ function buildShishigaya() {
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
-  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3008, 16, 14], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ(移設先)/B1森/サンライズ南のエントランス前庭(汎用建物を消して開ける)＋NAMED(学校clearR66が広場/校舎/裏門area を消す)
+  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3008, 16, 14], [2939, -128, 38], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋NAMED
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   let nOnRoad = 0 // 道の上に重心がある建物を消した数（道ふさぎ対策・ログで確認）
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
@@ -1776,18 +1776,23 @@ function buildShishigaya() {
       const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
       for (const [px, pz] of parkPos) { const seed = Math.abs(Math.round(px) + Math.round(pz) * 3); e2.set(0, (seed % 4) * 1.5708, 0); q2.setFromEuler(e2); m4b.compose(new THREE.Vector3(px, heightAtYato(px, pz), pz), q2, s2); pgI.setMatrixAt(pn++, m4b) }
       pgI.count = pn; scene.add(pgI); console.log('[shishigaya] 公園遊具', pn) }
-    // マリノスのグラウンド＝獅子ヶ谷一丁目公園(2987,-123・ビスコの右上＝ユーパリノス家の隣の公園)。あまり使われず膝丈の雑草が伸びた“芝生の原っぱ”＋サッカーゴールだけ（茶色い土ではない）
-    { const gx = 2987, gz = -123, gw = 50, gd = 84, m4 = new THREE.Matrix4(), sc = new THREE.Vector3()
-      const weed = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.55, 4), new THREE.MeshToonMaterial({ color: 0x6f8a3e, gradientMap: GRAD }), 220); let wi = 0
-      for (let t = 0; t < 800 && wi < 220; t++) { const x = gx + (Math.random() - 0.5) * gw, z = gz + (Math.random() - 0.5) * gd, y = heightAtYato(x, z); if (y < 3) continue; const s = 0.8 + Math.random() * 0.9; m4.makeTranslation(x, y + 0.28 * s, z); m4.scale(sc.set(s, s, s)); weed.setMatrixAt(wi++, m4) }
-      weed.count = wi; weed.castShadow = true; weed.receiveShadow = true; grp.add(weed) // 膝丈の雑草（伸びた草むら）
-      netFence(grp, gx, gz, gw, gd, 2.4) // グラウンドのまわりの金網（ユーザー要望2026-06-22）
-      const gm = toon(0xededed), ggy = heightAtYato(gx, gz + 30), GW2 = 7.2, GH = 2.4, gzz = gz + 30 // サッカーゴール1基（白いパイプ枠＋ネット）南端に
-      for (const sx of [-GW2 / 2, GW2 / 2]) grp.add(mk(new THREE.BoxGeometry(0.13, GH, 0.13), gm, gx + sx, ggy + GH / 2, gzz)) // 左右ポスト
-      grp.add(mk(new THREE.BoxGeometry(GW2 + 0.13, 0.13, 0.13), gm, gx, ggy + GH, gzz)) // クロスバー
-      for (const sx of [-GW2 / 2, GW2 / 2]) grp.add(mk(new THREE.BoxGeometry(0.1, 1.4, 0.1), gm, gx + sx, ggy + 0.7, gzz + 2.2)) // 後ろの短い柱
-      grp.add(mk(new THREE.BoxGeometry(GW2, 0.1, 0.1), gm, gx, ggy + 0.05, gzz + 2.2)) // 後ろ下バー
-      const net = new THREE.Mesh(new THREE.PlaneGeometry(GW2, 3.2), new THREE.MeshToonMaterial({ color: 0xf2f2f2, gradientMap: GRAD, transparent: true, opacity: 0.22, side: THREE.DoubleSide })); net.position.set(gx, ggy + GH / 2, gzz + 1.1); net.rotation.x = -0.6; net.castShadow = false; grp.add(net) }
+    // マリノスのグラウンド＝ユーザー指定の4隅(2026-06-23移設)に。膝丈の雑草の原っぱ＋4辺の金網＋サッカーゴール2基(向かい合う)
+    { const quad = [[2888, -105], [2954, -87], [2989, -151], [2924, -168]], m4 = new THREE.Matrix4(), sc = new THREE.Vector3()
+      const pinq = (x, z) => { let inside = false; for (let i = 0, j = quad.length - 1; i < quad.length; j = i++) { const xi = quad[i][0], zi = quad[i][1], xj = quad[j][0], zj = quad[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) inside = !inside } return inside }
+      let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const [x, z] of quad) { mnx = Math.min(mnx, x); mxx = Math.max(mxx, x); mnz = Math.min(mnz, z); mxz = Math.max(mxz, z) }
+      const weed = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.55, 4), new THREE.MeshToonMaterial({ color: 0x6f8a3e, gradientMap: GRAD }), 280); let wi = 0
+      for (let t = 0; t < 1600 && wi < 280; t++) { const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz); if (!pinq(x, z)) continue; const y = heightAtYato(x, z); if (y < 3) continue; const s = 0.8 + Math.random() * 0.9; m4.makeTranslation(x, y + 0.28 * s, z); m4.scale(sc.set(s, s, s)); weed.setMatrixAt(wi++, m4) }
+      weed.count = wi; weed.castShadow = weed.receiveShadow = true; grp.add(weed) // 膝丈の雑草
+      for (let k = 0; k < 4; k++) { const a = quad[k], b = quad[(k + 1) % 4], mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, len = Math.hypot(b[0] - a[0], b[1] - a[1]), ang = Math.atan2(-(b[1] - a[1]), b[0] - a[0]), nx = -(b[1] - a[1]) / len, nz = (b[0] - a[0]) / len // 4辺の金網
+        const tex = netTex.clone(); tex.repeat.set(Math.max(1, Math.round(len / 2)), 1.2); tex.needsUpdate = true; const nm = mk(new THREE.PlaneGeometry(len, 2.4), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.85 }), mx, heightAtYato(mx, mz) + 1.2, mz, ang); nm.layers.set(1); grp.add(nm)
+        const np = Math.max(2, Math.round(len / 6)); for (let i = 0; i <= np; i++) { const px = a[0] + (b[0] - a[0]) * i / np, pz = a[1] + (b[1] - a[1]) * i / np; grp.add(mk(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), toon(0x8a8f88), px, heightAtYato(px, pz) + 1.3, pz, 0, true)) } } // 支柱
+      const goal = (gx2, gz2, tx2, tz2) => { const g = new THREE.Group(); g.position.set(gx2, heightAtYato(gx2, gz2), gz2); g.rotation.y = Math.atan2(tx2 - gx2, tz2 - gz2); grp.add(g); const gm = toon(0xededed), GW2 = 7.0, GH = 2.4
+        const ga = (geo, x, y, z) => { const m = new THREE.Mesh(geo, gm); m.position.set(x, y, z); m.castShadow = true; g.add(m) }
+        for (const s of [-GW2 / 2, GW2 / 2]) ga(new THREE.BoxGeometry(0.13, GH, 0.13), s, GH / 2, 0); ga(new THREE.BoxGeometry(GW2 + 0.13, 0.13, 0.13), 0, GH, 0) // ポスト＋クロスバー
+        for (const s of [-GW2 / 2, GW2 / 2]) ga(new THREE.BoxGeometry(0.1, 1.4, 0.1), s, 0.7, -2.0); ga(new THREE.BoxGeometry(GW2, 0.1, 0.1), 0, 0.05, -2.0) // 後ろの柱＋下バー
+        const ntex = netTex.clone(); ntex.repeat.set(4, 1.4); ntex.needsUpdate = true; const nmat = new THREE.MeshBasicMaterial({ map: ntex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.5 })
+        const bk = new THREE.Mesh(new THREE.PlaneGeometry(GW2, GH), nmat); bk.position.set(0, GH / 2, -2.0); bk.layers.set(1); g.add(bk) } // 背面ネット
+      goal(2921, -103, 2965, -151); goal(2965, -151, 2921, -103) } // ゴール2基（互いに向かい合う・ユーザー指定座標）
     // サンライズの地下一階(裏=谷側)の出口の先＝当時は森（今は橘学苑のグラウンド）。エラ時代として木立を置く
     const trMat = new THREE.MeshToonMaterial({ gradientMap: GRAD }), grn = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a]
     for (let i = 0; i < 16; i++) { const fx = 3012 + (Math.random() - 0.5) * 40, fz = -56 + (Math.random() - 0.5) * 34, fy = heightAtYato(fx, fz), s = 1.7 + Math.random() * 1.2
@@ -5599,7 +5604,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-facility-bounds' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-marinos-move' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
