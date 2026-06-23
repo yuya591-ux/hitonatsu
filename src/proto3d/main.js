@@ -5994,6 +5994,13 @@ const pointers = new Map() // 多点タッチ
 window.__build = '20260623-inari' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
+let camSnap = false // 主観⇄三人称の切替時だけカメラを瞬間移動させる（体の中を通り抜けて赤くにじむ“番組みたい”表示を防ぐ・ユーザー指摘2026-06-23）
+// ── 操作しないとボタン類がそっと消えて景色に没入できる（どのモード/視点でも・触れると戻る・ユーザー要望2026-06-23）──
+let lastInteract = performance.now()
+const IDLE_MS = 4500 // この秒数 何も触らないとHUDをフェードアウト
+function pokeUI() { lastInteract = performance.now(); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle') }
+// ボタン/HUDを押したら必ず“操作した”とみなしてタイマーをリセット（キャプチャ段階で先に拾う）
+document.addEventListener('pointerdown', (e) => { if (e.target && e.target.closest && e.target.closest('button, .hud')) pokeUI() }, true)
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
 let flying = false, flyUp = 0, flyDown = 0
 let fpv = false // 主観視点（一人称）。設定でON＝頭の高さからyaw/pitch方向を見る。屋上の一望に（ユーザー要望2026-06-23）
@@ -6029,6 +6036,7 @@ function pinchInit() { // 2本の視点指の距離を記録
 }
 canvas.addEventListener('pointerdown', (e) => {
   startAudio() // 最初のタッチで音を立ち上げる（iOSの自動再生制限への先回り）
+  pokeUI() // 画面に触れたら消えていたボタン類をそっと呼び戻す
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false })
   canvas.setPointerCapture(e.pointerId)
   if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
@@ -6038,6 +6046,7 @@ canvas.addEventListener('pointerdown', (e) => {
 })
 canvas.addEventListener('pointermove', (e) => {
   if (!pointers.has(e.pointerId)) return
+  pokeUI() // 指を動かしている間はHUDを消さない
   const prev = pointers.get(e.pointerId)
   const prevX = prev.x, prevY = prev.y
   prev.x = e.clientX; prev.y = e.clientY
@@ -6098,7 +6107,7 @@ function onUp(e) {
 }
 canvas.addEventListener('pointerup', onUp)
 canvas.addEventListener('pointercancel', onUp)
-addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; if (e.key === ' ') doJump() })
+addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; pokeUI(); if (e.key === ' ') doJump() })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 
 // ジャンプ・ズームの専用ボタン（一般的なゲーム配置：右下ジャンプ、右側＋／－ズーム）
@@ -6123,7 +6132,7 @@ if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
   if (flZout) flZout.addEventListener('click', () => zoomStep(1 / 0.82))
   const updFlSpeed = () => { if (flSpeed) flSpeed.innerHTML = 'はやさ<br>' + FLOAT_SPEEDS[floatSpeedI].lbl }
   if (flSpeed) flSpeed.addEventListener('click', () => { floatSpeedI = (floatSpeedI + 1) % FLOAT_SPEEDS.length; updFlSpeed() }); updFlSpeed()
-  if (flFpv) flFpv.addEventListener('click', () => { fpv = !fpv; flFpv.classList.toggle('on', fpv); if (setFpvBtn) { setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF' } }) // 飛行中の主観視点トグル（設定の👁とも同期）
+  if (flFpv) flFpv.addEventListener('click', () => { fpv = !fpv; camSnap = true; flFpv.classList.toggle('on', fpv); if (setFpvBtn) { setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF' } }) // 飛行中の主観視点トグル（設定とも同期）。camSnapで切替時のカメラ瞬間移動＝体内を通り抜ける表示の乱れを防ぐ
   window.__updFlightHud = () => { // 毎フレーム：高度/速さ/ズームのメーターを更新
     const alt = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / floatMaxH, 0, 1)
     const zoomN = fpv ? (78 - fpvFov) / 52 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
@@ -6829,7 +6838,7 @@ function update(dt) {
       const gFloor = heightAt(boy.position.x, boy.position.z) + 0.9
       if (floatExiting) { // 着地＝最低14m/sは必ず降りる時間ベース＋高所では速く（fps非依存で必ず着く）
         boy.position.y -= Math.max(dt * 14, (boy.position.y - gFloor) * Math.min(1, dt * 3)); floatVel.set(0, 0, 0)
-        if (boy.position.y <= gFloor + 0.05) { boy.position.y = gFloor; floatMode = false; floatExiting = false; document.body.classList.remove('floating'); if (fpv) { fpv = false; if (setFpvBtn) { setFpvBtn.classList.remove('on'); setFpvBtn.textContent = 'OFF' } } } // 着地したら主観視点は解除＝地上で一人称のまま取り残されない
+        if (boy.position.y <= gFloor + 0.05) { boy.position.y = gFloor; floatMode = false; floatExiting = false; document.body.classList.remove('floating'); if (fpv) { fpv = false; camSnap = true; const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.remove('on'); if (setFpvBtn) { setFpvBtn.classList.remove('on'); setFpvBtn.textContent = 'OFF' } } } // 着地したら主観視点は解除＝地上で一人称のまま取り残されない（camSnapで三人称へ瞬時に戻す）
       } else {
         const ty = (floatUp - floatDown) * 6.0 // ▲うく/▼おりる
         floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 2.4) // ふんわり上下
@@ -7078,10 +7087,13 @@ function update(dt) {
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
   if (window.__freezeCam || titleView) return // 検証用：カメラ固定／タイトル中はtitleCamが全部やるのでupdateはカメラに触れない（取り合いの揺れ防止）
   // カメラを目標へなめらかに寄せる（ブランコは追従を速く＝ぶれない視点）
-  camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 6 : 5)))
-  // 注視点もなめらかに
   camera.userData._look = camera.userData._look || new THREE.Vector3().copy(lookGoal)
-  camera.userData._look.lerp(lookGoal, Math.min(1, dt * (mode === 'swing' ? 13 : 6)))
+  if (camSnap) { // 主観⇄三人称の切替時だけ瞬間移動＝体の中をカメラが通り抜けて赤くにじむ“番組みたい”表示を防ぐ（ユーザー指摘2026-06-23）
+    camera.position.copy(camGoal); camera.userData._look.copy(lookGoal); camSnap = false
+  } else {
+    camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 6 : 5)))
+    camera.userData._look.lerp(lookGoal, Math.min(1, dt * (mode === 'swing' ? 13 : 6)))
+  }
   camera.lookAt(camera.userData._look)
 }
 
@@ -7126,6 +7138,9 @@ renderer.setAnimationLoop(() => {
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
   if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'suspended') { try { listener.context.resume() } catch (e) {} }
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
+  // 操作している間（スティック/上下ホールド/見回し）はHUDを消さない。何もしない時間が続いたらそっと消す
+  if (puni.active || floatUp || floatDown || lookIds.size > 0) lastInteract = performance.now()
+  if (!titleView && performance.now() - lastInteract > IDLE_MS) document.body.classList.add('ui-idle')
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
   if (floatMode && window.__updFlightHud) window.__updFlightHud() // 風船飛行のメーター更新
@@ -7212,7 +7227,7 @@ if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEP
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
 const setFpvBtn = document.getElementById('set-fpv')
-if (setFpvBtn) setFpvBtn.addEventListener('click', () => { fpv = !fpv; setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF'; if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）
+if (setFpvBtn) setFpvBtn.addEventListener('click', () => { fpv = !fpv; camSnap = true; setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF'; if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。camSnapで切替時のカメラ瞬間移動
 const setBientoBtn = document.getElementById('set-biento') // 確認用：ビエント横濱菊名のすぐ前へワープ（屋上の外階段の足元・東側。位置確認用なので後で外せる）
 if (setBientoBtn) setBientoBtn.addEventListener('click', () => { area = 'yato'; onYato = true; const wx = 1968, wz = -81; boy.position.set(wx, heightAt(wx, wz), wz); facing = -Math.PI / 2; boy.rotation.y = facing; boy.userData._cy = null; riding = false; if (bikeEl) bikeEl.classList.remove('on'); flying = false; document.body.classList.remove('flying'); const fui = document.getElementById('flyui'); if (fui) fui.classList.remove('on'); if (settingsEl) settingsEl.classList.remove('on') })
 applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
