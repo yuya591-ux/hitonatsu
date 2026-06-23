@@ -1716,6 +1716,20 @@ function buildShishigaya() {
         grp.add(mk(new THREE.PlaneGeometry(5.0, 0.95), new THREE.MeshBasicMaterial({ map: signTex(name, '#2f5a8a', '#fff8e8'), side: THREE.DoubleSide }), gx - 3.4, gg + 1.8, gz, Math.PI / 2)) }
       for (const [tx, tz] of [[cx - 24, cz - 16], [cx + 14, cz + 4], [cx - 2, cz - 21], [cx + 27, cz + 12]]) { const ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.28, 1.7, 5), toon(0x6a4e34), tx, ty + 0.85, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(2.0, 0), toon(0x5f8a40), tx, ty + 1.7 + 1.5, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) } // 夏の緑の木立
       signOn(cx - 6, cz - 16, 14, gmax4(cx - 6, cz - 9, 36, 12), floors * 3.3 + 1.4, name, '#2f5a8a') }
+    // 幼稚園/保育園＝低い2階のカラフルな園舎(クリーム壁＋オレンジ寄棟＋丸窓)＋砂の園庭＋遊具1セット＋低いカラフルな門。子どもが通う明るさ
+    const buildKinder = (cx, cz, name) => {
+      ground(cx, cz + 8, 26, 18, 0xdcc89a) // 園庭（砂）
+      { const bx = cx, bz = cz - 6, bg = gmin4(bx, bz, 20, 10), h = 6.0
+        grp.add(mk(new THREE.BoxGeometry(20, h, 10), toon(0xf3e3b8), bx, bg + h / 2, bz, 0, true)) // 壁（クリーム）
+        const roof = mk(new THREE.ConeGeometry(11.5, 3.0, 4), toon(0xe07a3a), bx, bg + h + 1.5, bz, Math.PI / 4, true); roof.scale.set(1.05, 1, 0.6); grp.add(roof) // カラフルな寄棟屋根
+        grp.add(mk(new THREE.BoxGeometry(2.6, 2.8, 0.3), toon(0x8fb8d8), bx, bg + 1.4, bz + 5.06)) // 入口ガラス
+        for (const sx of [-6.5, -2.5, 2.5, 6.5]) grp.add(mk(new THREE.CircleGeometry(0.75, 16), toon(0xd6ecf4), bx + sx, bg + 3.7, bz + 5.07)) // 丸窓
+        addBox(bx, bz, 10, 5, 0, 0.3) }
+      { const px = cx, pz = cz + 9, m = new THREE.Mesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD })); m.castShadow = m.receiveShadow = true; m.position.set(px, heightAtYato(px, pz), pz); m.rotation.y = Math.PI; grp.add(m) } // 遊具一式（すべり台/ブランコ/砂場/鉄棒/ベンチ）
+      { const gx = cx, gz = cz + 19, gg = heightAtYato(gx, gz) // 低いカラフルな門＋園名
+        for (const sx of [-3.2, 3.2]) grp.add(mk(new THREE.CylinderGeometry(0.18, 0.2, 2.3, 8), toon(0xe07a3a), gx + sx, gg + 1.15, gz, 0, true))
+        grp.add(mk(new THREE.BoxGeometry(7.0, 0.45, 0.45), toon(0xf2b03a), gx, gg + 2.3, gz, 0, true))
+        grp.add(mk(new THREE.PlaneGeometry(5.2, 0.95), new THREE.MeshBasicMaterial({ map: signTex(name, '#e07a2e', '#fff8e8'), side: THREE.DoubleSide }), gx, gg + 1.5, gz + 0.05, 0)) } }
     // 名前看板（業種色）。サンライズ向きに立てる
     const signTex = (name, bg, fg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 64); x.fillStyle = fg; x.font = 'bold ' + (name.length > 6 ? 30 : 38) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, 128, 34); return new THREE.CanvasTexture(c) }
     const signOn = (cx, cz, w, gy, yy, name, bg) => { const ry = Math.atan2(3008 - cx, -8 - cz); grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.7), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + yy, cz, ry)) }
@@ -2099,7 +2113,7 @@ function buildShishigaya() {
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 34, 28); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
-      else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
+      else if (type === 'kinder') buildKinder(x, z, name) // 幼稚園/保育園＝カラフルな園舎＋砂の園庭＋遊具＋門
       else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
       else if (type === 'conbini') buildConbini(x, z, name) // 90年代の郊外型コンビニ（一面ガラス＋電照看板＋駐車場＋のぼり＋自販機）
       else if (type === 'rice') buildMise(x, z, name, 'rice') // 米店＝店先に米袋
