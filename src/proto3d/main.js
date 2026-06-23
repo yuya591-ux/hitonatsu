@@ -1173,6 +1173,18 @@ function netFence(parent, cx, cz, w, d, h, op = 0.85) { // グラウンドのま
     for (let i = 0; i <= n; i++) { const e = -fw / 2 + fw * i / n, ex = ang ? fx : fx + e, ez = ang ? fz + e : fz, py = heightAtYato(ex, ez); const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, h + 0.2, 6), pc); post.position.set(ex, py + (h + 0.2) / 2, ez); post.castShadow = true; parent.add(post) } // 支柱
   }
 }
+// 地面に沿う色つきパッチ（施設の敷地を地面の色で区別＝神社の玉砂利/広場の舗装など）。斜面でも浮かない格子メッシュ
+function groundPatch(parent, cx, cz, w, d, col, lift = 0.06) { const nx = Math.max(2, Math.round(w / 4)), nz = Math.max(2, Math.round(d / 4)), v = [], idx = []
+  for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = cx - w / 2 + w * i / nx, z = cz - d / 2 + d * j / nz; v.push(x, heightAtYato(x, z) + lift, z) }
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i; idx.push(a, a + nx + 1, a + 1, a + 1, a + nx + 1, a + nx + 2) }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, toon(col)); m.receiveShadow = true; parent.add(m); return m }
+// 低い玉垣/瑞垣（施設の敷地境界＝木の縦桟の柵）。矩形の周りに（gapEdge方向の辺だけ開ける）
+function precinctFence(parent, cx, cz, w, d, col, h = 1.0, openSide = 's') {
+  const edges = [['n', cx, cz - d / 2, w, 0], ['s', cx, cz + d / 2, w, 0], ['w', cx - w / 2, cz, d, Math.PI / 2], ['e', cx + w / 2, cz, d, Math.PI / 2]]
+  for (const [side, fx, fz, fw, ang] of edges) { if (side === openSide) continue; const gy = heightAtYato(fx, fz)
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(fw, 0.12, 0.1), toon(col)); rail.position.set(fx, gy + h - 0.1, fz); if (ang) rail.rotation.y = ang; rail.castShadow = true; parent.add(rail) // 笠木
+    const n = Math.max(2, Math.round(fw / 1.2)); for (let i = 0; i <= n; i++) { const e = -fw / 2 + fw * i / n, ex = ang ? fx : fx + e, ez = ang ? fz + e : fz, py = heightAtYato(ex, ez); const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, h, 0.08), toon(col)); p.position.set(ex, py + h / 2, ez); p.castShadow = true; parent.add(p) } } // 縦桟
+}
 
 // ── 野原の道づくり（田舎の集落の道）＝歩いて「町」だと感じる幹線の土道＋水辺への踏み跡 ──
 // 集落の一本道（締まった土道・幅3.4〜3.6）：町の門 → 池と田の「くびれ」を抜け → 池の南を西へ → 家の前。原っぱの背骨。
@@ -1433,6 +1445,11 @@ const PLAYGROUND_GEO = (() => {
   P.push({ g: box, m: M(-4, 0.45, 4.5, 1.7, 0.1, 0.45), c: wood }); for (const sx of [-0.7, 0.7]) P.push({ g: box, m: M(-4 + sx, 0.2, 4.5, 0.1, 0.4, 0.4), c: wood }) // ベンチ
   return mergeParts(P)
 })()
+// 公園の柵（よくある低いパイプ柵・3m区間）＝公園の敷地だとわかるように（ユーザー要望）。横桟2＋支柱2。緑がかった金属色
+const PARKFENCE_GEO = (() => { const box = new THREE.BoxGeometry(1, 1, 1), TR = (x, y, z, sx, sy, sz) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion(), new THREE.Vector3(sx, sy, sz)), pipe = [0.46, 0.55, 0.45], P = []
+  P.push({ g: box, m: TR(0, 0.62, 0, 3, 0.07, 0.07), c: pipe }); P.push({ g: box, m: TR(0, 0.34, 0, 3, 0.07, 0.07), c: pipe }) // 横桟2本
+  for (const sx of [-1.45, 1.45]) P.push({ g: box, m: TR(sx, 0.37, 0, 0.08, 0.78, 0.08), c: pipe }) // 支柱2本
+  return mergeParts(P) })()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
 function buildShishigaya() {
   const seg = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(SG.half * 2, SG.half * 2, seg, seg); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子はhalfに比例＝約7m）
@@ -1488,7 +1505,7 @@ function buildShishigaya() {
     [3362, -24, 'apt', 'ニューハイツ北寺尾', 22, 4], [2984, 354, 'apt', 'コスモ綱島グランステージ', 24, 6], [3387, 467, 'apt', '獅子ヶ谷ハイツ', 36, 5],
     [2943, 557, 'apt', '二ツ池ハイネス', 22, 5], // 獅子ケ谷2-15-3・1980・二ツ池のそば。※エンゼルハイム(2-35-35)はワールド外(>680m)で保留
     // 施設系（神社・寺・公園/広場）＝OSM POIを1件ずつ。地元感の核
-    [2395, 392, 'shrine', '上郷神明社', 14],
+    [2960, -335, 'shrine', '神明社', 20], // ユーザー指定ピン＝game(2960,335)。z反転前は-335。敷地ぶん広めにclearR
     [2735, 427, 'temple', '光明寺', 18], [2518, 235, 'temple', '真如山本覺寺', 18], [3617, 208, 'temple', '妙光寺', 18],
     [3412, -330, 'park', '馬場第一公園', 4], [3162, 384, 'park', '獅子ケ谷公園', 4], [3361, 513, 'park', '獅子ヶ谷第二公園', 4], [3565, 182, 'park', '北寺尾四丁目公園', 4], [2938, -198, 'park', '渋沢金井公園', 4], [2698, -300, 'park', '北寺尾渋沢公園', 4], [2354, -208, 'park', '北寺尾第四公園', 4], [3082, 538, 'park', '二ツ池公園', 4], [3059, -14, 'park', '獅子ヶ谷第三公園', 4], [3152, -118, 'park', '北寺尾五丁目公園', 4], [2683, -317, 'park', '北寺尾第二公園', 4], [2462, -500, 'park', '北寺尾第三公園', 4], [2836, -619, 'park', 'かに山公園', 4], [2987, 123, 'park', '獅子ヶ谷一丁目公園', 4], [2586, 378, 'park', '西谷広場', 4], [2740, 539, 'park', '下谷広場', 4], [2458, 161, 'park', '新池広場', 4], [2442, 24, 'park', '旭台広場', 4], [2385, 180, 'park', '灰ヶ久保広場', 4],
     [1983, 493, 'park', '師岡町公園', 6], // 港北区師岡町401-2＝獅子ヶ谷市民の森に隣接。西へワールド拡張(HALF=1080)して収録
@@ -1624,6 +1641,7 @@ function buildShishigaya() {
       const ttp = mk(new THREE.PlaneGeometry(0.5, 0.7), new THREE.MeshBasicMaterial({ color: 0xf0f0e8, side: THREE.DoubleSide }), bx + 0.98, by + 1.5, bz + 1.2); ttp.rotation.y = -Math.PI / 2; grp.add(ttp) // 時刻表
       addCollider(bx + 0.7, bz, 1.3) } } // 上屋に当たり判定
   // ───── 周辺の実ランドマーク：獅子ヶ谷小学校(実位置3074,155)・橘学苑(実位置3123,-42＝裏山は地形の頂)・マリノスのグラウンド(前面・位置は要確認) ─────
+  const parkPos = [] // 公園の位置（遊具/柵を後でまとめて配置）。柵はcellOf定義後に置くため外側スコープで保持
   { const grp = new THREE.Group(); grp.name = 'landmarks2'; scene.add(grp)
     const mk = (geo, mat, x, y, z, ry, sh) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; if (sh) { m.castShadow = true; m.receiveShadow = true } return m }
     const gmin4 = (cx, cz, w, d) => Math.min(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
@@ -1651,6 +1669,8 @@ function buildShishigaya() {
     const buildShinmei = (cx, cz, name) => { const gy = heightAtYato(cx, cz)
       const wood = toon(0xa9895f), woodD = toon(0x7d6340), wall = toon(0xd8caa6), roofC = toon(0x5b6b62), stone = toon(0xa8a59a), stoneL = toon(0xcac6ba), gold = toon(0xb79a4a)
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m } // X軸回転対応（屋根の勾配/鰹木/千木用）
+      groundPatch(grp, cx, cz + 1, 13, 22, 0xccc5b0) // 玉砂利＝神社の敷地を地面の色で区別（ユーザー要望：ここは神社の敷地とわかるように）
+      precinctFence(grp, cx, cz + 1, 13, 22, 0xc9b994, 1.0, 's') // 玉垣（敷地境界・南＝鳥居側だけ開ける）
       const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)) } // 石灯籠
       const komainu = (kx, kz) => { const ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(0.5, 0.85, 0.5), stone, kx, ky + 0.42, kz, 0, true)); grp.add(mk(new THREE.BoxGeometry(0.36, 0.5, 0.62), stoneL, kx, ky + 1.05, kz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.19, 8, 6), stoneL, kx, ky + 1.4, kz + 0.16, 0, true)) } // 狛犬（台座＋体＋頭）
       // 神明鳥居（木造・直線。柱2＋まっすぐな笠木＋貫＋注連縄）front=南(cz+11)。木造はWeb調査で確認
@@ -1732,9 +1752,9 @@ function buildShishigaya() {
       grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
       signOn(cx, cz - 11, 8, gy, 4, name, '#5a3a3a') }
     const buildParkSign = (cx, cz, name) => { const gy = heightAtYato(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, Math.atan2(3008 - cx, -8 - cz))) } // 公園のなまえ看板（既存の緑地に立てる）
-    const parkPos = [] // 公園の位置（遊具を後でまとめて配置）
+    // parkPos は外側スコープで宣言済（柵をcellOf定義後に置くため）
     for (const [x, z, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
-      if (type === 'shrine') { if (name === '上郷神明社') buildShinmei(x, z, name); else buildShrine(x, z, name) }
+      if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') buildTemple(x, z, name)
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') { const gy = gmin4(x, z, 18, 12) // 横溝屋敷＝茅葺きの大屋根の母屋＋長屋門（谷の奥の旧家）
@@ -1861,6 +1881,12 @@ function buildShishigaya() {
     if (wallP.length) { const wI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.3, 0.28), new THREE.MeshToonMaterial({ color: 0xffffff, map: blockTex, gradientMap: GRAD }), wallP.length); wI.castShadow = wI.receiveShadow = true; wallP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.65, z), q, sc); wI.setMatrixAt(i, m4) }); scene.add(wI) } // ブロック塀
     if (hedgeP.length) { const hI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.0, 0.7), new THREE.MeshToonMaterial({ color: 0x5f8540, gradientMap: GRAD }), hedgeP.length); hI.castShadow = true; hedgeP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.5, z), q, sc); hI.setMatrixAt(i, m4) }); scene.add(hI) } // 生垣
     console.log('[shishigaya] 塀', wallP.length, '生垣', hedgeP.length) }
+  // 公園の柵＝公園の敷地だとわかるように低いパイプ柵で囲う（ユーザー要望2026-06-23）。各公園の周囲(半8m)に3m間隔・南は出入口で開ける。建物/水に当たる区間は飛ばす。1ドロー。※cellOf定義後に置く（parkPosは外側スコープ）
+  if (parkPos.length) { const pfP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
+    for (const [px, pz] of parkPos) { const R = 8
+      for (const [ex, ez, ang, side] of [[0, -R, 0, 'n'], [0, R, 0, 's'], [-R, 0, Math.PI / 2, 'w'], [R, 0, Math.PI / 2, 'e']]) { if (side === 's') continue // 南は出入口
+        for (let t = -R + 1.5; t <= R - 1.5; t += 3) { const fx = px + ex + (ang ? 0 : t), fz = pz + ez + (ang ? t : 0); if (occAt(fx, fz) || inWater(fx, fz) || heightAtYato(fx, fz) < 3) continue; pfP.push([fx, fz, ang]) } } }
+    if (pfP.length) { const pf = new THREE.InstancedMesh(PARKFENCE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), pfP.length); pf.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); pfP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); pf.setMatrixAt(i, m4) }); scene.add(pf); console.log('[shishigaya] 公園の柵', pfP.length) } }
   // ガードレール（坂・崖ぞいの道の下り側）＋カーブミラー（急カーブ）＝山あいの道の定番（ユーザー要望2026-06-22）。各1インスタンスメッシュ
   { const TR = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z), RX = (x, y, z, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0)), new THREE.Vector3(1, 1, 1))
     const GRAIL = mergeParts([ // 白いガードレール（桁2段＋支柱2本）長さ4m
@@ -5573,7 +5599,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-shinmei2' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-facility-bounds' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
