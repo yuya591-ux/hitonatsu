@@ -156,10 +156,10 @@ function sunStairY(x, z, curY) { // 外階段の歩行面（curY=今の足の高
   return null
 }
 // ── ビエント横濱菊名Ａ棟（港北区師岡町244-2・市民の森の斜面の低層RC・1993竣工）：実物は2〜3階だが丘の上(≒36m)なので屋上はサンライズ並みの高さ＝一望できる。屋上＋南面の外階段で登れる（GSI/Web調査で実位置に再現・ユーザー要望2026-06-23） ──
-const BIENTO = { cx: 1894, cz: -160, w: 22, d: 11, floors: 3 }
+const BIENTO = { cx: 1894, cz: -160, w: 24, d: 13, floors: 5 } // 立派なマンションに格上げ（5階建て＝丘の上で屋上から一望・ユーザー要望2026-06-23）
 function pointInBientoPoly(x, z) { return Math.abs(x - BIENTO.cx) <= BIENTO.w / 2 && Math.abs(z - BIENTO.cz) <= BIENTO.d / 2 } // 屋上の矩形内か（軸そろえ）
-const BIENTO_ROOF = (() => { const { cx, cz, w, d, floors } = BIENTO, hw = w / 2, hd = d / 2; let gmin = 1e9, gmax = -1e9; for (const [lx, lz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) { const e = heightAtYato(cx + lx, cz + lz); if (e < gmin) gmin = e; if (e > gmax) gmax = e } const slope = Math.min(10, gmax - gmin); return { gB: gmin, h: slope + floors * 3, top: gmin + slope + floors * 3 + 0.45 } })() // buildAptの屋根面に一致（陸屋根スラブの上面）
-const BIENTO_STAIR = { bx: 1894, bz: -160 + 5.5 + 12, tx: 1894, tz: -160 + 5.5, hw: 1.6 } // 南面の外階段（下端=地面→上端=屋上の南縁）
+const BIENTO_ROOF = (() => { const { cx, cz, w, d, floors } = BIENTO, hw = w / 2, hd = d / 2; let gmin = 1e9, gmax = -1e9; for (const [lx, lz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) { const e = heightAtYato(cx + lx, cz + lz); if (e < gmin) gmin = e; if (e > gmax) gmax = e } const slope = Math.min(10, gmax - gmin); return { gB: gmin, h: slope + floors * 3, top: gmin + slope + floors * 3 + 0.5 } })() // 屋根スラブの上面（buildBientoのスラブに一致）
+const BIENTO_STAIR = { bx: 1894 + 12 + 18, bz: -160, tx: 1894 + 12, tz: -160, hw: 3.0 } // 東面（プレイヤーが来る側）の幅広い外階段：足元(東x1924)→屋上の東縁(x1906)
 function bientoStairY(x, z, curY) { const S = BIENTO_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, L2 = dx * dx + dz * dz
   let t = ((x - S.bx) * dx + (z - S.bz) * dz) / L2; if (t < -0.03 || t > 1.03) return null
   t = Math.max(0, Math.min(1, t)); const cx = S.bx + dx * t, cz = S.bz + dz * t
@@ -1525,7 +1525,7 @@ function buildShishigaya() {
     // 当時(〜1995)実在のマンション（不動産DBで特定→GSIジオコーディング）。[x,z,'apt',名前,clearR,階数]
     [3362, -24, 'apt', 'ニューハイツ北寺尾', 22, 4], [2984, 354, 'apt', 'コスモ綱島グランステージ', 24, 6], [3387, 467, 'apt', '獅子ヶ谷ハイツ', 36, 5],
     [2943, 557, 'apt', '二ツ池ハイネス', 22, 5], // 獅子ケ谷2-15-3・1980・二ツ池のそば。※エンゼルハイム(2-35-35)はワールド外(>680m)で保留
-    [1894, 160, 'biento', 'ビエント横濱菊名Ａ棟', 40, 3], // 港北区師岡町244-2・1993・RC・A棟B棟2棟。世界を西へ少し拡張して実位置に。市民の森の丘＝屋上に登れて一望（ユーザー要望2026-06-23）
+    [1894, 160, 'biento', 'ビエント横濱菊名Ａ棟', 40, 5], // 港北区師岡町244-2・RC・A棟B棟。世界を西へ拡張して実位置に。市民の森の丘＝屋上に登れて一望。立派な5階建てに格上げ（ユーザー要望2026-06-23）
     // 施設系（神社・寺・公園/広場）＝OSM POIを1件ずつ。地元感の核
     [2960, -335, 'shrine', '神明社', 20], // ユーザー指定ピン＝game(2960,335)。z反転前は-335。敷地ぶん広めにclearR
     [2735, 427, 'temple', '光明寺', 24], [2518, 235, 'temple', '真如山本覺寺', 24], [3617, 208, 'temple', '妙光寺', 24], // 寺は境内(約26×32m)が広い＝clearRを24にして山門前/玉砂利に汎用建物がめり込まないように
@@ -2033,21 +2033,39 @@ function buildShishigaya() {
       const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am); addBox(cx, cz, hw, hd, ry, 0.3) // 当たり判定
       grp.add(mk(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), toon(0x42464c), cx, gB + h + 0.2, cz, ry, true)) // 陸屋根
       if (name) grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.9, 8), 1.6), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), cx + si * (hd + 0.12), gB + h - 1.3, cz + co * (hd + 0.12), ry)) } // 屋上ちかくの名前看板(正面)
-    // ビエント横濱菊名（師岡町・A棟B棟の2棟。A棟は軸そろえ＝屋上の歩行矩形BIENTO_POLYと一致させ、屋上＋外階段で登れる。丘の上なのでサンライズ並みの眺め）
+    // ビエント横濱菊名Ａ棟（師岡町・市民の森の丘。5階建ての立派なマンションに格上げ＝豪華なバルコニー面tex＋立派なエントランス＋幅広い外階段で屋上に登って一望。A棟は軸そろえで屋上の歩行矩形BIENTO_POLYと一致）
     const buildBiento = (name) => { const B = BIENTO, hw = B.w / 2, hd = B.d / 2, gB = BIENTO_ROOF.gB, h = BIENTO_ROOF.h, top = BIENTO_ROOF.top
-      const base = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], vv = [], uvv = [], ix = []; let o = 0, L = (lx, ly, lz) => [B.cx + lx, gB + ly, B.cz + lz] // A棟本体＝軸そろえ（ry=0）でRCバルコニー面
-      for (let k = 0; k < 4; k++) { const a = base[k], b = base[(k + 1) % 4], wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), vt = Math.max(2, Math.round(h / 3)), q = [L(a[0], 0, a[1]), L(b[0], 0, b[1]), L(b[0], h, b[1]), L(a[0], h, a[1])], uq = [[0, 0], [u, 0], [u, vt], [0, vt]]
+      const bTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d') // 豪華なバルコニー1戸＝掃き出し窓2枚＋金属手すり＋床スラブ庇＋エアコン（団地texより作り込み）
+        x.fillStyle = '#f0eadb'; x.fillRect(0, 0, 128, 128); x.fillStyle = '#8e887b'; x.fillRect(0, 125, 128, 3); x.fillStyle = '#f5f0e4'; x.fillRect(0, 3, 128, 10); x.fillStyle = '#cbc5b5'; x.fillRect(0, 13, 128, 3)
+        x.strokeStyle = 'rgba(150,142,126,0.22)'; x.lineWidth = 1; for (let yy = 24; yy < 120; yy += 16) { x.beginPath(); x.moveTo(0, yy); x.lineTo(128, yy); x.stroke() }
+        for (const wx of [12, 70]) { const gg = x.createLinearGradient(0, 24, 0, 92); gg.addColorStop(0, '#9fb0bf'); gg.addColorStop(0.5, '#7a8d9b'); gg.addColorStop(1, '#566571'); x.fillStyle = gg; x.fillRect(wx, 24, 46, 68); x.strokeStyle = '#f4f0e6'; x.lineWidth = 3.5; x.strokeRect(wx + 1.75, 25.75, 42.5, 64.5); x.strokeStyle = '#b9b3a4'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(wx + 23, 24); x.lineTo(wx + 23, 92); x.moveTo(wx, 56); x.lineTo(wx + 46, 56); x.stroke() } // 濃いめのガラス＋白サッシ＋十字桟
+        x.fillStyle = '#9298a0'; x.fillRect(4, 95, 120, 4); x.fillStyle = 'rgba(96,104,114,0.95)'; for (let bx2 = 8; bx2 < 122; bx2 += 6) x.fillRect(bx2, 99, 2, 20); x.fillStyle = '#8f959c'; x.fillRect(4, 117, 120, 3) // バルコニーの金属手すり（濃いめ＝はっきり）
+        x.fillStyle = '#dcd8cc'; x.fillRect(100, 99, 18, 15); x.strokeStyle = '#b3aea0'; x.lineWidth = 1; x.strokeRect(100, 99, 18, 15); x.fillStyle = 'rgba(120,112,98,0.28)'; x.fillRect(0, 18, 2, 108)
+        const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // ★RepeatWrapping必須（UVが0..戸数/階数で繰り返す。無いとクランプで面が無地になる）
+      const base = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], vv = [], uvv = [], ix = []; let o = 0, L = (lx, ly, lz) => [B.cx + lx, gB + ly, B.cz + lz]
+      for (let k = 0; k < 4; k++) { const a = base[k], b = base[(k + 1) % 4], wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 4.5)), vt = B.floors, q = [L(a[0], 0, a[1]), L(b[0], 0, b[1]), L(b[0], h, b[1]), L(a[0], h, a[1])], uq = [[0, 0], [u, 0], [u, vt], [0, vt]]
         q.forEach((p, qi) => { vv.push(p[0], p[1], p[2]); uvv.push(uq[qi][0], uq[qi][1]) }); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); o += 4 }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(vv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvv, 2)); g.setIndex(ix); g.computeVertexNormals()
-      const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am); addBox(B.cx, B.cz, hw, hd, 0, 0.3)
-      grp.add(mk(new THREE.BoxGeometry(B.w + 0.5, 0.5, B.d + 0.5), toon(0x42464c), B.cx, gB + h + 0.2, B.cz, 0, true)) // 陸屋根スラブ
-      const par = toon(0xc4c0b6); for (const [px, pz, pw, ang] of [[B.cx, B.cz - hd, B.w, 0], [B.cx, B.cz + hd, B.w, 0], [B.cx - hw, B.cz, B.d, Math.PI / 2], [B.cx + hw, B.cz, B.d, Math.PI / 2]]) grp.add(mk(new THREE.BoxGeometry(pw + 0.3, 0.8, 0.3), par, px, top + 0.4, pz, ang, true)) // パラペット（四周＝縁で落ちない）
-      grp.add(mk(new THREE.BoxGeometry(3.0, 1.8, 2.2), toon(0xb9b5aa), B.cx + hw - 2.4, top + 0.9, B.cz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.9, 0.9, 1.4, 10), toon(0x9aa0a2), B.cx - hw + 2.4, top + 0.7, B.cz - 1.2, 0, true)) // 屋上の給水タンク＋塔屋
-      grp.add(mk(new THREE.PlaneGeometry(Math.min(B.w * 0.85, 9), 1.5), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), B.cx, gB + h - 1.3, B.cz + hd + 0.12, 0)) // 名前看板（南面）
-      { const S = BIENTO_STAIR, n = 16, yB = heightAtYato(S.bx, S.bz) // 南面の外階段（段板＋手すり柱）
-        for (let i = 0; i <= n; i++) { const t = i / n, sx = S.bx + (S.tx - S.bx) * t, sz = S.bz + (S.tz - S.bz) * t, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(S.hw * 2, 0.16, 0.8), toon(0xb7b2a6), sx, sy, sz, 0, true)) }
-        for (let i = 0; i <= n; i += 3) for (const side of [-1, 1]) { const t = i / n, sx = S.bx + (S.tx - S.bx) * t + side * S.hw, sz = S.bz + (S.tz - S.bz) * t, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(0.08, 1.0, 0.08), toon(0x8a8f88), sx, sy + 0.5, sz, 0, true)) } }
-      buildApt(B.cx - 27, B.cz + 1, 20, 11, 3, 'Ｂ棟') } // B棟（3F・登れない）＝A棟の西どなり。実物のA棟B棟2棟構成
+      const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xd6cbac, gradientMap: GRAD, map: bTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am); addBox(B.cx, B.cz, hw, hd, 0, 0.3)
+      grp.add(mk(new THREE.BoxGeometry(B.w + 0.6, 0.6, B.d + 0.6), toon(0x6b6256), B.cx, gB + h + 0.25, B.cz, 0, true)) // 陸屋根スラブ（厚め）
+      const par = toon(0xcfcabd), rail = toon(0x9aa0a4) // パラペット＋上の金属手すり（縁で安心して一望）
+      for (const [px, pz, pw, ang] of [[B.cx, B.cz - hd, B.w, 0], [B.cx, B.cz + hd, B.w, 0], [B.cx - hw, B.cz, B.d, Math.PI / 2], [B.cx + hw, B.cz, B.d, Math.PI / 2]]) { grp.add(mk(new THREE.BoxGeometry(pw + 0.4, 1.0, 0.3), par, px, top + 0.5, pz, ang, true)); grp.add(mk(new THREE.BoxGeometry(pw + 0.4, 0.08, 0.12), rail, px, top + 1.35, pz, ang, true)) }
+      grp.add(mk(new THREE.BoxGeometry(3.4, 2.2, 2.6), toon(0xd8d2c4), B.cx - hw + 2.8, top + 1.1, B.cz - 1.6, 0, true)) // 塔屋（階段室）
+      grp.add(mk(new THREE.CylinderGeometry(1.0, 1.0, 1.7, 12), toon(0x9aa0a2), B.cx - hw + 3.2, top + 0.85, B.cz + 3.2, 0, true)) // 給水タンク
+      // 屋上の名前看板（東＝来る側に向けて高く＝遠くからマンションだと分かる）
+      grp.add(mk(new THREE.BoxGeometry(0.3, 1.8, Math.min(B.d * 0.6, 7)), new THREE.MeshBasicMaterial({ map: signTex(name, '#33506e', '#fff8e8') }), B.cx + hw - 0.5, top + 2.2, B.cz - hd + 3.0, 0, true)) // 屋上の名前看板は北寄りへ＝屋上中央から東を見る眺めを塞がない
+      // 1階の立派なエントランス（南面）：ガラスの自動ドア＋庇＋柱＋銘板
+      { const ez = B.cz + hd + 0.06
+        grp.add(mk(new THREE.BoxGeometry(4.2, 2.6, 0.3), new THREE.MeshToonMaterial({ color: 0x8fa6b4, gradientMap: GRAD, transparent: true, opacity: 0.6 }), B.cx, gB + 1.3, ez, 0, true)) // ガラスの自動ドア
+        grp.add(mk(new THREE.BoxGeometry(6.0, 0.25, 2.2), toon(0x6b6256), B.cx, gB + 2.7, ez + 0.9, 0, true)) // 庇
+        for (const sx of [-2.6, 2.6]) grp.add(mk(new THREE.CylinderGeometry(0.12, 0.12, 2.6, 6), toon(0x8a8170), B.cx + sx, gB + 1.3, ez + 1.7, 0, true)) // 庇の柱
+        grp.add(mk(new THREE.PlaneGeometry(3.0, 0.7), new THREE.MeshBasicMaterial({ map: signTex('ビエント横濱菊名', '#2a3a4a', '#e9e2cf'), side: THREE.DoubleSide }), B.cx, gB + 2.0, ez + 0.18, 0)) } // エントランスの銘板
+      // 幅広い外階段（東面＝来る側・段板＋両脇の手すり）＝はっきり「登れる」と分かる
+      { const S = BIENTO_STAIR, n = 22, yB = heightAtYato(S.bx, S.bz), dx = S.tx - S.bx, dz = S.tz - S.bz, len = Math.hypot(dx, dz)
+        for (let i = 0; i <= n; i++) { const t = i / n, sx = S.bx + dx * t, sz = S.bz + dz * t, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(0.95, 0.18, S.hw * 2), toon(0xc3beb0), sx, sy, sz, 0, true)) }
+        for (let i = 0; i <= n; i += 2) for (const side of [-1, 1]) { const t = i / n, sx = S.bx + dx * t, sz = S.bz + dz * t + side * S.hw, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(0.08, 1.05, 0.08), rail, sx, sy + 0.52, sz, 0, true)) }
+        for (const side of [-1, 1]) grp.add(mk(new THREE.BoxGeometry(len, 0.08, 0.08), rail, (S.bx + S.tx) / 2, yB + (top - yB) / 2 + 1.05, S.bz + side * S.hw, 0, true)) } // 手すり笠木（水平近似）
+      buildApt(B.cx - 28, B.cz + 1, 20, 12, 3, 'Ｂ棟') } // B棟（3F・登れない）＝A棟の西どなり。実物のA棟B棟2棟構成
     const buildTemple = (cx, cz, name) => { const gy = gmin4(cx, cz, 12, 9); addBox(cx, cz, 6, 4.5, 0, 0.3) // 寺＝本堂(瓦の寄棟)＋山門＋名前＋当たり判定
       grp.add(mk(new THREE.BoxGeometry(12, 4, 9), toon(0xc8bda0), cx, gy + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(9, 3.2, 4), toon(0x4a4a50), cx, gy + 5.6, cz, Math.PI / 4, true)) // 本堂
       grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
