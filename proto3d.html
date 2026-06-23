@@ -59,6 +59,20 @@
         color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
       #bike.on { background: rgba(122,168,106,0.95); color: #fff; }
       body.flying #bike { display: none !important; }
+      /* ふわり浮遊（プレイヤー向け）：🎈トグル＋浮遊中だけ▲うく/▼おりる */
+      #float { left: 50%; bottom: calc(9% + 128px + env(safe-area-inset-bottom)); transform: translateX(calc(-50% + 96px)); appearance: none; border: none;
+        cursor: pointer; padding: 0.5em 1.0em; font-size: clamp(15px,2.8vw,20px); font-family: inherit;
+        color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
+      #float.on { background: rgba(120,150,200,0.95); color: #fff; }
+      body.flying #float { display: none !important; }
+      #fl-up, #fl-down { right: calc(5% + env(safe-area-inset-right)); appearance: none; border: none; cursor: pointer; width: 76px; height: 60px;
+        border-radius: 16px; font-size: clamp(12px,2.4vw,16px); line-height: 1.15; font-family: inherit; color: #fdf7ec;
+        background: rgba(96,120,176,0.86); box-shadow: 0 3px 12px rgba(30,40,70,0.34); display: none; }
+      #fl-up { bottom: calc(9% + 150px + env(safe-area-inset-bottom)); }
+      #fl-down { bottom: calc(9% + 82px + env(safe-area-inset-bottom)); }
+      #fl-up:active, #fl-down:active { transform: scale(0.93); background: rgba(116,140,196,0.96); }
+      body.floating #fl-up, body.floating #fl-down { display: block; }
+      body.floating #jump, body.floating #zin, body.floating #zout, body.floating #lie, body.floating #bike, body.floating #act, body.floating #npc, body.floating #catch, body.floating #fish { display: none !important; }
       /* 横向きのおすすめ（縦持ちのスマホにだけ・やさしく・閉じれる） */
       #rotate { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); display: none;
         padding: 0.5em 1.2em; font-size: clamp(13px,3vw,18px); letter-spacing: 0.06em; color: #fdf7ec;
@@ -131,6 +145,7 @@
       /* タイトル中は遊びのHUDを全部隠す（はがき構図に集中・ユーザー要望2026-06-23） */
       body.titling #sleep, body.titling #badge, body.titling #set-btn, body.titling #hint, body.titling #look,
       body.titling #jump, body.titling #zin, body.titling #zout, body.titling #act, body.titling #lie, body.titling #bike,
+      body.titling #float, body.titling #fl-up, body.titling #fl-down,
       body.titling #npc, body.titling #catch, body.titling #fish, body.titling #go { display: none !important; }
       /* 設定カードの右上の×（縦が短い横持ちでもスクロール不要で必ず閉じられる） */
       #set-x { position: absolute; top: 8px; right: 10px; appearance: none; border: none; cursor: pointer; width: 34px; height: 34px;
@@ -275,6 +290,9 @@
     <button id="act" class="hud">すわる</button>
     <button id="lie" class="hud">ねころぶ</button>
     <button id="bike" class="hud">🚲</button>
+    <button id="float" class="hud">🎈</button>
+    <button id="fl-up" class="hud">▲<br>うく</button>
+    <button id="fl-down" class="hud">▼<br>おりる</button>
     <div id="look" class="hud">スワイプで見回す ・ もう一度タップで立つ</div>
     <div id="rotate" class="hud">横にすると、もっと広く見渡せます</div>
     <button id="npc" class="hud">はなしかける</button>

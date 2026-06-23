@@ -5948,13 +5948,15 @@ let flying = false, flyUp = 0, flyDown = 0
 let fpv = false // 主観視点（一人称）。設定でON＝頭の高さからyaw/pitch方向を見る。屋上の一望に（ユーザー要望2026-06-23）
 let fpvFov = 45 // 主観視点の画角（ピンチ/＋－で自由にズーム。小=ズームイン）
 let riding = false // 自転車に乗っているか（歩行の約2.6倍速＋こぐアニメ。ボタンでON/OFF・ユーザー要望2026-06-23）
+let floatMode = false, floatExiting = false, floatUp = 0, floatDown = 0 // ふわり浮遊モード（プレイヤー向け＝開発用✈とは別。ゆっくり空に浮いて漂う・ユーザー要望2026-06-23）
+const floatVel = new THREE.Vector3()
 const fly = { yaw: 0, pitch: -0.18, fov: 60, speedI: 1 }
 const FLY_SPEEDS = [12, 30, 72], FLY_SPEED_LABEL = ['ゆっくり', 'ふつう', 'はやい']
 const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new THREE.Vector3()
 const warpRay = new THREE.Raycaster() // 飛行中タップ→主人公をワープ
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 let jumpY = 0, jumpV = 0, airborne = false, landSquash = 0 // ジャンプ（高さ・上下速度・空中フラグ・着地のつぶれ）
-function doJump() { if (jumpY <= 0.02 && mode === 'walk' && !flying) { jumpV = 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音
+function doJump() { if (jumpY <= 0.02 && mode === 'walk' && !flying && !floatMode) { jumpV = 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音（浮遊中は跳ねない）
 
 function startPuni(id, x, y) {
   puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
@@ -6052,7 +6054,13 @@ const zinEl = document.getElementById('zin')
 const zoutEl = document.getElementById('zout')
 if (jumpEl) jumpEl.addEventListener('click', () => doJump())
 const bikeEl = document.getElementById('bike')
-if (bikeEl) bikeEl.addEventListener('click', () => { if (mode !== 'walk') return; riding = !riding; bikeEl.classList.toggle('on', riding) }) // 自転車に乗る/降りる
+if (bikeEl) bikeEl.addEventListener('click', () => { if (mode !== 'walk') return; riding = !riding; bikeEl.classList.toggle('on', riding); if (riding && floatMode) { floatExiting = true } }) // 自転車に乗る/降りる（浮遊中なら降りる）
+const floatEl = document.getElementById('float')
+if (floatEl) floatEl.addEventListener('click', () => { if (mode !== 'walk') return
+  if (!floatMode) { floatMode = true; floatExiting = false; riding = false; if (bikeEl) bikeEl.classList.remove('on'); floatVel.set(0, 3, 0); document.body.classList.add('floating'); floatEl.classList.add('on') } // ふわり浮く
+  else if (!floatExiting) { floatExiting = true; floatEl.classList.remove('on') } }) // もう一度＝ゆっくり降りる
+{ const hold = (id, set) => { const el = document.getElementById(id); if (!el) return; el.addEventListener('pointerdown', (e) => { e.preventDefault(); set(1) }); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, () => set(0)) }
+  hold('fl-up', (v) => { floatUp = v }); hold('fl-down', (v) => { floatDown = v }) } // ▲うく/▼おりる（押している間だけ）
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 if (zinEl) zinEl.addEventListener('click', () => zoomStep(0.8))
 if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
@@ -6712,12 +6720,12 @@ function update(dt) {
       const wx = camRight.x * sx + camFwd.x * (-sy)
       const wz = camRight.z * sx + camFwd.z * (-sy)
       const l = Math.hypot(wx, wz) || 1
-      const speed = (riding ? 18 : 7) * mag // 自転車は歩行の約2.6倍速
+      const speed = (floatMode ? 8 : riding ? 18 : 7) * mag // 自転車は約2.6倍速／浮遊はゆっくり漂う
       tx = (wx / l) * speed; tz = (wz / l) * speed
     }
     if (autoWalk) { tx = autoWalk.x * 4.4; tz = autoWalk.z * 4.4 } // 往来中は門の先へ自動で歩く
     // 加速はやや速く・減速はゆっくり（歩いてる身体の惰性）
-    const k = (Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 6 : 3.5
+    const k = floatMode ? 1.7 : ((Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 6 : 3.5) // 浮遊はふんわり慣性（離すとスーッと漂って止まる）
     vel.x += (tx - vel.x) * Math.min(1, dt * k)
     vel.z += (tz - vel.z) * Math.min(1, dt * k)
     const speedNow = Math.hypot(vel.x, vel.z)
@@ -6749,6 +6757,16 @@ function update(dt) {
     }
     // 建物・木の当たり判定：めり込んだら円の外へ押し戻す（すり抜け防止＝境界をはっきり）
     // ── サンライズの屋上/外階段：足の高さに屋上の高さを足す（heightAtより上に乗る）。旧町と獅子ヶ谷の実サンライズを climbYAt で一本化 ──
+    if (floatMode) { // ── ふわり浮遊：上下は▲▼でゆっくり、建物はすり抜けて空を漂う。地面より上に保つ ──
+      const gFloor = heightAt(boy.position.x, boy.position.z) + 0.9
+      const ty = floatExiting ? -6 : (floatUp - floatDown) * 6.0 // 終了中はゆっくり降りる
+      floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 2.4) // ふんわり上下
+      boy.position.y += floatVel.y * dt
+      if (boy.position.y < gFloor) { boy.position.y = gFloor; if (floatVel.y < 0) floatVel.y = 0; if (floatExiting) { floatMode = false; floatExiting = false; document.body.classList.remove('floating') } }
+      boy.position.y = Math.min(boy.position.y, gFloor + 150) // 上限
+      boy.position.y += Math.sin(tsec * 0.8) * 0.03 // ごく僅かなふわふわ
+      boy.userData._cy = null; boy.userData._high = (boy.position.y - heightAt(boy.position.x, boy.position.z)) > 6
+    } else {
     let climbY = climbYAt(boy.position.x, boy.position.z, boy.position.y)
     const gBelow = heightAt(boy.position.x, boy.position.z) // 真下の地面（落下防止は“地面より十分高い時だけ”効かせる＝低い段は自由に降りられる・獅子ヶ谷は地面標高が高いので絶対値しきい値では誤作動するため）
     // 落下防止＋縁を滑る：高い所から構造の外へ出る成分だけ止める（端・四隅まで歩ける＝一望できる）
@@ -6765,6 +6783,7 @@ function update(dt) {
     // 壁に当たったら「めり込む向きの速度」だけ消して壁に沿って滑る＝速度を丸ごと殺さない（建物の脇を歩くだけで激減してしまう不具合の修正）
     if (!autoWalk && climbY == null) { const r = pushOutOfColliders(boy.position.x, boy.position.z); if (r.hit) { const pdx = r.x - boy.position.x, pdz = r.z - boy.position.z, pl = Math.hypot(pdx, pdz); boy.position.x = r.x; boy.position.z = r.z; if (pl > 1e-5) { const nx = pdx / pl, nz = pdz / pl, vn = vel.x * nx + vel.z * nz; if (vn < 0) { vel.x -= vn * nx; vel.z -= vn * nz } } } }
     boy.position.y = climbY != null ? climbY : heightAt(boy.position.x, boy.position.z)
+    }
     if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
     phase += dt * 1.55 * speedNow // 歩調は実速度に連動（短い脚に合わせて少し速いパタパタ歩き＝幼児らしさ）
     // 向きをなめらかに
@@ -6778,7 +6797,7 @@ function update(dt) {
     // 足が着くたび：水の中なら「ぽちゃ」＋波紋、そうでなければ足音（走ると砂ぼこり）
     const inCreek = area === 'field' && distToCreek(boy.position.x, boy.position.z) < CREEK.half
     if (inCreek) todayFlags.wadedCreek = true
-    if (moving && !riding && sw * lastStepS < 0 && jumpY <= 0.02 && !airborne) { // ジャンプ中(空中)/自転車は足音を出さない
+    if (moving && !riding && !floatMode && sw * lastStepS < 0 && jumpY <= 0.02 && !airborne) { // ジャンプ中(空中)/自転車/浮遊は足音を出さない
       if (inCreek) { playPlop(); spawnRipple(boy.position.x, boy.position.z); spawnRipple(boy.position.x + (Math.random() - 0.5) * 0.8, boy.position.z + (Math.random() - 0.5) * 0.8) }
       else { playStep(0.04 + run * 0.06, area === 'town'); if (run > 0.4) spawnDust(boy.position.x, boy.position.y + 0.05, boy.position.z) }
     }
@@ -6813,6 +6832,15 @@ function update(dt) {
       boy.userData.armL.rotation.x = -1.12; boy.userData.armR.rotation.x = -1.12; boy.userData.elbowL.rotation.x = -0.22; boy.userData.elbowR.rotation.x = -0.22
       boy.rotation.x = 0.12 } // ごく軽い前傾（自転車本体は傾けすぎない）
     else if (boy.userData.bike.visible) boy.userData.bike.visible = false
+    // ふわり浮遊：手足をゆったり広げた“浮いてる”ポーズ（上の歩行ポーズを上書き）
+    if (floatMode) { const fb = Math.sin(tsec * 0.9) * 0.12
+      boy.userData.legL.rotation.x = -0.12 + fb * 0.2; boy.userData.legR.rotation.x = -0.08 - fb * 0.2
+      boy.userData.kneeL.rotation.x = 0.22; boy.userData.kneeR.rotation.x = 0.28
+      boy.userData.armL.rotation.x = -0.35; boy.userData.armR.rotation.x = -0.35
+      boy.userData.armL.rotation.z = 0.55 + fb * 0.1; boy.userData.armR.rotation.z = -0.55 - fb * 0.1 // 腕を横にひろげる
+      boy.userData.elbowL.rotation.x = -0.1; boy.userData.elbowR.rotation.x = -0.1
+      boy.rotation.x = 0.04 }
+    else { boy.userData.armL.rotation.z += (-0.05 - boy.userData.armL.rotation.z) * Math.min(1, dt * 8); boy.userData.armR.rotation.z += (0.05 - boy.userData.armR.rotation.z) * Math.min(1, dt * 8) } // 浮遊を解いたら腕の横ひらきを戻す
 
     // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
     idleTime = moving ? 0 : idleTime + dt
@@ -6825,7 +6853,7 @@ function update(dt) {
     const targetRoll = moving ? Math.sin(phase) * (0.08 + run * 0.05) : Math.sin(tsec * 0.5) * 0.02 * idleLook // 歩くと左右にとことこ揺れる（幼児のよちよち）
     boy.rotation.z += (targetRoll - boy.rotation.z) * Math.min(1, dt * 9)
     boy.userData.head.rotation.z = -boy.rotation.z * 0.55 // 頭は体ほど傾けず視線を水平に保つ（自然）
-    boy.position.y += moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012 // ぴょこぴょこ跳ねる/立つ呼吸
+    if (!floatMode) boy.position.y += riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012) // 歩き=ぴょこ跳ね/立ち=呼吸。自転車は跳ねず僅かな揺れ＝砂利道感を解消。浮遊中は別処理（足さない）
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
       jumpV -= 22 * dt; jumpY += jumpV * dt
@@ -7293,6 +7321,8 @@ window.__proto3d = {
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
   setFpv(v) { fpv = !!v }, get fpv() { return fpv }, // 検証用：主観視点ON/OFF
   setRiding(v) { riding = !!v }, get riding() { return riding }, // 検証用：自転車ON/OFF
+  setFloat(v) { floatMode = !!v; floatExiting = false; if (v) { floatVel.set(0, 0, 0); document.body.classList.add('floating') } else document.body.classList.remove('floating') }, get floatY() { return boy.position.y }, setFloatUp(v) { floatUp = v ? 1 : 0 }, // 検証用：浮遊
+  get _fdbg() { return { fu: floatUp, fd: floatDown, fex: floatExiting, fm: floatMode, vy: +floatVel.y.toFixed(2), md: mode } }, // 検証用デバッグ
   setTitle(v) { titleView = !!v; document.body.classList.toggle('titling', !!v) }, // 検証用：タイトルはがきカメラON/OFF
   bientoWarpXZ: { get x() { return BIENTO.cx }, get z() { return BIENTO.cz } }, // 検証用：ビエント位置
   setPhase(p) { phase = p }, // 検証用：歩調/こぎ位相を直接セット
