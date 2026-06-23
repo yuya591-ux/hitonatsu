@@ -4461,7 +4461,7 @@ const boy = makeBoy()
 const BOY_SCALE = 0.85 // 基準スケール（さらに小柄に）。ジャンプの伸び縮みはこれに掛ける
 boy.scale.setScalar(BOY_SCALE) // 体全体をもう少し小さく
 boy.rotation.order = 'YXZ' // ★向き(y)を最外＝前傾(x)は常に「進行方向へ前のめり」になる。XYZだと東西を向いた時に前傾が横倒れ＝左に傾く不具合になる
-boy.position.set(3012, heightAt(3012, 25), 25); boy.rotation.y = Math.atan2(3010 - 3012, 6 - 25) // ゲーム開始位置＝獅子ヶ谷サンライズ北寺尾の入口（坂上=南側）・建物の方を向く（ユーザー要望2026-06-22）
+boy.position.set(3004, heightAt(3004, 30), 30); boy.rotation.y = Math.atan2(3003.8 - 3004, 7.5 - 30) // ゲーム開始位置＝サンライズ北寺尾の前。入口(ポーチ)が正面・前庭の小道ごしに建物が立ち上がる“家に帰ってきた”構図。後方の道が開けカメラが詰まらない位置を探索で確定（以前は建物に近すぎ壁＋隣家でカメラが詰まっていた・ユーザー要望2026-06-23）
 outlineObj(boy, 0.03)
 // 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
 {
@@ -5005,7 +5005,7 @@ bokeh.frustumCulled = false; scene.add(bokeh)
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
 camera.layers.enable(1) // メイン描画では layer0(実体)＋layer1(輪郭ハル・空) の両方を映す。法線パスでは一時的にlayer1を外す
 // 視点の制御値（球面）。yaw=水平角, pitch=見下ろし角, dist=距離。
-const camCtl = { yaw: 0.32, pitch: 0.54, dist: 14, minDist: 4.5, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 } // 主人公に寄せ(19→14)・俯角をゆるめ(0.62→0.54)＝主人公が大きく写り、空も多めに入る（レビュー反映2026-06-23）
+const camCtl = { yaw: 0.02, pitch: 0.34, dist: 14, minDist: 4.5, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 } // 開始＝サンライズ前を正面に見る向き(yaw≈0)＋俯角をさらにゆるめ(0.54→0.34)＝神の視点でなく“その場に立つ子どもの目線”に近づけ建物が立ち上がって見える（没入・ユーザー要望2026-06-23）。地面めり込みは描画側のクランプで防止
 let lookSens = 1 // 設定：視点を回す感度（ひくい/ふつう/たかい）
 function camOffset(out) {
   const cp = Math.cos(camCtl.pitch)
