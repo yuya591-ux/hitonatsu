@@ -128,10 +128,19 @@
       #set-btn { left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + env(safe-area-inset-top)); appearance: none; border: none; cursor: pointer; width: 44px; height: 44px;
         border-radius: 50%; font-size: 20px; color: #fdf7ec; background: rgba(74,64,50,0.7);
         box-shadow: 0 3px 10px rgba(20,24,40,0.3); }
+      /* タイトル中は遊びのHUDを全部隠す（はがき構図に集中・ユーザー要望2026-06-23） */
+      body.titling #sleep, body.titling #badge, body.titling #set-btn, body.titling #hint, body.titling #look,
+      body.titling #jump, body.titling #zin, body.titling #zout, body.titling #act, body.titling #lie, body.titling #bike,
+      body.titling #npc, body.titling #catch, body.titling #fish, body.titling #go { display: none !important; }
+      /* 設定カードの右上の×（縦が短い横持ちでもスクロール不要で必ず閉じられる） */
+      #set-x { position: absolute; top: 8px; right: 10px; appearance: none; border: none; cursor: pointer; width: 34px; height: 34px;
+        border-radius: 50%; font-size: 22px; line-height: 1; color: #6a5c46; background: rgba(150,140,118,0.22); }
+      #set-x:active { background: rgba(150,140,118,0.4); }
+      .set-card { position: relative; }
       #settings { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 28; }
       #settings.on { display: flex; }
-      .set-card { width: min(86vw, 420px); padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
+      .set-card { width: min(86vw, 420px); max-height: 90dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
         box-shadow: 0 12px 40px rgba(0,0,0,0.4); text-align: center; }
       .set-card h2 { margin: 0 0 0.8em; font-size: clamp(19px,4.2vw,26px); color: #4a4032; letter-spacing: 0.1em; }
       .set-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin: 0.7em 0;
@@ -147,7 +156,7 @@
       #guide { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 27; }
       #guide.on { display: flex; }
-      .guide-card { width: min(86vw, 460px); padding: 1.5em 1.6em 1.4em; background: #fbf6ea; border-radius: 16px;
+      .guide-card { width: min(86vw, 460px); max-height: 90dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1.5em 1.6em 1.4em; background: #fbf6ea; border-radius: 16px;
         box-shadow: 0 12px 40px rgba(0,0,0,0.4); text-align: center;
         background-image: linear-gradient(rgba(180,160,120,0.10) 1px, transparent 1px); background-size: 100% 2.0em; }
       .guide-card h2 { margin: 0 0 0.7em; font-size: clamp(20px,4.5vw,28px); color: #4a4032; letter-spacing: 0.1em; }
@@ -236,6 +245,24 @@
       #pin-drop { left: calc(50% - 150px); bottom: calc(9% + env(safe-area-inset-bottom)); width: 80px; height: 66px; border-radius: 16px; background: rgba(196,72,58,0.86); }
       #pin-clear { left: calc(50% + 70px); bottom: calc(9% + env(safe-area-inset-bottom)); width: 58px; height: 66px; border-radius: 16px; font-size: 26px; }
       #pin-copyall { left: calc(50% + 134px); bottom: calc(9% + env(safe-area-inset-bottom)); width: 66px; height: 66px; border-radius: 16px; font-size: 12px; line-height: 1.25; background: rgba(60,90,150,0.86); }
+      /* ── 横持ち(縦が短い)対応：モーダルが画面からはみ出して「閉じる」が見切れる問題を解消（縦余白を詰める＋カードは内部スクロール。max-heightと併用）── */
+      @media (max-height: 540px) {
+        .set-card, .guide-card { padding: 0.8em 1.2em 0.85em; max-height: 94dvh; }
+        .set-card h2, .guide-card h2 { margin-bottom: 0.4em; font-size: clamp(17px,3.4vw,22px); }
+        .set-row { margin: 0.4em 0; font-size: clamp(13px,2.6vw,17px); }
+        .set-toggle { padding: 0.32em 0.9em; }
+        .guide-row { margin: 0.32em 0; }
+        #set-close, #guide-ok { margin-top: 0.65em; padding-top: 0.5em; padding-bottom: 0.5em; }
+        #set-guide { margin-top: 0.4em; }
+        .diary-page { padding: 0.9em 1.3em 1.1em; }
+      }
+      /* ── 横持ちのとき下端の操作ボタンを画面端ぎりぎりから少し上げ、親指で押しやすく（9%だと縦が短い横画面で下に寄りすぎる）── */
+      @media (orientation: landscape) and (max-height: 540px) {
+        #act, #jump, #lie { bottom: calc(18px + env(safe-area-inset-bottom)); }
+        #bike { bottom: calc(82px + env(safe-area-inset-bottom)); }
+        #zout { bottom: calc(108px + env(safe-area-inset-bottom)); }
+        #zin { bottom: calc(168px + env(safe-area-inset-bottom)); }
+      }
     </style>
   </head>
   <body>
@@ -287,6 +314,7 @@
     <button id="set-btn" class="hud" title="せってい">⚙</button>
     <div id="settings">
       <div class="set-card">
+        <button id="set-x" aria-label="とじる">×</button>
         <h2>せってい</h2>
         <div class="set-row"><span>おと（環境音・効果音）</span><button class="set-toggle" id="set-sound">ON</button></div>
         <div class="set-row"><span>おんがく（オルゴール）</span><button class="set-toggle" id="set-bgm">ON</button></div>
@@ -295,6 +323,7 @@
         <div class="set-row"><span>手描きの線（おもいとき OFF）</span><button class="set-toggle on" id="set-ink">ON</button></div>
         <div class="set-row"><span>🗺 ばしょマップ（場所をつたえる）</span><button class="set-toggle" id="set-map">ひらく</button></div>
         <div class="set-row"><span>👁 主観視点（一人称で見わたす）</span><button class="set-toggle" id="set-fpv">OFF</button></div>
+        <div class="set-row"><span>🏢 ビエント横濱菊名へ（確認用）</span><button class="set-toggle" id="set-biento" style="background:#c8956a">いく</button></div>
         <div class="set-row"><span>✈ 飛んでみる（開発用）</span><button class="set-toggle" id="set-fly">とぶ</button></div>
         <button id="set-close">とじる</button>
         <button id="set-guide">あそびかたを みる</button>

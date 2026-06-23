@@ -156,10 +156,10 @@ function sunStairY(x, z, curY) { // 外階段の歩行面（curY=今の足の高
   return null
 }
 // ── ビエント横濱菊名Ａ棟（港北区師岡町244-2・市民の森の斜面の低層RC・1993竣工）：実物は2〜3階だが丘の上(≒36m)なので屋上はサンライズ並みの高さ＝一望できる。屋上＋南面の外階段で登れる（GSI/Web調査で実位置に再現・ユーザー要望2026-06-23） ──
-const BIENTO = { cx: 1894, cz: -160, w: 24, d: 13, floors: 5 } // 立派なマンションに格上げ（5階建て＝丘の上で屋上から一望・ユーザー要望2026-06-23）
+const BIENTO = { cx: 1939, cz: -81, w: 18, d: 10, floors: 3 } // ユーザー指定ピン(1939,-81)・3階建て＝周りの家々より若干高め＋屋上に登れる（2026-06-23）
 function pointInBientoPoly(x, z) { return Math.abs(x - BIENTO.cx) <= BIENTO.w / 2 && Math.abs(z - BIENTO.cz) <= BIENTO.d / 2 } // 屋上の矩形内か（軸そろえ）
 const BIENTO_ROOF = (() => { const { cx, cz, w, d, floors } = BIENTO, hw = w / 2, hd = d / 2; let gmin = 1e9, gmax = -1e9; for (const [lx, lz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) { const e = heightAtYato(cx + lx, cz + lz); if (e < gmin) gmin = e; if (e > gmax) gmax = e } const slope = Math.min(10, gmax - gmin); return { gB: gmin, h: slope + floors * 3, top: gmin + slope + floors * 3 + 0.5 } })() // 屋根スラブの上面（buildBientoのスラブに一致）
-const BIENTO_STAIR = { bx: 1894 + 12 + 18, bz: -160, tx: 1894 + 12, tz: -160, hw: 3.0 } // 東面（プレイヤーが来る側）の幅広い外階段：足元(東x1924)→屋上の東縁(x1906)
+const BIENTO_STAIR = { bx: 1939 + 9 + 14, bz: -81, tx: 1939 + 9, tz: -81, hw: 2.6 } // 東面（プレイヤーが来る側）の幅広い外階段：足元(東x1962)→屋上の東縁(x1948)
 function bientoStairY(x, z, curY) { const S = BIENTO_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, L2 = dx * dx + dz * dz
   let t = ((x - S.bx) * dx + (z - S.bz) * dz) / L2; if (t < -0.03 || t > 1.03) return null
   t = Math.max(0, Math.min(1, t)); const cx = S.bx + dx * t, cz = S.bz + dz * t
@@ -1525,7 +1525,7 @@ function buildShishigaya() {
     // 当時(〜1995)実在のマンション（不動産DBで特定→GSIジオコーディング）。[x,z,'apt',名前,clearR,階数]
     [3362, -24, 'apt', 'ニューハイツ北寺尾', 22, 4], [2984, 354, 'apt', 'コスモ綱島グランステージ', 24, 6], [3387, 467, 'apt', '獅子ヶ谷ハイツ', 36, 5],
     [2943, 557, 'apt', '二ツ池ハイネス', 22, 5], // 獅子ケ谷2-15-3・1980・二ツ池のそば。※エンゼルハイム(2-35-35)はワールド外(>680m)で保留
-    [1894, 160, 'biento', 'ビエント横濱菊名Ａ棟', 40, 5], // 港北区師岡町244-2・RC・A棟B棟。世界を西へ拡張して実位置に。市民の森の丘＝屋上に登れて一望。立派な5階建てに格上げ（ユーザー要望2026-06-23）
+    [1939, 81, 'biento', 'ビエント横濱菊名', 24, 3], // ユーザー指定ピン(1939,-81)・師岡の高台(約62m)。3階建て＝周りの家々より若干高め＋屋上に外階段で登れる（2026-06-23・位置をユーザー指定に修正）
     // 施設系（神社・寺・公園/広場）＝OSM POIを1件ずつ。地元感の核
     [2960, -335, 'shrine', '神明社', 20], // ユーザー指定ピン＝game(2960,335)。z反転前は-335。敷地ぶん広めにclearR
     [2735, 427, 'temple', '光明寺', 24], [2518, 235, 'temple', '真如山本覺寺', 24], [3617, 208, 'temple', '妙光寺', 24], // 寺は境内(約26×32m)が広い＝clearRを24にして山門前/玉砂利に汎用建物がめり込まないように
@@ -2065,7 +2065,7 @@ function buildShishigaya() {
         for (let i = 0; i <= n; i++) { const t = i / n, sx = S.bx + dx * t, sz = S.bz + dz * t, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(0.95, 0.18, S.hw * 2), toon(0xc3beb0), sx, sy, sz, 0, true)) }
         for (let i = 0; i <= n; i += 2) for (const side of [-1, 1]) { const t = i / n, sx = S.bx + dx * t, sz = S.bz + dz * t + side * S.hw, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(0.08, 1.05, 0.08), rail, sx, sy + 0.52, sz, 0, true)) }
         for (const side of [-1, 1]) grp.add(mk(new THREE.BoxGeometry(len, 0.08, 0.08), rail, (S.bx + S.tx) / 2, yB + (top - yB) / 2 + 1.05, S.bz + side * S.hw, 0, true)) } // 手すり笠木（水平近似）
-      buildApt(B.cx - 28, B.cz + 1, 20, 12, 3, 'Ｂ棟') } // B棟（3F・登れない）＝A棟の西どなり。実物のA棟B棟2棟構成
+    } // 周りの家々の中に建つ1棟の3階マンション（若干高め）。屋上に外階段で登れる
     const buildTemple = (cx, cz, name) => { const gy = gmin4(cx, cz, 12, 9); addBox(cx, cz, 6, 4.5, 0, 0.3) // 寺＝本堂(瓦の寄棟)＋山門＋名前＋当たり判定
       grp.add(mk(new THREE.BoxGeometry(12, 4, 9), toon(0xc8bda0), cx, gy + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(9, 3.2, 4), toon(0x4a4a50), cx, gy + 5.6, cz, Math.PI / 4, true)) // 本堂
       grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
@@ -5784,6 +5784,7 @@ if (diaryCancelEl) diaryCancelEl.addEventListener('click', () => { if (diaryOpen
 
 // ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
 let area = 'yato' // 開始エリア＝獅子ヶ谷の谷戸（サンライズ北寺尾の入口）。町/はらっぱへは門から往来（ユーザー要望2026-06-22）
+let titleView = true // タイトル表示中＝景色のいい“はがき”構図のカメラに（始めるで解除）。目の前に建物が映ってどんなゲームか分からない問題の対応（ユーザー要望2026-06-23）
 let transitioning = false
 let autoWalk = null // 往来中の自動歩行 {x,z}（門をくぐって前進）
 const goEl = document.getElementById('go')
@@ -7001,12 +7002,27 @@ function update(dt) {
 
 // 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
 let frameAcc = 0
+// タイトルの“はがき”カメラ：谷の町を高めの斜めから、ゆっくり左右に流す（入道雲・サンライズの丘・二ツ池へ下る谷が一望＝どんなゲームか伝わる絵）
+function titleCam() {
+  const t = performance.now() * 0.001
+  const cx = 3150, cz = -120 // 見つめる中心＝東の住宅街の屋根並み（建物1棟で塞がず“夏の田舎町”が伝わる絵に）
+  const drift = Math.sin(t * 0.05) * 24 // ゆっくり左右に流れる“はがき”
+  const px = 3275 + drift, pz = 18 // 南東の高所から北西の屋根並み・丘・入道雲を望む
+  const py = heightAt(px, pz) + 74
+  if (scene.fog) { scene.fog.near = 220; scene.fog.far = 1500 } // 遠景まで見せる（霞で隠さない）
+  camera.fov += (50 - camera.fov) * 0.08; camera.updateProjectionMatrix()
+  camera.position.set(px, py, pz)
+  camera.userData._look = camera.userData._look || new THREE.Vector3()
+  camera.userData._look.lerp(new THREE.Vector3(cx, 26, cz), 0.1)
+  camera.lookAt(camera.userData._look)
+}
 renderer.setAnimationLoop(() => {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   if (frameAcc < 1 / 30) return
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   update(dt)
+  if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
   if (inkPass.enabled) { // インク線用にシーンの法線/深度を別RTへ（layer1の輪郭ハル・空は外す＝実体だけのきれいな法線）
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     renderer.setRenderTarget(normalRT); renderer.clear(); renderer.render(scene, camera)
@@ -7034,6 +7050,7 @@ addEventListener('pointerdown', function lockOnce() {
 
 // タイトル画面：「はじめる」で消えて、音を立ち上げる（iOSの自動再生制限への先回り）
 const titleEl = document.getElementById('title')
+document.body.classList.add('titling') // タイトル中は遊びのHUD(ねる/バッジ/⚙/ヒント)を隠す＝はがき構図に集中
 const startBtn = document.getElementById('t-start')
 // 初回だけ「あそびかた」を出す（操作の入口をやさしく）。2回目以降は出さない。
 const guideEl = document.getElementById('guide')
@@ -7041,7 +7058,7 @@ const guideOk = document.getElementById('guide-ok')
 let seenGuide = false; try { seenGuide = localStorage.getItem('hn3d_guide') === '1' } catch (e) {}
 if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} })
 if (startBtn) startBtn.addEventListener('click', () => {
-  startAudio(); if (titleEl) titleEl.classList.add('hidden')
+  startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
   if (!seenGuide && guideEl) { guideEl.classList.add('on'); seenGuide = true }
 })
 
@@ -7079,6 +7096,8 @@ window.__applySound = applySound // startAudio から呼べるように
 if (setBtn) setBtn.addEventListener('click', () => settingsEl && settingsEl.classList.add('on'))
 const setCloseEl = document.getElementById('set-close')
 if (setCloseEl) setCloseEl.addEventListener('click', () => settingsEl && settingsEl.classList.remove('on'))
+const setXEl = document.getElementById('set-x') // 右上の×でも閉じられる（横持ちでスクロール不要・必ず届く）
+if (setXEl) setXEl.addEventListener('click', () => settingsEl && settingsEl.classList.remove('on'))
 const setGuideEl = document.getElementById('set-guide')
 if (setGuideEl) setGuideEl.addEventListener('click', () => { if (settingsEl) settingsEl.classList.remove('on'); if (guideEl) guideEl.classList.add('on') }) // あそびかたを もう一度みる
 if (setSoundBtn) setSoundBtn.addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); applySound() })
@@ -7088,6 +7107,8 @@ if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
 const setFpvBtn = document.getElementById('set-fpv')
 if (setFpvBtn) setFpvBtn.addEventListener('click', () => { fpv = !fpv; setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF'; if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）
+const setBientoBtn = document.getElementById('set-biento') // 確認用：ビエント横濱菊名のすぐ前へワープ（屋上の外階段の足元・東側。位置確認用なので後で外せる）
+if (setBientoBtn) setBientoBtn.addEventListener('click', () => { area = 'yato'; onYato = true; const wx = 1968, wz = -81; boy.position.set(wx, heightAt(wx, wz), wz); facing = -Math.PI / 2; boy.rotation.y = facing; boy.userData._cy = null; riding = false; if (bikeEl) bikeEl.classList.remove('on'); flying = false; document.body.classList.remove('flying'); const fui = document.getElementById('flyui'); if (fui) fui.classList.remove('on'); if (settingsEl) settingsEl.classList.remove('on') })
 applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
@@ -7272,6 +7293,8 @@ window.__proto3d = {
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
   setFpv(v) { fpv = !!v }, get fpv() { return fpv }, // 検証用：主観視点ON/OFF
   setRiding(v) { riding = !!v }, get riding() { return riding }, // 検証用：自転車ON/OFF
+  setTitle(v) { titleView = !!v; document.body.classList.toggle('titling', !!v) }, // 検証用：タイトルはがきカメラON/OFF
+  bientoWarpXZ: { get x() { return BIENTO.cx }, get z() { return BIENTO.cz } }, // 検証用：ビエント位置
   setPhase(p) { phase = p }, // 検証用：歩調/こぎ位相を直接セット
   setLook(yaw, pitch) { camCtl.yaw = yaw; camCtl.pitch = pitch }, // 検証用：視点角を直接セット
   bientoRoofY: { get top() { return BIENTO_ROOF.top } }, // 検証用：ビエント屋上の高さ
