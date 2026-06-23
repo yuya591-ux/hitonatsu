@@ -1063,6 +1063,7 @@ function addDapple(x, z, r) {
   m.rotation.x = -Math.PI / 2; m.position.set(x, heightAt(x, z) + 0.07, z); scene.add(m); dapples.push(m)
 }
 for (const [x, z] of [[14, 6], [-16, 2], [22, -10], [-22, -14], [9, -22], [-10, -24], [30, 12], [-30, 14], [36, -4], [-34, 6], [19, 20], [-25, 25]]) addDapple(x, z, 2.4)
+let puddleMesh = null, wetness = 0 // 雨上がりの水たまり（路面に空を映す。weatherでしっとり→上がってもしばらく残る・2026-06-24）
 
 // ── 昭和の田舎家（縁側・瓦屋根・障子）＝時代の空気の核。麦わら帽子の少年の“おばあちゃんち”的な原風景 ──
 function makeHouse(x, z, rot, roofHex) {
@@ -2265,6 +2266,16 @@ function buildShishigaya() {
     if (weedP.length) { const wI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.16, 0.62, 4), new THREE.MeshToonMaterial({ color: 0x7d8c46, gradientMap: GRAD }), weedP.length); wI.castShadow = false
       const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3()
       weedP.forEach(([x, z, a, sc2], i) => { e.set(0, a, 0); q.setFromEuler(e); s.set(1, sc2, 1); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.31 * sc2, z), q, s); wI.setMatrixAt(i, m4) }); scene.add(wI); console.log('[shishigaya] 道ばたの夏草', weedP.length) } }
+  // ── 雨上がりの水たまり：平らな道に点々と。夕立→虹のあと路面に空が映る（屈指のエモい瞬間）。全部を1メッシュにマージ＝1ドロー。2026-06-24 ──
+  { const pud = [], m4 = new THREE.Matrix4(), seen = [], sv = new THREE.Vector3()
+    for (const rd of SG.roads) { if (pud.length >= 14) break; const p = rd.p
+      for (let k = 0; k < p.length - 1 && pud.length < 14; k++) { const x = (p[k][0] + p[k + 1][0]) / 2, z = (p[k][1] + p[k + 1][1]) / 2
+        if (Math.hypot(x - 3010, z + 120) > 250) continue // 歩く核の近くだけ
+        const sl = Math.abs(heightAtYato(x + 3, z) - heightAtYato(x - 3, z)) + Math.abs(heightAtYato(x, z + 3) - heightAtYato(x, z - 3)); if (sl > 1.2) continue // 平らな所だけ（坂に水はたまらない）
+        let near = false; for (const s of seen) { if (Math.hypot(x - s[0], z - s[1]) < 24) { near = true; break } } if (near) continue
+        seen.push([x, z]); const r = 1.0 + Math.random() * 1.5, cg = new THREE.CircleGeometry(r, 16); cg.rotateX(-Math.PI / 2)
+        m4.makeTranslation(x, heightAtYato(x, z) + 0.04, z); m4.scale(sv.set(1 + Math.random() * 0.6, 1, 1.1 + Math.random() * 0.6)); cg.applyMatrix4(m4); pud.push(cg) } }
+    if (pud.length) { const pg = mergeGeometries(pud, false); pud.forEach((g) => g.dispose()); puddleMesh = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: 0xbfd8ee, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })); puddleMesh.name = 'puddles'; puddleMesh.layers.set(1); scene.add(puddleMesh); console.log('[shishigaya] 水たまり', pud.length) } }
   // 公園の柵＝公園の敷地だとわかるように低いパイプ柵で囲う（ユーザー要望2026-06-23）。各公園の周囲(半8m)に3m間隔・南は出入口で開ける。建物/水に当たる区間は飛ばす。1ドロー。※cellOf定義後に置く（parkPosは外側スコープ）
   if (parkPos.length) { const pfP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
     for (const [px, pz] of parkPos) { const R = 8
@@ -6465,6 +6476,10 @@ function update(dt) {
     for (const arc of rainbow.children) arc.material.opacity = rainbowF * 0.6
   }
   if (dripQueue > 0) { dripTimer -= dt; if (dripTimer <= 0) { dripTimer = 0.35 + Math.random() * 1.0; playDrip(); dripQueue-- } }
+  // 雨上がりの水たまり：雨でしっとり濡れ→上がっても しばらく残る（ゆっくり乾く＝雨上がりの余韻）。空の色を映す
+  { const wetTarget = THREE.MathUtils.smoothstep(weather, 0.22, 0.7)
+    wetness += (wetTarget - wetness) * Math.min(1, dt * (wetTarget > wetness ? 0.5 : 0.05)) // 濡れは早く・乾きは遅い
+    if (puddleMesh) { puddleMesh.material.opacity = wetness * 0.7; puddleMesh.material.color.copy(skyMat.uniforms.mid.value).lerp(_a.set(0xffffff), 0.18) } } // 路面に空が映る（夕立後の夕方なら橙の水たまり）
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
   for (const tex of barberPoles) { tex.offset.y -= dt * 0.4 }
