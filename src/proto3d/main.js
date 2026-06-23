@@ -7159,16 +7159,18 @@ function flyCam(dt) {
   const tvx = (fwdx * mf + rgtx * mr) * spd                       // 前進は視線方向＝上を向いて進めば上昇
   const tvy = (fwdy * mf + (flyUp - flyDown) + keyUp) * spd       // ＋ボタン/キーで純粋な縦移動
   const tvz = (fwdz * mf + rgtz * mr) * spd
-  flyVel.x += (tvx - flyVel.x) * Math.min(1, dt * 4) // 慣性＝なめらかな加減速
-  flyVel.y += (tvy - flyVel.y) * Math.min(1, dt * 4)
-  flyVel.z += (tvz - flyVel.z) * Math.min(1, dt * 4)
+  const glide = Math.min(1, dt * 2.6) // 浮いた慣性で滑空（seasonsの town3dViewer FLY.moveEase 2.8 を読み取り専用で参照し“滑空の手応え”を移植・2026-06-23）＝離すと惰性でスーッと進んで止まる
+  flyVel.x += (tvx - flyVel.x) * glide
+  flyVel.y += (tvy - flyVel.y) * glide
+  flyVel.z += (tvz - flyVel.z) * glide
   flyPos.addScaledVector(flyVel, dt)
   flyPos.y = THREE.MathUtils.clamp(flyPos.y, 2.5, 300) // 高度の上下限
   camera.position.copy(flyPos)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(flyPos.x + fwdx, flyPos.y + fwdy, flyPos.z + fwdz)
   camera.lookAt(camera.userData._look)
-  camera.fov += (fly.fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix()
+  const fovGain = Math.min(1, Math.hypot(flyVel.x, flyVel.y, flyVel.z) / (spd || 1)) * 8 // 速いほど画角を広げて高揚感（seasonsのfovSpeedGain相当）
+  camera.fov += ((fly.fov + fovGain) - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix()
   updatePinReadout() // 中央十字の下の座標を毎フレーム更新
 }
 // 飛行中にタップした画面位置→地面の当たり所を求め、そこへ主人公をワープ（heightAtでレイマーチ＝メッシュ不要・堅牢）
