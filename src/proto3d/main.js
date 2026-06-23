@@ -5629,7 +5629,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-yokomizo' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-longday' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -5887,9 +5887,9 @@ function update(dt) {
   // 一日の移ろい（朝→夜で止まり、「ねる」で翌日へ。ループしない＝3日間の区切り）
   if (dayAuto) {
     const prev = tday
-    // 花火大会の間は時間をゆっくり進める＝夏のクライマックスを長く味わう（花火を約30秒のばす）
+    // 花火大会の間は時間をゆっくり進める＝夏のクライマックスを長く味わう
     const fwSlow = FIREWORK.days.indexOf(day) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
-    tday = Math.min(0.97, tday + dt / (fwSlow ? 400 : 240))
+    tday = Math.min(0.97, tday + dt / (fwSlow ? 1000 : 620)) // 1日を約2.6倍に延長（探索範囲が広がったので・ユーザー要望2026-06-23。240→620）
     setTimeOfDay(tday)
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast('ラジオ体操の じかんだ。') }
