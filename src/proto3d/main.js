@@ -5926,6 +5926,7 @@ let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
 let flying = false, flyUp = 0, flyDown = 0
 let fpv = false // 主観視点（一人称）。設定でON＝頭の高さからyaw/pitch方向を見る。屋上の一望に（ユーザー要望2026-06-23）
+let fpvFov = 45 // 主観視点の画角（ピンチ/＋－で自由にズーム。小=ズームイン）
 const fly = { yaw: 0, pitch: -0.18, fov: 60, speedI: 1 }
 const FLY_SPEEDS = [12, 30, 72], FLY_SPEED_LABEL = ['ゆっくり', 'ふつう', 'はやい']
 const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new THREE.Vector3()
@@ -5984,14 +5985,15 @@ canvas.addEventListener('pointermove', (e) => {
     if (lookIds.size >= 2) { // 2本指ピンチ＝ズーム（飛行中は画角ズーム）
       const a = [...lookIds].map((id) => pointers.get(id)).filter(Boolean)
       if (a.length === 2) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y)
-        if (pinchD > 0 && d > 0) { if (flying) fly.fov = THREE.MathUtils.clamp(fly.fov * (pinchD / d), 24, 88); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist) }
+        if (pinchD > 0 && d > 0) { if (flying) fly.fov = THREE.MathUtils.clamp(fly.fov * (pinchD / d), 24, 88); else if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * (d / pinchD), 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（広げる指=ズームイン=画角小）
         pinchD = d }
     } else if (flying) { // 飛行：見回す（上下とも広く＝上を向いて進めば上昇）
       fly.yaw -= (e.clientX - prevX) * 0.006 * lookSens
       fly.pitch = THREE.MathUtils.clamp(fly.pitch - (e.clientY - prevY) * 0.005 * lookSens, -1.45, 1.45)
     } else { // 1本指＝視点を回す（手で回したら自動追従を一時停止＝マリオ式の手動優先）
       camCtl.yaw -= (e.clientX - prevX) * 0.006 * lookSens
-      camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005 * lookSens, camCtl.minPitch, camCtl.maxPitch)
+      const pLo = fpv ? -1.4 : camCtl.minPitch, pHi = fpv ? 1.4 : camCtl.maxPitch // 主観視点では上も向ける（見上げ可）。3人称は地面に潜らないよう従来範囲
+      camCtl.pitch = THREE.MathUtils.clamp(camCtl.pitch - (e.clientY - prevY) * 0.005 * lookSens, pLo, pHi)
       camManualTimer = 1.8
     }
   }
@@ -6028,7 +6030,7 @@ const jumpEl = document.getElementById('jump')
 const zinEl = document.getElementById('zin')
 const zoutEl = document.getElementById('zout')
 if (jumpEl) jumpEl.addEventListener('click', () => doJump())
-const zoomStep = (f) => { camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) }
+const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 if (zinEl) zinEl.addEventListener('click', () => zoomStep(0.8))
 if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
 // 上の操作ヒントは数秒で やさしく消す（ずっと出ていると邪魔なので）
@@ -6884,7 +6886,8 @@ function update(dt) {
     { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
     if (fpv) { const cp2 = Math.cos(camCtl.pitch), hx = boy.position.x, hy = boy.position.y + 1.45, hz = boy.position.z // 主観視点＝頭の高さからyaw/pitch方向を見る（3人称でカメラが主人公を見る向きの逆）
-      camGoal.set(hx, hy, hz); lookGoal.set(hx - Math.sin(camCtl.yaw) * cp2 * 12, hy - Math.sin(camCtl.pitch) * 12, hz - Math.cos(camCtl.yaw) * cp2 * 12) }
+      camGoal.set(hx, hy, hz); lookGoal.set(hx - Math.sin(camCtl.yaw) * cp2 * 12, hy - Math.sin(camCtl.pitch) * 12, hz - Math.cos(camCtl.yaw) * cp2 * 12)
+      camera.fov += (fpvFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix() } // 主観視点の画角ズーム（fpvFov・ピンチ/＋－で調整）
     boy.visible = !fpv // 主観視点では自分の体を隠す（頭の中が映らない）
   } else if (mode === 'lying') {
     // 「よいしょ」と その場に “必ず仰向け” で横になる所作（約1.05秒）。固定アングルでお腹が上を向くのを見せる
