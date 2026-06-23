@@ -34,9 +34,10 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   // ── スタイル（注入。既存CSSは触らない）──
   const style = document.createElement('style')
   style.textContent = `
-    #pm-btn{position:fixed;left:3%;bottom:13.5%;z-index:38;appearance:none;border:none;cursor:pointer;
-      width:54px;height:54px;border-radius:50%;font-size:24px;background:rgba(60,66,98,0.78);
+    #pm-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 104px + env(safe-area-inset-top));z-index:38;appearance:none;border:none;cursor:pointer;
+      width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(74,64,50,0.7);
       box-shadow:0 3px 10px rgba(20,24,40,0.3);}
+    body.titling #pm-btn{display:none !important;}
     body.pm-on #act,body.pm-on #jump,body.pm-on #zin,body.pm-on #zout,body.pm-on #npc,body.pm-on #catch,
     body.pm-on #fish,body.pm-on #go,body.pm-on #look,body.pm-on #lie,body.pm-on #hint,body.pm-on #badge,
     body.pm-on #sleep,body.pm-on #pm-btn{display:none !important;}

@@ -28,7 +28,7 @@
         color: #4a4032; background: rgba(255,251,243,0.9); border-radius: 999px;
         box-shadow: 0 2px 10px rgba(90,78,56,0.22); transition: opacity 1.2s ease; }
       #hint.gone { opacity: 0; pointer-events: none; }
-      #act { left: 50%; bottom: calc(9% + env(safe-area-inset-bottom)); transform: translateX(-50%); appearance: none; border: none;
+      #act { left: 50%; bottom: calc(15% + env(safe-area-inset-bottom)); transform: translateX(-50%); appearance: none; border: none;
         cursor: pointer; padding: 0.6em 1.8em; font-size: clamp(15px,3vw,22px); font-family: inherit;
         color: #4a4032; background: rgba(255,250,240,0.94); border-radius: 999px;
         box-shadow: 0 4px 14px rgba(120,100,70,0.3); display: none; }
@@ -50,21 +50,18 @@
       #look { left: 50%; bottom: calc(9% + env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 0.4em 1.1em;
         font-size: clamp(12px,2.2vw,16px); color: #fdf7ec; background: rgba(60,66,98,0.8);
         border-radius: 999px; display: none; }
-      #lie { left: 50%; bottom: calc(9% + env(safe-area-inset-bottom)); transform: translateX(calc(-50% + 92px)); appearance: none; border: none;
-        cursor: pointer; padding: 0.6em 1.4em; font-size: clamp(14px,2.6vw,19px); font-family: inherit;
-        color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px;
-        box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
-      #bike { left: 50%; bottom: calc(9% + 64px + env(safe-area-inset-bottom)); transform: translateX(calc(-50% + 96px)); appearance: none; border: none;
-        cursor: pointer; padding: 0.5em 1.0em; font-size: clamp(15px,2.8vw,20px); font-family: inherit;
-        color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
+      /* ── 下部中央のドック：移動/くつろぎのトグルを一列にまとめる（ねころぶ・🚲・🎈）＝散らからない ── */
+      #dock { left: 50%; bottom: calc(5% + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 10px; align-items: flex-end; z-index: 6; }
+      #dock > button { position: static; appearance: none; border: none; cursor: pointer; font-family: inherit; color: #4a4032;
+        background: rgba(255,250,240,0.92); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
+      #dock #lie { padding: 0.55em 1.2em; font-size: clamp(14px,2.6vw,18px); }
+      #dock #bike, #dock #float { padding: 0.45em 0.85em; font-size: clamp(17px,3.2vw,22px); line-height: 1; }
+      #dock #bike:active, #dock #float:active, #dock #lie:active { transform: scale(0.93); }
       #bike.on { background: rgba(122,168,106,0.95); color: #fff; }
-      body.flying #bike { display: none !important; }
-      /* ふわり浮遊（プレイヤー向け）：🎈トグル＋浮遊中だけ▲うく/▼おりる */
-      #float { left: 50%; bottom: calc(9% + 128px + env(safe-area-inset-bottom)); transform: translateX(calc(-50% + 96px)); appearance: none; border: none;
-        cursor: pointer; padding: 0.5em 1.0em; font-size: clamp(15px,2.8vw,20px); font-family: inherit;
-        color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
       #float.on { background: rgba(120,150,200,0.95); color: #fff; }
-      body.flying #float { display: none !important; }
+      body.flying #dock { display: none !important; }
+      body.pm-on #dock { display: none !important; }
+      /* ふわり浮遊（プレイヤー向け）：🎈トグル＋浮遊中だけ▲うく/▼おりる */
       #fl-up, #fl-down { right: calc(5% + env(safe-area-inset-right)); appearance: none; border: none; cursor: pointer; width: 76px; height: 60px;
         border-radius: 16px; font-size: clamp(12px,2.4vw,16px); line-height: 1.15; font-family: inherit; color: #fdf7ec;
         background: rgba(96,120,176,0.86); box-shadow: 0 3px 12px rgba(30,40,70,0.34); display: none; }
@@ -79,7 +76,7 @@
         background: rgba(60,66,98,0.85); border-radius: 999px; box-shadow: 0 3px 12px rgba(20,24,40,0.35);
         transition: opacity 1s ease; }
       @media (orientation: portrait) and (max-width: 900px) { #rotate { display: block; } }
-      #go { left: 50%; bottom: 24%; transform: translateX(-50%); appearance: none; border: none; cursor: pointer;
+      #go { left: 50%; bottom: calc(15% + env(safe-area-inset-bottom)); transform: translateX(-50%); appearance: none; border: none; cursor: pointer;
         padding: 0.62em 1.7em; font-size: clamp(15px,3vw,22px); font-family: inherit; color: #3b4a2e; font-weight: 600;
         background: rgba(244,250,236,0.96); border-radius: 999px; box-shadow: 0 4px 16px rgba(90,120,70,0.35);
         border: 2px solid rgba(150,180,120,0.7); display: none; }
@@ -87,7 +84,7 @@
       @keyframes gopulse { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.07); } }
       #fade { position: fixed; inset: 0; background: #0c0d12; opacity: 0; pointer-events: none;
         transition: opacity 0.45s ease; z-index: 30; }
-      #catch { left: 50%; bottom: 17%; transform: translateX(-50%); appearance: none; border: none; cursor: pointer;
+      #catch, #fish { left: 50%; bottom: calc(15% + env(safe-area-inset-bottom)); transform: translateX(-50%); appearance: none; border: none; cursor: pointer;
         padding: 0.55em 1.5em; font-size: clamp(14px,2.8vw,20px); font-family: inherit; color: #2e5a2e;
         background: rgba(232,246,228,0.95); border-radius: 999px; box-shadow: 0 4px 14px rgba(80,110,70,0.3); display: none; }
       #toast { left: 50%; top: 13%; transform: translateX(-50%) translateY(-8px); padding: 0.5em 1.3em;
@@ -115,7 +112,7 @@
       /* 「まだ ねない」＝誤って「ねる」を押しても翌日へ進めず元の一日に戻れる（ユーザー要望の戻るボタン） */
       #diary-cancel { margin-top: 0.7em; appearance: none; border: none; cursor: pointer; padding: 0.45em 1.8em; display: block; margin-left: auto; margin-right: auto;
         font-size: clamp(13px,2.6vw,17px); font-family: inherit; color: #5a4a36; background: rgba(150,140,118,0.26); border-radius: 999px; }
-      #npc { left: 50%; bottom: 17%; transform: translateX(-50%); appearance: none; border: none;
+      #npc { left: 50%; bottom: calc(15% + env(safe-area-inset-bottom)); transform: translateX(-50%); appearance: none; border: none;
         cursor: pointer; padding: 0.6em 1.6em; font-size: clamp(14px,2.8vw,20px); font-family: inherit;
         color: #4a4032; background: rgba(255,250,240,0.94); border-radius: 999px;
         box-shadow: 0 4px 14px rgba(120,100,70,0.3); display: none; }
@@ -273,10 +270,13 @@
       }
       /* ── 横持ちのとき下端の操作ボタンを画面端ぎりぎりから少し上げ、親指で押しやすく（9%だと縦が短い横画面で下に寄りすぎる）── */
       @media (orientation: landscape) and (max-height: 540px) {
-        #act, #jump, #lie { bottom: calc(18px + env(safe-area-inset-bottom)); }
-        #bike { bottom: calc(82px + env(safe-area-inset-bottom)); }
-        #zout { bottom: calc(108px + env(safe-area-inset-bottom)); }
-        #zin { bottom: calc(168px + env(safe-area-inset-bottom)); }
+        #jump { bottom: calc(16px + env(safe-area-inset-bottom)); }
+        #dock { bottom: calc(12px + env(safe-area-inset-bottom)); }
+        #act, #npc, #catch, #fish, #go { bottom: calc(92px + env(safe-area-inset-bottom)); }
+        #zout { bottom: calc(104px + env(safe-area-inset-bottom)); }
+        #zin { bottom: calc(164px + env(safe-area-inset-bottom)); }
+        #fl-down { bottom: calc(86px + env(safe-area-inset-bottom)); }
+        #fl-up { bottom: calc(154px + env(safe-area-inset-bottom)); }
       }
     </style>
   </head>
@@ -288,9 +288,7 @@
     <button id="zin" class="hud zbtn">＋</button>
     <button id="zout" class="hud zbtn">－</button>
     <button id="act" class="hud">すわる</button>
-    <button id="lie" class="hud">ねころぶ</button>
-    <button id="bike" class="hud">🚲</button>
-    <button id="float" class="hud">🎈</button>
+    <div id="dock" class="hud"><button id="lie">ねころぶ</button><button id="bike">🚲</button><button id="float">🎈</button></div>
     <button id="fl-up" class="hud">▲<br>うく</button>
     <button id="fl-down" class="hud">▼<br>おりる</button>
     <div id="look" class="hud">スワイプで見回す ・ もう一度タップで立つ</div>
