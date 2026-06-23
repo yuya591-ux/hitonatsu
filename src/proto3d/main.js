@@ -4383,8 +4383,27 @@ function makeBoy() {
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.12), charToon(0xc0463a)); pack.position.set(0, 1.0, -0.16); pack.scale.set(1, 1, 1); g.add(pack)
   const packLid = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.09, 0.13), charToon(0xa83a30)); packLid.position.set(0, 1.11, -0.16); g.add(packLid) // ふた
   for (const sx of [-0.075, 0.075]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.04), charToon(0xa83a30)); st.position.set(sx, 1.02, 0.02); st.rotation.x = -0.12; g.add(st) } // 肩ひも
-  g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く主人公を固定影マップに焼くと“残像(ゴースト)”が残るので落とさない＝接地は専用の丸影で表現
-  g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, swing: 0, char: true } // char:true＝細棒除外の対象外（手足は細いがインク線を残す）
+  // ── 自転車（学生の自転車。乗ると速い＋こぐアニメ。普段は隠す）──
+  const bike = new THREE.Group(); bike.visible = false
+  { const metal = charToon(0xb23a30), steel = toon(0x70757a), tire = toon(0x2d2d2f), R = 0.33
+    const wheel = (wz) => { const wg = new THREE.Group(); wg.position.set(0, R, wz)
+      const t = new THREE.Mesh(new THREE.TorusGeometry(R, 0.045, 8, 18), tire); t.rotation.y = Math.PI / 2; wg.add(t)
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.05, 0.018, 6, 16), toon(0xc2c6ca)); rim.rotation.y = Math.PI / 2; wg.add(rim)
+      for (let s = 0; s < 5; s++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.01, R * 1.75, 0.01), toon(0xd0d4d8)); sp.rotation.x = s * Math.PI / 5; wg.add(sp) }
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.07, 8), steel); hub.rotation.z = Math.PI / 2; wg.add(hub); bike.add(wg); return wg }
+    const wheelF = wheel(0.62), wheelB = wheel(-0.62)
+    const tube = (x1, y1, z1, x2, y2, z2, r, m) => { const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, len = Math.hypot(dx, dy, dz) || 1, c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 7), m || metal); c.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2); c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / len, dy / len, dz / len)); bike.add(c) }
+    tube(0, 0.30, 0, 0, 0.72, -0.30, 0.028); tube(0, 0.30, 0, 0, 0.74, 0.40, 0.03); tube(0, 0.72, -0.30, 0, 0.74, 0.40, 0.026) // シート/ダウン/トップチューブ
+    tube(0, 0.30, 0, 0, R, -0.62, 0.02, steel); tube(0, 0.72, -0.30, 0, R, -0.62, 0.018, steel); tube(0, 0.74, 0.40, 0, R, 0.62, 0.024, steel) // チェーンステー/シートステー/フロントフォーク
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.26), toon(0x3a342e)); seat.position.set(0, 0.78, -0.30); bike.add(seat) // サドル
+    const hbar = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.42, 6), steel); hbar.rotation.z = Math.PI / 2; hbar.position.set(0, 0.83, 0.40); bike.add(hbar) // ハンドル
+    for (const hx of [-0.2, 0.2]) { const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.08, 6), toon(0x2d2d2f)); grip.rotation.z = Math.PI / 2; grip.position.set(hx, 0.83, 0.40); bike.add(grip) }
+    const crank = new THREE.Group(); crank.position.set(0, 0.30, 0); bike.add(crank)
+    for (const s of [-1, 1]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.17, 0.022), steel); arm.position.set(s * 0.05, -0.06 * s, 0); crank.add(arm); const ped = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.028, 0.11), toon(0x2d2d2f)); ped.position.set(s * 0.08, -0.12 * s, 0); crank.add(ped) } // クランク＋ペダル
+    bike.traverse((o) => { if (o.isMesh) o.castShadow = false }); bike.userData = { wheelF, wheelB, crank } }
+  g.add(bike)
+  g.traverse((o) => { if (o.isMesh && !bike.children.includes(o) && o.parent !== bike) o.castShadow = false }) // 動く主人公を固定影マップに焼くと“残像(ゴースト)”が残るので落とさない＝接地は専用の丸影で表現
+  g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, bike, swing: 0, char: true } // char:true＝細棒除外の対象外（手足は細いがインク線を残す）
   return g
 }
 const boy = makeBoy()
@@ -5927,6 +5946,7 @@ let pinchD = 0
 let flying = false, flyUp = 0, flyDown = 0
 let fpv = false // 主観視点（一人称）。設定でON＝頭の高さからyaw/pitch方向を見る。屋上の一望に（ユーザー要望2026-06-23）
 let fpvFov = 45 // 主観視点の画角（ピンチ/＋－で自由にズーム。小=ズームイン）
+let riding = false // 自転車に乗っているか（歩行の約2.6倍速＋こぐアニメ。ボタンでON/OFF・ユーザー要望2026-06-23）
 const fly = { yaw: 0, pitch: -0.18, fov: 60, speedI: 1 }
 const FLY_SPEEDS = [12, 30, 72], FLY_SPEED_LABEL = ['ゆっくり', 'ふつう', 'はやい']
 const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new THREE.Vector3()
@@ -6030,6 +6050,8 @@ const jumpEl = document.getElementById('jump')
 const zinEl = document.getElementById('zin')
 const zoutEl = document.getElementById('zout')
 if (jumpEl) jumpEl.addEventListener('click', () => doJump())
+const bikeEl = document.getElementById('bike')
+if (bikeEl) bikeEl.addEventListener('click', () => { if (mode !== 'walk') return; riding = !riding; bikeEl.classList.toggle('on', riding) }) // 自転車に乗る/降りる
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 if (zinEl) zinEl.addEventListener('click', () => zoomStep(0.8))
 if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
@@ -6689,7 +6711,7 @@ function update(dt) {
       const wx = camRight.x * sx + camFwd.x * (-sy)
       const wz = camRight.z * sx + camFwd.z * (-sy)
       const l = Math.hypot(wx, wz) || 1
-      const speed = 7 * mag
+      const speed = (riding ? 18 : 7) * mag // 自転車は歩行の約2.6倍速
       tx = (wx / l) * speed; tz = (wz / l) * speed
     }
     if (autoWalk) { tx = autoWalk.x * 4.4; tz = autoWalk.z * 4.4 } // 往来中は門の先へ自動で歩く
@@ -6755,7 +6777,7 @@ function update(dt) {
     // 足が着くたび：水の中なら「ぽちゃ」＋波紋、そうでなければ足音（走ると砂ぼこり）
     const inCreek = area === 'field' && distToCreek(boy.position.x, boy.position.z) < CREEK.half
     if (inCreek) todayFlags.wadedCreek = true
-    if (moving && sw * lastStepS < 0 && jumpY <= 0.02 && !airborne) { // ジャンプ中(空中)は足音を出さない
+    if (moving && !riding && sw * lastStepS < 0 && jumpY <= 0.02 && !airborne) { // ジャンプ中(空中)/自転車は足音を出さない
       if (inCreek) { playPlop(); spawnRipple(boy.position.x, boy.position.z); spawnRipple(boy.position.x + (Math.random() - 0.5) * 0.8, boy.position.z + (Math.random() - 0.5) * 0.8) }
       else { playStep(0.04 + run * 0.06, area === 'town'); if (run > 0.4) spawnDust(boy.position.x, boy.position.y + 0.05, boy.position.z) }
     }
@@ -6781,6 +6803,15 @@ function update(dt) {
     boy.userData.elbowL.rotation.x += (eb - boy.userData.elbowL.rotation.x) * Math.min(1, dt * 10)
     boy.userData.elbowR.rotation.x += (eb - boy.userData.elbowR.rotation.x) * Math.min(1, dt * 10)
     boy.rotation.x += ((moving ? run * 0.28 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前傾
+    // 自転車：こぐアニメ（上の歩行ポーズを上書き）。クランク/車輪が回り、両脚が交互にペダルを踏む、腕はハンドルへ
+    if (riding) { const bd = boy.userData.bike; bd.visible = true; const pp = phase * 1.3 // クランク回転角（歩調=speed連動なので速いほど速くこぐ）
+      bd.userData.crank.rotation.x = -pp; bd.userData.wheelF.rotation.x = bd.userData.wheelB.rotation.x = -pp * 1.35
+      boy.userData.legL.rotation.x = -0.95 + Math.sin(pp) * 0.16; boy.userData.legR.rotation.x = -0.95 + Math.sin(pp + Math.PI) * 0.16
+      boy.userData.kneeL.rotation.x = 0.95 + Math.sin(pp) * 0.5; boy.userData.kneeR.rotation.x = 0.95 + Math.sin(pp + Math.PI) * 0.5
+      boy.userData.ankleL.rotation.x = 0.18; boy.userData.ankleR.rotation.x = 0.18
+      boy.userData.armL.rotation.x = -1.12; boy.userData.armR.rotation.x = -1.12; boy.userData.elbowL.rotation.x = -0.22; boy.userData.elbowR.rotation.x = -0.22
+      boy.rotation.x = 0.12 } // ごく軽い前傾（自転車本体は傾けすぎない）
+    else if (boy.userData.bike.visible) boy.userData.bike.visible = false
 
     // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
     idleTime = moving ? 0 : idleTime + dt
@@ -7238,6 +7269,8 @@ window.__proto3d = {
   sunRoofY: { get top() { return SUN_ROOF.top } }, // 検証用：屋上top
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
   setFpv(v) { fpv = !!v }, get fpv() { return fpv }, // 検証用：主観視点ON/OFF
+  setRiding(v) { riding = !!v }, get riding() { return riding }, // 検証用：自転車ON/OFF
+  setPhase(p) { phase = p }, // 検証用：歩調/こぎ位相を直接セット
   setLook(yaw, pitch) { camCtl.yaw = yaw; camCtl.pitch = pitch }, // 検証用：視点角を直接セット
   bientoRoofY: { get top() { return BIENTO_ROOF.top } }, // 検証用：ビエント屋上の高さ
   rideSwing() { rideSwing() }, // 検証用
