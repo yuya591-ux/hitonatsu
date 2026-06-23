@@ -1556,6 +1556,8 @@ function buildShishigaya() {
   const ptOverPlaced = (px, pz) => { const ci = Math.floor(px / BCELL), cj = Math.floor(pz / BCELL); for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const arr = bgrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const b of arr) if (inOBB(px, pz, b)) return true } return false }
   const regPlaced = (cx, cz, hw, hd, co, si) => { const b = { cx, cz, hw, hd, co, si }; placedB.push(b); const cells = new Set(); for (const [lx, lz] of [[0, 0], [-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cells.add(Math.floor((cx + lx * co - lz * si) / BCELL) + ',' + Math.floor((cz + lx * si + lz * co) / BCELL)); for (const k of cells) { let arr = bgrid.get(k); if (!arr) { arr = []; bgrid.set(k, arr) } arr.push(b) } }
   let nOnRoad = 0, nOnWater = 0, nOverlap = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）
+  const glowGeos = []; const _gm = new THREE.Matrix4() // 夜の窓あかり：全建物ぶんの小さな発光板を集めて最後に1メッシュへマージ＝描画は1回（夜の獅子ヶ谷に“灯のついた家々”・2026-06-23）
+  const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm); glowGeos.push(pg) }
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
     if (inWaterAny(cx, cz) || fpCover(cx, cz, w + 6, d + 6, ang, inWaterAny) > 0.12) { nOnWater++; return } // 水面＋岸から約3mの緩衝帯に重なる建物は描かない（水に浮く/水際ギリギリの家を防ぐ＝最優先のユーザー指摘2026-06-23。フットプリントを6m膨らませて判定）
@@ -1573,6 +1575,12 @@ function buildShishigaya() {
     const L = (lx, ly, lz) => [cx + lx * co - lz * si, gy + ly, cz + lx * si + lz * co] // ローカル→ワールド（angで回転）
     const baseXZ = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]
     const isHome = bi === sunIdx, flat = isHome || tc === 1 || tc === 2 || (tc === 0 && area > 500)
+    // 夜の窓あかり：この家の壁にぽつぽつ点る暖色の窓（約55%の家・大きい棟は四方、家は対面の2壁）。glowGeosに集めて最後にまとめて1メッシュ化
+    if (seed % 100 < 55) { const big = area > 260
+      for (let wi = 0; wi < 4; wi += big ? 1 : 2) { const a = baseXZ[wi], b = baseXZ[(wi + 1) % 4], mlx = (a[0] + b[0]) / 2, mlz = (a[1] + b[1]) / 2
+        const wnx = mlx * co - mlz * si, wnz = mlx * si + mlz * co, nl = Math.hypot(wnx, wnz) || 1
+        const fl = (seed >> wi) % (flat ? 3 : 2)
+        pushGlow(cx + mlx * co - mlz * si + wnx / nl * 0.07, gy + 1.6 + fl * 3, cz + mlx * si + mlz * co + wnz / nl * 0.07, Math.atan2(wnx, wnz)) } }
     if (flat) { // ── 陸屋根（当時=1990年代半ば。サンライズ以外に高い集合住宅はほぼ無かった→低い2〜3階のアパート/事務所に抑える。OSMは2014年で新しい棟を含むため）──
       let floors = THREE.MathUtils.clamp(2 + Math.round(Math.sqrt(area) / 40), 2, 3)
       if (isHome) floors = 7
@@ -1607,6 +1615,12 @@ function buildShishigaya() {
       const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), uvq = [[0, 0], [u, 0], [u, 7], [0, 7]]
       const q = [[a[0], base, a[1]], [b[0], base, b[1]], [b[0], top, b[1]], [a[0], top, a[1]]]
       q.forEach((p, qi) => { av.push(p[0], p[1], p[2]); ac.push(wc[0], wc[1], wc[2]); auv.push(uvq[qi][0], uvq[qi][1]) }); aidx.push(ao, ao + 1, ao + 2, ao, ao + 2, ao + 3); ao += 4 }
+    // サンライズの窓あかり（家＝主人公の住まい。夜にあたたかく灯る“帰る場所”）。雁行の各辺の外向きに、階ごとに窓を点す（一部消灯）
+    { let cxm = 0, czm = 0; for (const p of poly) { cxm += p[0]; czm += p[1] } cxm /= poly.length; czm /= poly.length
+      for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 3) continue
+        const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; let nx = mx - cxm, nz = mz - czm; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl
+        for (let f = 0; f < 6; f++) { if (((Math.round(mx) + f) % 3) === 0) continue
+          pushGlow(mx + nx * 0.14, base + 1.9 + f * F, mz + nz * 0.14, Math.atan2(nx, nz)) } } }
     let tris = null; try { tris = THREE.ShapeUtils.triangulateShape(poly.map((p) => new THREE.Vector2(p[0], p[1])), []) } catch (e) { tris = null }
     if (tris && tris.length) for (const t of tris) { const A = poly[t[0]], B = poly[t[1]], C = poly[t[2]]; sunTri(flatTop, [A[0], top, A[1]], [B[0], top, B[1]], [C[0], top, C[1]]) } // 平らな陸屋上（雁行の内側ぜんぶ同じ高さ）
     else { let cx2 = 0, cz2 = 0; for (const p of poly) { cx2 += p[0]; cz2 += p[1] } cx2 /= poly.length; cz2 /= poly.length; for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length]; sunTri(flatTop, [cx2, top, cz2], [a[0], top, a[1]], [b[0], top, b[1]]) } }
@@ -1616,6 +1630,10 @@ function buildShishigaya() {
     for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], ga = heightAtYato(a[0], a[1]) - 1, gb = heightAtYato(b[0], b[1]) - 1; if (ga >= base - 0.3 && gb >= base - 0.3) continue
       sunTri(conc, [a[0], base, a[1]], [b[0], base, b[1]], [b[0], gb, b[1]]); sunTri(conc, [a[0], base, a[1]], [b[0], gb, b[1]], [a[0], ga, a[1]]) }
     if (srv.length) { const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(srv, 3)); sg.setAttribute('color', new THREE.Float32BufferAttribute(src, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(sruv, 2)); sg.setIndex(srvidx); sg.computeVertexNormals(); const sm = new THREE.Mesh(sg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); sm.castShadow = true; sm.receiveShadow = true; scene.add(sm) } } // サンライズの屋根/塔屋/基礎＝専用メッシュ。layer0のまま＝屋上が下の家々のインク線を遮蔽(屋上から下の建物が透けない)。平らな陸屋上の三角分割は同一平面なのでインク線は出ない
+  // 夜の窓あかり：集めた発光板を1メッシュにマージ＝描画1回で町じゅうの窓が一斉に灯る（チラつきは抑えめfa。夜=夏の家々の灯・2026-06-23）
+  if (glowGeos.length) { const gg = mergeGeometries(glowGeos, false); glowGeos.forEach((g) => g.dispose())
+    const glowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0xffce86, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); glowMesh.name = 'yatoNightWindows'; glowMesh.castShadow = false; scene.add(glowMesh)
+    townNightLights.push({ m: glowMesh, base: 0.85, ph: 0, fa: 0.05 }) }
   if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
   if (av.length) { const ageo = new THREE.BufferGeometry(); ageo.setAttribute('position', new THREE.Float32BufferAttribute(av, 3)); ageo.setAttribute('color', new THREE.Float32BufferAttribute(ac, 3)); ageo.setAttribute('uv', new THREE.Float32BufferAttribute(auv, 2)); ageo.setIndex(aidx); ageo.computeVertexNormals(); const am = new THREE.Mesh(ageo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = true; am.receiveShadow = true; scene.add(am) }
   if (rfv.length) { const rg2 = new THREE.BufferGeometry(); rg2.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg2.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg2.setAttribute('uv', new THREE.Float32BufferAttribute(rfuv, 2)); rg2.setIndex(rfidx); rg2.computeVertexNormals(); const rm2 = new THREE.Mesh(rg2, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); rm2.castShadow = true; rm2.receiveShadow = true; scene.add(rm2) }
@@ -4805,9 +4823,9 @@ const stars = (() => {
 })()
 const fireflies = (() => {
   const g = new THREE.BufferGeometry(); const p = []
-  for (let i = 0; i < 130; i++) p.push((Math.random() - 0.5) * 92, 0.5 + Math.random() * 4.0, (Math.random() - 0.5) * 92)
+  for (let i = 0; i < 150; i++) p.push((Math.random() - 0.5) * 72, 0.3 + Math.random() * 3.2, (Math.random() - 0.5) * 72) // プレイヤーの周りに低く漂う蛍（草むらの高さ）
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 0.4, transparent: true, opacity: 0, depthWrite: false, fog: true, blending: THREE.AdditiveBlending }))
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 2.6, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })) // 画面内一定サイズ＝近くで巨大な緑の四角にならない
   pts.layers.set(1); scene.add(pts); return pts // 蛍も除外
 })()
 // ── 雨上がりの虹（夏の夕立が上がると、空にそっと架かる）──
@@ -6485,8 +6503,10 @@ function update(dt) {
   moon.material.opacity = nf
   moonGlow.material.opacity = nf * 0.5
   stars.material.opacity = nf
-  fireflies.material.opacity = nf * (0.45 + 0.4 * (0.5 + 0.5 * Math.sin(tsec * 3)))
+  const ffF = THREE.MathUtils.smoothstep(tday, 0.58, 0.76) // 蛍は夕暮れから出はじめる（夜だけでなく薄暮にも）
+  fireflies.material.opacity = ffF * (0.6 + 0.22 * Math.sin(tsec * 2.2)) // ゆるやかな明滅（全部一斉に消えない控えめな揺れ）
   fireflies.rotation.y = tsec * 0.05
+  fireflies.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z), boy.position.z) // プレイヤーの周りに漂わせる＝どのエリア(谷戸)でも草むらに蛍（以前は原点(旧町)に取り残されていた）
   // 田舎家の窓あかり（夕方からともり、夜も灯る＝遠くの灯）
   const homeLit = THREE.MathUtils.smoothstep(tday, 0.6, 0.74)
   for (let i = 0; i < houseGlows.length; i++) houseGlows[i].material.opacity = homeLit * (0.85 + 0.08 * Math.sin(tsec * 2.4 + i * 2)) // ほのかな揺らぎ
