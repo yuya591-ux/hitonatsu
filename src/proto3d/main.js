@@ -5050,10 +5050,10 @@ composer.addPass(bloom)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.05 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.66 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -5087,6 +5087,16 @@ const gradePass = new ShaderPass({
       if (golden > 0.001) {
         c += golden * vec3(0.10, 0.045, -0.05) * (0.12 + lum);          // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
         c += golden * vec3(0.05, 0.0, 0.02) * smoothstep(0.45, 1.0, vUv.y); // 上空は茜色がかる
+      }
+      // ── 記憶のトーン（褪せた夏の写真／古いアルバム）：全体に弱い暖色＋もう一段の退色＋黒を少し持ち上げた“ミルキー”感。
+      //   ノスタルジーの正体の半分は色のトーン。鮮やかな低ポリ絵を「思い出の中の風景」に寄せる（ユーザー要望2026-06-23）──
+      {
+        float lum2 = L(c);
+        vec3 warm = c * vec3(1.065, 1.005, 0.905);                // 弱い暖色（セピア寄り＝陽に焼けた印画紙）
+        warm = mix(vec3(lum2), warm, 0.84);                       // もう一段 彩度を落として“あの頃”へ（鮮やかな低ポリ緑をくすませる）
+        warm = warm * 0.915 + 0.06 * vec3(1.0, 0.965, 0.9);       // 黒を少し持ち上げ＝色あせたミルキー感（純黒にしない）
+        warm += vec3(0.05, 0.03, 0.0) * smoothstep(0.7, 1.0, lum2) * mem; // ハイライト際の暖かいにじみ（ハレーション）
+        c = mix(c, warm, mem);
       }
       // 水彩紙の地合い：低周波のむら＋紙の繊維(高周波)を全画面に重ね、写実テクスチャを一枚の水彩画に馴染ませる
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.40 + vnoise(vUv * vec2(38.0, 36.0)) * 0.34 + vnoise(vUv * vec2(540.0, 480.0)) * 0.26;
@@ -7455,6 +7465,8 @@ window.__proto3d = {
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
 
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
+  _mem(v) { gradePass.uniforms.mem.value = v }, // 検証/調整用：記憶のトーン（褪せた写真）の強さ 0..1
+  _vig(v) { gradePass.uniforms.vig.value = v }, // 検証/調整用：周辺減光の強さ
   _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
