@@ -2336,6 +2336,8 @@ function buildShishigaya() {
   for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
   let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
+  // 木漏れ日：街路樹/木立の一部の真下に、葉の隙間から落ちる光のゆらぎ（既存dapple系を獅子ヶ谷へ＝歩く所に木かげのゆらめき。2026-06-24）。歩道沿いに散らす（数は控えめ＝加算半透明の負荷を抑える）
+  { const step = Math.max(1, Math.floor(tp.length / 22)); let dn = 0; for (let i = 0; i < tp.length && dn < 22; i += step) { const tx = tp[i][0], tz = tp[i][1]; if (heightAtYato(tx, tz) < 2) continue; addDapple(tx, tz, 2.2 + Math.random() * 0.8); dn++ } }
   if (tp.length) {
     const canI = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshToonMaterial({ gradientMap: GRAD }), tp.length); canI.castShadow = true
     const trI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.24, 1.4, 5), toon(0x6a4e34), tp.length)
