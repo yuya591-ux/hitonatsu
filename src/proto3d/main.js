@@ -155,15 +155,32 @@ function sunStairY(x, z, curY) { // 外階段の歩行面（curY=今の足の高
   if (curY != null && Math.abs(curY - surf) < 2.5) return surf // 段の上にいる時だけ（差が大＝下を歩いている→nullでワープしない）
   return null
 }
-function sunriseYatoClimbY(x, z, curY) { // 平らな陸屋上＋外階段（どちらも輪郭/帯の外はnull＝縁で落下防止）
+// ── ビエント横濱菊名Ａ棟（港北区師岡町244-2・市民の森の斜面の低層RC・1993竣工）：実物は2〜3階だが丘の上(≒36m)なので屋上はサンライズ並みの高さ＝一望できる。屋上＋南面の外階段で登れる（GSI/Web調査で実位置に再現・ユーザー要望2026-06-23） ──
+const BIENTO = { cx: 1894, cz: -160, w: 22, d: 11, floors: 3 }
+function pointInBientoPoly(x, z) { return Math.abs(x - BIENTO.cx) <= BIENTO.w / 2 && Math.abs(z - BIENTO.cz) <= BIENTO.d / 2 } // 屋上の矩形内か（軸そろえ）
+const BIENTO_ROOF = (() => { const { cx, cz, w, d, floors } = BIENTO, hw = w / 2, hd = d / 2; let gmin = 1e9, gmax = -1e9; for (const [lx, lz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) { const e = heightAtYato(cx + lx, cz + lz); if (e < gmin) gmin = e; if (e > gmax) gmax = e } const slope = Math.min(10, gmax - gmin); return { gB: gmin, h: slope + floors * 3, top: gmin + slope + floors * 3 + 0.45 } })() // buildAptの屋根面に一致（陸屋根スラブの上面）
+const BIENTO_STAIR = { bx: 1894, bz: -160 + 5.5 + 12, tx: 1894, tz: -160 + 5.5, hw: 1.6 } // 南面の外階段（下端=地面→上端=屋上の南縁）
+function bientoStairY(x, z, curY) { const S = BIENTO_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, L2 = dx * dx + dz * dz
+  let t = ((x - S.bx) * dx + (z - S.bz) * dz) / L2; if (t < -0.03 || t > 1.03) return null
+  t = Math.max(0, Math.min(1, t)); const cx = S.bx + dx * t, cz = S.bz + dz * t
+  if (Math.hypot(x - cx, z - cz) > S.hw) return null
+  const yB = heightAtYato(S.bx, S.bz), surf = yB + (BIENTO_ROOF.top - yB) * t
+  if (curY != null && Math.abs(curY - surf) < 2.5) return surf // 段の上にいる時だけ＝下を歩いてもワープしない
+  return null
+}
+function sunriseYatoClimbY(x, z, curY) { // 平らな陸屋上＋外階段（サンライズ＋ビエント。輪郭/帯の外はnull＝縁で落下防止）
   const st = sunStairY(x, z, curY); if (st != null) return st
   if (pointInSunPoly(x, z)) return SUN_ROOF.top
+  const bt = bientoStairY(x, z, curY); if (bt != null) return bt
+  if (pointInBientoPoly(x, z)) return BIENTO_ROOF.top
   return null
 }
 function climbYAt(x, z, curY) { return onYato ? sunriseYatoClimbY(x, z, curY) : (x < 2200 ? sunriseClimbY(x, z) : sunriseYatoClimbY(x, z, curY)) } // 谷戸エリアは全域 sunriseYatoClimbY（サンライズ＋ビエントの屋上/階段）。旧町はマンション屋上
 // 外階段の足元〜帯を道マスクに塗る＝建物の壁コライダーに引っかからず階段に入れる（階段周りの見えない壁を解消・ユーザー要望2026-06-22）
 { const S = SUN_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
   for (let t = -3; t <= l; t += 1) { const cx = S.bx + ux * t, cz = S.bz + uz * t; for (let s = -(S.hw + 0.8); s <= S.hw + 0.8; s += 1) { const id = rmaskIdx(cx + nx * s, cz + nz * s); if (id >= 0) yatoRoadMask[id] = 1 } } } // 下端の手前3mから帯ぜんぶ＝近づくだけで当たらず登れる
+{ const S = BIENTO_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux // ビエントの外階段も同様に道マスクへ＝壁に当たらず登れる
+  for (let t = -3; t <= l; t += 1) { const cx = S.bx + ux * t, cz = S.bz + uz * t; for (let s = -(S.hw + 0.8); s <= S.hw + 0.8; s += 1) { const id = rmaskIdx(cx + nx * s, cz + nz * s); if (id >= 0) yatoRoadMask[id] = 1 } } }
 function heightAt(x, z) {
   if (onYato) return heightAtYato(x, z) // 谷戸エリアは全域 DEM（西の師岡=ビエントの拡張 x<2200 も正しい高さに。旧プロトの神社/町は area が別なので onYato=false で従来式）
   if (x > 2200) return heightAtYato(x, z) // 新エリア『獅子ヶ谷（実地形・x2300〜3700）』。神社(x1945-2055)より東。先に判定
@@ -1508,6 +1525,7 @@ function buildShishigaya() {
     // 当時(〜1995)実在のマンション（不動産DBで特定→GSIジオコーディング）。[x,z,'apt',名前,clearR,階数]
     [3362, -24, 'apt', 'ニューハイツ北寺尾', 22, 4], [2984, 354, 'apt', 'コスモ綱島グランステージ', 24, 6], [3387, 467, 'apt', '獅子ヶ谷ハイツ', 36, 5],
     [2943, 557, 'apt', '二ツ池ハイネス', 22, 5], // 獅子ケ谷2-15-3・1980・二ツ池のそば。※エンゼルハイム(2-35-35)はワールド外(>680m)で保留
+    [1894, 160, 'biento', 'ビエント横濱菊名Ａ棟', 40, 3], // 港北区師岡町244-2・1993・RC・A棟B棟2棟。世界を西へ少し拡張して実位置に。市民の森の丘＝屋上に登れて一望（ユーザー要望2026-06-23）
     // 施設系（神社・寺・公園/広場）＝OSM POIを1件ずつ。地元感の核
     [2960, -335, 'shrine', '神明社', 20], // ユーザー指定ピン＝game(2960,335)。z反転前は-335。敷地ぶん広めにclearR
     [2735, 427, 'temple', '光明寺', 24], [2518, 235, 'temple', '真如山本覺寺', 24], [3617, 208, 'temple', '妙光寺', 24], // 寺は境内(約26×32m)が広い＝clearRを24にして山門前/玉砂利に汎用建物がめり込まないように
@@ -2006,6 +2024,21 @@ function buildShishigaya() {
       const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am); addBox(cx, cz, hw, hd, ry, 0.3) // 当たり判定
       grp.add(mk(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), toon(0x42464c), cx, gB + h + 0.2, cz, ry, true)) // 陸屋根
       if (name) grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.9, 8), 1.6), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), cx + si * (hd + 0.12), gB + h - 1.3, cz + co * (hd + 0.12), ry)) } // 屋上ちかくの名前看板(正面)
+    // ビエント横濱菊名（師岡町・A棟B棟の2棟。A棟は軸そろえ＝屋上の歩行矩形BIENTO_POLYと一致させ、屋上＋外階段で登れる。丘の上なのでサンライズ並みの眺め）
+    const buildBiento = (name) => { const B = BIENTO, hw = B.w / 2, hd = B.d / 2, gB = BIENTO_ROOF.gB, h = BIENTO_ROOF.h, top = BIENTO_ROOF.top
+      const base = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], vv = [], uvv = [], ix = []; let o = 0, L = (lx, ly, lz) => [B.cx + lx, gB + ly, B.cz + lz] // A棟本体＝軸そろえ（ry=0）でRCバルコニー面
+      for (let k = 0; k < 4; k++) { const a = base[k], b = base[(k + 1) % 4], wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), vt = Math.max(2, Math.round(h / 3)), q = [L(a[0], 0, a[1]), L(b[0], 0, b[1]), L(b[0], h, b[1]), L(a[0], h, a[1])], uq = [[0, 0], [u, 0], [u, vt], [0, vt]]
+        q.forEach((p, qi) => { vv.push(p[0], p[1], p[2]); uvv.push(uq[qi][0], uq[qi][1]) }); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); o += 4 }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(vv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvv, 2)); g.setIndex(ix); g.computeVertexNormals()
+      const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am); addBox(B.cx, B.cz, hw, hd, 0, 0.3)
+      grp.add(mk(new THREE.BoxGeometry(B.w + 0.5, 0.5, B.d + 0.5), toon(0x42464c), B.cx, gB + h + 0.2, B.cz, 0, true)) // 陸屋根スラブ
+      const par = toon(0xc4c0b6); for (const [px, pz, pw, ang] of [[B.cx, B.cz - hd, B.w, 0], [B.cx, B.cz + hd, B.w, 0], [B.cx - hw, B.cz, B.d, Math.PI / 2], [B.cx + hw, B.cz, B.d, Math.PI / 2]]) grp.add(mk(new THREE.BoxGeometry(pw + 0.3, 0.8, 0.3), par, px, top + 0.4, pz, ang, true)) // パラペット（四周＝縁で落ちない）
+      grp.add(mk(new THREE.BoxGeometry(3.0, 1.8, 2.2), toon(0xb9b5aa), B.cx + hw - 2.4, top + 0.9, B.cz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.9, 0.9, 1.4, 10), toon(0x9aa0a2), B.cx - hw + 2.4, top + 0.7, B.cz - 1.2, 0, true)) // 屋上の給水タンク＋塔屋
+      grp.add(mk(new THREE.PlaneGeometry(Math.min(B.w * 0.85, 9), 1.5), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), B.cx, gB + h - 1.3, B.cz + hd + 0.12, 0)) // 名前看板（南面）
+      { const S = BIENTO_STAIR, n = 16, yB = heightAtYato(S.bx, S.bz) // 南面の外階段（段板＋手すり柱）
+        for (let i = 0; i <= n; i++) { const t = i / n, sx = S.bx + (S.tx - S.bx) * t, sz = S.bz + (S.tz - S.bz) * t, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(S.hw * 2, 0.16, 0.8), toon(0xb7b2a6), sx, sy, sz, 0, true)) }
+        for (let i = 0; i <= n; i += 3) for (const side of [-1, 1]) { const t = i / n, sx = S.bx + (S.tx - S.bx) * t + side * S.hw, sz = S.bz + (S.tz - S.bz) * t, sy = yB + (top - yB) * t; grp.add(mk(new THREE.BoxGeometry(0.08, 1.0, 0.08), toon(0x8a8f88), sx, sy + 0.5, sz, 0, true)) } }
+      buildApt(B.cx - 27, B.cz + 1, 20, 11, 3, 'Ｂ棟') } // B棟（3F・登れない）＝A棟の西どなり。実物のA棟B棟2棟構成
     const buildTemple = (cx, cz, name) => { const gy = gmin4(cx, cz, 12, 9); addBox(cx, cz, 6, 4.5, 0, 0.3) // 寺＝本堂(瓦の寄棟)＋山門＋名前＋当たり判定
       grp.add(mk(new THREE.BoxGeometry(12, 4, 9), toon(0xc8bda0), cx, gy + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(9, 3.2, 4), toon(0x4a4a50), cx, gy + 5.6, cz, Math.PI / 4, true)) // 本堂
       grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
@@ -2019,6 +2052,7 @@ function buildShishigaya() {
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 校舎＋校庭
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 34, 28); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
+      else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
       else if (type === 'kinder') buildShop(x, z, 16, 12, 2, 0xe8c46a, name, '#e07a2e')
       else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
       else if (type === 'conbini') buildConbini(x, z, name) // 90年代の郊外型コンビニ（一面ガラス＋電照看板＋駐車場＋のぼり＋自販機）
