@@ -5835,28 +5835,29 @@ function openDiary() {
   const body = []
   if (caught.count) body.push(`むしを ${caught.count}ひき つかまえた（${Object.keys(caught.kinds).join('・')}）。`)
   if (fish.count) body.push(`池で さかなを ${fish.count}ひき つった（${Object.keys(fish.kinds).join('・')}）。`)
-  if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。')
-  if (todayFlags.petCat) body.push('ねこを なでた。ごろごろ いっていた。')
-  if (todayFlags.wentTown) body.push('街の 商店街まで あるいた。')
+  if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。名前、聞きそびれちゃった。')
+  if (todayFlags.petCat) body.push('ねこを なでた。ひなたの においが した。')
+  if (todayFlags.wentTown) body.push('商店街まで あるいた。アスファルトが ゆらゆら して見えた。')
   if (todayFlags.metShop) body.push('商店街の おばさんと はなした。')
-  if (todayFlags.gotOmake) body.push('おばさんが トマトを おまけして くれた。あったかい。')
-  if (todayFlags.lamune) body.push('自販機で ラムネを 買った。すずしかった。')
-  if (todayFlags.wentShrine) body.push('神社の 石段を のぼった。せみが すごかった。')
-  if (todayFlags.sawView) body.push('高い ところから 街を ながめた。ずっと 見ていられた。')
-  if (todayFlags.rodeSwing) body.push('ブランコに のった。風が きもちよかった。')
-  if (todayFlags.wadedCreek) body.push('小川に 入って ぱしゃぱしゃ あそんだ。つめたかった。')
-  if (todayFlags.sawMedaka) body.push('池の メダカは、近づくと さっと にげた。')
+  if (todayFlags.gotOmake) body.push('おばさんが トマトを おまけして くれた。手のひらが あたたかかった。')
+  if (todayFlags.lamune) body.push('ラムネを 買った。ビー玉が からん と鳴って、よく冷えていた。')
+  if (todayFlags.wentShrine) body.push('神社の 石段を のぼった。せみの声で 耳の中が いっぱいに なった。')
+  if (todayFlags.sawView) body.push('高い ところから 街を ながめた。屋根が ずっと つづいて、いつまでも 見ていられた。')
+  if (todayFlags.rodeSwing) body.push('ブランコを こいだ。いちばん 高い ところで、夏が ちょっと 止まった きがした。')
+  if (todayFlags.wadedCreek) body.push('小川に 足を つけた。つめたくて、ずっと 入っていたかった。')
+  if (todayFlags.sawMedaka) body.push('メダカは、近づくと さっと にげた。指の あいだを すりぬけた。')
   else if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
-  if (todayFlags.sawFrog) body.push('カエルを 見つけた。じっと していた。')
-  if (todayFlags.watered) body.push('畑に 水を やった。あした 大きく なってるかな。')
-  if (todayFlags.satHill) body.push('高台で ぼーっと した。')
-  if (todayFlags.layDown) body.push('草の上で ねころんで 空を ながめた。')
-  if (!body.length) body.push('きょうは のんびり あるいた。')
+  if (todayFlags.sawFrog) body.push('カエルを 見つけた。じっと こっちを 見ていた。')
+  if (todayFlags.watered) body.push('畑に 水を やった。土の においが 立った。あした 大きく なってるかな。')
+  if (todayFlags.satHill) body.push('高台で ぼーっと した。風が 草を なでて いく音が した。')
+  if (todayFlags.layDown) body.push('草の上で ねころんだ。雲が ゆっくり ながれて いった。')
+  if (todayFlags.climbedRoof) body.push('屋上に のぼった。せかいぜんぶが 見える きが した。')
+  if (!body.length) body.push('きょうは のんびり あるいた。なんでもない 一日。')
   if (day >= 3) {
     diaryTitleEl.textContent = 'ひと夏が おわった'
-    if (gotOmamori) { body.push('女の子に おまもりを もらった。'); body.push('ずっと わすれない 夏に なった。…また 来年、あの はらっぱで。') }
-    else { body.push('たのしい 夏休みだった。…また 来年。') }
-  } else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? '明日は もっと 話せるかな。' : 'もうすぐ おまつりらしい。') }
+    if (gotOmamori) { body.push('女の子に おまもりを もらった。'); body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('この夏のこと、ぜったい わすれない。…また 来年、あの はらっぱで。') }
+    else { body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('なんでもない 毎日が、いちばん たからものだった きがする。…また 来年。') }
+  } else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? 'まだ 夏は はじまった ばかり。あした なにを しようかな。' : 'もうすぐ おまつり。…夏は、あっという間だなあ。') }
   diaryBodyEl.innerHTML = body.map((l) => `<div class="line">${l}</div>`).join('')
   // その日の眺めを「絵」として貼る。今日カメラで撮っていたら、その一枚を絵日記に貼る（＝思い出の写真）
   if (diaryPicEl) {
