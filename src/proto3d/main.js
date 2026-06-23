@@ -1772,6 +1772,41 @@ function buildShishigaya() {
       // 築地塀（寺の敷地境界・瓦の笠木つき・南＝山門側を開ける）
       { for (const [side, fx, fz, fw, ang] of [['n', cx, cz - 15, 26, 0], ['w', cx - 13, cz + 1, 32, Math.PI / 2], ['e', cx + 13, cz + 1, 32, Math.PI / 2]]) { const wy = heightAtYato(fx, fz); grp.add(mk(new THREE.BoxGeometry(fw, 1.8, 0.4), plaster, fx, wy + 0.9, fz, ang, true)); grp.add(mk(new THREE.BoxGeometry(fw + 0.3, 0.25, 0.7), tile, fx, wy + 1.9, fz, ang, true)) } } // 塀本体＋瓦の笠木
       signOn(cx, cz + 16, 8, gy, 3.5, name, '#5a3a3a') }
+    // 渋沢稲荷神社＝獅子ヶ谷の小さな稲荷。稲荷の定番＝朱の連鳥居→お狐2体(赤前掛け)→朱塗りの社(流造・千木鰹木)＋幟＋朱の玉垣。南(+z)向き（小社のためWeb資料は無く稲荷の様式に忠実に・2026-06-23）
+    const buildInari = (cx, cz, name) => { const gy = heightAtYato(cx, cz)
+      const vermil = toon(0xc14230), vermilD = toon(0x9c3221), white = toon(0xece6da), foxC = toon(0xe7e1d2), red = toon(0xb52f22), stone = toon(0xa8a59a), woodD = toon(0x6a5236), gold = toon(0xb89a4a), roofC = toon(0x4c4742)
+      const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
+      groundPatch(grp, cx, cz, 9, 20, 0xc6bea7) // 境内（玉砂利）
+      // 朱の連鳥居（明神鳥居が並ぶ＝稲荷の象徴）front=南。cz+11→cz+3.8 に5基
+      for (let i = 0; i < 5; i++) { const tz = cz + 11 - i * 1.8, ty = heightAtYato(cx, tz), tw = 1.1
+        for (const sx of [-tw, tw]) grp.add(mk(new THREE.CylinderGeometry(0.1, 0.12, 2.7, 8), vermil, cx + sx, ty + 1.35, tz, 0, true)) // 柱
+        grp.add(mk(new THREE.BoxGeometry(tw * 2 + 0.7, 0.18, 0.3), vermilD, cx, ty + 2.7, tz, 0, true)) // 島木
+        grp.add(mk(new THREE.BoxGeometry(tw * 2 + 1.0, 0.16, 0.36), vermil, cx, ty + 2.9, tz, 0, true)) // 笠木
+        grp.add(mk(new THREE.BoxGeometry(tw * 2 + 0.2, 0.13, 0.2), vermil, cx, ty + 2.15, tz)) } // 貫
+      // お狐2体（社前・赤前掛け・参道を向く）
+      const fox = (fx, fz) => { const fy = heightAtYato(fx, fz); grp.add(mk(new THREE.BoxGeometry(0.42, 0.85, 0.42), stone, fx, fy + 0.42, fz, 0, true)) // 台座
+        const g = new THREE.Group(); g.position.set(fx, fy + 0.85, fz); grp.add(g); const ga = (geo, mat, x, y, z, rx) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; m.castShadow = true; g.add(m) }
+        ga(new THREE.BoxGeometry(0.22, 0.55, 0.32), foxC, 0, 0.28, 0); ga(new THREE.SphereGeometry(0.15, 8, 6), foxC, 0, 0.66, 0.1) // 胴＋頭
+        for (const sx of [-0.07, 0.07]) ga(new THREE.ConeGeometry(0.05, 0.16, 4), foxC, sx, 0.82, 0.08) // 耳
+        ga(new THREE.CylinderGeometry(0.04, 0.09, 0.55, 5), foxC, 0, 0.34, -0.2, -0.5); ga(new THREE.BoxGeometry(0.26, 0.2, 0.04), red, 0, 0.36, 0.18) } // 尾＋赤い前掛け
+      fox(cx - 1.7, cz + 1); fox(cx + 1.7, cz + 1)
+      // 朱塗りの社（流造・千木鰹木）北(cz-3.5)
+      { const sx2 = cx, sz2 = cz - 3.5, sy = heightAtYato(sx2, sz2)
+        for (const [dx, dz] of [[-1.4, -0.8], [1.4, -0.8], [-1.4, 0.8], [1.4, 0.8]]) grp.add(mk(new THREE.CylinderGeometry(0.09, 0.09, 1.2, 6), vermilD, sx2 + dx, sy + 0.6, sz2 + dz)) // 高床の柱
+        grp.add(mk(new THREE.BoxGeometry(3.4, 0.3, 2.4), vermilD, sx2, sy + 1.2, sz2, 0, true)) // 床
+        grp.add(mk(new THREE.BoxGeometry(2.6, 1.7, 1.8), vermil, sx2, sy + 2.2, sz2, 0, true)) // 身舎（朱）
+        grp.add(mk(new THREE.BoxGeometry(1.2, 1.3, 0.2), white, sx2, sy + 1.8, sz2 + 0.95)) // 扉（白）
+        mr(new THREE.BoxGeometry(3.4, 0.16, 1.5), roofC, sx2, sy + 3.35, sz2 - 0.55, -0.5) // 背の短い屋根
+        mr(new THREE.BoxGeometry(3.4, 0.16, 2.6), roofC, sx2, sy + 3.1, sz2 + 1.05, 0.42) // 流造＝前に長く流れる屋根
+        grp.add(mk(new THREE.BoxGeometry(3.5, 0.16, 0.2), woodD, sx2, sy + 3.7, sz2 - 0.2)) // 棟
+        for (let i = 0; i < 3; i++) mr(new THREE.CylinderGeometry(0.07, 0.07, 0.9, 8), gold, sx2 - 0.8 + i * 0.8, sy + 3.8, sz2 - 0.2, Math.PI / 2) // 鰹木
+        for (const s of [-1.4, 1.4]) for (const d of [-1, 1]) mr(new THREE.BoxGeometry(0.09, 1.1, 0.09), woodD, sx2 + s, sy + 3.95, sz2 - 0.2, d * 0.5) // 千木
+        grp.add(mk(new THREE.BoxGeometry(0.9, 0.6, 0.45), woodD, sx2, sy + 0.6, sz2 + 1.6, 0, true)) // 賽銭箱
+        addCollider(sx2, sz2, 2.0) }
+      // 朱の幟（奉納のぼり）2本
+      for (const sx of [-3, 3]) { const ny = heightAtYato(cx + sx, cz + 8); grp.add(mk(new THREE.CylinderGeometry(0.05, 0.05, 3.6, 6), woodD, cx + sx, ny + 1.8, cz + 8, 0, true)); grp.add(mk(new THREE.PlaneGeometry(0.5, 2.6), new THREE.MeshToonMaterial({ color: 0xb83020, gradientMap: GRAD, side: THREE.DoubleSide }), cx + sx + 0.3, ny + 2.1, cz + 8)) }
+      precinctFence(grp, cx, cz, 9, 20, 0xb0432e, 0.95, 's') // 朱の玉垣（敷地境界・南＝鳥居側を開ける）
+      signOn(cx, cz + 13, 4, gy, 2.4, name, '#9c3221') }
     const buildSchoolDetailed = (cx, cz, name) => { // 獅子ヶ谷小学校＝ユーザー指定ピン(2026-06-22)に忠実：裏門(西)→広場+小池→校舎(北西)→階段→校庭(東の一段高い平地・約34.5m)。プールは実位置。全部地面に沿う＝浮かない・歩ける
       const dirtPatch = (px, pz, w, d, col) => { const nx = Math.max(2, Math.round(w / 4)), nz = Math.max(2, Math.round(d / 4)), v = [], idx = []
         for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = px - w / 2 + w * i / nx, z = pz - d / 2 + d * j / nz; v.push(x, heightAtYato(x, z) + 0.06, z) }
@@ -1819,7 +1854,7 @@ function buildShishigaya() {
     const buildParkSign = (cx, cz, name) => { const gy = heightAtYato(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, Math.atan2(3008 - cx, -8 - cz))) } // 公園のなまえ看板（既存の緑地に立てる）
     // parkPos は外側スコープで宣言済（柵をcellOf定義後に置くため）
     for (const [x, z, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
-      if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else buildShrine(x, z, name) }
+      if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else if (name === '渋沢稲荷神社') buildInari(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else buildTemple(x, z, name) }
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
@@ -5665,7 +5700,7 @@ const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
-window.__build = '20260623-komyoji' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
+window.__build = '20260623-inari' // ビルド識別（HTMLのみ変更時もバンドル名を変えて自動更新を効かせるため）
 const lookIds = new Set() // 視点ドラッグ中の指（右側）。2本になったらピンチズーム
 let pinchD = 0
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
