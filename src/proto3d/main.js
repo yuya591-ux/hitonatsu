@@ -1518,10 +1518,15 @@ function buildShishigaya() {
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
   const skipZones = [[2898, -63, 15], [3012, -56, 24], [3008, 16, 14], [2939, -128, 38], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋NAMED
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
-  let nOnRoad = 0 // 道の上に重心がある建物を消した数（道ふさぎ対策・ログで確認）
+  const inWaterAny = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p)) // 点が池/川の水面の上か
+  // フットプリントを格子サンプルして「testに該当する面積の割合」を返す。割合がしきい値超＝建物がその上に“乗っている”＝不自然
+  const fpCover = (cx, cz, w, d, ang, test) => { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2, nx = Math.max(2, Math.round(w / 2)), nz = Math.max(2, Math.round(d / 2)); let on = 0, tot = 0
+    for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) { const lx = -hw + w * i / nx, lz = -hd + d * j / nz; tot++; if (test(cx + lx * co - lz * si, cz + lx * si + lz * co)) on++ } return on / tot }
+  let nOnRoad = 0, nOnWater = 0 // 道/水の上に重なる建物を消した数（不自然な配置の除去・ログで確認）
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
-    if (onYatoRoad(cx, cz)) { nOnRoad++; return } // 重心が道の上に乗る建物は描かない（OSMの重なり＝道の真ん中に建物が立つのを防ぐ。道は必ず通れる）
+    if (inWaterAny(cx, cz) || fpCover(cx, cz, w + 6, d + 6, ang, inWaterAny) > 0.12) { nOnWater++; return } // 水面＋岸から約3mの緩衝帯に重なる建物は描かない（水に浮く/水際ギリギリの家を防ぐ＝最優先のユーザー指摘2026-06-23。フットプリントを6m膨らませて判定）
+    if (fpCover(cx, cz, w, d, ang, onYatoRoad) > 0.34) { nOnRoad++; return } // フットプリントの1/3超が道に乗る建物は描かない（道のテクスチャの上に家が立って塞ぐのを防ぐ。端が触れるだけの“路傍の家”は残す）
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     addBox(cx, cz, w / 2, d / 2, ang, 0.3) // 当たり判定（すり抜け防止・空間グリッドで軽い）
     const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
@@ -2268,7 +2273,7 @@ function buildShishigaya() {
       const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
     console.log('[shishigaya] grass', ng) }
-  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad)
+  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater)
 }
 buildShishigaya()
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
