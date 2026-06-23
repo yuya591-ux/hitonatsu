@@ -5177,6 +5177,13 @@ resize()
 
 // ── 環境音（蝉↔ヒグラシを時間帯でブレンド＋夕焼けチャイム）──
 // 音は癒しの半分。2D版の素材(MP3)を流用し、時刻で滑らかにクロスフェード。
+// ★AudioContextを“再生重視(playback)”の大きめバッファで作る＝CPUが一瞬詰まっても音が途切れにくい。
+//   iPhoneの画面録画でハードウェア動画エンコーダが資源を食っても、音が「じじじ」と途切れにくくなる（アンダーラン耐性UP）。
+//   視覚との遅延はごく僅か(数十ms)で、本作(環境音/足音/効果音)では体感に影響なし。THREE.AudioListenerより前に差し込むのが要点。
+try {
+  const AC = window.AudioContext || window.webkitAudioContext
+  if (AC && THREE.AudioContext && THREE.AudioContext.setContext) THREE.AudioContext.setContext(new AC({ latencyHint: 'playback' }))
+} catch (e) {}
 const listener = new THREE.AudioListener()
 camera.add(listener)
 // ── 音の調整パラメータ（後から数値だけで微調整できる。BGMは基本なし＝環境音で世界を作る。例外は縁日と雨のみ）──
@@ -5251,7 +5258,7 @@ let iosSilent = null
 function unlockIOSAudio() {
   try {
     if (!iosSilent) {
-      const rate = 8000, sec = 0.5, n = Math.floor(rate * sec)
+      const rate = 44100, sec = 0.5, n = Math.floor(rate * sec) // 44.1kHz＝iOSのオーディオセッションを低レートに引っ張らない（録画音の劣化を避ける。8kHzから変更2026-06-23）
       const ab = new ArrayBuffer(44 + n); const dv = new DataView(ab)
       const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)) }
       ws(0, 'RIFF'); dv.setUint32(4, 36 + n, true); ws(8, 'WAVE'); ws(12, 'fmt '); dv.setUint32(16, 16, true)
@@ -7136,7 +7143,7 @@ renderer.setAnimationLoop(() => {
   if (frameAcc < 1 / 30) return
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
-  if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'suspended') { try { listener.context.resume() } catch (e) {} }
+  if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state !== 'running') { try { listener.context.resume() } catch (e) {} } // suspended/interrupted(iOS録画開始時の割り込み等)から自動復帰＝音が消えて機械音だけ残るのを防ぐ
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   // 操作している間（スティック/上下ホールド/見回し）はHUDを消さない。何もしない時間が続いたらそっと消す
   if (puni.active || floatUp || floatDown || lookIds.size > 0) lastInteract = performance.now()
