@@ -7039,7 +7039,7 @@ function update(dt) {
   }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
-  if (window.__freezeCam) return // 検証用：カメラ固定（顔の確認など）
+  if (window.__freezeCam || titleView) return // 検証用：カメラ固定／タイトル中はtitleCamが全部やるのでupdateはカメラに触れない（取り合いの揺れ防止）
   // カメラを目標へなめらかに寄せる（ブランコは追従を速く＝ぶれない視点）
   camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 6 : 5)))
   // 注視点もなめらかに
@@ -7075,10 +7075,11 @@ function titleCam() {
   const px = 3275 + drift, pz = 18 // 南東の高所から北西の屋根並み・丘・入道雲を望む
   const py = heightAt(px, pz) + 74
   if (scene.fog) { scene.fog.near = 220; scene.fog.far = 1500 } // 遠景まで見せる（霞で隠さない）
-  camera.fov += (50 - camera.fov) * 0.08; camera.updateProjectionMatrix()
+  // ★ハードセット（lerpしない）＝updateが主人公向きにfov/視点を引っ張るのと毎フレーム取り合って“ビクビク”震えるのを解消（ユーザー指摘2026-06-23）
+  camera.fov = 50; camera.updateProjectionMatrix()
   camera.position.set(px, py, pz)
   camera.userData._look = camera.userData._look || new THREE.Vector3()
-  camera.userData._look.lerp(new THREE.Vector3(cx, 26, cz), 0.1)
+  camera.userData._look.set(cx, 26, cz)
   camera.lookAt(camera.userData._look)
 }
 renderer.setAnimationLoop(() => {
