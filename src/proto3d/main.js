@@ -2218,16 +2218,18 @@ function buildShishigaya() {
   const GC = Math.ceil(SG.half * 2 / 6), occ = new Uint8Array(GC * GC)
   const cellOf = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / 6), j = Math.floor((z - SG.gz0 + SG.half) / 6); return (i < 0 || j < 0 || i >= GC || j >= GC) ? -1 : j * GC + i }
   for (const [cx, cz, w, d] of SG.buildings) { const rad = Math.max(w, d) * 0.55 + 2; for (let dz = -rad; dz <= rad; dz += 6) for (let dx = -rad; dx <= rad; dx += 6) { const c = cellOf(cx + dx, cz + dz); if (c >= 0) occ[c] = 1 } }
-  // 田（農地＝谷戸田。黄緑の面＋稲の畝）と 池/川（水面＋葦）
-  const fv = [], fidx = [], fo = { n: 0 }, wv = [], widx = [], wo = { n: 0 }; let riceP = [], reedP = []
+  // 田（農地＝谷戸田。青田の面＋あぜ道＋密な稲＝獅子ヶ谷“らしさ”の核。ユーザー要望2026-06-24）と 池/川（水面＋葦）
+  const fv = [], fidx = [], fo = { n: 0 }, wv = [], widx = [], wo = { n: 0 }; let riceP = [], reedP = []; const azeGeos = []; const _am = new THREE.Matrix4()
   for (const g of SG.greens) if (g.kind === 'farm' && g.p.length >= 3) { fanPoly(g.p, fv, fidx, (x, z) => heightAtYato(x, z) + 0.08, fo)
     let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
-    for (let z = mnz + 1.5; z < mxz && riceP.length < 2600; z += 2.4) for (let x = mnx + 1.5; x < mxx; x += 1.9) if (pip(x, z, g.p)) riceP.push([x, z]) }
-  if (fv.length) { const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3)); fg.setIndex(fidx); fg.computeVertexNormals(); scene.add(new THREE.Mesh(fg, new THREE.MeshToonMaterial({ color: 0x8fa84a, gradientMap: GRAD, map: watercolorTex }))) }
+    for (let z = mnz + 1; z < mxz && riceP.length < 8000; z += 1.35) for (let x = mnx + 1; x < mxx; x += 1.15) if (pip(x, z, g.p)) riceP.push([x, z]) // 密に植えた稲＝青田（疎な畝→びっしりの緑へ）
+    for (let k = 0; k < g.p.length; k++) { const a = g.p[k], b = g.p[(k + 1) % g.p.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 1.5) continue; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; const cg = new THREE.BoxGeometry(len + 0.4, 0.22, 0.5); _am.makeRotationY(-Math.atan2(b[1] - a[1], b[0] - a[0])); _am.setPosition(mx, heightAtYato(mx, mz) + 0.18, mz); cg.applyMatrix4(_am); azeGeos.push(cg) } } // 区画を囲うあぜ道（土の畝）＝棚田らしい“絵”に
+  if (fv.length) { const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3)); fg.setIndex(fidx); fg.computeVertexNormals(); scene.add(new THREE.Mesh(fg, new THREE.MeshToonMaterial({ color: 0x7ba048, gradientMap: GRAD, map: watercolorTex }))) }
+  if (azeGeos.length) { const ag = mergeGeometries(azeGeos, false); azeGeos.forEach((g) => g.dispose()); const am = new THREE.Mesh(ag, toon(0xb09a72)); am.receiveShadow = true; am.castShadow = true; scene.add(am) } // あぜ道（土の畝・全田まとめて1メッシュ）
   for (const wt of SG.waters) if (wt.p.length >= 3) { fanPoly(wt.p, wv, widx, (x, z) => heightAtYato(x, z) + 0.2, wo)
     for (let k = 0; k < wt.p.length && reedP.length < 800; k++) { const a = wt.p[k], b = wt.p[(k + 1) % wt.p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 0; t < seg; t += 2.6) reedP.push([a[0] + (b[0] - a[0]) * t / seg, a[1] + (b[1] - a[1]) * t / seg]) } }
   if (wv.length) { const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wv, 3)); wg.setIndex(widx); wg.computeVertexNormals(); scene.add(new THREE.Mesh(wg, waterMat)) }
-  if (riceP.length) { const rcI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.5, 4), toon(0x6f9a3e), riceP.length), m = new THREE.Matrix4(); riceP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.3, z); rcI.setMatrixAt(i, m) }); scene.add(rcI) }
+  if (riceP.length) { const rcI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.14, 0.64, 4), toon(0x6fa340), riceP.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); riceP.forEach(([x, z], i) => { const s = 0.85 + Math.random() * 0.4; sc.set(s, 0.85 + Math.random() * 0.35, s); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28); m.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.34, z), q, sc); rcI.setMatrixAt(i, m) }); rcI.castShadow = false; scene.add(rcI) } // 株ごとに高さ/向きをばらつかせ青田らしく
   if (reedP.length) { const rdI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.8, 4), toon(0x6f8a3e), reedP.length), m = new THREE.Matrix4(); reedP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.4, z); rdI.setMatrixAt(i, m) }); scene.add(rdI) }
   // 池情報（面積順）と「水の中か」判定＝三ツ池公園の作り込みと桜配置に使う
   const inWater = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p))
