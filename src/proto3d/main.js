@@ -4342,6 +4342,24 @@ function makeSwallow() {
 }
 for (let i = 0; i < 5; i++) makeSwallow()
 
+// ── 遠くの人影（道沿いをゆっくり歩く＝“誰かが暮らしている”気配。近づかず遠くに・夜は家へ帰る。道は開けているので建物にめり込まない）2026-06-24 ──
+const farFolk = []
+function makeFolk() {
+  const g = new THREE.Group(), mats = []
+  const M = (c) => { const m = new THREE.MeshToonMaterial({ color: c, gradientMap: GRAD, transparent: true, opacity: 0 }); mats.push(m); return m }
+  const shirt = [0xe8e2d0, 0x9fb8d0, 0xd6b0a0, 0xcfd2c2, 0xe2c79a, 0xb9c4cc][Math.floor(Math.random() * 6)]
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.25, 1.18, 6), M(shirt)); body.position.y = 0.72; g.add(body)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7), M(0xe9c39a)); head.position.y = 1.45; g.add(head)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.176, 8, 6, 0, 6.28, 0, 1.85), M(0x3a2c22)); hair.position.y = 1.47; g.add(hair)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動くので影マップへ焼かない（残像防止）
+  g.userData = { tx: 0, tz: 0, sp: 0.9 + Math.random() * 0.5, ph: Math.random() * 6.28, has: false, mats }
+  g.visible = false; scene.add(g); farFolk.push(g)
+}
+for (let i = 0; i < 4; i++) makeFolk()
+// 道の点を空間ハッシュ化＝人影が「プレイヤー近くの道」を素早く選べる（全道からランダムだと2km四方で近くに当たらない）
+const ROADPT_CELL = 40, roadGrid = new Map()
+for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const a = p[k], b = p[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; for (let t = 0; t < l; t += 9) { const x = a[0] + dx * t / l, z = a[1] + dz * t / l; if (heightAtYato(x, z) < 2) continue; const key = Math.floor(x / ROADPT_CELL) + ',' + Math.floor(z / ROADPT_CELL); let arr = roadGrid.get(key); if (!arr) { arr = []; roadGrid.set(key, arr) } arr.push([x, z]) } } }
+
 // ── 足元の砂ぼこり（走ると ふっと土が舞う）──
 const DUSTN = 36
 const dustPos = new Float32Array(DUSTN * 3).fill(-9999)
@@ -6853,6 +6871,19 @@ function update(dt) {
     const fl = Math.sin(tsec * u.flap + u.fph) * 0.85; u.wl.rotation.z = fl; u.wr.rotation.z = -fl
     u.back.opacity = swF * 0.96; u.belly.opacity = swF * 0.92
   }
+  // 遠くの人影：道沿いをゆっくり歩く（誰かが暮らす気配・近づかず遠くに・夜は家へ帰る）。道は開けているので建物にめり込まない
+  if (farFolk.length && (area === 'yato' || onYato)) { const folkF = (1 - THREE.MathUtils.smoothstep(tday, 0.78, 0.93)) * 0.92
+    const pickRoadPt = () => { const ci = Math.floor(boy.position.x / ROADPT_CELL), cj = Math.floor(boy.position.z / ROADPT_CELL), R = Math.ceil(95 / ROADPT_CELL), cand = []; for (let di = -R; di <= R; di++) for (let dj = -R; dj <= R; dj++) { const arr = roadGrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const pt of arr) { const d = Math.hypot(pt[0] - boy.position.x, pt[1] - boy.position.z); if (d > 26 && d < 95) cand.push(pt) } } return cand.length ? cand[(Math.random() * cand.length) | 0] : null } // プレイヤー近くの道の点から選ぶ
+    for (const f of farFolk) { const u = f.userData
+      if (folkF < 0.04) { if (f.visible) f.visible = false; continue }
+      if (!u.has) { const p = pickRoadPt(); if (!p) { continue } u.tx = p[0]; u.tz = p[1]; f.position.set(p[0], heightAtYato(p[0], p[1]), p[1]); u.has = true }
+      f.visible = true
+      const dx = u.tx - f.position.x, dz = u.tz - f.position.z, d = Math.hypot(dx, dz)
+      if (d < 1.2 || Math.hypot(f.position.x - boy.position.x, f.position.z - boy.position.z) > 125) { const p = pickRoadPt(); if (p) { u.tx = p[0]; u.tz = p[1] } else { u.has = false } } // 着いた/遠すぎたら次の道へ
+      else { const s = u.sp * dt; f.position.x += dx / d * s; f.position.z += dz / d * s; f.position.y = heightAtYato(f.position.x, f.position.z) + Math.abs(Math.sin(tsec * 4 + u.ph)) * 0.04; f.rotation.y = Math.atan2(dx, dz) } // ゆっくり歩く＋わずかな上下
+      for (const m of u.mats) m.opacity = folkF
+    }
+  } else for (const f of farFolk) if (f.visible) f.visible = false
   // メダカの群れ：池の中をゆるく回遊し、近づくと さっと散る
   {
     const mc = medakaC
