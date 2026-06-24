@@ -1518,6 +1518,18 @@ function buildBonOdori(ox, oy, oz, grp) {
   for (let i = 0; i < 3; i++) { const d = makeDancer([0xe06a8a, 0x4a9ad0, 0xf0c84a][i]); d.g.scale.setScalar(0.6) // 子ども
     const item = heldItem(i === 0 ? 'kingyo' : 'yoyo'); item.position.set(0.32, 1.15, 0.25); d.g.add(item) // 手に持つ
     bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox - 8 + i * 6, cz: oz + 9, r: 3.5 + i, ph: i * 2.1, baseY: oy, armL: d.armL, armR: d.armR, roam: true }) }
+  // ── 参道の提灯＝最寄りの道から会場の縁まで、両脇に赤提灯の列が続く（遠くから「こっちでお祭りやってる」と誘われる）──
+  { let bx = ox, bz = oz, bd = 1e18
+    for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const a = p[k], b = p[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; for (let t = 0; t < l; t += 4) { const px = a[0] + dx * t / l, pz = a[1] + dz * t / l, dd = (px - ox) * (px - ox) + (pz - oz) * (pz - oz); if (dd < bd) { bd = dd; bx = px; bz = pz } } } }
+    const dist = Math.sqrt(bd), edge = Math.min(13, RR + 3)
+    if (dist > edge + 6 && dist < 95) { const ux = (ox - bx) / dist, uz = (oz - bz) / dist, x1 = ox - ux * edge, z1 = oz - uz * edge // 道→会場の縁まで
+      const L = Math.hypot(x1 - bx, z1 - bz), NN = Math.max(2, Math.min(8, Math.floor(L / 5)))
+      for (let i = 0; i <= NN; i++) { const t = i / NN, lx = bx + (x1 - bx) * t, lz = bz + (z1 - bz) * t
+        for (const s of [-1, 1]) { const px = lx + (-uz) * 1.5 * s, pz = lz + ux * 1.5 * s, py = heightAt(px, pz)
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.4, 6), woodD); pole.position.set(px, py + 1.2, pz); addOutline(pole, 0.02); bonOdori.add(pole)
+          const lan = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.34, 8), toon(0xd9483a)); lan.position.set(px, py + 2.45, pz); bonOdori.add(lan) // 赤提灯（昼も見える）
+          const gl = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffa84e, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); gl.position.set(px, py + 2.45, pz); bonOdori.add(gl) // 夜の灯り
+          townNightLights.push({ m: gl, base: 1.1, ph: i * 0.5 + (s > 0 ? 0 : 3) }) } } } }
   return bonOdori
 }
 // 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
