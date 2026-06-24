@@ -1574,7 +1574,7 @@ function buildShishigaya() {
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     { const co0 = Math.cos(ang), si0 = Math.sin(ang), hw0 = w / 2, hd0 = d / 2; let ov = 0
       for (const [lx, lz] of [[0, 0], [-hw0, -hd0], [hw0, -hd0], [hw0, hd0], [-hw0, hd0], [-hw0, 0], [hw0, 0], [0, -hd0], [0, hd0]]) if (ptOverPlaced(cx + lx * co0 - lz * si0, cz + lx * si0 + lz * co0)) ov++
-      if (ov >= 3) { nOverlap++; return } } // 代表9点のうち3点以上が先に建てた建物の内側＝重なって建つ→描かない（辺で接するだけの密集は残す）
+      if (ov >= 2) { nOverlap++; return } } // 代表9点のうち2点以上が先に建てた建物の内側＝重なって建つ(二重建ち)→描かない。3→2に厳格化＝屋根がめり込む二重建ちを根絶(除外88→272・密集は維持・ユーザー指摘2026-06-24)。辺で接するだけの密集は残る
     addBox(cx, cz, w / 2, d / 2, ang, 0.3) // 当たり判定（すり抜け防止・空間グリッドで軽い）
     const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2
     regPlaced(cx, cz, hw, hd, co, si) // 重なり判定用に登録
