@@ -1534,6 +1534,8 @@ function buildShishigaya() {
   const NAMED = [
     [2951, -42, 'shrine', '渋沢稲荷神社', 16], [2767, 188, 'rice', '香取米店', 14], [2767, 153, 'shop', 'しんみせ', 13],
     [2672, 17, 'eat', '泉屋', 14], [2901, 252, 'auto', 'マルワ自動車', 16], [2712, 76, 'koban', '北寺尾駐在所', 12], // セブン-イレブンは当時まだ無く、車販売店だった（ユーザーの記憶2026-06-24）→架空名の自動車販売店に
+    // ユーザーの記憶で再現した昔の店（2026-06-24）。家→坂を登り橘学苑越え＝ファミマ＋向かいにたばこ屋／しんみせ→交差点左＝商店街(八百屋・花屋)／泉屋を越え左折＝スーパー マミート。位置は道沿いで仮置き＝記憶で要調整
+    [3300, -45, 'conbini', 'ファミリーマート', 16], [3316, -62, 'tobacco', 'たばこ・酒', 13], [2722, 66, 'green', '八百屋', 13], [2708, 50, 'flower', '花屋', 13], [2540, -30, 'super', 'マミート', 24], // マミートは平地(標高差1.4m)へ。旧[2588,-18]は急斜面だった
     [3060, 155, 'school', '獅子ヶ谷小学校', 66], [3132, 67, 'school', '橘学苑高校', 34], [3240, -15, 'school', '橘学苑中学', 34], [3207, 81, 'kinder', '橘幼稚園', 18],
     [2368, 662, 'yashiki', '横溝屋敷', 24], // 旧横溝家住宅(獅子ケ谷3-10-4)
     // 当時(〜1995)実在のマンション（不動産DBで特定→GSIジオコーディング）。[x,z,'apt',名前,clearR,階数]
@@ -1843,7 +1845,23 @@ function buildShishigaya() {
         for (let i = 0; i < N; i++) { const t = (i + 0.5) / N, fx = plx + (prx - plx) * t, fz = plz + (prz - plz) * t, fy = ay + (by - ay) * t - Math.sin(t * Math.PI) * 0.5; const m = new THREE.Mesh(flagGeo, new THREE.MeshToonMaterial({ color: fcol[i % fcol.length], gradientMap: GRAD, side: THREE.DoubleSide })); m.position.set(fx, fy - 0.22, fz); m.rotation.y = ry; grp.add(m) } } // 小旗の連なり（たわみ付き）
       for (const s of [-1, 1]) { const [nx, nz] = f(s * 6.5, D / 2 + 2.2), ny = heightAtYato(nx, nz); grp.add(mk(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), toon(0xcfcabd), nx, ny + 1.6, nz, 0, true)); grp.add(mk(new THREE.PlaneGeometry(0.5, 2.2), new THREE.MeshToonMaterial({ color: s > 0 ? 0xd8542e : 0x1b3c6e, gradientMap: GRAD, side: THREE.DoubleSide }), nx + side[0] * 0.3, ny + 1.9, nz + side[1] * 0.3, ry)) } // のぼり2本
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
-    // ───── 個人商店（米店/駄菓子屋/食堂/酒屋）＝木造の腰壁＋すりガラスの引き戸＋庇＋暖簾。kindで店先の小物を出し分け（米袋/ガチャ・縁台/赤提灯・サンプルケース/酒ケース）─────
+    // ───── 町のスーパー（1980〜90年代＝マミート等）＝大きな箱＋赤い電照看板＋一面ガラス＋中央の自動ドア＋前面の駐車場＋のぼり＋カート置き場。※実在ブランドのロゴ/色は不使用＝架空名の看板のみ ─────
+    const buildSuper = (cx, cz, name) => { const gB = gmin4(cx, cz, 22, 16), gT = gmax4(cx, cz, 22, 16), slope = Math.min(6, gT - gB), ry = faceRoad(cx, cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)], W = 20, D = 14, H = slope + 5.0
+      const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx]
+      const [pkx, pkz] = f(0, 13); groundPatch(grp, pkx, pkz, 28, 18, 0x9a9a96) // 前面の駐車場（アスファルト）
+      grp.add(mk(new THREE.BoxGeometry(W, H, D), toon(0xe6e0d2), cx, gB + H / 2, cz, ry, true)) // 大きな箱（クリーム）
+      grp.add(mk(new THREE.BoxGeometry(W + 0.7, 0.9, D + 0.7), toon(0xcdc8ba), cx, gB + H + 0.35, cz, ry, true)) // 陸屋根パラペット
+      const glass = new THREE.MeshBasicMaterial({ color: 0xf2efe2, transparent: true, opacity: 0.9, side: THREE.DoubleSide }) // 明るい店内
+      grp.add(mk(new THREE.PlaneGeometry(W * 0.94, H - 2.2), glass, cx + fwd[0] * (D / 2 + 0.05), gB + (H - 2.2) / 2 + 0.2, cz + fwd[1] * (D / 2 + 0.05), ry)) // 一面ガラス
+      const mull = toon(0xbfc4c8); for (let i = -3; i <= 3; i++) { const [mx, mz] = f(i * 2.7, D / 2 + 0.07); grp.add(mk(new THREE.BoxGeometry(0.12, H - 2.2, 0.12), mull, mx, gB + (H - 2.2) / 2 + 0.2, mz, ry)) } // ガラスの方立
+      grp.add(mk(new THREE.BoxGeometry(W + 0.5, 1.7, 0.3), new THREE.MeshBasicMaterial({ map: signTex(name, '#b5462f', '#fff8e8') }), cx + fwd[0] * (D / 2 + 0.2), gB + H - 1.0, cz + fwd[1] * (D / 2 + 0.2), ry)) // 正面の赤い電照看板帯
+      grp.add(mk(new THREE.BoxGeometry(4.0, 2.6, 0.2), toon(0x7a8088), cx + fwd[0] * (D / 2 + 0.1), gB + 1.3, cz + fwd[1] * (D / 2 + 0.1), ry)) // 中央の自動ドア枠
+      grp.add(mk(new THREE.PlaneGeometry(3.4, 2.3), glass, cx + fwd[0] * (D / 2 + 0.2), gB + 1.25, cz + fwd[1] * (D / 2 + 0.2), ry)) // 自動ドアのガラス
+      for (const s of [-1, 1]) for (const o of [5.5, 8.0]) { const [nx, nz] = f(s * o, D / 2 + 2.0), ny = heightAtYato(nx, nz); grp.add(mk(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), toon(0xcfcabd), nx, ny + 1.6, nz, 0, true)); grp.add(mk(new THREE.PlaneGeometry(0.5, 2.2), new THREE.MeshToonMaterial({ color: s > 0 ? 0xd8542e : 0x2e8b57, gradientMap: GRAD, side: THREE.DoubleSide }), nx + side[0] * 0.3, ny + 1.9, nz + side[1] * 0.3, ry)) } // のぼり4本
+      const cart = (lx, lz) => { const [wx, wz] = f(lx, lz), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.BoxGeometry(0.5, 0.55, 0.72), new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.7 }), wx, wy + 0.45, wz, ry, true)) } // ショッピングカート
+      cart(-8, 11); cart(-7.4, 11); cart(-6.8, 11)
+      addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
+    // ───── 個人商店（米店/駄菓子屋/食堂/酒屋/たばこ屋/八百屋/花屋）＝木造の腰壁＋すりガラスの引き戸＋庇＋暖簾。kindで店先の小物を出し分け（米袋/ガチャ・縁台/赤提灯・サンプルケース/酒ケース/たばこ自販機/野菜の台/花のバケツ）─────
     const buildMise = (cx, cz, name, kind) => { const gB = gmin4(cx, cz, 9, 8), gT = gmax4(cx, cz, 9, 8), slope = Math.min(6, gT - gB), ry = faceRoad(cx, cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)], W = 8, D = 7, H1 = 2.7, H2 = 2.4, H = slope + H1 + H2
       const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx], eaveY = gB + slope + H1 - 0.1
       grp.add(mk(new THREE.BoxGeometry(W, H, D), toon(kind === 'eat' ? 0xd8c9a8 : 0xcfc4a8), cx, gB + H / 2, cz, ry, true)) // 木造2階の本体（1階=店・2階=住居）
@@ -1851,9 +1869,9 @@ function buildShishigaya() {
       grp.add(mk(new THREE.PlaneGeometry(W * 0.82, H1 - 0.5), fglass, cx + fwd[0] * (D / 2 + 0.05), gB + slope + (H1 - 0.5) / 2 + 0.35, cz + fwd[1] * (D / 2 + 0.05), ry))
       grp.add(mk(new THREE.BoxGeometry(W * 0.86, 0.6, 0.1), toon(0x7a5a38), cx + fwd[0] * (D / 2 + 0.06), gB + slope + 0.35, cz + fwd[1] * (D / 2 + 0.06), ry, true)) // 腰壁（木）
       for (const i of [-1, 1]) { const [sx, sz] = f(i * 1.5, D / 2 + 0.1); grp.add(mk(new THREE.BoxGeometry(0.09, H1 - 0.5, 0.09), toon(0x6a4e30), sx, gB + slope + (H1 - 0.5) / 2 + 0.35, sz, ry)) } // 引き戸の桟
-      grp.add(mk(new THREE.BoxGeometry(W + 0.6, 0.18, 1.5), toon(kind === 'eat' ? 0x9a3a2e : kind === 'liquor' ? 0x355a8a : 0x4a6a52), cx + fwd[0] * (D / 2 + 0.45), eaveY, cz + fwd[1] * (D / 2 + 0.45), ry, true)) // 庇（テント）
-      noren(cx + fwd[0] * (D / 2 + 0.55), cz + fwd[1] * (D / 2 + 0.55), 2.8, ry, kind === 'rice' ? 'こめ' : kind === 'eat' ? 'お食事' : kind === 'liquor' ? 'さけ' : 'だがし', kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#6a4a1a' : kind === 'liquor' ? '#355a8a' : '#b5462f', slope + H1 - 0.55) // 暖簾
-      grp.add(mk(new THREE.PlaneGeometry(Math.min(W * 0.9, 6), 1.2), new THREE.MeshBasicMaterial({ map: signTex(name, kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#5a4a2a' : kind === 'liquor' ? '#1b3c6e' : '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (D / 2 + 0.2), gB + slope + H1 + H2 - 0.9, cz + fwd[1] * (D / 2 + 0.2), ry)) // 2階正面の看板
+      grp.add(mk(new THREE.BoxGeometry(W + 0.6, 0.18, 1.5), toon(kind === 'eat' ? 0x9a3a2e : kind === 'liquor' ? 0x355a8a : kind === 'green' ? 0x3a7a3a : kind === 'flower' ? 0x4a8a6a : kind === 'tobacco' ? 0x6a6a72 : 0x4a6a52), cx + fwd[0] * (D / 2 + 0.45), eaveY, cz + fwd[1] * (D / 2 + 0.45), ry, true)) // 庇（テント）
+      noren(cx + fwd[0] * (D / 2 + 0.55), cz + fwd[1] * (D / 2 + 0.55), 2.8, ry, kind === 'rice' ? 'こめ' : kind === 'eat' ? 'お食事' : kind === 'liquor' ? 'さけ' : kind === 'green' ? 'やおや' : kind === 'flower' ? 'はな' : kind === 'tobacco' ? 'たばこ' : 'だがし', kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#6a4a1a' : kind === 'liquor' ? '#355a8a' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#3a5a8a' : '#b5462f', slope + H1 - 0.55) // 暖簾
+      grp.add(mk(new THREE.PlaneGeometry(Math.min(W * 0.9, 6), 1.2), new THREE.MeshBasicMaterial({ map: signTex(name, kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#5a4a2a' : kind === 'liquor' ? '#1b3c6e' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#2f5a8a' : '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (D / 2 + 0.2), gB + slope + H1 + H2 - 0.9, cz + fwd[1] * (D / 2 + 0.2), ry)) // 2階正面の看板
       if (kind === 'rice') { const bagM = toon(0xd8cdae); for (const [lx, lz, ly] of [[-2.3, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.0, 1], [-1.4, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.65, 0]]) { const [wx, wz] = f(lx, lz); grp.add(mk(new THREE.BoxGeometry(0.7, 0.5, 0.5), bagM, wx, heightAtYato(wx, wz) + 0.25 + ly * 0.5, wz, ry, true)) } // 店先に積んだ米袋
         const [vx, vz] = f(2.7, D / 2 + 0.9); vending(vx, vz, ry, 0x2e6db0) }
       else if (kind === 'eat') { for (const s of [-1, 1]) { const [lx, lz] = f(s * 2.4, D / 2 + 0.55); akachochin(lx, eaveY - 0.4, lz) } // 軒下の赤提灯
@@ -1862,6 +1880,17 @@ function buildShishigaya() {
       else if (kind === 'liquor') { const crate = (lx, lz, ly, col) => { const [wx, wz] = f(lx, lz); grp.add(mk(new THREE.BoxGeometry(0.95, 0.34, 0.62), toon(col), wx, heightAtYato(wx, wz) + 0.17 + ly * 0.34, wz, ry, true)) } // 酒屋＝店先に積んだ酒/ビールのケース＋自販機＋縁台
         for (const [lx, lz, ly, c] of [[-2.6, D / 2 + 1.0, 0, 0xb58a3a], [-2.6, D / 2 + 1.0, 1, 0x9a3a2e], [-2.6, D / 2 + 1.0, 2, 0x355a8a], [-1.5, D / 2 + 1.0, 0, 0x9a3a2e], [-1.5, D / 2 + 1.0, 1, 0xb58a3a]]) crate(lx, lz, ly, c)
         const [vx, vz] = f(2.8, D / 2 + 0.9); vending(vx, vz, ry, 0xc0392b); const [bx, bz] = f(3.6, D / 2 + 1.3); bench(bx, bz, ry) }
+      else if (kind === 'tobacco') { const [tvx, tvz] = f(2.4, D / 2 + 0.7), tvy = heightAtYato(tvx, tvz) // たばこ屋＝細長いたばこ自販機＋酒/飲料の自販機＋小窓のショーケース
+        grp.add(mk(new THREE.BoxGeometry(0.9, 1.85, 0.6), toon(0xb24a3a), tvx, tvy + 0.93, tvz, ry, true)); grp.add(mk(new THREE.PlaneGeometry(0.78, 1.5), new THREE.MeshBasicMaterial({ map: vendTex }), tvx + fwd[0] * 0.32, tvy + 0.98, tvz + fwd[1] * 0.32, ry)); addBox(tvx, tvz, 0.5, 0.35, ry, 0.15)
+        const [vx, vz] = f(3.5, D / 2 + 0.7); vending(vx, vz, ry, 0x2e6db0)
+        const [scx, scz] = f(-1.6, D / 2 + 0.9), scy = heightAtYato(scx, scz); grp.add(mk(new THREE.BoxGeometry(2.4, 1.0, 0.7), toon(0x8a6a44), scx, scy + 0.5, scz, ry, true)); grp.add(mk(new THREE.BoxGeometry(2.3, 0.6, 0.6), new THREE.MeshToonMaterial({ color: 0xd0e0e4, gradientMap: GRAD, transparent: true, opacity: 0.5 }), scx, scy + 1.2, scz, ry, true)) } // 店先のショーケース
+      else if (kind === 'green') { const board = (lx) => { const [wx, wz] = f(lx, D / 2 + 1.3), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.BoxGeometry(1.0, 0.5, 1.5), toon(0x8a6a44), wx, wy + 0.5, wz, ry, true)) } // 八百屋＝斜めの台にカラフルな野菜/果物の箱
+        const veg = [0xd84a3a, 0xe0992e, 0x4a8a3a, 0xc8b832, 0xd06a8a, 0x9a4a8a]; let ci = 0
+        for (const lx of [-2.9, -1.9, -0.9, 0.1, 1.1]) { board(lx); const [wx, wz] = f(lx, D / 2 + 1.3), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.BoxGeometry(0.86, 0.3, 1.3), toon(0x9a7a4a), wx, wy + 0.92, wz, ry, true)); for (let r = -1; r <= 1; r++) grp.add(mk(new THREE.SphereGeometry(0.16, 7, 5), toon(veg[(ci + r + 6) % veg.length]), wx + r * 0.26 * Math.cos(ry), wy + 1.12, wz - r * 0.26 * Math.sin(ry), ry, true)); ci++ }
+        const [vx, vz] = f(3.4, D / 2 + 0.9); vending(vx, vz, ry, 0xe08a1e) }
+      else if (kind === 'flower') { const fc = [0xe04a6a, 0xe0c030, 0xe07a2e, 0xd060a0, 0xf0f0f0, 0xc04ad0] // 花屋＝店先のバケツに色とりどりの花
+        let fi = 0; for (const lx of [-2.8, -2.0, -1.2, -0.4, 0.4, 1.2]) { const [wx, wz] = f(lx, D / 2 + 1.0), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.CylinderGeometry(0.22, 0.18, 0.5, 8), toon(0x5a7a8a), wx, wy + 0.25, wz, ry, true)); for (let b = 0; b < 6; b++) grp.add(mk(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshToonMaterial({ color: fc[(fi + b) % fc.length], gradientMap: GRAD, emissive: 0x1a0a12 }), wx + ((b % 3) - 1) * 0.12 * Math.cos(ry), wy + 0.62 + (b > 2 ? 0.12 : 0), wz - ((b % 3) - 1) * 0.12 * Math.sin(ry), ry, true)); fi++ }
+        const [bx, bz] = f(3.0, D / 2 + 1.3); bench(bx, bz, ry) }
       else { const [bx, bz] = f(2.6, D / 2 + 1.3); bench(bx, bz, ry); const [g1x, g1z] = f(-2.7, D / 2 + 0.9); gacha(g1x, g1z, ry); const [g2x, g2z] = f(-3.3, D / 2 + 0.9); gacha(g2x, g2z, ry); const [vx, vz] = f(3.5, D / 2 + 0.9); vending(vx, vz, ry, 0xc0392b) // 駄菓子屋＝縁台/ガチャ/自販機
         const [scx, scz] = f(0, D / 2 + 1.1); grp.add(mk(new THREE.BoxGeometry(3.0, 0.9, 0.7), toon(0x8a6a44), scx, heightAtYato(scx, scz) + 0.45, scz, ry, true)); grp.add(mk(new THREE.BoxGeometry(2.9, 0.5, 0.6), new THREE.MeshToonMaterial({ color: 0xd0e0e4, gradientMap: GRAD, transparent: true, opacity: 0.5 }), scx, heightAtYato(scx, scz) + 1.1, scz, ry, true)) } // 店先の駄菓子のガラスケース
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
@@ -2180,7 +2209,7 @@ function buildShishigaya() {
     // parkPos は外側スコープで宣言済（柵をcellOf定義後に置くため）
     for (const [x0n, z0n, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
       // 小規模の店/施設は住所点が道の上に落ちることがある→最寄りの空き地へ少しずらす（道に乗った建物を排除・店先は道沿いのまま。寺社/屋敷/学校は実位置・形が大きいので動かさない）・ユーザー指摘2026-06-24
-      const small = type === 'shop' || type === 'rice' || type === 'eat' || type === 'liquor' || type === 'conbini' || type === 'auto' || type === 'koban' || type === 'kinder'
+      const small = type === 'shop' || type === 'rice' || type === 'eat' || type === 'liquor' || type === 'tobacco' || type === 'green' || type === 'flower' || type === 'conbini' || type === 'auto' || type === 'koban' || type === 'kinder'
       const [x, z] = small ? nudgeOffRoad(x0n, z0n, 9, 8) : [x0n, z0n]
       if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else if (name === '渋沢稲荷神社') buildInari(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
@@ -2193,7 +2222,11 @@ function buildShishigaya() {
       else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
       else if (type === 'conbini') buildConbini(x, z, name) // 90年代の郊外型コンビニ（一面ガラス＋電照看板＋駐車場＋のぼり＋自販機）
       else if (type === 'auto') buildCarShop(x, z, name) // 80〜90年代の自動車販売店（ガラスのショールーム＋展示車＋万国旗＝家のそばの旧セブン-イレブン跡）
+      else if (type === 'super') { const [sx, sz] = nudgeOffRoad(x, z, 22, 16); buildSuper(sx, sz, name) } // 町のスーパー（マミート等）＝大きな箱＋赤看板＋駐車場。大きいので専用サイズで道よけ
       else if (type === 'liquor') buildMise(x, z, name, 'liquor') // 酒屋＝店先に酒/ビールのケース＋自販機（コンビニ以前の町の店）
+      else if (type === 'tobacco') buildMise(x, z, name, 'tobacco') // たばこ屋＝たばこ自販機＋ショーケース（酒も少し）
+      else if (type === 'green') buildMise(x, z, name, 'green') // 八百屋＝店先にカラフルな野菜の台
+      else if (type === 'flower') buildMise(x, z, name, 'flower') // 花屋＝店先のバケツに色とりどりの花
       else if (type === 'rice') buildMise(x, z, name, 'rice') // 米店＝店先に米袋
       else if (type === 'eat') buildMise(x, z, name, 'eat') // 食堂＝赤提灯＋縁台＋サンプルケース
       else buildMise(x, z, name, 'dagashi') // shop（しんみせ＝駄菓子屋）＝ガチャ＋縁台＋ガラスケース
