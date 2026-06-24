@@ -1705,6 +1705,11 @@ function buildShishigaya() {
       grp.add(mk(new THREE.BoxGeometry(0.12, 1.7, 3.1), toon(0xe0e3e5), bx + 1.05, by + 1.45, bz, true)) // 背板（東）
       grp.add(mk(new THREE.BoxGeometry(1.0, 0.1, 2.7), toon(0x9c7a4a), bx + 0.45, by + 0.5, bz, true)) // ベンチ
       for (const dz of [-1.1, 1.1]) grp.add(mk(new THREE.BoxGeometry(0.8, 0.46, 0.12), toon(0x8a6f48), bx + 0.45, by + 0.25, bz + dz)) // ベンチ脚
+      // ベンチに置き忘れたラムネ瓶（ついさっきまで誰かが居た＝開始地点の生活感・2026-06-24）
+      { const ramune = new THREE.MeshToonMaterial({ color: 0x79c6c1, gradientMap: GRAD, transparent: true, opacity: 0.84 }), rbx = bx + 0.45, rbz = bz + 0.95, rby = by + 0.55
+        grp.add(mk(new THREE.CylinderGeometry(0.045, 0.05, 0.16, 10), ramune, rbx, rby + 0.08, rbz, true)) // 胴
+        grp.add(mk(new THREE.CylinderGeometry(0.026, 0.045, 0.06, 10), ramune, rbx, rby + 0.19, rbz)) // 首
+        grp.add(mk(new THREE.SphereGeometry(0.02, 8, 6), toon(0xe6e6e6), rbx, rby + 0.225, rbz)) } // ビー玉/口
       grp.add(mk(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 6), post, bx - 1.2, by + 1.7, bz - 1.4, true)) // 標識ポール（道側=西）
       const sgn = mk(new THREE.CircleGeometry(0.5, 20), new THREE.MeshBasicMaterial({ map: busSignTex, side: THREE.DoubleSide }), bx - 1.2, by + 3.3, bz - 1.4); sgn.rotation.y = -Math.PI / 2; grp.add(sgn) // 丸看板（西＝道を向く）
       const ttp = mk(new THREE.PlaneGeometry(0.5, 0.7), new THREE.MeshBasicMaterial({ color: 0xf0f0e8, side: THREE.DoubleSide }), bx + 0.98, by + 1.5, bz + 1.2); ttp.rotation.y = -Math.PI / 2; grp.add(ttp) // 時刻表
