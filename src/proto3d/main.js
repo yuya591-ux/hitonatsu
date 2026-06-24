@@ -2382,7 +2382,29 @@ function buildShishigaya() {
     for (const b of SG.buildings) { if (ns >= 9) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 130) continue; const seed = Math.abs(Math.round(x) * 5 + Math.round(z) * 2); if (seed % 4 !== 0) continue
       const rot = b[4]; shitsu(x + Math.cos(rot) * (b[2] / 2 + 0.3), z + Math.sin(rot) * (b[2] / 2 + 0.3), rot + Math.PI / 2); ns++ }
     makeVending(2900, -50, 1.0, 0xc23a2c); makeVending(3052, -118, -0.6, 0x2a7ab0); makeVending(3120, -100, 0.4, 0xe0a838) // 道角の自販機（風呂上がり/夏のラムネ）
-    { const g = new THREE.Group(), red = toon(0xc0392b); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red); body.position.y = 1.05; g.add(body); const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red); top.position.y = 2.1; g.add(top); placeProp(g, 2960, -86, 0, 0.04, 0.7) } } // 丸ポスト
+    { const g = new THREE.Group(), red = toon(0xc0392b); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red); body.position.y = 1.05; g.add(body); const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red); top.position.y = 2.1; g.add(top); placeProp(g, 2960, -86, 0, 0.04, 0.7) } // 丸ポスト
+    // ── 1990年代の街角の生活ディテール：公衆電話ボックス（夜ぼんやり灯る）・町内会の掲示板・追加の自販機/丸ポスト（忠実な密集はそのまま“あの頃の手触り”を足す・ユーザー要望2026-06-24）──
+    const PM = (g, geo, mat, px, py, pz) => { const mm = new THREE.Mesh(geo, mat); mm.position.set(px, py, pz); g.add(mm); return mm }
+    const makePhoneBox = (x, z, rot) => { const g = new THREE.Group(), frame = toon(0xc6ccc4), glass = new THREE.MeshToonMaterial({ color: 0xbcd8de, gradientMap: GRAD, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+      PM(g, new THREE.BoxGeometry(1.0, 0.12, 0.95), frame, 0, 0.06, 0) // 床
+      for (const [px, pz] of [[-0.46, -0.44], [0.46, -0.44], [0.46, 0.44], [-0.46, 0.44]]) PM(g, new THREE.BoxGeometry(0.08, 2.0, 0.08), frame, px, 1.05, pz) // 4隅の柱
+      PM(g, new THREE.PlaneGeometry(0.92, 1.8), glass, 0, 1.05, -0.44) // 背のガラス
+      PM(g, new THREE.PlaneGeometry(0.88, 1.8), glass, -0.46, 1.05, 0).rotation.y = Math.PI / 2 // 左
+      PM(g, new THREE.PlaneGeometry(0.88, 1.8), glass, 0.46, 1.05, 0).rotation.y = Math.PI / 2 // 右（正面は入口で開ける）
+      PM(g, new THREE.BoxGeometry(1.12, 0.24, 1.06), toon(0x6f8aa6), 0, 2.14, 0) // 青みの庇屋根
+      PM(g, new THREE.BoxGeometry(0.34, 0.5, 0.16), toon(0x6a7a6a), 0, 1.25, -0.33) // 電話機
+      const glow = PM(g, new THREE.PlaneGeometry(0.78, 1.5), new THREE.MeshBasicMaterial({ color: 0xe6f0e2, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide }), 0, 1.15, 0); townNightLights.push({ m: glow, base: 0.55, ph: Math.random() * 6, fa: 0.04 }) // 夜にぼんやり灯る
+      placeProp(g, x, z, rot || 0, 0.02, 0.7) }
+    const makeBoard = (x, z, rot) => { const g = new THREE.Group()
+      for (const px of [-0.7, 0.7]) PM(g, new THREE.BoxGeometry(0.1, 1.65, 0.1), toon(0x6a4e30), px, 0.82, 0) // 2本柱
+      PM(g, new THREE.BoxGeometry(1.7, 0.92, 0.08), toon(0x8a6a44), 0, 1.28, 0) // 板
+      PM(g, new THREE.BoxGeometry(1.92, 0.1, 0.42), toon(0x5a4632), 0, 1.8, 0.07).rotation.x = -0.18 // 小さな庇
+      for (let i = 0; i < 4; i++) PM(g, new THREE.PlaneGeometry(0.3 + Math.random() * 0.08, 0.22 + Math.random() * 0.08), new THREE.MeshToonMaterial({ color: [0xf4f0e4, 0xf0e2c4, 0xe6eef4][i % 3], gradientMap: GRAD, side: THREE.DoubleSide }), -0.52 + (i % 2) * 0.58, 1.42 - (i >> 1) * 0.34, 0.05) // 貼り紙
+      placeProp(g, x, z, rot || 0, 0.02, 1.0) }
+    makePhoneBox(3024, 18.5, -0.5); makePhoneBox(2958, -512, 0.6) // バス停わき＋二ツ池の道
+    makeBoard(3013, 41, 0.1); makeBoard(2968, -455, -0.4); makeBoard(3046, -55, 1.0) // 開始地点の道・二ツ池・核
+    makeVending(3010, -205, 0.3, 0xc23a2c); makeVending(2972, -360, -0.5, 0x2a7ab0) // 追加の自販機
+    { const g = new THREE.Group(), red = toon(0xc0392b); PM(g, new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red, 0, 1.05, 0); PM(g, new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red, 0, 2.1, 0); placeProp(g, 3038, -178, 0, 0.04, 0.7) } } // 追加の丸ポスト
   // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木
   for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
   let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
