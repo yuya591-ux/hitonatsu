@@ -2622,10 +2622,16 @@ function buildShishigaya() {
   // 木漏れ日：街路樹/木立の一部の真下に、葉の隙間から落ちる光のゆらぎ（既存dapple系を獅子ヶ谷へ＝歩く所に木かげのゆらめき。2026-06-24）。歩道沿いに散らす（数は控えめ＝加算半透明の負荷を抑える）
   { const step = Math.max(1, Math.floor(tp.length / 22)); let dn = 0; for (let i = 0; i < tp.length && dn < 22; i += step) { const tx = tp[i][0], tz = tp[i][1]; if (heightAtYato(tx, tz) < 2) continue; addDapple(tx, tz, 2.2 + Math.random() * 0.8); dn++ } }
   if (tp.length) {
-    const canI = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshToonMaterial({ gradientMap: GRAD }), tp.length); canI.castShadow = true
-    const trI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.24, 1.4, 5), toon(0x6a4e34), tp.length)
-    const m4 = new THREE.Matrix4(), sc = new THREE.Vector3(), col = new THREE.Color(), gr = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a, 0x6a9445]
-    tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), s = sak ? 2.0 : 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.3 + s * 0.7, z); m4.scale(sc.set(s, s * 1.1, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(sak ? 0xf0b4cd : gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.7, z)) })
+    // 樹冠＝丸い大玉に小玉を寄せた“こんもり”形（単一の20面アイコより丸く密＝低ポリ脱却・2026-06-25）。さらにyで明暗の縦グラデを焼き込み＝上が光って立体感（木漏れ日の素）
+    const canBlobs = []
+    for (const [bx, by, bz, br, det] of [[0, 0.1, 0, 1.0, 1], [0.52, 0.42, 0.18, 0.6, 0], [-0.46, 0.26, -0.3, 0.58, 0], [0.08, 0.6, -0.1, 0.52, 0]]) { const ic = new THREE.IcosahedronGeometry(br, det); ic.translate(bx, by, bz); canBlobs.push(ic) }
+    const canopyGeo = mergeGeometries(canBlobs, false); canopyGeo.computeVertexNormals()
+    { const pa = canopyGeo.attributes.position, cc = []; let mny = 1e9, mxy = -1e9; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); if (y < mny) mny = y; if (y > mxy) mxy = y }
+      for (let i = 0; i < pa.count; i++) { const t = (pa.getY(i) - mny) / (mxy - mny || 1), v = 0.72 + t * 0.34; cc.push(v, v, v) } canopyGeo.setAttribute('color', new THREE.Float32BufferAttribute(cc, 3)) } // 下=暗0.72→上=明1.06（葉の上に陽が当たる）
+    const canI = new THREE.InstancedMesh(canopyGeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), tp.length); canI.castShadow = true
+    const trI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.26, 1.5, 6), toonMap(0x6a4e34, woodTex), tp.length) // 幹＝木目テクスチャ＋6角（角ばり解消）
+    const m4 = new THREE.Matrix4(), sc = new THREE.Vector3(), col = new THREE.Color(), gr = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a, 0x6a9445, 0x7aa24c, 0x86a44e]
+    tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), s = sak ? 2.0 : 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.4 + s * 0.7, z); m4.scale(sc.set(s, s * 1.12, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(sak ? 0xf0b4cd : gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.75, z)) })
     canI.instanceColor.needsUpdate = true; scene.add(canI); scene.add(trI)
   }
   // ───── 三ツ池公園の作り込み：あずまや（東屋）＋太鼓橋（朱塗りアーチ）─────
