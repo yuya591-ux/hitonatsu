@@ -4951,6 +4951,43 @@ function playFireworkBoom() {
   } catch (e) {}
 }
 
+// ── 遠くの音（距離のある音＝世界に奥行きと郷愁。自前合成・こもらせて＋ゆるい残響で“遠さ”を出す。控えめ・たまに）2026-06-24 ──
+let distBus = null
+function getDistantOut() {
+  const ctx = listener.context
+  if (distBus && distBus.context === ctx) return distBus
+  const g = ctx.createGain(); g.gain.value = 1.0
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.4 // 遠さ＝高域を大きく削ってこもらせる
+  const dl = ctx.createDelay(0.6); dl.delayTime.value = 0.22; const fb = ctx.createGain(); fb.gain.value = 0.26; const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 480
+  dl.connect(dlp); dlp.connect(fb); fb.connect(dl); const wet = ctx.createGain(); wet.gain.value = 0.32 // 丘にこだまする遠い残響
+  g.connect(lp); lp.connect(getMaster()); lp.connect(dl); dl.connect(wet); wet.connect(getMaster())
+  distBus = g; return distBus
+}
+function playTrain() { // 遠くの電車（近づく→過ぎる→遠ざかる低い轟音＋線路の継ぎ目のタタン＋二音の警笛）
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, t0 = ctx.currentTime + 0.1, out = getDistantOut(), dur = 7 + Math.random() * 3
+    const n = ctx.createBufferSource(); n.buffer = getNoise(); n.loop = true; n.playbackRate.value = 0.6
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 110; bp.Q.value = 0.7
+    const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.1, t0 + dur * 0.45); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+    n.connect(bp); bp.connect(ng); ng.connect(out); n.start(t0); n.stop(t0 + dur + 0.1)
+    let tt = t0 + 1.0
+    while (tt < t0 + dur - 0.6) { for (const off of [0, 0.16]) { const c = ctx.createOscillator(); c.type = 'sine'; c.frequency.setValueAtTime(70, tt + off); c.frequency.exponentialRampToValueAtTime(45, tt + off + 0.06); const cg = ctx.createGain(); const amp = 0.05 * Math.sin(Math.min(1, (tt - t0) / (dur * 0.45)) * Math.PI); cg.gain.setValueAtTime(Math.max(0.0001, amp), tt + off); cg.gain.exponentialRampToValueAtTime(0.0001, tt + off + 0.12); c.connect(cg); cg.connect(out); c.start(tt + off); c.stop(tt + off + 0.14) } tt += 0.85 } // 線路の継ぎ目（タタン・タタン）
+    const hT = t0 + 1.5 + Math.random() * 2.5
+    for (const [f, d0, d1] of [[330, 0, 0.85], [247, 0.6, 1.5]]) { const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = f; const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, hT + d0); g.gain.exponentialRampToValueAtTime(0.045, hT + d0 + 0.09); g.gain.setValueAtTime(0.045, hT + d1 - 0.12); g.gain.exponentialRampToValueAtTime(0.0001, hT + d1); o.connect(g); g.connect(out); o.start(hT + d0); o.stop(hT + d1 + 0.05) } // 警笛（二音）
+  } catch (e) {}
+}
+function playDog() { // 遠くの犬（わん…わん。短い下降トーン＋噛みのバンドパス）
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, t0 = ctx.currentTime + 0.05, out = getDistantOut(), barks = 2 + Math.floor(Math.random() * 2)
+    for (let b = 0; b < barks; b++) { const bt = t0 + b * (0.45 + Math.random() * 0.35)
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(360 + Math.random() * 70, bt); o.frequency.exponentialRampToValueAtTime(175, bt + 0.18)
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, bt); g.gain.exponentialRampToValueAtTime(0.055, bt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, bt + 0.22)
+      const bpf = ctx.createBiquadFilter(); bpf.type = 'bandpass'; bpf.frequency.value = 700; bpf.Q.value = 0.8; o.connect(bpf); bpf.connect(g); g.connect(out); o.start(bt); o.stop(bt + 0.24) }
+  } catch (e) {}
+}
+let trainTimer = 35 + Math.random() * 45, dogTimer = 25 + Math.random() * 40 // 遠くの音のタイマー（たまに鳴る）
 // ── 入道雲（高くにゆっくり流れる。寝ころんで空を見ると気持ちいい）──
 const clouds = []
 {
@@ -7235,6 +7272,11 @@ renderer.setAnimationLoop(() => {
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
   if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state !== 'running') { try { listener.context.resume() } catch (e) {} } // suspended/interrupted(iOS録画開始時の割り込み等)から自動復帰＝音が消えて機械音だけ残るのを防ぐ
+  // 遠くの音（電車・犬）＝たまに鳴って世界に奥行きと郷愁を。音ON＋再生中のときだけ（停止中ctxにスケジュールしない）
+  if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'running') {
+    trainTimer -= dt; if (trainTimer <= 0) { trainTimer = 85 + Math.random() * 95; if (tday < 0.95) playTrain() } // 深夜は電車を控える
+    dogTimer -= dt; if (dogTimer <= 0) { dogTimer = 60 + Math.random() * 75; playDog() }
+  }
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   // 操作している間（スティック/上下ホールド/見回し）はHUDを消さない。何もしない時間が続いたらそっと消す
   if (puni.active || floatUp || floatDown || lookIds.size > 0) lastInteract = performance.now()
@@ -7544,6 +7586,8 @@ window.__proto3d = {
   colliders, _collide(x, z) { return pushOutOfColliders(x, z) }, // 検証用：当たり判定（点を外へ押し出す）
   SG, heightAtYato(x, z) { return heightAtYato(x, z) }, // 検証用：獅子ヶ谷の道/建物/水データ＋実標高（道ふさぎの洗い出しに使う）
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
+  _train() { startAudio(); try { listener.context.resume() } catch (e) {} playTrain(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの電車
+  _dog() { startAudio(); try { listener.context.resume() } catch (e) {} playDog(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの犬
 
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
   _mem(v) { gradePass.uniforms.mem.value = v }, // 検証/調整用：記憶のトーン（褪せた写真）の強さ 0..1
