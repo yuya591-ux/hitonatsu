@@ -1554,7 +1554,7 @@ function buildShishigaya() {
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
-  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3008, 16, 14], [2939, -128, 38], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋NAMED
+  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3007, 20, 20], [2990, 13, 9], [2939, -128, 38], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭(=開始地点の前庭＋本通り＋バス停まわりを開ける。狭いと汎行建物が道(makeRoadRibbon)に乗り見えない壁になる・ユーザー指摘2026-06-24で拡張)＋西側ポーチ脇/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋NAMED
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   const inWaterAny = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p)) // 点が池/川の水面の上か
   // フットプリントを格子サンプルして「testに該当する面積の割合」を返す。割合がしきい値超＝建物がその上に“乗っている”＝不自然
@@ -2216,7 +2216,8 @@ function buildShishigaya() {
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') buildSchoolDetailed(x, z, name); else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭
-      else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 34, 28); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
+      else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 36, 30); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } // 団地3棟（設計どおりのL字配置を保つ＝棟どうしは重ねない）。塊ごと道よけ（判定footprintを36×30に広げて棟の端まで道に乗らない場所を探す）
+        else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
       else if (type === 'kinder') buildKinder(x, z, name) // 幼稚園/保育園＝カラフルな園舎＋砂の園庭＋遊具＋門
       else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
@@ -2269,15 +2270,15 @@ function buildShishigaya() {
         const rb = ro, eb = eo
         for (let s = 0; s <= n; s++) { const t = s / n, cx = x0 + dx * t, cz = z0 + dz * t // 中心線に沿って 左/中央/右 の3点を地形高で（中央頂点があるので尾根で地形が路面を突き抜けない＝埋もれ防止）
           for (const sd of [-1, 0, 1]) { const qx = cx + nx * hw * sd, qz = cz + nz * hw * sd; rv.push(qx, heightAtYato(qx, qz) + lift, qz); ruv.push((sd + 1) / 2, l * t / 3) }
-          for (const sd of [-1, 1]) { const ex = cx + nx * (hw + 0.5) * sd, ez = cz + nz * (hw + 0.5) * sd; ev.push(ex, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift - 0.06, ez) } } // 道のふち（少し広い下地）＝縁取り。★高さは路面の外端基準−6cm＝横斜面でも縁が路面より上に出て黒帯になるのを防ぐ（自分の地形高だと斜面で路面を覆う・ユーザー指摘2026-06-24）
+          for (const sd of [-1, 1]) { const ex = cx + nx * (hw + 0.4) * sd, ez = cz + nz * (hw + 0.4) * sd; ev.push(ex, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift - 0.14, ez) } } // 道のふち（少し広い下地）＝路肩。★高さは路面の外端基準−14cm＝横斜面/交差点でも縁が路面より上に出て黒帯(黒いモヤ)になるのを防ぐ（−6cmでは交差点で重なって突き抜けた・ユーザー指摘2026-06-24で深く下げ＋色も路面グレーに）
         for (let s = 0; s < n; s++) { const a = rb + s * 3; ridx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5); const e = eb + s * 2; eidx.push(e, e + 2, e + 1, e + 1, e + 2, e + 3) }
         ro += (n + 1) * 3; eo += (n + 1) * 2 } }
     if (!rv.length) return
-    if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x33271a : 0x2c2f34), side: THREE.DoubleSide }))) } // 縁取りにもemissive下駄＝日陰でも黒く沈まない
+    if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x40341f : 0x42464d), side: THREE.DoubleSide }))) } // 路肩は路面と同じ明るさ＝突き抜けても黒帯にならない（emissiveも路面と同値）
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
     // emissive＝光に依存しない下駄＝日陰の坂や建物の影でも路面が真っ黒に潰れず“読める灰/土色”を保つ（黒塗り解消・ユーザー指摘2026-06-24）
     scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x40341f : 0x42464d), side: THREE.DoubleSide }))) }
-  buildRoads('paved', asphaltTex, 0.42, 0x5b5e64)   // 舗装路（アスファルト＋濃い縁取り・地形追従で埋もれ防止）
+  buildRoads('paved', asphaltTex, 0.42, 0x8a8c88)   // 舗装路（アスファルト＋路面と同じグレーの路肩・地形追従で埋もれ防止。旧0x5b5e64の濃い縁取りが交差点で黒いモヤになっていた・2026-06-24）
   buildRoads('path', yatoDirtTex, 0.34, 0x8a6f3e)   // 土の小道（＋濃い土の縁取り）
   // 占有グリッド（建物の場所を記録→木を建物に重ねない）
   const GC = Math.ceil(SG.half * 2 / 6), occ = new Uint8Array(GC * GC)
