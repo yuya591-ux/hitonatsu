@@ -5913,6 +5913,16 @@ function scheduleFestBar(t0) {
   const mel = FEST_MEL[festBar % FEST_MEL.length]; festBar++
   for (const [b, f, d] of mel) festFlute(t0 + b, f, d, 0.12) // 篠笛の旋律（呼びと応えを交互に）
   festCrowd(t0) // 縁日のがやがや（人のざわめき）をお囃子の下に薄く
+  for (const b of [0, 1]) for (let k = 0; k < 3; k++) festClap(t0 + b + (Math.random() - 0.5) * 0.05, 0.016 + Math.random() * 0.014) // 拍に合わせた観客の手拍子（複数人ぶん少しずらして＝群衆感）
+}
+function festClap(t0, vol) { // 手拍子＝乾いた短いパチ（バンドパスのノイズ）。getFestOut経由＝距離で増減
+  if (!audioStarted) return
+  try { const ctx = listener.context, out = getFestOut()
+    const src = ctx.createBufferSource(); src.buffer = getNoise(); src.playbackRate.value = 1.4
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1600; bp.Q.value = 0.9
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol || 0.02, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09)
+    src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); src.stop(t0 + 0.12)
+  } catch (e) {}
 }
 function festCrowd(t0) { // 縁日のざわめき＝やわらかいノイズの2秒のうねり。getFestOut経由なので距離/時刻でお囃子と一緒に増減＝近い祭りほど賑やか
   if (!audioStarted) return
