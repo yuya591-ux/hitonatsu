@@ -130,6 +130,14 @@ const onYatoRoad = (x, z) => { const id = rmaskIdx(x, z); return id >= 0 && yato
 for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2) + 0.6, p = rd.p // 描画の路肩＋少し余裕＝道の端で建物に引っかからない
   for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
     for (let t = 0; t <= l; t += 1) for (let s = -hw; s <= hw; s += 1) { const id = rmaskIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0) yatoRoadMask[id] = 1 } } } // 中心線に沿って幅ぶん塗る
+// 道の“描画幅ちょうど”のマスク（＋0.6の余裕なし・1m格子で正確に）＝建物が「道の上に乗っているか」判定用。路傍に面するだけの家(描画幅の外)は除外しない（2m格子だと小さい家を過剰除外したので1mに細かく・ユーザー指摘2026-06-24）
+const RCORE_CELL = 1, RCORE_N = Math.ceil(SG.half * 2 / RCORE_CELL) + 1
+const rcoreIdx = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / RCORE_CELL), j = Math.floor((z - SG.gz0 + SG.half) / RCORE_CELL); return (i < 0 || j < 0 || i >= RCORE_N || j >= RCORE_N) ? -1 : j * RCORE_N + i }
+const yatoRoadCore = new Uint8Array(RCORE_N * RCORE_N)
+for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2), p = rd.p
+  for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+    for (let t = 0; t <= l; t += 0.6) for (let s = -hw; s <= hw; s += 0.6) { const id = rcoreIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0) yatoRoadCore[id] = 1 } } }
+const onYatoRoadCore = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 && yatoRoadCore[id] === 1 }
 let onYato = false // 実行時に獅子ヶ谷(谷戸)エリアにいるか。trueなら heightAt/climbYAt を全域 DEM に切替＝西の師岡など x<2200 の谷戸拡張も正しく歩ける。モジュール評価中はfalse＝旧プロト(町/野原/神社)のビルドはx帯分岐のまま安全
 const WEST_EXT = 120 // 世界を西へ少しだけ拡張する量（m）。師岡町＝ビエント横濱菊名(game約1894,-160)を地続きにする（ユーザー要望2026-06-23）
 function heightAtYato(x, z) { // 実標高をバイリニア補間。zは反転サンプル(データ側を北=-zにしたため)。±SG.half外は縁の値で頭打ち
@@ -1562,7 +1570,7 @@ function buildShishigaya() {
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
     if (inWaterAny(cx, cz) || fpCover(cx, cz, w + 6, d + 6, ang, inWaterAny) > 0.12) { nOnWater++; return } // 水面＋岸から約3mの緩衝帯に重なる建物は描かない（水に浮く/水際ギリギリの家を防ぐ＝最優先のユーザー指摘2026-06-23。フットプリントを6m膨らませて判定）
-    if (fpCover(cx, cz, w, d, ang, onYatoRoad) > 0.34) { nOnRoad++; return } // フットプリントの1/3超が道に乗る建物は描かない（道のテクスチャの上に家が立って塞ぐのを防ぐ。端が触れるだけの“路傍の家”は残す）
+    if (fpCover(cx, cz, w, d, ang, onYatoRoadCore) > 0.12) { nOnRoad++; return } // フットプリントの12%超が“道の描画幅(1m格子)”に乗る建物は描かない＝道の上の家を排除。路傍に面するだけ(描画幅の外)の家は残す（マスク+0.6でなく描画幅で判定・ユーザー指摘2026-06-24）
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     { const co0 = Math.cos(ang), si0 = Math.sin(ang), hw0 = w / 2, hd0 = d / 2; let ov = 0
       for (const [lx, lz] of [[0, 0], [-hw0, -hd0], [hw0, -hd0], [hw0, hd0], [-hw0, hd0], [-hw0, 0], [hw0, 0], [0, -hd0], [0, hd0]]) if (ptOverPlaced(cx + lx * co0 - lz * si0, cz + lx * si0 + lz * co0)) ov++
