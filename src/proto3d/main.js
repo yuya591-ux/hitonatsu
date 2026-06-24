@@ -4656,7 +4656,11 @@ const boy = makeBoy()
 const BOY_SCALE = 0.85 // 基準スケール（さらに小柄に）。ジャンプの伸び縮みはこれに掛ける
 boy.scale.setScalar(BOY_SCALE) // 体全体をもう少し小さく
 boy.rotation.order = 'YXZ' // ★向き(y)を最外＝前傾(x)は常に「進行方向へ前のめり」になる。XYZだと東西を向いた時に前傾が横倒れ＝左に傾く不具合になる
-boy.position.set(3004, heightAt(3004, 30), 30); boy.rotation.y = Math.atan2(3003.8 - 3004, 7.5 - 30) // ゲーム開始位置＝サンライズ北寺尾の前。入口(ポーチ)が正面・前庭の小道ごしに建物が立ち上がる“家に帰ってきた”構図。後方の道が開けカメラが詰まらない位置を探索で確定（以前は建物に近すぎ壁＋隣家でカメラが詰まっていた・ユーザー要望2026-06-23）
+// ゲーム開始位置＝サンライズ北寺尾の前。入口(ポーチ)が正面・前庭の小道ごしに建物が立ち上がる“家に帰ってきた”構図。後方の道が開けカメラが詰まらない位置を探索で確定（以前は建物に近すぎ壁＋隣家でカメラが詰まっていた・ユーザー要望2026-06-23）
+const DEFAULT_SPAWN = { x: 3004, z: 30, rot: Math.atan2(3003.8 - 3004, 7.5 - 30), area: 'yato' }
+let spawnPt = { ...DEFAULT_SPAWN }, spawnCustom = false // 設定「はじまりの場所」で保存した開始地点（無ければ既定）。ユーザー要望2026-06-24＝開始地点を自由に設定
+try { const s = JSON.parse(localStorage.getItem('hn3d_spawn') || 'null'); if (s && isFinite(s.x) && isFinite(s.z)) { spawnPt = { x: s.x, z: s.z, rot: isFinite(s.rot) ? s.rot : DEFAULT_SPAWN.rot, area: s.area || 'yato' }; spawnCustom = true } } catch (e) {}
+boy.position.set(spawnPt.x, heightAt(spawnPt.x, spawnPt.z), spawnPt.z); boy.rotation.y = spawnPt.rot
 outlineObj(boy, 0.03)
 // 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
 {
@@ -6097,7 +6101,7 @@ const diaryCancelEl = document.getElementById('diary-cancel')
 if (diaryCancelEl) diaryCancelEl.addEventListener('click', () => { if (diaryOpen) { diaryEl.style.display = 'none'; diaryOpen = false; dayAuto = true } })
 
 // ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
-let area = 'yato' // 開始エリア＝獅子ヶ谷の谷戸（サンライズ北寺尾の入口）。町/はらっぱへは門から往来（ユーザー要望2026-06-22）
+let area = spawnPt.area || 'yato' // 開始エリア＝獅子ヶ谷の谷戸（サンライズ北寺尾の入口）。町/はらっぱへは門から往来（ユーザー要望2026-06-22）。「はじまりの場所」を保存していればそのエリアから始まる
 let titleView = true // タイトル表示中＝景色のいい“はがき”構図のカメラに（始めるで解除）。目の前に建物が映ってどんなゲームか分からない問題の対応（ユーザー要望2026-06-23）
 let transitioning = false
 let autoWalk = null // 往来中の自動歩行 {x,z}（門をくぐって前進）
@@ -7425,6 +7429,18 @@ let frameAcc = 0
 // タイトルの“はがき”カメラ：谷の町を高めの斜めから、ゆっくり左右に流す（入道雲・サンライズの丘・二ツ池へ下る谷が一望＝どんなゲームか伝わる絵）
 function titleCam() {
   const t = performance.now() * 0.001
+  if (spawnCustom) { // 「はじまりの場所」を自分で決めているときは、トップ画面もその場所を少し上から見せる（“自分の場所”の俯瞰）
+    const sx = spawnPt.x, sz = spawnPt.z, sy = heightAt(sx, sz)
+    const ang = 0.7 + Math.sin(t * 0.05) * 0.18 // 南東寄りからゆっくり揺れて見おろす
+    const R = 42, px = sx + Math.sin(ang) * R, pz = sz + Math.cos(ang) * R, py = sy + 30
+    if (scene.fog) { scene.fog.near = 200; scene.fog.far = 1400 }
+    camera.fov = 50; camera.updateProjectionMatrix()
+    camera.position.set(px, py, pz)
+    camera.userData._look = camera.userData._look || new THREE.Vector3()
+    camera.userData._look.set(sx, sy + 2, sz)
+    camera.lookAt(camera.userData._look)
+    return
+  }
   const cx = 3150, cz = -120 // 見つめる中心＝東の住宅街の屋根並み（建物1棟で塞がず“夏の田舎町”が伝わる絵に）
   const drift = Math.sin(t * 0.05) * 24 // ゆっくり左右に流れる“はがき”
   const px = 3275 + drift, pz = 18 // 南東の高所から北西の屋根並み・丘・入道雲を望む
@@ -7542,6 +7558,14 @@ if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
 const setFpvBtn = document.getElementById('set-fpv')
 if (setFpvBtn) setFpvBtn.addEventListener('click', () => { fpv = !fpv; camSnap = true; setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF'; if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。camSnapで切替時のカメラ瞬間移動
+// はじまりの場所＝いま立っている所を開始地点として保存（つぎに始めるときここから／トップ画面もここを映す）。標準にもどすボタンつき。ユーザー要望2026-06-24
+const setSpawnBtn = document.getElementById('set-spawn')
+if (setSpawnBtn) { if (spawnCustom) { setSpawnBtn.classList.add('on') }
+  setSpawnBtn.addEventListener('click', () => { const sp = { x: +boy.position.x.toFixed(1), z: +boy.position.z.toFixed(1), rot: +facing.toFixed(3), area }; try { localStorage.setItem('hn3d_spawn', JSON.stringify(sp)) } catch (e) {}
+    spawnPt = sp; spawnCustom = true; setSpawnBtn.classList.add('on'); const r = document.getElementById('set-spawn-reset'); if (r) r.classList.remove('on'); showToast('ここを はじまりの場所にしたよ（つぎから ここで始まります）') }) }
+const setSpawnResetBtn = document.getElementById('set-spawn-reset')
+if (setSpawnResetBtn) setSpawnResetBtn.addEventListener('click', () => { try { localStorage.removeItem('hn3d_spawn') } catch (e) {}
+  spawnPt = { ...DEFAULT_SPAWN }; spawnCustom = false; const s = document.getElementById('set-spawn'); if (s) s.classList.remove('on'); showToast('はじまりの場所を 標準（サンライズの前）にもどしたよ') })
 const setBientoBtn = document.getElementById('set-biento') // 確認用：ビエント横濱菊名のすぐ前へワープ（屋上の外階段の足元・東側。位置確認用なので後で外せる）
 if (setBientoBtn) setBientoBtn.addEventListener('click', () => { area = 'yato'; onYato = true; const wx = 1968, wz = -81; boy.position.set(wx, heightAt(wx, wz), wz); facing = -Math.PI / 2; boy.rotation.y = facing; boy.userData._cy = null; riding = false; if (bikeEl) bikeEl.classList.remove('on'); flying = false; document.body.classList.remove('flying'); const fui = document.getElementById('flyui'); if (fui) fui.classList.remove('on'); if (settingsEl) settingsEl.classList.remove('on') })
 // むかしの田舎に寄せる（実験）：忠実(0)→中庸(1)→大胆(2)を切替＝保存して読み直し（生成時に効くため）。いつでも「忠実」に戻せる＝元どおり
