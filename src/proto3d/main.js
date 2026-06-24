@@ -1480,6 +1480,10 @@ const PARKFENCE_GEO = (() => { const box = new THREE.BoxGeometry(1, 1, 1), TR = 
   for (const sx of [-1.45, 1.45]) P.push({ g: box, m: TR(sx, 0.37, 0, 0.08, 0.78, 0.08), c: pipe }) // 支柱2本
   return mergeParts(P) })()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
+// ── 田舎寄せモード（むかしの“僕の夏休み”の空気へ：建物を間引き＋低層化）。0=忠実再現(既定・いつでも完全に戻せる) 1=中庸 2=大胆。
+//   生成時のみ作用＝忠実データ(SG)は一切壊さない。URL ?v=0/1/2 か localStorage で切替（設定トグル）。常に0へ戻せば元どおり（ユーザー最重要要望2026-06-24）──
+let villageLevel = 0
+try { const u = new URLSearchParams(location.search); if (u.has('v')) villageLevel = Math.max(0, Math.min(2, +u.get('v') | 0)); else villageLevel = Math.max(0, Math.min(2, +(localStorage.getItem('hn3d_village') || 0) | 0)) } catch (e) {}
 function buildShishigaya() {
   const gw = SG.half * 2 + WEST_EXT, gcx = SG.gx0 - WEST_EXT / 2 // 西へWEST_EXTだけ広げた地面（中心を西へずらす＝師岡まで地続き。heightAtYatoは±half外を縁の値でクランプ＝平らに延びる）
   const seg = Math.min(360, Math.round(gw / 7)), segZ = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(gw, SG.half * 2, seg, segZ); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子≒7m）
@@ -1564,7 +1568,8 @@ function buildShishigaya() {
   const inOBB = (px, pz, b) => { const dx = px - b.cx, dz = pz - b.cz, lx = b.co * dx + b.si * dz, lz = -b.si * dx + b.co * dz; return Math.abs(lx) <= b.hw && Math.abs(lz) <= b.hd }
   const ptOverPlaced = (px, pz) => { const ci = Math.floor(px / BCELL), cj = Math.floor(pz / BCELL); for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const arr = bgrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const b of arr) if (inOBB(px, pz, b)) return true } return false }
   const regPlaced = (cx, cz, hw, hd, co, si) => { const b = { cx, cz, hw, hd, co, si }; placedB.push(b); const cells = new Set(); for (const [lx, lz] of [[0, 0], [-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cells.add(Math.floor((cx + lx * co - lz * si) / BCELL) + ',' + Math.floor((cz + lx * si + lz * co) / BCELL)); for (const k of cells) { let arr = bgrid.get(k); if (!arr) { arr = []; bgrid.set(k, arr) } arr.push(b) } }
-  let nOnRoad = 0, nOnWater = 0, nOverlap = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）
+  let nOnRoad = 0, nOnWater = 0, nOverlap = 0, nVillage = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）＋田舎寄せで間引いた数
+  const villThin = villageLevel >= 2 ? 55 : villageLevel >= 1 ? 35 : 0 // 田舎寄せ：間引く割合(%)。0=間引かない(忠実)
   const glowGeos = []; const _gm = new THREE.Matrix4() // 夜の窓あかり：全建物ぶんの小さな発光板を集めて最後に1メッシュへマージ＝描画は1回（夜の獅子ヶ谷に“灯のついた家々”・2026-06-23）
   const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm); glowGeos.push(pg) }
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
@@ -1584,6 +1589,7 @@ function buildShishigaya() {
     const L = (lx, ly, lz) => [cx + lx * co - lz * si, gy + ly, cz + lx * si + lz * co] // ローカル→ワールド（angで回転）
     const baseXZ = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]
     const isHome = bi === sunIdx, flat = isHome || tc === 1 || tc === 2 || (tc === 0 && area > 500)
+    if (villThin && !isHome && (seed % 100) < villThin) { nVillage++; return } // 田舎寄せ：一部の家を間引いて“間”と空を取り戻す（種で決定＝毎回同じ・サンライズは残す）
     // 夜の窓あかり：この家の壁にぽつぽつ点る暖色の窓（約55%の家・大きい棟は四方、家は対面の2壁）。glowGeosに集めて最後にまとめて1メッシュ化
     if (seed % 100 < 55) { const big = area > 260
       for (let wi = 0; wi < 4; wi += big ? 1 : 2) { const a = baseXZ[wi], b = baseXZ[(wi + 1) % 4], mlx = (a[0] + b[0]) / 2, mlz = (a[1] + b[1]) / 2
@@ -1593,6 +1599,7 @@ function buildShishigaya() {
     if (flat) { // ── 陸屋根（当時=1990年代半ば。サンライズ以外に高い集合住宅はほぼ無かった→低い2〜3階のアパート/事務所に抑える。OSMは2014年で新しい棟を含むため）──
       let floors = THREE.MathUtils.clamp(2 + Math.round(Math.sqrt(area) / 40), 2, 3)
       if (isHome) floors = 7
+      else if (villageLevel) floors = Math.min(floors, 2) // 田舎寄せ：高い陸屋根(団地/事務所)を2階までに抑える（サンライズ以外）
       const h = slope + floors * 3, vt = Math.max(2, Math.round(h / 3)), wc = isHome ? [0.93, 0.88, 0.80] : aptWalls[seed % aptWalls.length]
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=戸数, v=階数(斜面の基礎ぶん含む)でバルコニーをタイル
@@ -1603,6 +1610,7 @@ function buildShishigaya() {
       const bw = Math.min(8, hw); roofBox(hw - 1 - bw, -bz, hw - 1, bz)
     } else { // ── 低い切妻の家 ──
       let stories = tc === 4 ? 1 : (area < 65 ? 1 : (area > 230 ? 3 : 2)); if (stories === 2 && seed % 4 === 0) stories = 1; if (stories === 1 && seed % 6 === 0 && tc !== 4) stories = 2
+      if (villageLevel) stories = Math.min(stories, 2) // 田舎寄せ：3階の大きな家を2階までに（低い田舎家へ）
       const h = slope + stories * 3, wc = walls[seed % walls.length], rc = roofs[(seed >> 2) % roofs.length]
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 3.5)), vt = Math.max(1, Math.round(h / 3)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=窓の間口, v=階＝壁に窓が並ぶ
@@ -2437,7 +2445,7 @@ function buildShishigaya() {
       const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
     console.log('[shishigaya] grass', ng) }
-  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap)
+  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
 buildShishigaya()
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
@@ -7400,6 +7408,12 @@ const setFpvBtn = document.getElementById('set-fpv')
 if (setFpvBtn) setFpvBtn.addEventListener('click', () => { fpv = !fpv; camSnap = true; setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF'; if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。camSnapで切替時のカメラ瞬間移動
 const setBientoBtn = document.getElementById('set-biento') // 確認用：ビエント横濱菊名のすぐ前へワープ（屋上の外階段の足元・東側。位置確認用なので後で外せる）
 if (setBientoBtn) setBientoBtn.addEventListener('click', () => { area = 'yato'; onYato = true; const wx = 1968, wz = -81; boy.position.set(wx, heightAt(wx, wz), wz); facing = -Math.PI / 2; boy.rotation.y = facing; boy.userData._cy = null; riding = false; if (bikeEl) bikeEl.classList.remove('on'); flying = false; document.body.classList.remove('flying'); const fui = document.getElementById('flyui'); if (fui) fui.classList.remove('on'); if (settingsEl) settingsEl.classList.remove('on') })
+// むかしの田舎に寄せる（実験）：忠実(0)→中庸(1)→大胆(2)を切替＝保存して読み直し（生成時に効くため）。いつでも「忠実」に戻せる＝元どおり
+const setVillageBtn = document.getElementById('set-village')
+const villLabels = ['忠実', '中庸', '大胆']
+if (setVillageBtn) { setVillageBtn.textContent = villLabels[villageLevel] || '忠実'; setVillageBtn.classList.toggle('on', villageLevel > 0)
+  setVillageBtn.addEventListener('click', () => { const nv = (villageLevel + 1) % 3; try { localStorage.setItem('hn3d_village', nv) } catch (e) {}
+    const u = new URL(location.href); u.searchParams.delete('v'); u.searchParams.set('cb', Date.now()); location.replace(u.toString()) }) } // 保存して読み直し＝建物の生成からやり直す
 applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
