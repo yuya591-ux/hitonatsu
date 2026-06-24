@@ -2278,7 +2278,7 @@ function buildShishigaya() {
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); FEST_VENUES.push({ name: '校庭', pos: new THREE.Vector2(3124, -186), days: [1], g: buildBonOdori(3124, heightAtYato(3124, -186), -186) }) } // 校庭(3124,-186)に夏の盆踊り会場＝開催日は1日目。お囃子/花火もこの会場（2026-06-24 ユーザー要望）
-        else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭
+        else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a'); if (name === '上の宮中学校') FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22) }) } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 36, 30); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } // 団地3棟（設計どおりのL字配置を保つ＝棟どうしは重ねない）。塊ごと道よけ（判定footprintを36×30に広げて棟の端まで道に乗らない場所を探す）
         else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
@@ -5846,7 +5846,7 @@ function scheduleFestBar(t0) {
   const mel = FEST_MEL[festBar % FEST_MEL.length]; festBar++
   for (const [b, f, d] of mel) festFlute(t0 + b, f, d, 0.12) // 篠笛の旋律（呼びと応えを交互に）
 }
-function activeVenue() { return FEST_VENUES.find((v) => v.days.indexOf(day) >= 0) || null } // 今夜の会場（会場ごとに別の日なので最大1つ）
+function activeVenue() { let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(day) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ（同じ日に複数会場でも、近い方のお囃子/花火が効く＝近い祭りへたどれる）
 function updateFestival(dt) {
   for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(day) >= 0 // 各会場は自分の開催日だけ姿を見せる（音の有無に関わらず）
   if (!audioStarted) return
