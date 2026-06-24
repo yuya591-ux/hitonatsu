@@ -1470,18 +1470,33 @@ function buildBonOdori(ox, oy, oz, grp) {
   const cs = new THREE.Mesh(new THREE.CircleGeometry(2.6, 18), shadowMat); cs.rotation.x = -Math.PI / 2; cs.position.set(ox, oy + 0.05, oz); bonOdori.add(cs) // 櫓の接地影
   const fglow = new THREE.Mesh(new THREE.CircleGeometry(12, 28), new THREE.MeshBasicMaterial({ color: 0xffb060, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); fglow.rotation.x = -Math.PI / 2; fglow.position.set(ox, oy + 0.06, oz); bonOdori.add(fglow) // 会場の光だまり
   townNightLights.push({ m: fglow, base: 0.34, ph: 0.7 })
-  const stalls = [['わたあめ', 0xd86a8a, oz - 5], ['かきごおり', 0x4a8ac0, oz], ['やきそば', 0xc0552e, oz + 5]] // 屋台（縁日）＝会場の西側に並ぶ
-  for (const [label, col, sz] of stalls) {
-    const sx = ox - 10.5, sy = heightAt(sx, sz), st = new THREE.Group(); st.position.set(sx, sy, sz); st.rotation.y = Math.PI / 2
+  // 屋台（縁日）＝会場のまわりに並ぶ。[名前,屋根色,lx,lz,種類]。種類で店先の縁日小物を出し分け（金魚すくい/ヨーヨー/射的/お面）
+  const stalls = [
+    ['わたあめ', 0xd86a8a, -10, -6, 0], ['かきごおり', 0x4a8ac0, -10, 0, 0], ['やきそば', 0xc0552e, -10, 6, 0], ['たこやき', 0xe0902e, -10, 11, 0], // 西の列＝食べ物
+    ['きんぎょすくい', 0x3a8ac0, 10, -6, 'kingyo'], ['りんごあめ', 0xd0354a, 10, 0, 'ringo'], ['しゃてき', 0x9a6a3a, 10, 6, 'shateki'], ['おめん', 0x6a4a9a, 10, 11, 'omen'], // 東の列＝遊び/甘味
+  ]
+  for (const [label, col, lx, lz, kind] of stalls) {
+    const sx = ox + lx, sz = oz + lz, sy = heightAt(sx, sz), st = new THREE.Group(); st.position.set(sx, sy, sz); st.rotation.y = Math.atan2(ox - sx, oz - sz) // 正面(+z)を櫓へ向ける
     const counter = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 0.8), wood); counter.position.y = 0.63; st.add(counter)
     const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 1.0), woodD); top.position.y = 1.1; st.add(top)
     for (const dx of [-1.05, 1.05]) for (const dz of [-0.4, 0.4]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), woodD); post.position.set(dx, 1.3, dz); st.add(post) }
     const sroof = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.12, 1.3), toon(col)); sroof.position.y = 2.3; st.add(sroof)
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({ map: textTex(label, '#fdf3da', '#b03a2e', false), transparent: true })); sign.position.set(0, 1.98, 0.66); st.add(sign)
+    if (kind === 'kingyo') { const tub = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.4, 0.7), toon(0x2a6a9a)); tub.position.set(0, 0.55, 0.95); st.add(tub); const wsf = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.6), new THREE.MeshToonMaterial({ color: 0x8fd0e8, gradientMap: GRAD, transparent: true, opacity: 0.8 })); wsf.rotation.x = -Math.PI / 2; wsf.position.set(0, 0.76, 0.95); st.add(wsf); for (let q = 0; q < 8; q++) { const fish = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), toon(q % 4 ? 0xe0622a : 0xe0e0e0)); fish.position.set(-0.8 + Math.random() * 1.6, 0.78, 0.7 + Math.random() * 0.5); st.add(fish) } } // 金魚すくいの水槽＋金魚
+    else if (kind === 'omen') { const omenC = [0xe03a3a, 0xf0c020, 0x3a6ad0, 0xf0f0f0]; for (let q = 0; q < 5; q++) { const m = new THREE.Mesh(new THREE.CircleGeometry(0.18, 12), new THREE.MeshBasicMaterial({ color: omenC[q % 4], side: THREE.DoubleSide })); m.position.set(-0.9 + q * 0.45, 1.5, 0.42); st.add(m) } } // 吊り下げたお面（ヒーロー/きつね/おかめ風の色）
+    else if (kind === 'shateki') { for (let q = 0; q < 6; q++) { const pr = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.18), toon([0xd03a4a, 0x3a8ad0, 0xf0c030][q % 3])); pr.position.set(-0.8 + (q % 3) * 0.8, 1.0 + Math.floor(q / 3) * 0.45, 0.2); st.add(pr) } } // 射的の景品の段
+    else if (kind === 'ringo') { for (let q = 0; q < 6; q++) { const ap = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 7), new THREE.MeshToonMaterial({ color: 0xd0203a, gradientMap: GRAD })); ap.position.set(-0.85 + (q % 3) * 0.85, 1.0, 0.42 - Math.floor(q / 3) * 0.18); st.add(ap) } } // りんご飴の並び
     const lan = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffa84e, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); lan.scale.y = 1.3; lan.position.set(-1.0, 1.85, 0.62); st.add(lan)
     st.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(st, 0.03); bonOdori.add(st)
     townNightLights.push({ m: lan, base: 1.5, ph: Math.random() * 6 })
   }
+  // ── 会場の外周をぐるりと囲むぼんぼり（角型の紙提灯のポール）＝盆踊り会場の境界の灯り。夜に灯る ──
+  { const NB = 10, RB = Math.min(13, RR + 3)
+    for (let i = 0; i < NB; i++) { const a = (i / NB) * Math.PI * 2 + 0.15, bx = ox + Math.cos(a) * RB, bz = oz + Math.sin(a) * RB, by = heightAt(bx, bz)
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.6, 6), woodD); pole.position.set(bx, by + 1.3, bz); addOutline(pole, 0.02); bonOdori.add(pole)
+      const bb = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 8), toon(0xf0e6c0)); bb.position.set(bx, by + 2.7, bz); bonOdori.add(bb) // ぼんぼりの紙（昼）
+      const bg = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); bg.position.set(bx, by + 2.7, bz); bonOdori.add(bg) // 夜の灯り
+      townNightLights.push({ m: bg, base: 1.2, ph: i * 0.6 }) } }
   // ── 盆踊りの輪＝浴衣すがたの人々が櫓のまわりを輪になって踊る（＋櫓の上で太鼓を打つ人）。お祭りの“人の営み”＝最大の賑わい。updateFestivalで動かす ──
   const makeDancer = (col) => { const g = new THREE.Group()
     const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 0.95, 8), toon(col)); lower.position.y = 0.55; g.add(lower) // 浴衣の裾（広がり）
@@ -1922,7 +1937,7 @@ function buildShishigaya() {
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
     // ───── やまゆりホーム（特別養護老人ホーム・昭和58年(1983)開園＝二ツ池を見下ろす丘。3階建てRCの介護施設＋車寄せ＋玄関＋入口前の広場。広場では夏に祭りが開かれる＝別会場。実在施設のオリジナルhomage・ロゴ不使用）─────
     const buildYamayuri = (cx, cz, name) => {
-      const PX = 2926, PZ = -575, PY = heightAtYato(PX, PZ) // 入口前の広場（夏祭りの会場＝開催日は2日目）。本体とは別座標（平地に会場を置く）
+      const PX = 2938, PZ = -578, PY = heightAtYato(PX, PZ) // 入口前の広場（夏祭りの会場＝開催日は2日目）。本体(2905,-558)から十分離し祭りの輪/屋台/ぼんぼりが建物に重ならない平地へ
       const ry = Math.atan2(PX - cx, PZ - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 正面(+z=玄関)を広場の方へ向ける
       const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx]
       const W = 30, D = 15, gB = gmin4(cx, cz, W, D), gT = gmax4(cx, cz, W, D), slope = Math.min(8, gT - gB), H = slope + 9.5 // 3階建て
