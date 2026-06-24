@@ -1599,7 +1599,7 @@ function buildShishigaya() {
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
-  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3007, 20, 20], [2990, 13, 9], [2939, -128, 38], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭(=開始地点の前庭＋本通り＋バス停まわりを開ける。狭いと汎行建物が道(makeRoadRibbon)に乗り見えない壁になる・ユーザー指摘2026-06-24で拡張)＋西側ポーチ脇/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋NAMED
+  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3007, 20, 20], [2990, 13, 9], [2939, -128, 38], [2644, 383, 18], [2952, 190, 18], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭(=開始地点の前庭＋本通り＋バス停まわりを開ける。狭いと汎行建物が道(makeRoadRibbon)に乗り見えない壁になる・ユーザー指摘2026-06-24で拡張)＋西側ポーチ脇/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋三石原っぱ/金井公園(夏祭り会場・建物を開ける)＋NAMED
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   const inWaterAny = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p)) // 点が池/川の水面の上か
   // フットプリントを格子サンプルして「testに該当する面積の割合」を返す。割合がしきい値超＝建物がその上に“乗っている”＝不自然
@@ -2296,6 +2296,9 @@ function buildShishigaya() {
       else if (type === 'eat') buildMise(x, z, name, 'eat') // 食堂＝赤提灯＋縁台＋サンプルケース
       else buildMise(x, z, name, 'dagashi') // shop（しんみせ＝駄菓子屋）＝ガチャ＋縁台＋ガラスケース
     }
+    // ── 追加の夏祭り会場（ユーザーの記憶・飛行ピン2026-06-24）：三石原っぱ(1日目)・金井公園(2日目)。離れた会場どうしは「近い方のお囃子」で自然にたどれる ──
+    { const hx = 2644, hz = 383; groundPatch(grp, hx, hz, 30, 24, 0x83a056); FEST_VENUES.push({ name: '三石原っぱ', pos: new THREE.Vector2(hx, hz), days: [1], g: buildBonOdori(hx, heightAtYato(hx, hz), hz) }) } // 三石原っぱ＝草の原っぱ（地面パッドは地形なり）
+    { const kx = 2952, kz = 190; groundPatch(grp, kx, kz, 28, 22, 0x77994a); FEST_VENUES.push({ name: '金井公園', pos: new THREE.Vector2(kx, kz), days: [2], g: buildBonOdori(kx, heightAtYato(kx, kz), kz) }) } // 金井公園＝公園の芝（平地）
     // 公園の遊具（すべり台/ブランコ/砂場/鉄棒/ベンチ）を全公園にインスタンシング配置（1ドロー）。公園ごとに向きを少し変える
     if (parkPos.length) { const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
       const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
