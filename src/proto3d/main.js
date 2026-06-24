@@ -1508,8 +1508,16 @@ function buildBonOdori(ox, oy, oz, grp) {
     const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
   const yukataCols = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96, 0xa83f6a] // 浴衣の色とりどり
   const ND = 10, RD = Math.min(6.0, RR - 3.5) // 踊りの輪の半径（提灯ポールの内側）
-  for (let i = 0; i < ND; i++) { const d = makeDancer(yukataCols[i % yukataCols.length]); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD, a0: (i / ND) * Math.PI * 2, ph: i * 0.73, baseY: oy, armL: d.armL, armR: d.armR, beat: false }) }
+  for (let i = 0; i < ND; i++) { const d = makeDancer(yukataCols[i % yukataCols.length]); if (i === 3 || i === 7) d.g.scale.setScalar(0.66) /*輪に子どもも混ぜる*/; bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD, a0: (i / ND) * Math.PI * 2, ph: i * 0.73, baseY: oy, armL: d.armL, armR: d.armR, beat: false, style: i % 3 }) } // styleで所作を変える（0交互/1万歳/2手拍子）
   { const d = makeDancer(0xe0e0e0); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.85, armL: d.armL, armR: d.armR, beat: true }) } // 櫓の上で太鼓を打つ人（白い法被）
+  // 子どもが金魚袋やヨーヨーを持って走り回る（屋台のあたりをふらふら＝縁日の生気）
+  const heldItem = (kind) => { const it = new THREE.Group()
+    if (kind === 'kingyo') { const bag = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 7), new THREE.MeshToonMaterial({ color: 0xcfe8f0, gradientMap: GRAD, transparent: true, opacity: 0.82 })); bag.scale.y = 1.25; it.add(bag); const fish = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), toon(0xe0622a)); fish.position.y = -0.02; it.add(fish) } // 金魚袋
+    else { const yo = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 7), toon([0xe03a5a, 0x3a8ad0, 0xf0c020][Math.floor(Math.random() * 3)])); it.add(yo) } // ヨーヨー
+    return it }
+  for (let i = 0; i < 3; i++) { const d = makeDancer([0xe06a8a, 0x4a9ad0, 0xf0c84a][i]); d.g.scale.setScalar(0.6) // 子ども
+    const item = heldItem(i === 0 ? 'kingyo' : 'yoyo'); item.position.set(0.32, 1.15, 0.25); d.g.add(item) // 手に持つ
+    bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox - 8 + i * 6, cz: oz + 9, r: 3.5 + i, ph: i * 2.1, baseY: oy, armL: d.armL, armR: d.armR, roam: true }) }
   return bonOdori
 }
 // 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
@@ -5158,6 +5166,11 @@ function spawnFirework() {
   // 開いた瞬間の大きな閃光（“ぱっ”と一目で分かる・空を見渡せば必ず気づく）
   const flash = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 0.5, 0.88), transparent: true, opacity: 0.95, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
   flash.position.set(cx, cy, cz); flash.userData = { flash: true, age: 0 }; fireworksGroup.add(flash)
+  // 近くの水面に花火が映り込む＝二ツ池のほとり(やまゆり等)で最高にエモい。会場の近く(140m以内)に水があれば、その水面を花火の色で薄くゆらめかせる
+  let bw = null, bwd = 140 * 140
+  for (const w of SG.waters) { if (w.p.length < 3) continue; let wx = 0, wz = 0; for (const q of w.p) { wx += q[0]; wz += q[1] } wx /= w.p.length; wz /= w.p.length; const dd = (wx - fx) * (wx - fx) + (wz - fz) * (wz - fz); if (dd < bwd) { bwd = dd; bw = [wx, wz] } }
+  if (bw) { const wy = heightAt(bw[0], bw[1]), disc = new THREE.Mesh(new THREE.CircleGeometry(10 + Math.random() * 7, 22), new THREE.MeshBasicMaterial({ color: c1, transparent: true, opacity: 0.5, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
+    disc.rotation.x = -Math.PI / 2; disc.position.set(bw[0], wy + 0.13, bw[1]); disc.userData = { water: true, age: 0 }; fireworksGroup.add(disc) } // 水面の映り込み（平たい加算ディスク・ゆっくり消える）
   playFireworkBoom() // 遠くの「ドーン」＋火花のパチパチ（夏のクライマックスに音を）
 }
 // 花火の音＝自前合成。遠い夜空の「ドーン」＝深い低音の胴＋破裂の空気＋丘にこだまする余韻（電車のしゅぽっぽにならないよう低音を効かせ響かせる）。getSfxOut経由でクリップ防止。
@@ -5895,10 +5908,16 @@ function updateFestival(dt) {
   if (festFigs.length) { const ft = performance.now() * 0.001
     for (const d of festFigs) {
       if (d.beat) { const b = Math.sin(ft * 7.0); d.g.position.set(d.cx, d.baseY, d.cz); d.g.rotation.y = 0; d.armL.rotation.x = -1.5 + b * 0.5; d.armR.rotation.x = -1.5 - b * 0.5 } // 太鼓打ち＝腕を速く上下
+      else if (d.roam) { const wx = d.cx + Math.sin(ft * 0.5 + d.ph) * d.r, wz = d.cz + Math.cos(ft * 0.41 + d.ph * 1.3) * d.r // 子どもが走り回る（リサージュのふらふら歩き）
+        d.g.position.set(wx, d.baseY + Math.abs(Math.sin(ft * 5.5 + d.ph)) * 0.13, wz)
+        d.g.rotation.y = Math.atan2(Math.cos(ft * 0.5 + d.ph), -Math.sin(ft * 0.41 + d.ph * 1.3)) // 進行方向を向く
+        const rs = Math.sin(ft * 6 + d.ph); d.armL.rotation.x = rs * 1.1; d.armR.rotation.x = -rs * 1.1 } // 走る腕振り
       else { const a = d.a0 + ft * 0.085, sw = Math.sin(ft * 1.9 + d.ph) // ゆっくり輪が回る
         d.g.position.set(d.cx + Math.cos(a) * d.r, d.baseY + Math.abs(Math.sin(ft * 1.9 + d.ph)) * 0.07, d.cz + Math.sin(a) * d.r)
         d.g.rotation.y = -a + Math.PI / 2 // 進行方向（接線）を向く＝輪に沿って踊る
-        d.armL.rotation.x = -0.5 + sw * 0.95; d.armR.rotation.x = -0.5 - sw * 0.95 } // 腕を交互に上下（盆踊りの手）
+        if (d.style === 1) { d.armL.rotation.x = -1.45 + sw * 0.3; d.armR.rotation.x = -1.45 - sw * 0.3; d.armL.rotation.z = 0; d.armR.rotation.z = 0 } // 両手を上げて
+        else if (d.style === 2) { const cl = Math.abs(Math.sin(ft * 3.2 + d.ph)); d.armL.rotation.x = -1.0; d.armR.rotation.x = -1.0; d.armL.rotation.z = 0.5 - cl * 0.35; d.armR.rotation.z = -0.5 + cl * 0.35 } // 手拍子（前で合わせる）
+        else { d.armL.rotation.x = -0.5 + sw * 0.95; d.armR.rotation.x = -0.5 - sw * 0.95; d.armL.rotation.z = 0; d.armR.rotation.z = 0 } } // 腕を交互に上下
     } }
   if (!audioStarted) return
   const out = getFestOut(), ctx = listener.context
@@ -6886,6 +6905,7 @@ function update(dt) {
   for (const pts of [...fireworksGroup.children]) {
     const u = pts.userData; u.age += dt
     if (u.flash) { const k = u.age / 0.42; pts.scale.setScalar(1 + k * 3.2); pts.material.opacity = Math.max(0, 0.95 * (1 - k)); if (u.age > 0.42) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 中心フラッシュ＝ぱっと開いてすぐ消える
+    if (u.water) { pts.material.opacity = Math.max(0, 0.5 * (1 - u.age / 1.5)); if (u.age > 1.5) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 水面の映り込み＝広がらずゆっくり消える
     const pa = pts.geometry.attributes.position, grav = u.grav || 2.2, drag = u.drag || 0.95, life = u.life || 2.6
     for (let i = 0; i < u.vel.length; i++) {
       const v = u.vel[i]
