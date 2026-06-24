@@ -5907,6 +5907,26 @@ function getFestOut() {
   festGain.connect(lp); lp.connect(getMaster())
   return festGain
 }
+let taisoGain = null, taisoNextBar = 0, taisoBar = 0
+function getTaisoOut() { const ctx = listener.context; if (taisoGain && taisoGain.context === ctx) return taisoGain
+  taisoGain = ctx.createGain(); taisoGain.gain.value = 0
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200 // 朝の体操のピアノらしく少し明るめ
+  taisoGain.connect(lp); lp.connect(getMaster()); return taisoGain }
+function taisoPiano(t0, freq, dur, vol) { // 朝の体操の素朴なピアノ音（三角波＋倍音・速い立ち上がりと減衰）
+  const ctx = listener.context
+  const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = freq
+  const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = freq * 2
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+  const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t0); g2.gain.exponentialRampToValueAtTime(vol * 0.32, t0 + 0.006); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.7)
+  o.connect(g); g.connect(getTaisoOut()); o2.connect(g2); g2.connect(getTaisoOut()); o.start(t0); o.stop(t0 + dur + 0.05); o2.start(t0); o2.stop(t0 + dur + 0.05) }
+// 朝の体操曲＝完全オリジナルの明るい旋律（実在のラジオ体操の曲は使わない）。1小節2秒・8音
+const TAISO_MEL = [
+  [[0, 523, 0.2], [0.25, 659, 0.2], [0.5, 784, 0.2], [0.75, 659, 0.2], [1.0, 523, 0.2], [1.25, 587, 0.2], [1.5, 659, 0.36], [1.75, 784, 0.2]],
+  [[0, 587, 0.2], [0.25, 698, 0.2], [0.5, 880, 0.2], [0.75, 698, 0.2], [1.0, 587, 0.2], [1.25, 523, 0.2], [1.5, 494, 0.36], [1.75, 587, 0.2]],
+]
+function scheduleTaisoBar(t0) { const mel = TAISO_MEL[taisoBar % TAISO_MEL.length]; taisoBar++
+  for (const [b, f, d] of mel) taisoPiano(t0 + b, f, d, 0.085)
+  for (const b of [0, 1]) taisoPiano(t0 + b, 196, 0.2, 0.055) } // 「1,2」の数え＝低いベース
 function festTaiko(t0, vol) { // 太鼓のドン（低いサインの下降＋ばちの当たり）
   const ctx = listener.context
   const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(155, t0); o.frequency.exponentialRampToValueAtTime(56, t0 + 0.18)
@@ -5971,6 +5991,12 @@ function festClap(t0, vol) { // 手拍子＝乾いた短いパチ（バンドパ
 function updateTaiso() { // ラジオ体操＝早朝だけ、号令に合わせて全員が体操（数秒ごとにポーズが変わる・腕を上/横/前/ねじり）
   const on = (onYato || area === 'yato') && tday > 0.02 && tday < 0.14
   if (radioTaiso.visible !== on) radioTaiso.visible = on
+  if (audioStarted) { // 朝の体操曲（オリジナル）＝校庭(3124,-186)に近いほど大きく、早朝だけ。音をたどって体操の輪へ
+    const out = getTaisoOut(), ctx = listener.context, dist = Math.hypot(boy.position.x - 3124, boy.position.z + 186)
+    const da = THREE.MathUtils.clamp((160 - dist) / (160 - 10), 0, 1), target = (on ? 0.5 : 0) * da
+    out.gain.setTargetAtTime(target, ctx.currentTime, 0.4)
+    if (target > 0.004) { const now = ctx.currentTime; if (taisoNextBar < now + 0.1) taisoNextBar = now + 0.1; while (taisoNextBar < now + 0.7) { scheduleTaisoBar(taisoNextBar); taisoNextBar += 2.0 } }
+  }
   if (!on || !taisoFigs.length) return
   const t = performance.now() * 0.001, phase = (t * 0.5) % 4 // 0..4の4ポーズをゆっくり巡る
   for (const f of taisoFigs) {
