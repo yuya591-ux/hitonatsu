@@ -1443,7 +1443,8 @@ function makeShop(x, z, rot, opt) {
 const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自販機）。nfで点灯＝夜のエモさ
 const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori) // 盆踊り会場（櫓＋提灯）＝小学校の校庭。開催日だけ姿を見せる
 // 盆踊りの会場（櫓＋紅白幕＋太鼓＋提灯ガーランド＋屋台）を任意の場所(ox,oy,oz)に建てる。bonOdoriグループに入れ開催日だけ姿を見せ夜に灯る。獅子ヶ谷小学校の校庭(3124,-186)など複数会場で共用（ユーザー要望2026-06-24）
-function buildBonOdori(ox, oy, oz) {
+function buildBonOdori(ox, oy, oz, grp) {
+  const bonOdori = grp || new THREE.Group(); if (!grp) { bonOdori.visible = false; scene.add(bonOdori) } // grp省略時は自前のグループを作って返す＝会場ごとに開催日で表示を切替（複数会場対応）
   const wood = toonMap(0x8a6038, woodTex), woodD = toonMap(0x5e4226, woodTex)
   const yag = new THREE.Group(); yag.position.set(ox, oy, oz)
   const S = 1.35 // 櫓の半幅
@@ -1481,7 +1482,10 @@ function buildBonOdori(ox, oy, oz) {
     st.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(st, 0.03); bonOdori.add(st)
     townNightLights.push({ m: lan, base: 1.5, ph: Math.random() * 6 })
   }
+  return bonOdori
 }
+// 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
+const FEST_VENUES = []
 // ───────── 新エリア『獅子ヶ谷』＝実データ生成（国土地理院DEM5A＋OpenStreetMap）。中心サンライズ北寺尾=game(3000,0)・実標高・実建物/実道/実池 ─────────
 const pip = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) c = !c } return c } // 点が多角形内か
 function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分割（vArr/iArrへ追記）。yfn(cx,cz)=面の高さ
@@ -1581,6 +1585,7 @@ function buildShishigaya() {
     // 当時(〜1995)実在のマンション（不動産DBで特定→GSIジオコーディング）。[x,z,'apt',名前,clearR,階数]
     [3362, -24, 'apt', 'ニューハイツ北寺尾', 22, 4], [2984, 354, 'apt', 'コスモ綱島グランステージ', 24, 6], [3387, 467, 'apt', '獅子ヶ谷ハイツ', 36, 5],
     [2943, 557, 'apt', '二ツ池ハイネス', 22, 5], // 獅子ケ谷2-15-3・1980・二ツ池のそば。※エンゼルハイム(2-35-35)はワールド外(>680m)で保留
+    [2905, 558, 'yamayuri', 'やまゆりホーム', 30], // 特養・昭和58(1983)開園・獅子ケ谷2-15-18＝二ツ池を見下ろす丘。入口前の広場で夏祭り（2日目）。位置は仮置き＝ユーザーの📍ピンで要調整
     [1939, 81, 'biento', 'ビエント横濱菊名', 24, 3], // ユーザー指定ピン(1939,-81)・師岡の高台(約62m)。3階建て＝周りの家々より若干高め＋屋上に外階段で登れる（2026-06-23・位置をユーザー指定に修正）
     // 施設系（神社・寺・公園/広場）＝OSM POIを1件ずつ。地元感の核
     [2960, -335, 'shrine', '神明社', 20], // ユーザー指定ピン＝game(2960,335)。z反転前は-335。敷地ぶん広めにclearR
@@ -1901,6 +1906,23 @@ function buildShishigaya() {
       const cart = (lx, lz) => { const [wx, wz] = f(lx, lz), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.BoxGeometry(0.5, 0.55, 0.72), new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.7 }), wx, wy + 0.45, wz, ry, true)) } // ショッピングカート
       cart(-8, 11); cart(-7.4, 11); cart(-6.8, 11)
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
+    // ───── やまゆりホーム（特別養護老人ホーム・昭和58年(1983)開園＝二ツ池を見下ろす丘。3階建てRCの介護施設＋車寄せ＋玄関＋入口前の広場。広場では夏に祭りが開かれる＝別会場。実在施設のオリジナルhomage・ロゴ不使用）─────
+    const buildYamayuri = (cx, cz, name) => {
+      const PX = 2926, PZ = -575, PY = heightAtYato(PX, PZ) // 入口前の広場（夏祭りの会場＝開催日は2日目）。本体とは別座標（平地に会場を置く）
+      const ry = Math.atan2(PX - cx, PZ - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 正面(+z=玄関)を広場の方へ向ける
+      const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx]
+      const W = 30, D = 15, gB = gmin4(cx, cz, W, D), gT = gmax4(cx, cz, W, D), slope = Math.min(8, gT - gB), H = slope + 9.5 // 3階建て
+      grp.add(mk(new THREE.BoxGeometry(W, H, D), new THREE.MeshToonMaterial({ color: 0xe6dfcd, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide }), cx, gB + H / 2, cz, ry, true)) // 本体（クリームのRC＋窓の列）
+      grp.add(mk(new THREE.BoxGeometry(W + 0.6, 0.7, D + 0.6), toon(0xc8c2b2), cx, gB + H + 0.3, cz, ry, true)) // 陸屋根パラペット
+      const [ax, az] = f(0, D / 2 + 2.6); grp.add(mk(new THREE.BoxGeometry(8, 0.4, 5), toon(0xd8d2c2), ax, heightAtYato(ax, az) + 3.0, az, ry, true)) // 車寄せの庇
+      for (const lx of [-3.4, 3.4]) { const [px, pz] = f(lx, D / 2 + 4.6); grp.add(mk(new THREE.CylinderGeometry(0.18, 0.18, 3.0, 8), toon(0xe7e3d7), px, heightAtYato(px, pz) + 1.5, pz, 0, true)) } // 車寄せの柱2本
+      grp.add(mk(new THREE.PlaneGeometry(4.0, 2.4), new THREE.MeshToonMaterial({ color: 0x8fb0bf, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), cx + fwd[0] * (D / 2 + 0.06), gB + slope + 1.3, cz + fwd[1] * (D / 2 + 0.06), ry)) // 玄関の自動ドア
+      grp.add(mk(new THREE.PlaneGeometry(8, 1.4), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a6b4a', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (D / 2 + 0.2), gB + H - 1.2, cz + fwd[1] * (D / 2 + 0.2), ry)) // 名前看板
+      addBox(cx, cz, W / 2, D / 2, ry, 0.3) // 当たり判定
+      groundPatch(grp, PX, PZ, 22, 18, 0xcbbf9c) // 入口前の広場（明るい土／砂利の開けた地面）
+      for (const [tx, tz, ts, cc] of [[PX - 11, PZ + 8, 1.1, 0x5f8a40], [PX + 11, PZ + 8, 1.0, 0x6f9a47], [PX - 11, PZ - 9, 1.05, 0x577e3a], [PX + 11, PZ - 9, 0.95, 0x5f8a40]]) { const ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.28, 1.6 * ts, 5), toon(0x6a4e34), tx, ty + 0.8 * ts, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(1.9 * ts, 0), toon(cc), tx, ty + 1.6 * ts + 1.3 * ts, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) } // 広場のまわりの木立（自然豊かな丘）
+      FEST_VENUES.push({ name: 'やまゆりホーム', pos: new THREE.Vector2(PX, PZ), days: [2], g: buildBonOdori(PX, PY, PZ) }) // 夏祭り＝開催日は2日目（学校とは別の日）
+    }
     // ───── 個人商店（米店/駄菓子屋/食堂/酒屋/たばこ屋/八百屋/花屋）＝木造の腰壁＋すりガラスの引き戸＋庇＋暖簾。kindで店先の小物を出し分け（米袋/ガチャ・縁台/赤提灯・サンプルケース/酒ケース/たばこ自販機/野菜の台/花のバケツ）─────
     const buildMise = (cx, cz, name, kind) => { const gB = gmin4(cx, cz, 9, 8), gT = gmax4(cx, cz, 9, 8), slope = Math.min(6, gT - gB), ry = faceRoad(cx, cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)], W = 8, D = 7, H1 = 2.7, H2 = 2.4, H = slope + H1 + H2
       const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx], eaveY = gB + slope + H1 - 0.1
@@ -2255,7 +2277,7 @@ function buildShishigaya() {
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
-      else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); buildBonOdori(3124, heightAtYato(3124, -186), -186) } // 校庭(3124,-186)に夏の盆踊り会場（FEST_POSと一致＝お囃子/花火もここ）2026-06-24 ユーザー要望
+      else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); FEST_VENUES.push({ name: '校庭', pos: new THREE.Vector2(3124, -186), days: [1], g: buildBonOdori(3124, heightAtYato(3124, -186), -186) }) } // 校庭(3124,-186)に夏の盆踊り会場＝開催日は1日目。お囃子/花火もこの会場（2026-06-24 ユーザー要望）
         else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 36, 30); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } // 団地3棟（設計どおりのL字配置を保つ＝棟どうしは重ねない）。塊ごと道よけ（判定footprintを36×30に広げて棟の端まで道に乗らない場所を探す）
         else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
@@ -2265,6 +2287,7 @@ function buildShishigaya() {
       else if (type === 'conbini') buildConbini(x, z, name) // 90年代の郊外型コンビニ（一面ガラス＋電照看板＋駐車場＋のぼり＋自販機）
       else if (type === 'auto') buildCarShop(x, z, name) // 80〜90年代の自動車販売店（ガラスのショールーム＋展示車＋万国旗＝家のそばの旧セブン-イレブン跡）
       else if (type === 'super') { const [sx, sz] = nudgeOffRoad(x, z, 22, 16); buildSuper(sx, sz, name) } // 町のスーパー（マミート等）＝大きな箱＋赤看板＋駐車場。大きいので専用サイズで道よけ
+      else if (type === 'yamayuri') buildYamayuri(x, z, name) // やまゆりホーム（特養＋入口前の広場＝夏祭りの会場・2日目）
       else if (type === 'liquor') buildMise(x, z, name, 'liquor') // 酒屋＝店先に酒/ビールのケース＋自販機（コンビニ以前の町の店）
       else if (type === 'tobacco') buildMise(x, z, name, 'tobacco') // たばこ屋＝たばこ自販機＋ショーケース（酒も少し）
       else if (type === 'green') buildMise(x, z, name, 'green') // 八百屋＝店先にカラフルな野菜の台
@@ -5087,7 +5110,8 @@ let fwTimer = 3
 function spawnFirework() {
   const N = 150
   // ★花火は“おまつり会場(校庭)の上空”に大きく開く。以前は原点(はらっぱ)上空に出ていて、町の会場からは遠くて見えなかった不具合を修正。
-  const oy0 = heightAt(FEST_POS.x, FEST_POS.y), cx = FEST_POS.x + (Math.random() - 0.5) * 74, cy = oy0 + 44 + Math.random() * 26, cz = FEST_POS.y + (Math.random() - 0.5) * 64 // 会場＝獅子ヶ谷小学校の校庭(FEST_POS)の上空へ。校庭は高台(約34.5m)なので地面高ぶん持ち上げる（2026-06-24移設）
+  const ven = (typeof activeVenue === 'function' && activeVenue()) || FEST_VENUES[0], fx = ven ? ven.pos.x : 3124, fz = ven ? ven.pos.y : -186 // 今夜の会場の上空へ（会場ごとに別の日）
+  const oy0 = heightAt(fx, fz), cx = fx + (Math.random() - 0.5) * 74, cy = oy0 + 44 + Math.random() * 26, cz = fz + (Math.random() - 0.5) * 64 // 会場の上空。会場は高台のこともあるので地面高ぶん持ち上げる（2026-06-24移設・複数会場対応）
   const pos = new Float32Array(N * 3); const vel = []
   for (let i = 0; i < N; i++) {
     pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
@@ -5822,13 +5846,14 @@ function scheduleFestBar(t0) {
   const mel = FEST_MEL[festBar % FEST_MEL.length]; festBar++
   for (const [b, f, d] of mel) festFlute(t0 + b, f, d, 0.12) // 篠笛の旋律（呼びと応えを交互に）
 }
+function activeVenue() { return FEST_VENUES.find((v) => v.days.indexOf(day) >= 0) || null } // 今夜の会場（会場ごとに別の日なので最大1つ）
 function updateFestival(dt) {
-  bonOdori.visible = FESTIVAL.days.indexOf(day) >= 0 // 盆踊り会場（校庭の櫓・提灯）は開催日だけ姿を見せる（音の有無に関わらず）
+  for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(day) >= 0 // 各会場は自分の開催日だけ姿を見せる（音の有無に関わらず）
   if (!audioStarted) return
   const out = getFestOut(), ctx = listener.context
-  const onDay = FESTIVAL.days.indexOf(day) >= 0
+  const ven = activeVenue(), onDay = !!ven
   const tw = onDay ? THREE.MathUtils.smoothstep(tday, FESTIVAL.from, FESTIVAL.from + 0.05) * (1 - THREE.MathUtils.smoothstep(tday, FESTIVAL.to - 0.03, FESTIVAL.to)) : 0 // 開催日の夕方〜夜だけ
-  const dist = Math.hypot(boy.position.x - FEST_POS.x, boy.position.z - FEST_POS.y)
+  const dist = ven ? Math.hypot(boy.position.x - ven.pos.x, boy.position.z - ven.pos.y) : 1e9
   const da = Math.pow(THREE.MathUtils.clamp((AUDIO.festMaxDist - dist) / (AUDIO.festMaxDist - AUDIO.festRefDist), 0, 1), 1.4) // 近いほど大・遠いほど小＝音をたどれる
   const target = AUDIO.festVol * tw * da
   out.gain.setTargetAtTime(target, ctx.currentTime, 0.4)
@@ -6802,7 +6827,7 @@ function update(dt) {
   if (tvGlowMesh) { const flick = THREE.MathUtils.clamp(0.62 + 0.42 * Math.sin(tsec * 6.8) * Math.sin(tsec * 11.4 + 0.6), 0.22, 1) // ブラウン管TVの不規則な明滅（速い2波の積＝チラチラ）
     tvGlowMesh.material.opacity = nf * 0.7 * flick } // 夜の家々の窓にTVの青い灯りがちらつく（1990年代の夕暮れ）
   // 花火（縁日の夜の“決まった時間だけ”＝花火大会。一晩中は上げない。FIREWORK.days/from/toで調整）
-  const fwOn = FIREWORK.days.indexOf(day) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
+  const fwOn = (typeof activeVenue === 'function' ? !!activeVenue() : FIREWORK.days.indexOf(day) >= 0) && tday >= FIREWORK.from && tday <= FIREWORK.to // 花火は今夜どこかで開催していれば（会場ごとに別の日）
   if (fwOn) {
     fwTimer -= dt
     if (fwTimer <= 0) { fwTimer = 1.2 + Math.random() * 1.8; spawnFirework() } // 連発を増やす＝にぎやかな花火大会
