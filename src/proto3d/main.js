@@ -6526,7 +6526,8 @@ function update(dt) {
   if (typeof window !== 'undefined' && window.__fogFar) { scene.fog.near = 9000; scene.fog.far = 12000 } // 検証用：俯瞰を見通す（本番では未設定）
   else if (flying) { scene.fog.near = 80; scene.fog.far = 900 } // 飛行モード：空から遠景まで見渡せる
   else if (onRoofHi) { scene.fog.near = 80; scene.fog.far = 720 - weather * 200 } // 屋上：高所は霞が晴れて、町・二ツ池・遠くの山まで見渡せる
-  else if (area === 'yato') { scene.fog.near = 75 - weather * 20; scene.fog.far = 460 - weather * 190 } // 獅子ヶ谷：少し離れた建物も色・形がちゃんと見えるよう霞を奥へ(165→460)。世界の縁(±1080)はまだ霞で隠れる＝箱庭感は保つ（ユーザー要望2026-06-23）
+  else if (area === 'yato') { scene.fog.near = 75 - weather * 20; scene.fog.far = 460 - weather * 190
+    if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 90, 0, 1); scene.fog.near -= altF * 22; scene.fog.far -= altF * 70 } } // 高く浮くほど遠景がやわらかく霞む＝“夢で空から見た町”の俯瞰（控えめ・町は見える範囲）2026-06-24
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
   if (typeof window === 'undefined' || !window.__freezeCam) { const wf = (flying || onRoofHi) ? 1300 : 600; if (camera.far !== wf) { camera.far = wf; camera.updateProjectionMatrix() } } // 屋上/飛行は遠くまで描画（検証のフリーズカメラには触れない）
   // 光のボケ：雨×暗さ（夕暮れ〜夜）で軒の灯りがにじむ玉ボケ。ゆっくり昇って明滅
