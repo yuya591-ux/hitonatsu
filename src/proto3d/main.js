@@ -659,7 +659,7 @@ function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = fal
   const ext = Math.min(width * 0.5, 1.1) // 端を少し伸ばす＝隣の区間と重ねて曲がり角・交差点の三角すき間（緑がのぞく）を路面で埋める
   x0 -= dx * ext; z0 -= dz * ext; x1 += dx * ext; z1 += dz * ext
   const len = rawLen + ext * 2, segs = Math.max(8, Math.round(len / 1.6)) // 細かく分割＝坂や山頂でも地形にめり込まず路面がはっきり乗る
-  const mk = (w, yoff, col, mapTex, dash) => {
+  const mk = (w, yoff, col, mapTex, dash, em) => {
     const verts = [], uvs = [], idx = []
     for (let i = 0; i <= segs; i++) {
       const t = i / segs, cx = x0 + (x1 - x0) * t, cz = z0 + (z1 - z0) * t
@@ -667,16 +667,16 @@ function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = fal
     }
     for (let i = 0; i < segs; i++) { if (dash && i % 2 === 1) continue; const a = i * 3; idx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5) } // 3頂点×左右2枚の帯。破線は1セグおき
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); geo.setIndex(idx); geo.computeVertexNormals()
-    const mat = new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: mapTex || null, side: THREE.DoubleSide }) // 両面＝斜面で面が裏返っても路面が消えない
+    const mat = new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: mapTex || null, emissive: new THREE.Color(em || 0), side: THREE.DoubleSide }) // 両面＝斜面で面が裏返っても路面が消えない。emissive＝日陰でも真っ黒に潰れない下駄
     const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m); return m
   }
   if (concrete) { // しっかりしたコンクリート舗装。中央頂点で地形に沿わせ緑がのぞかない。路肩も路面も“同じグレー”で統一＝普通の道路（ユーザー要望）
-    mk(width + 1.0, 0.13, 0x8f9088, null)   // 路肩のすそ（路面と同色グレー＝縁の緑のぞきを隠すだけ。濃い縁石はやめて色を統一）
-    mk(width, 0.19, 0x8f9088, null)          // コンクリート舗装（中明度グレー。両面表示で斜面でも消えない）
-    if (centerline) mk(0.42, 0.25, 0xf2efe4, null, true) // 白の破線センターライン（太め）
+    mk(width + 1.0, 0.13, 0x8f9088, null, false, 0x303134)   // 路肩のすそ（路面と同色グレー＝縁の緑のぞきを隠すだけ。濃い縁石はやめて色を統一）
+    mk(width, 0.19, 0x8f9088, null, false, 0x303134)          // コンクリート舗装（中明度グレー＋emissive下駄＝坂/影でも黒く潰れない）
+    if (centerline) mk(0.42, 0.25, 0xf2efe4, null, true, 0x3a3a34) // 白の破線センターライン（太め）
   } else {
-    mk(width, 0.06, 0xb0a488, dirtTex)       // 田舎道（土のテクスチャ＝歩く主役）
-    if (centerline) mk(0.3, 0.09, 0xcfc9bb, dirtTex)
+    mk(width, 0.06, 0xb0a488, dirtTex, false, 0x2e2618)       // 田舎道（土のテクスチャ＝歩く主役・emissive下駄）
+    if (centerline) mk(0.3, 0.09, 0xcfc9bb, dirtTex, false, 0x2e2618)
   }
   // 手描きリボンも獅子ヶ谷の道マスクに塗る＝この道に沿って必ず歩ける（SG.roadsに無い手置きの道の取りこぼし対策）。範囲外(旧エリア/町)はrmaskIdx=-1で自動的に無視
   const hwm = width / 2 + 0.6, nm = Math.max(2, Math.round(len)); for (let i = 0; i <= nm; i++) { const t = i / nm, cx = x0 + (x1 - x0) * t, cz = z0 + (z1 - z0) * t; for (let s = -hwm; s <= hwm; s += 1) { const id = rmaskIdx(cx + px * s, cz + pz * s); if (id >= 0) yatoRoadMask[id] = 1 } }
@@ -2177,13 +2177,14 @@ function buildShishigaya() {
         const rb = ro, eb = eo
         for (let s = 0; s <= n; s++) { const t = s / n, cx = x0 + dx * t, cz = z0 + dz * t // 中心線に沿って 左/中央/右 の3点を地形高で（中央頂点があるので尾根で地形が路面を突き抜けない＝埋もれ防止）
           for (const sd of [-1, 0, 1]) { const qx = cx + nx * hw * sd, qz = cz + nz * hw * sd; rv.push(qx, heightAtYato(qx, qz) + lift, qz); ruv.push((sd + 1) / 2, l * t / 3) }
-          for (const sd of [-1, 1]) { const qx = cx + nx * (hw + 0.5) * sd, qz = cz + nz * (hw + 0.5) * sd; ev.push(qx, heightAtYato(qx, qz) + lift - 0.05, qz) } } // 道のふち（少し広い下地）＝縁取り
+          for (const sd of [-1, 1]) { const ex = cx + nx * (hw + 0.5) * sd, ez = cz + nz * (hw + 0.5) * sd; ev.push(ex, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift - 0.06, ez) } } // 道のふち（少し広い下地）＝縁取り。★高さは路面の外端基準−6cm＝横斜面でも縁が路面より上に出て黒帯になるのを防ぐ（自分の地形高だと斜面で路面を覆う・ユーザー指摘2026-06-24）
         for (let s = 0; s < n; s++) { const a = rb + s * 3; ridx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5); const e = eb + s * 2; eidx.push(e, e + 2, e + 1, e + 1, e + 2, e + 3) }
         ro += (n + 1) * 3; eo += (n + 1) * 2 } }
     if (!rv.length) return
-    if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, side: THREE.DoubleSide }))) }
+    if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x33271a : 0x2c2f34), side: THREE.DoubleSide }))) } // 縁取りにもemissive下駄＝日陰でも黒く沈まない
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
-    scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, side: THREE.DoubleSide }))) }
+    // emissive＝光に依存しない下駄＝日陰の坂や建物の影でも路面が真っ黒に潰れず“読める灰/土色”を保つ（黒塗り解消・ユーザー指摘2026-06-24）
+    scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x40341f : 0x42464d), side: THREE.DoubleSide }))) }
   buildRoads('paved', asphaltTex, 0.42, 0x5b5e64)   // 舗装路（アスファルト＋濃い縁取り・地形追従で埋もれ防止）
   buildRoads('path', yatoDirtTex, 0.34, 0x8a6f3e)   // 土の小道（＋濃い土の縁取り）
   // 占有グリッド（建物の場所を記録→木を建物に重ねない）
