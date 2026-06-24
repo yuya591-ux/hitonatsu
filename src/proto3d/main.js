@@ -1987,7 +1987,7 @@ function buildShishigaya() {
       FEST_VENUES.push({ name: 'やまゆりホーム', pos: new THREE.Vector2(PX, PZ), days: [2], g: buildBonOdori(PX, PY, PZ) }) // 夏祭り＝開催日は2日目（学校とは別の日）
     }
     // ───── 個人商店（米店/駄菓子屋/食堂/酒屋/たばこ屋/八百屋/花屋）＝木造の腰壁＋すりガラスの引き戸＋庇＋暖簾。kindで店先の小物を出し分け（米袋/ガチャ・縁台/赤提灯・サンプルケース/酒ケース/たばこ自販機/野菜の台/花のバケツ）─────
-    const buildMise = (cx, cz, name, kind) => { const gB = gmin4(cx, cz, 9, 8), gT = gmax4(cx, cz, 9, 8), slope = Math.min(6, gT - gB), ry = faceRoad(cx, cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)], W = 8, D = 7, H1 = 2.7, H2 = 2.4, H = slope + H1 + H2
+    const buildMise = (cx, cz, name, kind, forceRy) => { const gB = gmin4(cx, cz, 9, 8), gT = gmax4(cx, cz, 9, 8), slope = Math.min(6, gT - gB), ry = forceRy != null ? forceRy : faceRoad(cx, cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)], W = 8, D = 7, H1 = 2.7, H2 = 2.4, H = slope + H1 + H2 // forceRyで店先の向きを明示指定（faceRoadが裏の道を拾う時の上書き）
       const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx], eaveY = gB + slope + H1 - 0.1
       grp.add(mk(new THREE.BoxGeometry(W, H, D), toon(kind === 'eat' ? 0xd8c9a8 : 0xcfc4a8), cx, gB + H / 2, cz, ry, true)) // 木造2階の本体（1階=店・2階=住居）
       const fglass = new THREE.MeshToonMaterial({ color: 0xc9d2cf, gradientMap: GRAD, transparent: true, opacity: 0.62, side: THREE.DoubleSide }) // すりガラスの引き戸
@@ -2334,7 +2334,7 @@ function buildShishigaya() {
     // parkPos は外側スコープで宣言済（柵をcellOf定義後に置くため）
     for (const [x0n, z0n, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
       // 小規模の店/施設は住所点が道の上に落ちることがある→最寄りの空き地へ少しずらす（道に乗った建物を排除・店先は道沿いのまま。寺社/屋敷/学校は実位置・形が大きいので動かさない）・ユーザー指摘2026-06-24
-      const small = type === 'shop' || type === 'rice' || type === 'eat' || type === 'liquor' || type === 'tobacco' || type === 'green' || type === 'flower' || type === 'conbini' || type === 'auto' || type === 'koban' || type === 'kinder'
+      const small = type === 'shop' || type === 'rice' || type === 'eat' || type === 'liquor' || type === 'tobacco' || type === 'conbini' || type === 'auto' || type === 'koban' || type === 'kinder' // 八百屋/花屋(green/flower)はユーザーの飛行ピン位置を厳守＝道よけ(nudge)しない（ずれると向き/位置が崩れるため）
       const [x, z] = small ? nudgeOffRoad(x0n, z0n, 9, 8) : [x0n, z0n]
       if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else if (name === '渋沢稲荷神社') buildInari(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
@@ -2353,8 +2353,8 @@ function buildShishigaya() {
       else if (type === 'yamayuri') buildYamayuri(x, z, name) // やまゆりホーム（特養＋入口前の広場＝夏祭りの会場・2日目）
       else if (type === 'liquor') buildMise(x, z, name, 'liquor') // 酒屋＝店先に酒/ビールのケース＋自販機（コンビニ以前の町の店）
       else if (type === 'tobacco') buildMise(x, z, name, 'tobacco') // たばこ屋＝たばこ自販機＋ショーケース（酒も少し）
-      else if (type === 'green') buildMise(x, z, name, 'green') // 八百屋＝店先にカラフルな野菜の台
-      else if (type === 'flower') buildMise(x, z, name, 'flower') // 花屋＝店先のバケツに色とりどりの花
+      else if (type === 'green') buildMise(x, z, name, 'green', -Math.PI / 2) // 八百屋＝店先にカラフルな野菜の台。店先を西(道側)へ明示（faceRoadが東の道を拾い裏向きになる不具合の修正・ユーザー指摘2026-06-24）
+      else if (type === 'flower') buildMise(x, z, name, 'flower', -Math.PI / 2) // 花屋＝店先のバケツに色とりどりの花。店先を西(道側)へ明示
       else if (type === 'rice') buildMise(x, z, name, 'rice') // 米店＝店先に米袋
       else if (type === 'eat') buildMise(x, z, name, 'eat') // 食堂＝赤提灯＋縁台＋サンプルケース
       else buildMise(x, z, name, 'dagashi') // shop（しんみせ＝駄菓子屋）＝ガチャ＋縁台＋ガラスケース
