@@ -1540,6 +1540,16 @@ const FEST_VENUES = []
 const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
 const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(toroNagashi) // 灯籠流し（夏の夕暮れ〜夜、二ツ池をゆっくり流れる灯籠＝お盆の静かな風物詩）。updateToroで動かす
 const toroList = [] // 各灯籠＝｛g, glow, x, z, y, vx, vz, ph, cx, cz, rad｝
+const radioTaiso = new THREE.Group(); radioTaiso.visible = false; scene.add(radioTaiso) // ラジオ体操（夏休みの早朝、公園で体操＝夏のいちばんの定番）。updateTaisoで動かす
+const taisoFigs = [] // 体操する人＝｛g, armL, armR, baseY, ph, lead｝
+// 簡単な低ポリの人（胴・頭・髪・腕2本）。盆踊り/ラジオ体操/通行人などで共用できる素体
+function makePerson(shirt, pants, kid) { const g = new THREE.Group(), sc = kid ? 0.64 : 1
+  const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * sc, 0.24 * sc, 0.72 * sc, 7), toon(pants)); legs.position.y = 0.36 * sc; g.add(legs)
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * sc, 0.24 * sc, 0.7 * sc, 8), toon(shirt)); torso.position.y = 1.02 * sc; g.add(torso)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2 * sc, 10, 8), toon(0xf0d6b4)); head.position.y = 1.52 * sc; g.add(head)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215 * sc, 10, 8, 0, 6.283, 0, Math.PI * 0.6), toon(0x2a221c)); hair.position.y = 1.56 * sc; g.add(hair)
+  const arm = (s) => { const a = new THREE.Group(); a.position.set(s * 0.28 * sc, 1.3 * sc, 0); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * sc, 0.06 * sc, 0.62 * sc, 6), toon(shirt)); m.position.y = -0.3 * sc; a.add(m); g.add(a); return a }
+  const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
 // 浴衣の柄＝グレースケールの繰り返しテクスチャ4種を1度だけ作って全踊り手で共有（浴衣の色でtintして柄に）。縞/水玉/格子/波
 const YUKATA_PATTERNS = (() => { const mk = (draw) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(110,110,120,0.45)'; x.fillStyle = 'rgba(110,110,120,0.45)'; draw(x); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1); return t }
   return [
@@ -2374,6 +2384,18 @@ function buildShishigaya() {
           townNightLights.push({ m: glow, base: 1.0, ph: Math.random() * 6 }) // 夜に灯る
           const ang = Math.random() * 6.283, sp = 0.06 + Math.random() * 0.09
           toroList.push({ g, glow, x: lx, z: lz, y: wy + 0.12, vx: Math.cos(ang) * sp, vz: Math.sin(ang) * sp, ph: Math.random() * 6, cx: cx0, cz: cz0, rad: 24 }) } } }
+    // ── ラジオ体操＝夏休みの早朝、小学校の校庭(3124,-186・広く平ら)で体操（夏休みのいちばんの定番・updateTaisoで号令に合わせて動く。盆踊りと同じ校庭だが朝/夜で出る時間がちがい干渉しない）──
+    { const px = 3124, pz = -186
+      const ldx = px, ldz = pz - 5, ly = heightAtYato(ldx, ldz) // 前の号令台＋リーダー
+      const dai = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.4, 1.3), toon(0xb5a07a)); dai.position.set(ldx, ly + 0.2, ldz); dai.castShadow = true; radioTaiso.add(dai)
+      const lead = makePerson(0xffffff, 0x3a4a6a, false); lead.g.position.set(ldx, ly + 0.4, ldz); lead.g.rotation.y = 0; radioTaiso.add(lead.g)
+      taisoFigs.push({ g: lead.g, armL: lead.armL, armR: lead.armR, baseY: ly + 0.4, ph: 0, lead: true })
+      const tbl = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 0.7), toon(0x9a7a4a)); const tx = px - 6, tz = pz + 5, ty = heightAtYato(tx, tz); tbl.position.set(tx, ty + 0.45, tz); tbl.castShadow = true; radioTaiso.add(tbl) // 出席カードの受付机
+      const card = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.36), toon(0xf4efe0)); card.position.set(tx, ty + 0.83, tz); radioTaiso.add(card) // 出席カードの束
+      const shirts = [0xe04a4a, 0x4a8ad0, 0xf0c84a, 0xeae6da, 0x4aa86a, 0xe07a2e], pantsC = [0x3a4a6a, 0x6a5a4a, 0x2a3a5a]
+      let i = 0; for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const gx = px - 4.5 + c * 3, gz = pz + 1 + r * 2.6 + (c % 2) * 0.4, gy = heightAtYato(gx, gz), kid = (i % 4 !== 0)
+        const fig = makePerson(shirts[i % shirts.length], pantsC[i % 3], kid); fig.g.position.set(gx, gy, gz); fig.g.rotation.y = Math.PI; radioTaiso.add(fig.g) // 前(リーダー=北)を向く
+        taisoFigs.push({ g: fig.g, armL: fig.armL, armR: fig.armR, baseY: gy, ph: i * 0.37, lead: false }); i++ } }
     // 公園の遊具（すべり台/ブランコ/砂場/鉄棒/ベンチ）を全公園にインスタンシング配置（1ドロー）。公園ごとに向きを少し変える
     if (parkPos.length) { const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
       const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
@@ -5946,6 +5968,21 @@ function festClap(t0, vol) { // 手拍子＝乾いた短いパチ（バンドパ
     src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); src.stop(t0 + 0.12)
   } catch (e) {}
 }
+function updateTaiso() { // ラジオ体操＝早朝だけ、号令に合わせて全員が体操（数秒ごとにポーズが変わる・腕を上/横/前/ねじり）
+  const on = (onYato || area === 'yato') && tday > 0.02 && tday < 0.14
+  if (radioTaiso.visible !== on) radioTaiso.visible = on
+  if (!on || !taisoFigs.length) return
+  const t = performance.now() * 0.001, phase = (t * 0.5) % 4 // 0..4の4ポーズをゆっくり巡る
+  for (const f of taisoFigs) {
+    const p = (phase + f.ph * 0.12) % 4; let aL, aR, zL = 0, zR = 0
+    if (p < 1) { aL = aR = -2.7 } // ①両手を上に伸ばす（背伸び）
+    else if (p < 2) { aL = -1.5; aR = -1.5; zL = 1.25; zR = -1.25 } // ②横に大きく開く
+    else if (p < 3) { const s = Math.sin(t * 4 + f.ph); aL = aR = -0.9 + s * 0.4 } // ③前で腕の曲げ伸ばし
+    else { const s = Math.sin(t * 3 + f.ph); aL = -1.2 + s * 0.7; aR = -1.2 - s * 0.7 } // ④体ねじり（腕を交互に）
+    f.armL.rotation.x = aL; f.armR.rotation.x = aR; f.armL.rotation.z = zL; f.armR.rotation.z = zR
+    f.g.position.y = f.baseY + (p < 1 ? Math.max(0, Math.sin((phase % 1) * Math.PI)) * 0.08 : 0) // 背伸びでつま先立ち
+  }
+}
 function updateToro(dt) { // 灯籠流し＝二ツ池の灯籠を夕暮れ〜夜だけ静かに流す（お盆の風物詩）
   const on = (onYato || area === 'yato') && tday > 0.58 && tday < 0.99
   if (toroNagashi.visible !== on) toroNagashi.visible = on
@@ -5970,7 +6007,7 @@ function festCrowd(t0) { // 縁日のざわめき＝やわらかいノイズの2
 }
 function activeVenue() { let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(day) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ（同じ日に複数会場でも、近い方のお囃子/花火が効く＝近い祭りへたどれる）
 function updateFestival(dt) {
-  for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(day) >= 0 // 各会場は自分の開催日だけ姿を見せる（音の有無に関わらず）
+  for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(day) >= 0 && tday > 0.45 // 各会場は開催日の午後〜夜だけ姿を見せる（昼に設営、朝は無し＝朝のラジオ体操と同じ校庭でも干渉しない）
   // 盆踊りの輪を動かす（櫓のまわりをゆっくり回り、腕を交互に振る／櫓上の太鼓打ちは速く打つ）。見えない会場ぶんも計算するが軽い
   if (festFigs.length) { const ft = performance.now() * 0.001
     for (const d of festFigs) {
@@ -6858,6 +6895,7 @@ function update(dt) {
   maybeThunder(dt)
   updateFestival(dt) // 縁日のお囃子（屋台からの距離で音量が変わる＝音をたどって縁日へ）
   updateToro(dt) // 灯籠流し（二ツ池・夏の夕暮れ〜夜だけ流れる）
+  updateTaiso() // ラジオ体操（家の近くの公園・夏休みの早朝だけ）
   maybeCricket(dt) // 夜の虫の音
   // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
   if (lastWeatherForDrip > 0.4 && weather < 0.28) { dripQueue = 8; if (nightFactor(tday) < 0.2) rainbowTimer = 26 }
