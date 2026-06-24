@@ -551,7 +551,7 @@ scene.add(sunBall)
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
   morn: { light: 0xffe9c8, li: 1.7, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xdbe7f0, hi: 1.16, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.55 }, // 朝＝低照度・青白くひんやり・靄がかる。環境光を少し下げて朝陽の影を出す
-  noon: { light: 0xfff4e2, li: 2.45, sky: 0x84bce2, mid: 0xc3e1ef, bot: 0xeff5e7, fog: 0xdfeaf0, hi: 1.3, hsky: 0xdaf0fb, hgnd: 0x95a766, ball: 0xfff6d8, rim: 0xfff0d8, ri: 0.32 }, // 真昼＝環境光のベタ塗りを下げ(1.58→1.3)・直射を上げ(2.3→2.45)＝夏のくっきりした陰影（のっぺり解消）。光は少し暖色へ
+  noon: { light: 0xffeac6, li: 2.4, sky: 0x8cc0e2, mid: 0xc8e2ec, bot: 0xf1f3e4, fog: 0xe3eae8, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34 }, // 真昼＝陰影は残しつつ直射を金色寄りの暖色へ(0xfff4e2→0xffeac6)＝臨床的でない“いつまでも夏の昼”。空もほんの少しやわらかく（夢のトーン2026-06-24）
   dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xd98860, bot: 0xe6a890, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd29a86, hgnd: 0x5a5e72, ball: 0xff8f48, rim: 0xff7a30, ri: 1.32 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)。灯りの暖色だけ残し、空気は紫灰へ
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる
 }
@@ -5166,7 +5166,7 @@ const godrayPass = new ShaderPass({
     }`,
 })
 composer.addPass(godrayPass)
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.35, 0.5, 0.92) // 強さ控えめ・しきい値高め＝白飛び/ちらつきを抑える。半解像度
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.46, 0.62, 0.86) // やわらかな“記憶のにじみ”＝強さ/半径を少し上げ・しきい値を下げて中間調もふわっと光らせる（夢の質感・2026-06-24。強すぎ白飛びは避ける範囲）。半解像度
 composer.addPass(bloom)
 
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
@@ -5189,7 +5189,7 @@ const gradePass = new ShaderPass({
       if (heat > 0.001) {
         float hazeBand = smoothstep(0.30, 0.44, vUv.y) * (1.0 - smoothstep(0.49, 0.62, vUv.y)); // 地平のすぐ上の帯（画面中下）
         float hz = sin(vUv.y * 150.0 + time * 3.2) * (0.6 + 0.4 * sin(vUv.x * 26.0 - time * 1.9));
-        uv.x += hz * heat * hazeBand * 0.0034; uv.y += hz * heat * hazeBand * 0.0017;
+        uv.x += hz * heat * hazeBand * 0.0022; uv.y += hz * heat * hazeBand * 0.0011;
       }
       vec3 c = texture2D(tDiffuse, uv).rgb;
       float lum = L(c);
@@ -6944,7 +6944,7 @@ function update(dt) {
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.32 : 0 // 控えめ＝光条であって閃光事故にしない
   gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.6, 0.74) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.93)) // 夕方の黄金色
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
-  gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.55 : 0.3) // 真昼の晴天だけ・夕/夜/雨は無し・控えめ（水のようにならない範囲）
+  gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.3 : 0.16) // 真昼の晴天だけ・控えめ（ユーザー「強すぎ」→0.55→0.3に弱める2026-06-24）
   godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
 
   if (mode === 'walk') {
