@@ -1510,6 +1510,8 @@ function buildBonOdori(ox, oy, oz, grp) {
   const yukataCols = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96, 0xa83f6a] // 浴衣の色とりどり
   const ND = 10, RD = Math.min(6.0, RR - 3.5) // 踊りの輪の半径（提灯ポールの内側）
   for (let i = 0; i < ND; i++) { const d = makeDancer(yukataCols[i % yukataCols.length], i % 4); if (i === 3 || i === 7) d.g.scale.setScalar(0.66) /*輪に子どもも混ぜる*/; bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD, a0: (i / ND) * Math.PI * 2, ph: i * 0.73, baseY: oy, armL: d.armL, armR: d.armR, beat: false, style: i % 3 }) } // 浴衣に柄(i%4)＋styleで所作（0交互/1万歳/2手拍子）
+  const ND2 = 12, RD2 = RD + 3.2 // 外側にもう一重の輪（盆踊りの二重の隊列＝本物らしく賑やか）
+  for (let i = 0; i < ND2; i++) { const d = makeDancer(yukataCols[(i + 3) % yukataCols.length], (i + 2) % 4); if (i % 5 === 2) d.g.scale.setScalar(0.66); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD2, a0: (i / ND2) * Math.PI * 2 + 0.26, ph: i * 0.61 + 1.0, baseY: oy, armL: d.armL, armR: d.armR, beat: false, style: (i + 1) % 3 }) } // 外輪
   { const d = makeDancer(0xe0e0e0); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.85, armL: d.armL, armR: d.armR, beat: true }) } // 櫓の上で太鼓を打つ人（白い法被）
   // 子どもが金魚袋やヨーヨーを持って走り回る（屋台のあたりをふらふら＝縁日の生気）
   const heldItem = (kind) => { const it = new THREE.Group()
