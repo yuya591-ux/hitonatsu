@@ -1538,6 +1538,8 @@ function buildBonOdori(ox, oy, oz, grp) {
 // 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
 const FEST_VENUES = []
 const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
+const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(toroNagashi) // 灯籠流し（夏の夕暮れ〜夜、二ツ池をゆっくり流れる灯籠＝お盆の静かな風物詩）。updateToroで動かす
+const toroList = [] // 各灯籠＝｛g, glow, x, z, y, vx, vz, ph, cx, cz, rad｝
 // 浴衣の柄＝グレースケールの繰り返しテクスチャ4種を1度だけ作って全踊り手で共有（浴衣の色でtintして柄に）。縞/水玉/格子/波
 const YUKATA_PATTERNS = (() => { const mk = (draw) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(110,110,120,0.45)'; x.fillStyle = 'rgba(110,110,120,0.45)'; draw(x); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1); return t }
   return [
@@ -2360,6 +2362,18 @@ function buildShishigaya() {
     // ── 追加の夏祭り会場（ユーザーの記憶・飛行ピン2026-06-24）：三石原っぱ(1日目)・金井公園(2日目)。離れた会場どうしは「近い方のお囃子」で自然にたどれる ──
     { const hx = 2644, hz = 383; groundPatch(grp, hx, hz, 30, 24, 0x83a056); FEST_VENUES.push({ name: '三石原っぱ', pos: new THREE.Vector2(hx, hz), days: [1], g: buildBonOdori(hx, heightAtYato(hx, hz), hz) }) } // 三石原っぱ＝草の原っぱ（地面パッドは地形なり）
     { const kx = 2952, kz = 190; groundPatch(grp, kx, kz, 28, 22, 0x77994a); FEST_VENUES.push({ name: '金井公園', pos: new THREE.Vector2(kx, kz), days: [2], g: buildBonOdori(kx, heightAtYato(kx, kz), kz) }) } // 金井公園＝公園の芝（平地）
+    // ── 灯籠流し＝二ツ池に、夏の夕暮れ〜夜だけ灯籠がゆっくり流れる（お盆の静かな風物詩・水辺で最高にエモい）。toroNagashiグループに入れ updateToro で流す ──
+    { let wc = null; for (const w of SG.waters) { if (w.p.length < 3) continue; let wx = 0, wz = 0; for (const q of w.p) { wx += q[0]; wz += q[1] } wx /= w.p.length; wz /= w.p.length; if (Math.hypot(wx - 3007, wz + 580) < 90) wc = [wx, wz] } // 二ツ池の中心
+      if (wc) { const [cx0, cz0] = wc, wy = heightAtYato(cx0, cz0)
+        for (let i = 0; i < 22; i++) { let lx, lz, tries = 0; do { lx = cx0 + (Math.random() - 0.5) * 46; lz = cz0 + (Math.random() - 0.5) * 46; tries++ } while (!inWaterAny(lx, lz) && tries < 14); if (!inWaterAny(lx, lz)) continue
+          const g = new THREE.Group()
+          g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.32, 0.06, 8), toon(0xe6dcc2))) // 木の浮き台
+          const box = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.4, 0.32), new THREE.MeshToonMaterial({ color: 0xf0c878, gradientMap: GRAD, transparent: true, opacity: 0.9 })); box.position.y = 0.27; g.add(box) // 紙の灯籠（あたたかい色）
+          g.position.set(lx, wy + 0.12, lz); toroNagashi.add(g)
+          const glow = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffb060, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); glow.position.set(lx, wy + 0.4, lz); toroNagashi.add(glow)
+          townNightLights.push({ m: glow, base: 1.0, ph: Math.random() * 6 }) // 夜に灯る
+          const ang = Math.random() * 6.283, sp = 0.06 + Math.random() * 0.09
+          toroList.push({ g, glow, x: lx, z: lz, y: wy + 0.12, vx: Math.cos(ang) * sp, vz: Math.sin(ang) * sp, ph: Math.random() * 6, cx: cx0, cz: cz0, rad: 24 }) } } }
     // 公園の遊具（すべり台/ブランコ/砂場/鉄棒/ベンチ）を全公園にインスタンシング配置（1ドロー）。公園ごとに向きを少し変える
     if (parkPos.length) { const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
       const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
@@ -5926,6 +5940,19 @@ function festClap(t0, vol) { // 手拍子＝乾いた短いパチ（バンドパ
     src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); src.stop(t0 + 0.12)
   } catch (e) {}
 }
+function updateToro(dt) { // 灯籠流し＝二ツ池の灯籠を夕暮れ〜夜だけ静かに流す（お盆の風物詩）
+  const on = (onYato || area === 'yato') && tday > 0.58 && tday < 0.99
+  if (toroNagashi.visible !== on) toroNagashi.visible = on
+  if (!on || !toroList.length) return
+  const t = performance.now() * 0.001
+  for (const L of toroList) {
+    L.x += L.vx * dt; L.z += L.vz * dt
+    if ((L.x - L.cx) * (L.x - L.cx) + (L.z - L.cz) * (L.z - L.cz) > L.rad * L.rad) { L.vx = -L.vx; L.vz = -L.vz; L.x += L.vx * dt * 3; L.z += L.vz * dt * 3 } // 池の縁でゆっくり向きを返す
+    const by = L.y + Math.sin(t * 0.8 + L.ph) * 0.04 // ゆらゆら
+    L.g.position.set(L.x, by, L.z); L.g.rotation.y = t * 0.12 + L.ph
+    L.glow.position.set(L.x, by + 0.28, L.z)
+  }
+}
 function festCrowd(t0) { // 縁日のざわめき＝やわらかいノイズの2秒のうねり。getFestOut経由なので距離/時刻でお囃子と一緒に増減＝近い祭りほど賑やか
   if (!audioStarted) return
   try { const ctx = listener.context, out = getFestOut()
@@ -6824,6 +6851,7 @@ function update(dt) {
   if (rainBgmGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.8, 0, AUDIO.rainBgmVol); rainBgmGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 1.8) } // 雨のときだけ神秘的BGMをゆっくり立ち上げ／止むとフェードアウト
   maybeThunder(dt)
   updateFestival(dt) // 縁日のお囃子（屋台からの距離で音量が変わる＝音をたどって縁日へ）
+  updateToro(dt) // 灯籠流し（二ツ池・夏の夕暮れ〜夜だけ流れる）
   maybeCricket(dt) // 夜の虫の音
   // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
   if (lastWeatherForDrip > 0.4 && weather < 0.28) { dripQueue = 8; if (nightFactor(tday) < 0.2) rainbowTimer = 26 }
