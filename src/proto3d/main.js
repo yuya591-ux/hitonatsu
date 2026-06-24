@@ -1498,9 +1498,10 @@ function buildBonOdori(ox, oy, oz, grp) {
       const bg = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); bg.position.set(bx, by + 2.7, bz); bonOdori.add(bg) // 夜の灯り
       townNightLights.push({ m: bg, base: 1.2, ph: i * 0.6 }) } }
   // ── 盆踊りの輪＝浴衣すがたの人々が櫓のまわりを輪になって踊る（＋櫓の上で太鼓を打つ人）。お祭りの“人の営み”＝最大の賑わい。updateFestivalで動かす ──
-  const makeDancer = (col) => { const g = new THREE.Group()
-    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 0.95, 8), toon(col)); lower.position.y = 0.55; g.add(lower) // 浴衣の裾（広がり）
-    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.55, 8), toon(col)); upper.position.y = 1.16; g.add(upper) // 上半身
+  const makeDancer = (col, patIdx) => { const g = new THREE.Group()
+    const bodyMat = patIdx == null ? toon(col) : new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: YUKATA_PATTERNS[patIdx % YUKATA_PATTERNS.length] }) // 浴衣の色で柄をtint
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 0.95, 8), bodyMat); lower.position.y = 0.55; g.add(lower) // 浴衣の裾（広がり・柄）
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.55, 8), bodyMat); upper.position.y = 1.16; g.add(upper) // 上半身
     const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.16, 8), toon(0xcc9a3a)); obi.position.y = 1.0; g.add(obi) // 帯
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), toon(0xf0d6b4)); head.position.y = 1.6; g.add(head)
     const hair = new THREE.Mesh(new THREE.SphereGeometry(0.235, 10, 8, 0, 6.2832, 0, Math.PI * 0.62), toon(0x241e1a)); hair.position.set(0, 1.64, 0); g.add(hair)
@@ -1508,14 +1509,14 @@ function buildBonOdori(ox, oy, oz, grp) {
     const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
   const yukataCols = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96, 0xa83f6a] // 浴衣の色とりどり
   const ND = 10, RD = Math.min(6.0, RR - 3.5) // 踊りの輪の半径（提灯ポールの内側）
-  for (let i = 0; i < ND; i++) { const d = makeDancer(yukataCols[i % yukataCols.length]); if (i === 3 || i === 7) d.g.scale.setScalar(0.66) /*輪に子どもも混ぜる*/; bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD, a0: (i / ND) * Math.PI * 2, ph: i * 0.73, baseY: oy, armL: d.armL, armR: d.armR, beat: false, style: i % 3 }) } // styleで所作を変える（0交互/1万歳/2手拍子）
+  for (let i = 0; i < ND; i++) { const d = makeDancer(yukataCols[i % yukataCols.length], i % 4); if (i === 3 || i === 7) d.g.scale.setScalar(0.66) /*輪に子どもも混ぜる*/; bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD, a0: (i / ND) * Math.PI * 2, ph: i * 0.73, baseY: oy, armL: d.armL, armR: d.armR, beat: false, style: i % 3 }) } // 浴衣に柄(i%4)＋styleで所作（0交互/1万歳/2手拍子）
   { const d = makeDancer(0xe0e0e0); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.85, armL: d.armL, armR: d.armR, beat: true }) } // 櫓の上で太鼓を打つ人（白い法被）
   // 子どもが金魚袋やヨーヨーを持って走り回る（屋台のあたりをふらふら＝縁日の生気）
   const heldItem = (kind) => { const it = new THREE.Group()
     if (kind === 'kingyo') { const bag = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 7), new THREE.MeshToonMaterial({ color: 0xcfe8f0, gradientMap: GRAD, transparent: true, opacity: 0.82 })); bag.scale.y = 1.25; it.add(bag); const fish = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), toon(0xe0622a)); fish.position.y = -0.02; it.add(fish) } // 金魚袋
     else { const yo = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 7), toon([0xe03a5a, 0x3a8ad0, 0xf0c020][Math.floor(Math.random() * 3)])); it.add(yo) } // ヨーヨー
     return it }
-  for (let i = 0; i < 3; i++) { const d = makeDancer([0xe06a8a, 0x4a9ad0, 0xf0c84a][i]); d.g.scale.setScalar(0.6) // 子ども
+  for (let i = 0; i < 3; i++) { const d = makeDancer([0xe06a8a, 0x4a9ad0, 0xf0c84a][i], (i + 1) % 4); d.g.scale.setScalar(0.6) // 子ども（浴衣に柄）
     const item = heldItem(i === 0 ? 'kingyo' : 'yoyo'); item.position.set(0.32, 1.15, 0.25); d.g.add(item) // 手に持つ
     bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox - 8 + i * 6, cz: oz + 9, r: 3.5 + i, ph: i * 2.1, baseY: oy, armL: d.armL, armR: d.armR, roam: true }) }
   // ── 参道の提灯＝最寄りの道から会場の縁まで、両脇に赤提灯の列が続く（遠くから「こっちでお祭りやってる」と誘われる）──
@@ -1535,6 +1536,15 @@ function buildBonOdori(ox, oy, oz, grp) {
 // 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
 const FEST_VENUES = []
 const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
+// 浴衣の柄＝グレースケールの繰り返しテクスチャ4種を1度だけ作って全踊り手で共有（浴衣の色でtintして柄に）。縞/水玉/格子/波
+const YUKATA_PATTERNS = (() => { const mk = (draw) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(110,110,120,0.45)'; x.fillStyle = 'rgba(110,110,120,0.45)'; draw(x); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1); return t }
+  return [
+    mk((x) => { x.lineWidth = 6; for (let i = 8; i < 64; i += 18) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 64); x.stroke() } }), // 縦縞
+    mk((x) => { for (let yy = 10; yy < 64; yy += 18) for (let xx = 10 + ((yy / 18) % 2) * 9; xx < 64; xx += 18) { x.beginPath(); x.arc(xx, yy, 4, 0, 6.3); x.fill() } }), // 水玉
+    mk((x) => { x.lineWidth = 3; for (let i = 0; i <= 64; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 64); x.moveTo(0, i); x.lineTo(64, i); x.stroke() } }), // 格子
+    mk((x) => { x.lineWidth = 3; for (let yy = 8; yy < 64; yy += 15) { x.beginPath(); for (let xx = 0; xx <= 64; xx += 4) x.lineTo(xx, yy + Math.sin(xx / 64 * Math.PI * 2) * 5); x.stroke() } }), // 波（青海波風）
+  ]
+})()
 // ───────── 新エリア『獅子ヶ谷』＝実データ生成（国土地理院DEM5A＋OpenStreetMap）。中心サンライズ北寺尾=game(3000,0)・実標高・実建物/実道/実池 ─────────
 const pip = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) c = !c } return c } // 点が多角形内か
 function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分割（vArr/iArrへ追記）。yfn(cx,cz)=面の高さ
