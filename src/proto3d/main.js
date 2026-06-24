@@ -5877,6 +5877,16 @@ function scheduleFestBar(t0) {
   for (const [b, f] of FEST_SHAMI) festShamisen(t0 + b, f, 0.075) // 三味線の地＝炭坑節/民謡らしい弦のテンツク
   const mel = FEST_MEL[festBar % FEST_MEL.length]; festBar++
   for (const [b, f, d] of mel) festFlute(t0 + b, f, d, 0.12) // 篠笛の旋律（呼びと応えを交互に）
+  festCrowd(t0) // 縁日のがやがや（人のざわめき）をお囃子の下に薄く
+}
+function festCrowd(t0) { // 縁日のざわめき＝やわらかいノイズの2秒のうねり。getFestOut経由なので距離/時刻でお囃子と一緒に増減＝近い祭りほど賑やか
+  if (!audioStarted) return
+  try { const ctx = listener.context, out = getFestOut()
+    const src = ctx.createBufferSource(); src.buffer = getNoise(); src.loop = true; src.playbackRate.value = 0.5
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 470; bp.Q.value = 0.55 // 人声帯のやわらかいざわめき
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.038, t0 + 0.9); g.gain.linearRampToValueAtTime(0.026, t0 + 1.9); g.gain.linearRampToValueAtTime(0.0001, t0 + 2.1)
+    src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); src.stop(t0 + 2.2)
+  } catch (e) {}
 }
 function activeVenue() { let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(day) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ（同じ日に複数会場でも、近い方のお囃子/花火が効く＝近い祭りへたどれる）
 function updateFestival(dt) {
