@@ -6977,7 +6977,7 @@ function update(dt) {
     }
     if (autoWalk) { tx = autoWalk.x * 4.4; tz = autoWalk.z * 4.4 } // 往来中は門の先へ自動で歩く
     // 加速はやや速く・減速はゆっくり（歩いてる身体の惰性）
-    const k = floatMode ? 1.7 : ((Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 6 : 3.5) // 浮遊はふんわり慣性（離すとスーッと漂って止まる）
+    const k = floatMode ? 1.7 : ((Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 5.5 : 2.7) // 加速はやや穏やか/減速はゆるく＝離すとスーッと滑って止まる“ふわり”散歩（夢のゆったり感・2026-06-24）。浮遊はもとからふんわり
     vel.x += (tx - vel.x) * Math.min(1, dt * k)
     vel.z += (tz - vel.z) * Math.min(1, dt * k)
     const speedNow = Math.hypot(vel.x, vel.z)
@@ -7271,8 +7271,8 @@ function update(dt) {
   if (camSnap) { // 主観⇄三人称の切替時だけ瞬間移動＝体の中をカメラが通り抜けて赤くにじむ“番組みたい”表示を防ぐ（ユーザー指摘2026-06-23）
     camera.position.copy(camGoal); camera.userData._look.copy(lookGoal); camSnap = false
   } else {
-    camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 6 : 5)))
-    camera.userData._look.lerp(lookGoal, Math.min(1, dt * (mode === 'swing' ? 13 : 6)))
+    camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' ? 13 : mode !== 'walk' ? 5.4 : 4.6))) // 追従をほんの少しやわらかく＝夢のような“ふわり”した視点（遅れすぎて酔わない範囲・2026-06-24）
+    camera.userData._look.lerp(lookGoal, Math.min(1, dt * (mode === 'swing' ? 13 : 5.4)))
   }
   camera.lookAt(camera.userData._look)
 }
