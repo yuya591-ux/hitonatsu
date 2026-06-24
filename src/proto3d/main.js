@@ -1482,10 +1482,24 @@ function buildBonOdori(ox, oy, oz, grp) {
     st.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(st, 0.03); bonOdori.add(st)
     townNightLights.push({ m: lan, base: 1.5, ph: Math.random() * 6 })
   }
+  // ── 盆踊りの輪＝浴衣すがたの人々が櫓のまわりを輪になって踊る（＋櫓の上で太鼓を打つ人）。お祭りの“人の営み”＝最大の賑わい。updateFestivalで動かす ──
+  const makeDancer = (col) => { const g = new THREE.Group()
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 0.95, 8), toon(col)); lower.position.y = 0.55; g.add(lower) // 浴衣の裾（広がり）
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.55, 8), toon(col)); upper.position.y = 1.16; g.add(upper) // 上半身
+    const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.16, 8), toon(0xcc9a3a)); obi.position.y = 1.0; g.add(obi) // 帯
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), toon(0xf0d6b4)); head.position.y = 1.6; g.add(head)
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.235, 10, 8, 0, 6.2832, 0, Math.PI * 0.62), toon(0x241e1a)); hair.position.set(0, 1.64, 0); g.add(hair)
+    const arm = (sx) => { const a = new THREE.Group(); a.position.set(sx * 0.3, 1.34, 0); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.6, 6), toon(col)); m.position.y = -0.28; a.add(m); g.add(a); return a }
+    const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
+  const yukataCols = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96, 0xa83f6a] // 浴衣の色とりどり
+  const ND = 10, RD = Math.min(6.0, RR - 3.5) // 踊りの輪の半径（提灯ポールの内側）
+  for (let i = 0; i < ND; i++) { const d = makeDancer(yukataCols[i % yukataCols.length]); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD, a0: (i / ND) * Math.PI * 2, ph: i * 0.73, baseY: oy, armL: d.armL, armR: d.armR, beat: false }) }
+  { const d = makeDancer(0xe0e0e0); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.85, armL: d.armL, armR: d.armR, beat: true }) } // 櫓の上で太鼓を打つ人（白い法被）
   return bonOdori
 }
 // 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
 const FEST_VENUES = []
+const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
 // ───────── 新エリア『獅子ヶ谷』＝実データ生成（国土地理院DEM5A＋OpenStreetMap）。中心サンライズ北寺尾=game(3000,0)・実標高・実建物/実道/実池 ─────────
 const pip = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) c = !c } return c } // 点が多角形内か
 function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分割（vArr/iArrへ追記）。yfn(cx,cz)=面の高さ
@@ -5852,6 +5866,15 @@ function scheduleFestBar(t0) {
 function activeVenue() { let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(day) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ（同じ日に複数会場でも、近い方のお囃子/花火が効く＝近い祭りへたどれる）
 function updateFestival(dt) {
   for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(day) >= 0 // 各会場は自分の開催日だけ姿を見せる（音の有無に関わらず）
+  // 盆踊りの輪を動かす（櫓のまわりをゆっくり回り、腕を交互に振る／櫓上の太鼓打ちは速く打つ）。見えない会場ぶんも計算するが軽い
+  if (festFigs.length) { const ft = performance.now() * 0.001
+    for (const d of festFigs) {
+      if (d.beat) { const b = Math.sin(ft * 7.0); d.g.position.set(d.cx, d.baseY, d.cz); d.g.rotation.y = 0; d.armL.rotation.x = -1.5 + b * 0.5; d.armR.rotation.x = -1.5 - b * 0.5 } // 太鼓打ち＝腕を速く上下
+      else { const a = d.a0 + ft * 0.085, sw = Math.sin(ft * 1.9 + d.ph) // ゆっくり輪が回る
+        d.g.position.set(d.cx + Math.cos(a) * d.r, d.baseY + Math.abs(Math.sin(ft * 1.9 + d.ph)) * 0.07, d.cz + Math.sin(a) * d.r)
+        d.g.rotation.y = -a + Math.PI / 2 // 進行方向（接線）を向く＝輪に沿って踊る
+        d.armL.rotation.x = -0.5 + sw * 0.95; d.armR.rotation.x = -0.5 - sw * 0.95 } // 腕を交互に上下（盆踊りの手）
+    } }
   if (!audioStarted) return
   const out = getFestOut(), ctx = listener.context
   const ven = activeVenue(), onDay = !!ven
