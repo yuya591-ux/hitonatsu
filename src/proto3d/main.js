@@ -7216,8 +7216,13 @@ function update(dt) {
     )
     camGoal.copy(seatEye)
     lookGoal.copy(lookTo)
+    camera.fov += (43 - camera.fov) * Math.min(1, dt * 1.5); camera.updateProjectionMatrix() // 止め絵：少し望遠＝景色が圧縮されてはがきのような構図に
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
+  // 止め絵：座って景色をながめる間は、周辺減光と記憶の色を少し強めて“ただ味わう一枚絵”に（立つと戻る）
+  { const ct = mode === 'sit' ? 1 : 0
+    gradePass.uniforms.vig.value += ((0.16 + ct * 0.12) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
+    gradePass.uniforms.mem.value += ((0.66 + ct * 0.16) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6) }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
   if (window.__freezeCam || titleView) return // 検証用：カメラ固定／タイトル中はtitleCamが全部やるのでupdateはカメラに触れない（取り合いの揺れ防止）
