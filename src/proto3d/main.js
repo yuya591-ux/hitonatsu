@@ -5140,20 +5140,20 @@ for (const off of [-1.15, 1.15]) {
 const fireworksGroup = new THREE.Group(); scene.add(fireworksGroup)
 let fwTimer = 3
 function spawnFirework() {
-  const N = 150
-  // ★花火は“おまつり会場(校庭)の上空”に大きく開く。以前は原点(はらっぱ)上空に出ていて、町の会場からは遠くて見えなかった不具合を修正。
-  const ven = (typeof activeVenue === 'function' && activeVenue()) || FEST_VENUES[0], fx = ven ? ven.pos.x : 3124, fz = ven ? ven.pos.y : -186 // 今夜の会場の上空へ（会場ごとに別の日）
-  const oy0 = heightAt(fx, fz), cx = fx + (Math.random() - 0.5) * 74, cy = oy0 + 44 + Math.random() * 26, cz = fz + (Math.random() - 0.5) * 64 // 会場の上空。会場は高台のこともあるので地面高ぶん持ち上げる（2026-06-24移設・複数会場対応）
-  const pos = new Float32Array(N * 3); const vel = []
-  for (let i = 0; i < N; i++) {
-    pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
-    vel.push(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(11 + Math.random() * 8)) // 大きく開く（半径UP）
-  }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  const hue = Math.random()
-  const c = new THREE.Color().setHSL(hue, 0.75, 0.66)
-  const mat = new THREE.PointsMaterial({ color: c, size: 1.5, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }) // 火の粉を大きく＝遠くからでも目立つ
-  const pts = new THREE.Points(geo, mat); pts.userData = { vel, age: 0 }
+  // ★花火は“今夜のお祭り会場の上空”に大きく開く（会場ごとに別の日）。型を出し分け＝牡丹/柳(しだれ)/二色/輪
+  const ven = (typeof activeVenue === 'function' && activeVenue()) || FEST_VENUES[0], fx = ven ? ven.pos.x : 3124, fz = ven ? ven.pos.y : -186
+  const oy0 = heightAt(fx, fz), cx = fx + (Math.random() - 0.5) * 74, cy = oy0 + 44 + Math.random() * 26, cz = fz + (Math.random() - 0.5) * 64 // 会場の上空。高台ぶん持ち上げ
+  const type = ['botan', 'botan', 'yanagi', 'twin', 'ring'][Math.floor(Math.random() * 5)], N = type === 'ring' ? 110 : 190
+  const hue = Math.random(), c1 = new THREE.Color().setHSL(hue, 0.82, 0.62), c2 = new THREE.Color().setHSL((hue + 0.34 + Math.random() * 0.32) % 1, 0.82, 0.62), gold = new THREE.Color(0xffcf86)
+  const pos = new Float32Array(N * 3), colA = new Float32Array(N * 3), vel = []
+  for (let i = 0; i < N; i++) { pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
+    let dir, speed, col
+    if (type === 'ring') { const a = (i / N) * Math.PI * 2; dir = new THREE.Vector3(Math.cos(a), (Math.random() - 0.5) * 0.14, Math.sin(a)); speed = 14 + Math.random() * 3; col = c1 } // 平たい輪（型物）
+    else { dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(); speed = (type === 'yanagi' ? 8 : 12) + Math.random() * (type === 'yanagi' ? 3 : 8); col = type === 'twin' ? (i % 2 ? c1 : c2) : (type === 'yanagi' ? gold : c1) } // 柳=しだれ落ち・二色=交互・牡丹=単色の球
+    vel.push(dir.multiplyScalar(speed)); colA[i * 3] = col.r; colA[i * 3 + 1] = col.g; colA[i * 3 + 2] = col.b }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(colA, 3))
+  const mat = new THREE.PointsMaterial({ size: type === 'yanagi' ? 1.35 : 1.7, vertexColors: true, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })
+  const pts = new THREE.Points(geo, mat); pts.userData = { vel, age: 0, grav: type === 'yanagi' ? 6.0 : 2.2, drag: type === 'yanagi' ? 0.97 : 0.95, life: type === 'yanagi' ? 3.6 : 2.6 } // 柳は重力強め・抵抗弱め・長寿命＝しだれて消える
   fireworksGroup.add(pts)
   // 開いた瞬間の大きな閃光（“ぱっ”と一目で分かる・空を見渡せば必ず気づく）
   const flash = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 0.5, 0.88), transparent: true, opacity: 0.95, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
@@ -6876,15 +6876,15 @@ function update(dt) {
   for (const pts of [...fireworksGroup.children]) {
     const u = pts.userData; u.age += dt
     if (u.flash) { const k = u.age / 0.42; pts.scale.setScalar(1 + k * 3.2); pts.material.opacity = Math.max(0, 0.95 * (1 - k)); if (u.age > 0.42) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 中心フラッシュ＝ぱっと開いてすぐ消える
-    const pa = pts.geometry.attributes.position
+    const pa = pts.geometry.attributes.position, grav = u.grav || 2.2, drag = u.drag || 0.95, life = u.life || 2.6
     for (let i = 0; i < u.vel.length; i++) {
       const v = u.vel[i]
-      pa.setXYZ(i, pa.getX(i) + v.x * dt, pa.getY(i) + v.y * dt - 2.2 * dt, pa.getZ(i) + v.z * dt)
-      v.multiplyScalar(0.95)
+      pa.setXYZ(i, pa.getX(i) + v.x * dt, pa.getY(i) + v.y * dt - grav * dt, pa.getZ(i) + v.z * dt)
+      v.multiplyScalar(drag)
     }
     pa.needsUpdate = true
-    pts.material.opacity = Math.max(0, 1 - u.age / 2.6)
-    if (u.age > 2.6) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
+    pts.material.opacity = Math.max(0, 1 - u.age / life)
+    if (u.age > life) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
   }
   // 商店街の通行人：一様に行進せず、立ち止まったり向きを変えたり＝右往左往して自然に
   for (const p of pedestrians) {
