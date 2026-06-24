@@ -6444,7 +6444,7 @@ function update(dt) {
     const prev = tday
     // 花火大会の間は時間をゆっくり進める＝夏のクライマックスを長く味わう
     const fwSlow = FIREWORK.days.indexOf(day) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
-    tday = Math.min(0.97, tday + dt / (fwSlow ? 1000 : 620)) // 1日を約2.6倍に延長（探索範囲が広がったので・ユーザー要望2026-06-23。240→620）
+    tday = Math.min(0.97, tday + dt / (fwSlow ? 1000 : 740)) // 一日をさらにゆっくり(620→740)＝各時間帯を長く味わえる“夢のような時間の流れ”（ユーザー「時間もう少しゆっくり」2026-06-24）
     setTimeOfDay(tday)
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast('ラジオ体操の じかんだ。') }
@@ -7182,8 +7182,8 @@ function update(dt) {
     camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5)
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
-    // ごく微かな“息”の揺れ（モーション軽減ONのときは止める）
-    if (!reduceMotion) { camGoal.x += Math.sin(tsec * 0.6) * 0.06; camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05 }
+    // ごく微かな“息”の揺れ（モーション軽減ONのときは止める）。立ち止まると揺れも静まり“間”が生まれる＝時が止まった夢の一瞬（calmで減衰・2026-06-24）
+    if (!reduceMotion) { const breath = 1 - calm * 0.7; camGoal.x += Math.sin(tsec * 0.6) * 0.06 * breath; camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05 * breath }
     // カメラの遮蔽回避（マリオ式）：主人公とカメラの間に建物/木があれば手前へ寄せる。※屋上(高所)ではOFF＝建物の壁/手すりに反応してカメラが弾く・ズームするのを止める
     if (!boy.userData._high) {
       const hx = boy.position.x, hyc = boy.position.y + 1.3, hz = boy.position.z
