@@ -1570,7 +1570,7 @@ function buildShishigaya() {
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
     if (inWaterAny(cx, cz) || fpCover(cx, cz, w + 6, d + 6, ang, inWaterAny) > 0.12) { nOnWater++; return } // 水面＋岸から約3mの緩衝帯に重なる建物は描かない（水に浮く/水際ギリギリの家を防ぐ＝最優先のユーザー指摘2026-06-23。フットプリントを6m膨らませて判定）
-    if (fpCover(cx, cz, w, d, ang, onYatoRoadCore) > 0.12) { nOnRoad++; return } // フットプリントの12%超が“道の描画幅(1m格子)”に乗る建物は描かない＝道の上の家を排除。路傍に面するだけ(描画幅の外)の家は残す（マスク+0.6でなく描画幅で判定・ユーザー指摘2026-06-24）
+    if (fpCover(cx, cz, w, d, ang, onYatoRoadCore) > 0.1) { nOnRoad++; return } // フットプリントの10%超が“道の描画幅(1m格子)”に乗る建物は描かない＝道の上の家・角がはみ出た家も排除。路傍に面するだけ(描画幅の外)の家は残す（マスク+0.6でなく描画幅で判定・ユーザー指摘2026-06-24）
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     { const co0 = Math.cos(ang), si0 = Math.sin(ang), hw0 = w / 2, hd0 = d / 2; let ov = 0
       for (const [lx, lz] of [[0, 0], [-hw0, -hd0], [hw0, -hd0], [hw0, hd0], [-hw0, hd0], [-hw0, 0], [hw0, 0], [0, -hd0], [0, hd0]]) if (ptOverPlaced(cx + lx * co0 - lz * si0, cz + lx * si0 + lz * co0)) ov++
@@ -2132,7 +2132,10 @@ function buildShishigaya() {
       signOn(cx, cz - 11, 8, gy, 4, name, '#5a3a3a') }
     const buildParkSign = (cx, cz, name) => { const gy = heightAtYato(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, Math.atan2(3008 - cx, -8 - cz))) } // 公園のなまえ看板（既存の緑地に立てる）
     // parkPos は外側スコープで宣言済（柵をcellOf定義後に置くため）
-    for (const [x, z, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
+    for (const [x0n, z0n, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
+      // 小規模の店/施設は住所点が道の上に落ちることがある→最寄りの空き地へ少しずらす（道に乗った建物を排除・店先は道沿いのまま。寺社/屋敷/学校は実位置・形が大きいので動かさない）・ユーザー指摘2026-06-24
+      const small = type === 'shop' || type === 'rice' || type === 'eat' || type === 'conbini' || type === 'koban' || type === 'kinder'
+      const [x, z] = small ? nudgeOffRoad(x0n, z0n, 9, 8) : [x0n, z0n]
       if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else if (name === '渋沢稲荷神社') buildInari(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
       else if (type === 'park') { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } // 一丁目公園はマリノスのグラウンドなので遊具なし
