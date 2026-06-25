@@ -5711,6 +5711,7 @@ const AUDIO = {
   cicadaVol: 0.75,    // 昼の蝉の倍率＝他の時間帯より少し大きく感じたので基本を下げる（ユーザー要望2026-06-20）
   nightAmb: 0.34,     // 夜の虫(カエルのような音)の音量倍率＝大きく下げて「眠れる静けさ」に
   morningAmb: 0.85,   // 朝の鳥のさえずりの倍率
+  windVol: 0.34,      // 風の音(葉ずれ・草原を渡る風)の最大音量＝突風(wind)で増減・控えめ（草/木/稲の揺れと同期・G1 2026-06-25）
   rainStart: 0.1,     // 雨音が鳴り始めるweather。やさしい雨(0.4)もちゃんと聞こえる。低weatherはLPFでやわらかく＝“どしゃどしゃ”でなく癒しのポツポツに
   rainVol: 0.2,       // 雨音の最大音量
   thunderStart: 0.34, // 遠雷が鳴り始めるweather（本降りのときだけ＝紛らわしい低音を出さない）
@@ -5766,6 +5767,7 @@ function startAudio() {
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
     for (const a of riverAudios) if (a.buffer && !a.isPlaying) try { a.play() } catch (e) {}
     initRainAudio()
+    initWindAudio() // 風の音（葉ずれ・草原を渡る風）＝突風windで増減・草/木/稲の揺れと同期
     initRainBgm() // 雨のときだけ鳴る神秘的BGM（パッド）を用意
     unlockIOSAudio() // iOSのミュートスイッチ/画面収録対策
   } catch (e) {}
@@ -5792,6 +5794,22 @@ function unlockIOSAudio() {
   } catch (e) {}
 }
 // 雨音＝自前合成（外部素材ゼロ）。ノイズをループしてLPF/HPFで「夏のやわらかい雨」に。音量は weather で動かす。
+let windGain = null, windLP = null, windStarted = false // 風の音（葉ずれ・草原を渡る風）＝突風windで増減
+function initWindAudio() {
+  if (windStarted) return
+  try {
+    const ctx = listener.context
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 3), ctx.sampleRate); const d = buf.getChannelData(0); let last = 0
+    for (let i = 0; i < d.length; i++) { const wn = Math.random() * 2 - 1; last = last * 0.965 + wn * 0.035; d[i] = last * 4.5 } // 茶色ノイズ＝低めの「ヒュー」（積分でうねる）
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 110
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 0.5; windLP = lp // 突風で開く＝明るい葉ずれ「ザー」
+    windGain = ctx.createGain(); windGain.gain.value = 0
+    src.connect(hp); hp.connect(lp); lp.connect(windGain); windGain.connect(getSfxOut())
+    src.start()
+    windStarted = true
+  } catch (e) {}
+}
 function initRainAudio() {
   if (rainStarted) return
   try {
@@ -6953,6 +6971,9 @@ function update(dt) {
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
   if (yatoTreeShader) { yatoTreeShader.uniforms.uTime.value = tsec; yatoTreeShader.uniforms.uWind.value = wind } // 樹冠も夏の風でそよぐ
   if (yatoRiceShader) { yatoRiceShader.uniforms.uTime.value = tsec; yatoRiceShader.uniforms.uWind.value = wind } // 谷戸田の稲も夏風でしなる
+  if (windGain) { const ctx = listener.context, gust = THREE.MathUtils.clamp((wind - 0.32) / 0.95, 0, 1) // 揺れと同じwindで風の音も増減＝草木が鳴って世界が呼吸する（G1）
+    windGain.gain.setTargetAtTime(gust * gust * AUDIO.windVol * (1 - weather * 0.7), ctx.currentTime, 0.45) // 突風ほど葉ずれ「ザー」が増す（二乗で凪は無音に近く）・雨では控える
+    if (windLP) windLP.frequency.setTargetAtTime(420 + gust * 950, ctx.currentTime, 0.5) } // 突風で明るい葉ずれへ開く
   waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
   { // 水面を時間帯になじませる（空を映し、夕は橙、夜は紺・暗く）
     const wnf = nightFactor(tday)
@@ -8171,6 +8192,7 @@ window.__proto3d = {
   _jump() { doJump() }, // 検証用
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
+  _windInfo() { return windGain ? { started: windStarted, gain: +windGain.gain.value.toFixed(4), freq: windLP ? Math.round(windLP.frequency.value) : 0 } : { started: windStarted } }, // 検証用：風の音ノードの状態
   _info() { // 検証用：シーン1回描画の実コスト
     renderer.info.autoReset = false; renderer.info.reset()
     renderer.render(scene, camera)
