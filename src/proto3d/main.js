@@ -120,6 +120,10 @@ function carveValley(h, x, z, pts, wFlat, wEdge) {
 const SG_HM = (() => { const b = atob(SG.hmB64), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return new Int16Array(u.buffer) })() // 実標高ハイトマップ(Int16・×10)
 // ───── 鏡像補正：地理データを「東=+x／北=+z」で取り込むとThree.js(右手系・y上)では東西が鏡像になる。獅子ヶ谷の全データの z を反転(北=-z)して鏡像を解消 ─────
 for (const b of SG.buildings) { b[1] = -b[1]; b[4] = -b[4] } // 重心zと向きangを反転
+// ── 三ツ池公園プールの北門ぎわ（プールの北東〜北）の住宅。現OSMは一帯が公園だが、当時はプールの出口のすぐ近くに家が並んでいた＝ユーザーの実体験の記憶（＝「当時」の最も確かな資料）に忠実に住宅地を再現（2026-06-26）。z反転後のゲーム座標で直接push＝既存の家ビルダー/木の伐採/重なり判定をそのまま通す ──
+for (const h of [[4124, -1008, 8, 9, 0, 2, 0], [4124, -1044, 9, 8, 0, 2, 0], [4122, -1080, 8, 9, 0, 1, 0], [4126, -1116, 9, 9, 0, 2, 0],
+  [4179, -1024, 9, 8, Math.PI / 2, 2, 0], [4180, -1062, 8, 9, Math.PI / 2, 2, 0], [4177, -1099, 9, 8, Math.PI / 2, 1, 0],
+  [4084, -1126, 9, 9, 0, 2, 0], [4040, -1104, 8, 9, 0, 2, 0]]) SG.buildings.push(h)
 for (const r of SG.roads) for (const p of r.p) p[1] = -p[1]
 for (const w of SG.waters) for (const p of w.p) p[1] = -p[1]
 for (const g of SG.greens) for (const p of g.p) p[1] = -p[1]
