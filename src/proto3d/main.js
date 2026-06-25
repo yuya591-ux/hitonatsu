@@ -5800,6 +5800,27 @@ const contrail = (() => {
   scene.add(grp)
   return { grp, trail, plane, t: 0, dur: 52, nextAt: 18 + Math.random() * 25, len: 240, y: 150, dir: 1, zoff: 0 }
 })()
+// ── 夕餉の煙：夕方、家々の幾つかから細い煙が立ちのぼる（夕飯どきの郷愁）。獅子ヶ谷の家を数軒えらぶ。2026-06-26 ──
+const chimneys = []
+function initChimneys() {
+  if (chimneys.length || !SG || !SG.buildings) return
+  const houses = SG.buildings.filter((b) => b[6] === 0 && Math.hypot(b[0] - 3010, b[1] + 80) < 360)
+  for (let i = 0; i < 10 && houses.length; i++) { const b = houses[(i * 37) % houses.length], x = b[0], z = b[1], y = heightAtYato(x, z); if (y < 3) continue
+    const g = new THREE.Group(); g.position.set(x + (Math.random() - 0.5) * 2, y + (b[5] || 2) * 3 + 0.8, z + (Math.random() - 0.5) * 2) // 屋根の上から立ちのぼる
+    const puffs = []
+    for (let k = 0; k < 6; k++) { const m = new THREE.MeshBasicMaterial({ color: 0xd8dcde, fog: true, transparent: true, opacity: 0, depthWrite: false })
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.42, 7, 6), m); p.scale.y = 0.85; g.add(p); puffs.push(p) }
+    scene.add(g); chimneys.push({ g, puffs, ph: Math.random() * 6 })
+  }
+}
+function updateChimneys(t) {
+  if (!chimneys.length) initChimneys()
+  const f = smoothstep01((tday - 0.5) / 0.08) * (1 - smoothstep01((tday - 0.82) / 0.1)) // 夕方〜宵だけ立ちのぼる
+  for (const c of chimneys) { c.g.visible = f > 0.01; if (!c.g.visible) continue
+    let i = 0; for (const p of c.puffs) { const r = (t * 0.5 + c.ph + i * 0.62) % 5, h = r / 5 // 0..1で上へ昇る（隙間を詰めて連続した一筋に）
+      p.position.set(Math.sin(r * 0.7 + c.ph) * (0.3 + h * 2.0), r * 2.4, Math.cos(r * 0.5 + c.ph * 1.3) * (0.2 + h * 1.4))
+      p.scale.setScalar(0.55 + h * 3.0); p.material.opacity = 0.72 * f * Math.sin(h * Math.PI * 0.92 + 0.1); i++ } } // 上にいくほど広がって薄く溶ける（根元も少し見える）
+}
 function updateContrail(dt) {
   const c = contrail
   if (!c.grp.visible) { c.nextAt -= dt; if (c.nextAt <= 0 && tday > 0.16 && tday < 0.64) { c.grp.visible = true; c.t = 0; c.dir = Math.random() < 0.5 ? 1 : -1; c.zoff = (Math.random() - 0.5) * 90; c.y = 138 + Math.random() * 36 } return }
@@ -7429,6 +7450,7 @@ function update(dt) {
   // 雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
   updateContrail(dt) // 飛行機雲（夏の空に一機）
+  updateChimneys(tsec) // 夕餉の煙（夕方に家々から）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   for (const t of thunderheads) {
@@ -8684,6 +8706,7 @@ window.__proto3d = {
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
   _contrail() { contrail.grp.visible = true; contrail.t = 8; contrail.dir = 1; contrail.zoff = 0; contrail.y = 150 }, // 検証用：飛行機雲を今すぐ出す（中ほどまで進んだ状態）
+  _chimneys() { initChimneys(); return chimneys.map((c) => ({ x: +c.g.position.x.toFixed(0), y: +c.g.position.y.toFixed(0), z: +c.g.position.z.toFixed(0) })) }, // 検証用：夕餉の煙の位置
   get _jumpState() { return { airborne, jumpV: +jumpV.toFixed(1), riding, mode } }, // 検証用：ジャンプ状態
   _slideTop() { return slideRide ? slideRide.top : null }, // 検証用：すべり台のてっぺん座標
   _rideSlide() { if (!slideRide) return null; area = 'yato'; onYato = true; boy.position.set(slideRide.top[0], heightAt(slideRide.top[0], slideRide.top[1]), slideRide.top[1]); rideSlide(); return { total: +slideRide.total.toFixed(1) } }, // 検証用：すべり台に乗る
