@@ -2685,13 +2685,17 @@ function buildShishigaya() {
     const wallP = [], hedgeP = [], boardP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] } // boardP=板塀（木の板塀・F5・2026-06-25）
     const cenD2 = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
     const rds = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD2(a) - cenD2(b))
+    let nCross = 0 // 別の道を横切るので除いた塀の数（ユーザー指摘2026-06-25）
     for (const rd of rds) { if (wallP.length + hedgeP.length > 760) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
       for (let k = 0; k < p.length - 1 && wallP.length + hedgeP.length <= 760; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, ang = Math.atan2(-uz, ux)
         for (let t = 2.5; t < l - 2.5; t += 5) for (const sd of [1, -1]) { const wx = x0 + ux * t + nx * sd * (hw + 0.8), wz = z0 + uz * t + nz * sd * (hw + 0.8)
           if (!occAt(wx + nx * sd * 3.5, wz + nz * sd * 3.5)) continue // 家がある側だけ＝塀の向こうに家
           if (Math.hypot(wx - 3008, wz + 8) < 50 || inWater(wx, wz) || heightAtYato(wx, wz) < 3) continue
+          // 塀(長さ5m)を約0.6m間隔の9点で走査し、どれかが道に乗るなら置かない＝道を横切る塀を全面解消（細い道・曲がり角・斜めの道も漏らさない・ユーザー指摘2026-06-25）
+          { let onR = false; for (const tt of [-2.5, -1.9, -1.25, -0.6, 0, 0.6, 1.25, 1.9, 2.5]) if (onYatoRoadCore(wx + ux * tt, wz + uz * tt)) { onR = true; break } if (onR) { nCross++; continue } }
           const seed = Math.abs(Math.round(wx) * 7 + Math.round(wz) * 5); if (seed % 5 === 0) continue // 5区画に1つは開ける（門/車庫の出入口）
           const r6 = seed % 6; (r6 < 2 ? hedgeP : r6 < 3 ? boardP : wallP).push([wx, wz, ang]) } } } // 生垣/板塀/ブロック塀を混在＝住宅地の塀の多様化
+    if (nCross) console.log('[shishigaya] 道を横切る塀を除外', nCross)
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), eu = new THREE.Euler()
     if (wallP.length) { const wI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.3, 0.28), new THREE.MeshToonMaterial({ color: 0xffffff, map: blockTex, gradientMap: GRAD }), wallP.length); wI.castShadow = wI.receiveShadow = true; const wcol = new THREE.Color()
       wallP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.65, z), q, sc); wI.setMatrixAt(i, m4)
@@ -8401,6 +8405,7 @@ window.__proto3d = {
   heightAt(x, z) { return heightAt(x, z) }, // 検証用：地形の高さを問い合わせ（接地点検）
   colliders, _collide(x, z) { return pushOutOfColliders(x, z) }, // 検証用：当たり判定（点を外へ押し出す）
   SG, heightAtYato(x, z) { return heightAtYato(x, z) }, // 検証用：獅子ヶ谷の道/建物/水データ＋実標高（道ふさぎの洗い出しに使う）
+  _onRoad(x, z) { return onYatoRoadCore(x, z) }, // 検証用：その点が道の描画幅に乗るか（道を横切る塀/物の洗い出しに使う）
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
   _train() { startAudio(); try { listener.context.resume() } catch (e) {} playTrain(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの電車
   _dog() { startAudio(); try { listener.context.resume() } catch (e) {} playDog(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの犬
