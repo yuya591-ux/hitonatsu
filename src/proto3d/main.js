@@ -2836,11 +2836,11 @@ function buildShishigaya() {
   // 生活感の小物（人がいた痕跡＝エモさ）：物干し・室外機を家のそばに、自販機・丸ポストを道角に。中心部(サンライズ〜小学校)に控えめに
   { const hoshi = (x, z, rot) => { const g = new THREE.Group(), pole = toon(0xb4b4b0); for (const px of [-1.6, 1.6]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), pole); p.position.set(px, 0.9, 0); g.add(p) } const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 6), pole); bar.rotation.z = Math.PI / 2; bar.position.y = 1.65; g.add(bar); const cols = [0xeaeae6, 0x9fc6e0, 0xeaeae6, 0xe8b7a0]; for (let i = 0; i < 4; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.78), new THREE.MeshToonMaterial({ color: cols[i], gradientMap: GRAD, side: THREE.DoubleSide })); cl.position.set(-1.1 + i * 0.74, 1.25, 0); g.add(cl) } placeProp(g, x, z, rot, 0.03, 1.4) } // 物干し（洗濯もの）
     const shitsu = (x, z, rot) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.35), toon(0xcfcabd)); b.position.y = 0.4; g.add(b); const gr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 10), toon(0x8a8a86)); gr.position.set(0, 0.4, 0.181); g.add(gr); placeProp(g, x, z, rot, 0.02, 0.5) } // 室外機
-    let nh = 0 // 物干し＝範囲を中心120m→340m(商店街/広い住宅地まで)・上限6→16に拡大＝歩く所に干し物の生活感（E2・2026-06-25）。道の上は避ける
-    for (const b of SG.buildings) { if (nh >= 16) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 340) continue; const seed = Math.abs(Math.round(x) * 7 + Math.round(z) * 3); if (seed % 6 !== 0) continue
+    let nh = 0 // 物干し＝範囲を340m→560m(東/南の住宅地まで)・上限16→26に拡大＝歩く所すべてに干し物の生活感（中心だけ賑わって周縁が無人に見える問題を解消・2026-06-26）。道の上は避ける
+    for (const b of SG.buildings) { if (nh >= 26) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 560) continue; const seed = Math.abs(Math.round(x) * 7 + Math.round(z) * 3); if (seed % 6 !== 0) continue
       const rot = b[4], hx = x + Math.cos(rot) * (b[3] / 2 + 2.6), hz = z + Math.sin(rot) * (b[3] / 2 + 2.6); if (!inWater(hx, hz) && heightAtYato(hx, hz) > 3 && !onYatoRoadCore(hx, hz)) { hoshi(hx, hz, rot); nh++ } }
-    let ns = 0 // 室外機＝範囲130m→340m・上限9→20に拡大（建物の壁ぎわなので道に出ない）
-    for (const b of SG.buildings) { if (ns >= 20) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 340) continue; const seed = Math.abs(Math.round(x) * 5 + Math.round(z) * 2); if (seed % 5 !== 0) continue
+    let ns = 0 // 室外機＝範囲340m→560m・上限20→30に拡大（建物の壁ぎわなので道に出ない）
+    for (const b of SG.buildings) { if (ns >= 30) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 560) continue; const seed = Math.abs(Math.round(x) * 5 + Math.round(z) * 2); if (seed % 5 !== 0) continue
       const rot = b[4]; shitsu(x + Math.cos(rot) * (b[2] / 2 + 0.3), z + Math.sin(rot) * (b[2] / 2 + 0.3), rot + Math.PI / 2); ns++ }
     // 北門の住宅地（プール北東）に生活感＝中心から遠く既定の小物範囲外なので手置き。物干し/室外機/自販機で「人が住んでいる」気配
     hoshi(4124, -1052, 0); hoshi(4178, -1090, Math.PI / 2); hoshi(4124, -1120, 0)
