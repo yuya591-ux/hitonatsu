@@ -1507,8 +1507,19 @@ function buildBonOdori(ox, oy, oz, grp) {
     const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 0.95, 8), bodyMat); lower.position.y = 0.55; g.add(lower) // 浴衣の裾（広がり・柄）
     const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.55, 8), bodyMat); upper.position.y = 1.16; g.add(upper) // 上半身
     const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.16, 8), toon(0xcc9a3a)); obi.position.y = 1.0; g.add(obi) // 帯
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), toon(0xf0d6b4)); head.position.y = 1.6; g.add(head)
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.235, 10, 8, 0, 6.2832, 0, Math.PI * 0.62), toon(0x241e1a)); hair.position.set(0, 1.64, 0); g.add(hair)
+    const hw4 = 0.95 + Math.random() * 0.1
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), toon(0xf0d6b4)); head.scale.set(hw4, 1, hw4); head.position.y = 1.6; g.add(head)
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.235, 10, 8, 0, 6.2832, 0, Math.PI * 0.62), toon([0x241e1a, 0x2e2620, 0x3a2e22, 0x4a3a2e][Math.floor(Math.random() * 4)])); hair.position.set(0, 1.64, 0); g.add(hair)
+    // 顔＝白目/瞳/きらり＋小さな口（盆踊りの踊り手にも・C5★・2026-06-25）。正面=+z（踊りの進行方向＝接線を向く）
+    const dE = new THREE.MeshBasicMaterial({ color: 0x2e241c }), dH = new THREE.MeshBasicMaterial({ color: 0xffffff }), dEyes = []
+    for (const ex of [-0.082, 0.082]) {
+      const w = new THREE.Mesh(new THREE.SphereGeometry(0.034, 9, 7), dH); w.scale.set(0.9, 1.12, 0.45); w.position.set(ex, 1.63, 0.196); g.add(w)
+      const ir = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), dE); ir.position.set(ex, 1.628, 0.21); g.add(ir)
+      const h0 = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 6), dH); h0.position.set(ex + 0.01, 1.643, 0.218); g.add(h0)
+      dEyes.push(w, ir)
+    }
+    const dm = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.0055, 6, 10, Math.PI * 0.9), dE); dm.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; dm.position.set(0, 1.55, 0.206); g.add(dm)
+    registerBlinker(dEyes)
     const arm = (sx) => { const a = new THREE.Group(); a.position.set(sx * 0.3, 1.34, 0); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.6, 6), toon(col)); m.position.y = -0.28; a.add(m); g.add(a); return a }
     const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
   const yukataCols = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96, 0xa83f6a] // 浴衣の色とりどり
