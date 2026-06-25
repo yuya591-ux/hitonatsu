@@ -5057,7 +5057,7 @@ function updateBillboard() {
 // ── 村の人（“人の気配”。近づくと話せる。台詞は時間帯で変わる）──
 function makeVillager(x, z, opt) {
   const g = new THREE.Group()
-  const skin = skinToon(opt.skin || 0xeeccb4), shirtM = charToon(opt.shirt) // 自然で柔らかい肌（自発光控えめ）。服は charToon＝主人公と同じく逆光でも黒く沈まない。opt.skinで個体差も付けられる
+  const skin = skinToon(opt.skin || 0xeeccb4), shirtM = charToon(opt.garment === 'dress' ? opt.skirt : opt.shirt) // 服は charToon＝逆光でも黒く沈まない。ワンピースは上下同色（C5★）。opt.skinで個体差も
   const full = !opt.simple // 会話する村人＝関節あり／背景の通行人＝軽量（股ピボットのみ）
   // 主人公と同じ“幼児寄り”の頭身に統一（頭大きめ・胴短く・脚短め・重心低い）。大人はopt.scaleで少し背を高く。
   let kneeL = null, kneeR = null
@@ -5077,6 +5077,8 @@ function makeVillager(x, z, opt) {
   const LL = makeLeg(-1), LR = makeLeg(1)
   const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
   if (opt.boy) { const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.16, 0.22, 14), charToon(opt.skirt)); shorts.scale.set(1, 1, 0.86); shorts.position.y = PROP.hipY + 0.06; g.add(shorts) }
+  else if (opt.garment === 'dress') { const dress = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.66, 16), charToon(opt.skirt)); dress.position.y = PROP.hipY - 0.12; g.add(dress) // ワンピース＝裾が長くふくらむ（大人の女性/女の子）
+    if (opt.apron) { const ap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.04), charToon(opt.apron === true ? 0xe8e2d4 : opt.apron)); ap.position.set(0, PROP.hipY + 0.02, 0.2); g.add(ap) } } // エプロン（おばさん）
   else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.36, 16), charToon(opt.skirt)); skirt.position.y = PROP.hipY + 0.02; g.add(skirt) } // 小学生のすっきりしたスカート
   // 胴＝すっきり縦長（主人公と統一）。会話する村人は肩つき、背景の人は1本。
   if (full) {
@@ -5088,7 +5090,7 @@ function makeVillager(x, z, opt) {
   // 首（主人公と統一・少し見せる）
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.11, 14), skin); neck.position.y = PROP.neckY; g.add(neck)
   // あたま＝小さめ（主人公と同じ小学生の頭身に統一）。大人はさらに小さめ＝大人びた頭身
-  const head = new THREE.Mesh(new THREE.SphereGeometry(PROP.headR, 18, 16), skin); if (opt.adult) { head.scale.set(0.97, 1.03, 0.95); head.position.y = PROP.headY + 0.05 } else { head.scale.set(PROP.headSX, PROP.headSY, PROP.headSZ); head.position.y = PROP.headY } if (opt.headW) { head.scale.x *= opt.headW; head.scale.z *= opt.headW } g.add(head) // opt.headW=顔の幅/丸さの個体差（一人ひとり別人に・C5★）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(PROP.headR, 18, 16), skin); if (opt.adult) { head.scale.set(0.89, 0.95, 0.87); head.position.y = PROP.headY + 0.08 } else { head.scale.set(PROP.headSX, PROP.headSY, PROP.headSZ); head.position.y = PROP.headY } if (opt.headW) { head.scale.x *= opt.headW; head.scale.z *= opt.headW } g.add(head) // 大人は頭をさらに小さく＝高い頭身で大人らしく（ユーザー要望2026-06-25）。opt.headW=顔の幅の個体差（C5★）
   // 髪＝頭頂〜後頭部〜サイドを覆う“帽子状”のキャップ。顔（額〜目）は開けて、髪が顔に垂れて真っ黒に見えるのを防ぐ。
   // 以前は y=1.38 固定で、大人は頭(1.4)より低く＝髪が顔に覆いかぶさっていた。頭の高さ(head.position.y)に追従させる。
   const hy = head.position.y
@@ -5309,7 +5311,8 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     const hr = Math.random(), hat = hr < 0.30 ? 'cap' : hr < 0.48 ? (adult ? 'bucket' : 'straw') : false
     const bag = adult && Math.random() < 0.5 ? rpick([0xc8a060, 0x9a7a5a, 0xb0563f]) : false
     const hairStyle = hat ? undefined : rpick(boyP ? ['short', 'short', 'buzz'] : ['short', 'pony', 'bob']) // 髪型＝帽子なしの人に個体差
-    const p = makeVillager(seg.ax, seg.az, { shirt: rpick(yPal), skirt: rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a]), skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat, band: rpick(yPal), hairStyle, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
+    const garment = (!boyP && Math.random() < 0.42) ? 'dress' : undefined, apron = (garment === 'dress' && adult && Math.random() < 0.5) ? true : false // 女性/女の子の一部はワンピース・大人はエプロンも（服の型の個体差・C5★Step2）
+    const p = makeVillager(seg.ax, seg.az, { shirt: rpick(yPal), skirt: rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a]), skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat, band: rpick(yPal), hairStyle, garment, apron, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
     const t0 = Math.random()
     p.userData.ped = { sp: 0.85 + Math.random() * 0.4, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
     p.position.set(seg.ax + (seg.bx - seg.ax) * t0, p.position.y, seg.az + (seg.bz - seg.az) * t0)
