@@ -2608,9 +2608,13 @@ function buildShishigaya() {
           prev = top } } }
     if (poleP.length) { const m4 = new THREE.Matrix4()
       const pI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.24, 9, 6), toon(0x9a958c), poleP.length); pI.castShadow = true
-      const aI = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 0.16, 0.16), toon(0x6a5a44), poleP.length)
-      poleP.forEach(([px, pz, y], i) => { m4.makeTranslation(px, y + 4.5, pz); pI.setMatrixAt(i, m4); m4.makeTranslation(px, y + 8.2, pz); aI.setMatrixAt(i, m4) })
-      scene.add(pI); scene.add(aI)
+      const aI = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 0.16, 0.16), toon(0x6a5a44), poleP.length) // 上の腕金
+      const aI2 = new THREE.InstancedMesh(new THREE.BoxGeometry(1.7, 0.14, 0.14), toon(0x6a5a44), poleP.length) // 下の腕金（2段＝昭和の電柱らしさ・F3・2026-06-25）
+      const transP = poleP.filter(([px, pz]) => (Math.abs(Math.round(px) * 7 + Math.round(pz) * 5) % 3) === 0) // 約1/3に柱上変圧器
+      const tI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.42, 0.42, 1.05, 10), toon(0x8a8c90), transP.length); tI.castShadow = true // 柱上変圧器（灰のドラム缶）
+      poleP.forEach(([px, pz, y], i) => { m4.makeTranslation(px, y + 4.5, pz); pI.setMatrixAt(i, m4); m4.makeTranslation(px, y + 8.2, pz); aI.setMatrixAt(i, m4); m4.makeTranslation(px, y + 7.35, pz); aI2.setMatrixAt(i, m4) })
+      transP.forEach(([px, pz, y], i) => { m4.makeTranslation(px + 0.58, y + 6.55, pz); tI.setMatrixAt(i, m4) }) // 変圧器は柱の横に
+      scene.add(pI); scene.add(aI); scene.add(aI2); scene.add(tI)
       const wl = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(wireSeg), new THREE.LineBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.6 })); wl.layers.set(1); scene.add(wl) // 電線はインク線パスから除外
       console.log('[shishigaya] 電柱', poleP.length) } }
   // 道ぞいのブロック塀・生垣（家の前＝日本の住宅地の核・ユーザー要望2026-06-22）。家がある側だけ・中心部優先・ところどころ出入口で開ける。塀/生垣を各1インスタンスメッシュ＝軽い
