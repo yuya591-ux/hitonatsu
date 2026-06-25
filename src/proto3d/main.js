@@ -1542,6 +1542,7 @@ const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(to
 const toroList = [] // 各灯籠＝｛g, glow, x, z, y, vx, vz, ph, cx, cz, rad｝
 const radioTaiso = new THREE.Group(); radioTaiso.visible = false; scene.add(radioTaiso) // ラジオ体操（夏休みの早朝、公園で体操＝夏のいちばんの定番）。updateTaisoで動かす
 const taisoFigs = [] // 体操する人＝｛g, armL, armR, baseY, ph, lead｝
+const yatoTreePos = [] // 獅子ヶ谷の核の近くの木の位置[x,z,y]（虫取りのカブトムシ/セミを木の幹に止めるのに使う）
 // 簡単な低ポリの人（胴・頭・髪・腕2本）。盆踊り/ラジオ体操/通行人などで共用できる素体
 function makePerson(shirt, pants, kid) { const g = new THREE.Group(), sc = kid ? 0.64 : 1
   const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * sc, 0.24 * sc, 0.72 * sc, 7), toon(pants)); legs.position.y = 0.36 * sc; g.add(legs)
@@ -2653,7 +2654,8 @@ function buildShishigaya() {
     const canI = new THREE.InstancedMesh(canopyGeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), tp.length); canI.castShadow = true
     const trI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.26, 1.5, 6), toonMap(0x6a4e34, woodTex), tp.length) // 幹＝木目テクスチャ＋6角（角ばり解消）
     const m4 = new THREE.Matrix4(), sc = new THREE.Vector3(), col = new THREE.Color(), gr = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a, 0x6a9445, 0x7aa24c, 0x86a44e]
-    tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), s = sak ? 2.0 : 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.4 + s * 0.7, z); m4.scale(sc.set(s, s * 1.12, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(sak ? 0xf0b4cd : gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.75, z)) })
+    tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), s = sak ? 2.0 : 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.4 + s * 0.7, z); m4.scale(sc.set(s, s * 1.12, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(sak ? 0xf0b4cd : gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.75, z))
+      if (!sak && yatoTreePos.length < 60 && x > 2840 && x < 3230 && z > -600 && z < 90 && (i % 3 === 0)) yatoTreePos.push([x, z, y]) }) // 核の近くの木を控える＝虫取りのカブトムシ/セミを止める
     canI.instanceColor.needsUpdate = true; scene.add(canI); scene.add(trI)
   }
   // ───── 三ツ池公園の作り込み：あずまや（東屋）＋太鼓橋（朱塗りアーチ）─────
@@ -4661,6 +4663,10 @@ makeBug(14, 2.2, 6.5, 'カブトムシ')
 makeBug(22, 2.4, -9.6, 'カブトムシ')
 makeBug(-16, 2.6, 2.5, 'セミ')
 makeBug(9, 2.0, -21.5, 'セミ')
+// ── 獅子ヶ谷の木にも カブトムシ/セミ（夏休みの虫取り＝旧プロト町だけでなく今いる谷戸でも）。核の近くの木の幹に止める ──
+{ const ts = yatoTreePos.slice(); for (let i = ts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = ts[i]; ts[i] = ts[j]; ts[j] = t } // シャッフル
+  ts.slice(0, 16).forEach(([x, z, y], i) => { const kind = i % 2 === 0 ? 'カブトムシ' : 'セミ', ang = Math.random() * 6.283, tr = 0.26
+    makeBug(x + Math.cos(ang) * tr, y + (kind === 'セミ' ? 2.0 : 1.3) + Math.random() * 0.3, z + Math.sin(ang) * tr, kind) }) } // カブトムシは幹の低め・セミは少し上
 
 // ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
 function makeCat() {
@@ -7559,9 +7565,9 @@ function update(dt) {
     for (const gt of GATES) { if (gt.area !== area) continue; const d = Math.hypot(boy.position.x - gt.x, boy.position.z - gt.z); if (d < gateD) { gateD = d; activeGate = gt } }
     if (!dialogue && activeGate) { goEl.textContent = activeGate.label; goEl.style.display = 'block'; goEl.classList.toggle('near', gateD < 3.2) }
     else { goEl.style.display = 'none'; goEl.classList.remove('near') }
-    // いちばん近い虫を「つかまえる」対象に（野原のみ）
+    // いちばん近い虫を「つかまえる」対象に（野原＋獅子ヶ谷の谷戸。距離3.2m以内なので遠い旧エリアの虫は自然に除外）
     catchTarget = null
-    if (area === 'field') { let cd = 3.2; for (const c of catchables) { if (c.done) continue; const p = c.obj.position; const dd2 = Math.hypot(boy.position.x - p.x, boy.position.z - p.z); if (dd2 < cd) { cd = dd2; catchTarget = c } } }
+    if (area === 'field' || onYato) { let cd = 3.2; for (const c of catchables) { if (c.done) continue; const p = c.obj.position; const dd2 = Math.hypot(boy.position.x - p.x, boy.position.z - p.z); if (dd2 < cd) { cd = dd2; catchTarget = c } } }
     catchEl.style.display = (catchTarget && !dialogue) ? 'block' : 'none'
     if (catchTarget) npcEl.style.display = 'none'
     // 池のそばで「つる」（釣り中は出したまま）
