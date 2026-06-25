@@ -798,24 +798,28 @@ const waterMat = new THREE.ShaderMaterial({
     void main(){ vUv = uv; vW = (modelMatrix * vec4(position,1.0)).xyz;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `varying vec2 vUv; varying vec3 vW; uniform float uTime; uniform vec3 deep; uniform vec3 shallow; uniform vec3 sky; uniform vec3 tint; uniform float bright; uniform vec3 glint;
+    float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
+    float fbm(vec2 p){ return vn(p) * 0.62 + vn(p * 2.1 + 3.0) * 0.38; } // 2オクターブの値ノイズ＝周期が無い水面のゆらぎ
     void main(){
       float d = distance(vUv, vec2(0.5)) * 2.0;
-      vec3 col = mix(deep, shallow, smoothstep(0.4, 1.0, d)); // 岸ほど淡く
-      // 遠く（grazing）はさざ波の周期がパースで潰れて縞に見えるので、手前だけ揺らし中〜遠景は穏やかな鏡面に（縞模様の解消・2026-06-26）
-      float prox = 1.0 - smoothstep(14.0, 62.0, distance(vW, cameraPosition));
-      // 2層のさざ波（向きと速さを変えて重ねる＝のっぺりしない）。各方向の位相を直交方向で歪ませ、規則的な格子にならないように
-      float w1 = sin(vW.x * 0.7 + uTime * 0.9 + sin(vW.z * 0.33 + uTime * 0.2) * 1.1) * sin(vW.z * 0.7 - uTime * 0.7 + sin(vW.x * 0.31) * 1.0);
-      float w2 = sin(vW.x * 1.7 - uTime * 1.3 + 1.7 + sin(vW.z * 0.5) * 0.9) * sin(vW.z * 1.4 + uTime * 1.1);
-      col += vec3(0.045, 0.072, 0.075) * smoothstep(0.42, 0.97, w1) * prox;
-      col += vec3(0.035, 0.055, 0.062) * smoothstep(0.55, 0.99, w2) * prox;
-      // 空の映り込み（水面のゆらめき）。直線の横じまにならないよう2方向＋低周波で歪ませ、近くだけ揺らす
-      float band = sin(vW.z * 0.72 + uTime * 0.5 + sin(vW.x * 0.5 + uTime * 0.3) * 1.35 + sin(vW.z * 0.29 - uTime * 0.18) * 1.15);
-      col = mix(col, sky, 0.13 * prox * smoothstep(0.25, 1.0, band));
-      // 太陽のきらめき（細かい点滅）＝近くだけ
-      float sp = sin(vW.x * 6.0 + uTime * 3.0) * sin(vW.z * 5.3 + uTime * 2.1);
-      col += glint * 0.26 * smoothstep(0.92, 1.0, sp) * prox;
-      // 岸ぎわの泡（白い縁取り）＋透け
-      float foam = smoothstep(0.86, 0.99, d) * (0.6 + 0.4 * sin(vW.x * 3.0 + vW.z * 3.0 + uTime * 2.0));
+      bool noUV = d > 1.2; // UVの無い多角形の池(三ツ池/二ツ池等＝vUv=0でdが1.41になる)。岸ほど淡くする d依存と岸の泡をオフ＝全面に泡が出て縞になる不具合を回避（2026-06-26）
+      vec3 col = noUV ? mix(deep, shallow, 0.5) : mix(deep, shallow, smoothstep(0.4, 1.0, d)); // 多角形池は中庸の水色／円形池は岸ほど淡く
+      // 浅い角度で見た水面は、1画素が広い距離を跨いでさざ波の細部がパースで潰れ＝縞/モアレになる。視線の角度(graze)と距離(prox)でゆらぎを減衰し、浅い角度・遠くは穏やかな鏡面に（縞模様の根治・2026-06-26）
+      vec3 vDir = normalize(cameraPosition - vW); // 水面→カメラの視線
+      float graze = smoothstep(0.12, 0.45, vDir.y); // 浅い角度ほど0＝穏やかな鏡面、上から覗き込むほどさざ波が見える（パースで潰れる細部のモアレを抑える）
+      float prox = (1.0 - smoothstep(14.0, 70.0, distance(vW, cameraPosition))) * graze;
+      // さざ波のきらめき＝ノイズ(fbm)ベース＝周期が無く、浅い角度でパースに潰れても規則的な縞模様にならない（ユーザー指摘の水面の縞を根治・2026-06-26）
+      float n1 = fbm(vW.xz * 0.5 + vec2(uTime * 0.10, -uTime * 0.07));
+      col += vec3(0.055, 0.085, 0.09) * smoothstep(0.55, 0.9, n1) * prox; // さざ波の明るい房
+      // 空の映り込み（ゆらぐ反射）＝低周波ノイズ
+      float band = fbm(vW.xz * 0.26 + vec2(uTime * 0.06, uTime * 0.045));
+      col = mix(col, sky, 0.14 * prox * smoothstep(0.42, 0.82, band));
+      // 太陽のきらめき（散らばる点滅）＝ノイズ＝縞にならない
+      float sp = vn(vW.xz * 2.6 + vec2(uTime * 0.5, -uTime * 0.4));
+      col += glint * 0.30 * smoothstep(0.85, 0.99, sp) * prox;
+      // 岸ぎわの泡（白い縁取り）＝円形池のみ（dが効く）。多角形池はdが無効＝泡を出さない（全面の縞の元）
+      float foam = noUV ? 0.0 : smoothstep(0.86, 0.99, d) * (0.6 + 0.4 * sin(vW.x * 3.0 + vW.z * 3.0 + uTime * 2.0));
       col = mix(col, vec3(0.96, 0.99, 1.0), foam * 0.5);
       float edge = smoothstep(0.9, 1.0, d);
       gl_FragColor = vec4(col * tint * bright, 0.92 - edge * 0.4);
