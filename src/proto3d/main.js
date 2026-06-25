@@ -5327,16 +5327,17 @@ moonGlow.position.copy(moon.position); moonGlow.layers.set(1); scene.add(moonGlo
 const stars = (() => {
   const g = new THREE.BufferGeometry(); const p = []
   // 天頂までびっしり＝満天の星。低い空ほど薄く、天の川あたりは少し密に
-  for (let i = 0; i < 360; i++) {
+  for (let i = 0; i < 540; i++) {
     const u = Math.random() * Math.PI * 2, v = Math.random() * 0.72 + 0.12, r = 380
     p.push(Math.cos(u) * Math.cos(v) * r, Math.sin(v) * r, Math.sin(u) * Math.cos(v) * r)
   }
-  for (let i = 0; i < 120; i++) { // 天の川の帯（一筋に集める）
-    const u = Math.random() * Math.PI * 2, v = 0.5 + (Math.random() - 0.5) * 0.18, r = 380
+  for (let i = 0; i < 200; i++) { // 天の川の帯（一筋に集める）
+    const u = Math.random() * Math.PI * 2, v = 0.5 + (Math.random() - 0.5) * 0.16, r = 380
     p.push(Math.cos(u) * Math.cos(v) * r, Math.sin(v) * r, Math.sin(u) * Math.cos(v) * r)
   }
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }))
+  const dotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); const gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.beginPath(); x.arc(16, 16, 16, 0, 6.283); x.fill(); return new THREE.CanvasTexture(c) })() // 星をやわらかい丸（四角い点を脱す）
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, map: dotTex, size: 2.4, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false })) // 丸い星にして満天らしく（A8・2026-06-25）
   pts.layers.set(1); scene.add(pts); return pts // 星はインク線の法線パスから除外（昼は透明でも法線パスは不透明で描かれ、空に四角が散る不具合）
 })()
 const fireflies = (() => {
