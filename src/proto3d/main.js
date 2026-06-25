@@ -5088,7 +5088,7 @@ function makeVillager(x, z, opt) {
   // 首（主人公と統一・少し見せる）
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.11, 14), skin); neck.position.y = PROP.neckY; g.add(neck)
   // あたま＝小さめ（主人公と同じ小学生の頭身に統一）。大人はさらに小さめ＝大人びた頭身
-  const head = new THREE.Mesh(new THREE.SphereGeometry(PROP.headR, 18, 16), skin); if (opt.adult) { head.scale.set(0.97, 1.03, 0.95); head.position.y = PROP.headY + 0.05 } else { head.scale.set(PROP.headSX, PROP.headSY, PROP.headSZ); head.position.y = PROP.headY } g.add(head)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(PROP.headR, 18, 16), skin); if (opt.adult) { head.scale.set(0.97, 1.03, 0.95); head.position.y = PROP.headY + 0.05 } else { head.scale.set(PROP.headSX, PROP.headSY, PROP.headSZ); head.position.y = PROP.headY } if (opt.headW) { head.scale.x *= opt.headW; head.scale.z *= opt.headW } g.add(head) // opt.headW=顔の幅/丸さの個体差（一人ひとり別人に・C5★）
   // 髪＝頭頂〜後頭部〜サイドを覆う“帽子状”のキャップ。顔（額〜目）は開けて、髪が顔に垂れて真っ黒に見えるのを防ぐ。
   // 以前は y=1.38 固定で、大人は頭(1.4)より低く＝髪が顔に覆いかぶさっていた。頭の高さ(head.position.y)に追従させる。
   const hy = head.position.y
@@ -5102,7 +5102,15 @@ function makeVillager(x, z, opt) {
   const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 8, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.18), hairCol); bangs.position.set(0, hy + 0.03, 0.05); bangs.rotation.x = 0.16; g.add(bangs) // 前髪＝つばの下からのぞく額のひと房（つばより下）
   const nape = new THREE.Mesh(new THREE.SphereGeometry(0.152, 14, 10, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.4), hairCol); nape.position.set(0, hy - 0.01, -0.038); g.add(nape) // 後頭部〜襟足
   const hairParts = [hair, bangs, nape]
-  if (!opt.boy && !opt.simple) for (const hx of [-0.15, 0.15]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), hairCol); pt.position.set(hx, hy - 0.04, -0.02); g.add(pt); hairParts.push(pt) } // 女の子のサイドの髪
+  if (!opt.boy && !opt.simple && opt.hairStyle !== 'bob') for (const hx of [-0.15, 0.15]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), hairCol); pt.position.set(hx, hy - 0.04, -0.02); g.add(pt); hairParts.push(pt) } // 女の子のサイドの髪
+  // 髪型の個体差（帽子なしの人＝髪がよく見える）。ポニーテール/ボブ/短髪薄め＋既定の短髪＝一人ひとり別人に（C5★・2026-06-25）
+  if (!hatted) {
+    if (opt.hairStyle === 'pony') { const tie = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), hairCol); tie.position.set(0, hy + 0.015, -0.145); g.add(tie); hairParts.push(tie)
+      const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.028, 0.3, 8), hairCol); tail.position.set(0, hy - 0.13, -0.17); tail.rotation.x = 0.42; g.add(tail); hairParts.push(tail) } // ポニーテール
+    else if (opt.hairStyle === 'bob') { for (const sx of [-0.145, 0.145]) { const sd = new THREE.Mesh(new THREE.SphereGeometry(0.072, 10, 10), hairCol); sd.scale.set(0.66, 1.5, 0.82); sd.position.set(sx, hy - 0.085, -0.005); g.add(sd); hairParts.push(sd) } // おかっぱ/ボブ＝顔まわりを下まで
+      const back = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.5), hairCol); back.scale.set(1, 1.35, 1); back.position.set(0, hy - 0.055, -0.04); g.add(back); hairParts.push(back) }
+    else if (opt.hairStyle === 'buzz') { hair.scale.set(0.9, 0.8, 0.9); bangs.scale.set(0.7, 0.6, 0.7) } // 短髪/薄め（年配寄り）＝額を広く
+  }
   // 髪の輪郭線は細く＝太い背面ハルが帽子のクラウンより上に飛び出して“黒い筋”になるのを防ぐ（全身の0.028輪郭からは除外）。主人公と統一
   if (!opt.simple) for (const hm of hairParts) { hm.userData.noOutline = true; addOutline(hm, 0.011) }
   const ht = head.position.y + 0.1 // 小さい頭に合わせた帽子の高さ
@@ -5152,18 +5160,18 @@ function makeVillager(x, z, opt) {
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a89a, transparent: true, opacity: 0.38 })
   // ※主人公と同じ繊細で素朴な作りに統一（小さめの目＋きらり1つ・眉なし・ふんわり頬）＝同じ世界の住人に
-  const P = PROP, npcEyes = []
+  const P = PROP, npcEyes = [], es = opt.eyeSc || 1, eR = P.eyeR * es // es=瞳の大きさの個体差（C5★）
   for (const ex of [-P.eyeX, P.eyeX]) {
     if (opt.simple) { // 背景の通行人＝白目＋瞳＋きらり（軽量・主人公と同じ繊細さ）
-      const sc = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 10, 8), hiMat); sc.scale.set(0.9, 1.1, 0.4); sc.position.set(ex, P.eyeY, P.eyeZ); head.add(sc)
-      const ir = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 10, 8), eyeMat); ir.scale.set(0.96, 1, 0.42); ir.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(ir)
-      const h0 = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.3, 6, 6), hiMat); h0.position.set(ex + 0.011, P.eyeY + 0.014, P.eyeZ + 0.02); head.add(h0); npcEyes.push(sc, ir, h0); continue
+      const sc = new THREE.Mesh(new THREE.SphereGeometry(eR, 10, 8), hiMat); sc.scale.set(0.9, 1.1, 0.4); sc.position.set(ex, P.eyeY, P.eyeZ); head.add(sc)
+      const ir = new THREE.Mesh(new THREE.SphereGeometry(eR * P.irisRatio, 10, 8), eyeMat); ir.scale.set(0.96, 1, 0.42); ir.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(ir)
+      const h0 = new THREE.Mesh(new THREE.SphereGeometry(eR * 0.3, 6, 6), hiMat); h0.position.set(ex + 0.011, P.eyeY + 0.014, P.eyeZ + 0.02); head.add(h0); npcEyes.push(sc, ir, h0); continue
     }
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 16, 14), hiMat); sclera.scale.set(0.92, 1.12, 0.4); sclera.position.set(ex, P.eyeY, P.eyeZ); head.add(sclera)
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.32, 8, 8), hiMat); hi.position.set(ex + 0.012, P.eyeY + 0.016, P.eyeZ + 0.024); head.add(hi)
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(eR, 16, 14), hiMat); sclera.scale.set(0.92, 1.12, 0.4); sclera.position.set(ex, P.eyeY, P.eyeZ); head.add(sclera)
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(eR * P.irisRatio, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(eR * 0.32, 8, 8), hiMat); hi.position.set(ex + 0.012, P.eyeY + 0.016, P.eyeZ + 0.024); head.add(hi)
     const bl = new THREE.Mesh(new THREE.SphereGeometry(0.038, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.35); bl.position.set(ex + (ex > 0 ? 0.04 : -0.04), -0.05, P.eyeZ - 0.006); head.add(bl)
-    if (opt.adult) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.011, 0.018), new THREE.MeshBasicMaterial({ color: 0x5a4636 })); brow.position.set(ex, P.eyeY + 0.05, P.eyeZ + 0.01); brow.rotation.z = ex > 0 ? 0.08 : -0.08; head.add(brow) } // 大人＝やわらかい眉
+    if (opt.adult || opt.brow) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.011, 0.018), new THREE.MeshBasicMaterial({ color: opt.hair || 0x5a4636 })); brow.position.set(ex, P.eyeY + 0.05 + (opt.browY || 0), P.eyeZ + 0.01); brow.rotation.z = (ex > 0 ? 0.08 : -0.08) * (opt.browTilt || 1); head.add(brow) } // 眉（大人＋希望者）＝太さ/角度/高さで個体差
     npcEyes.push(sclera, iris, hi)
   }
   registerBlinker(npcEyes) // 村人/通行人もまばたき
@@ -5294,12 +5302,14 @@ for (const [dx, col, sp, boyP] of pedDefs) {
         const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, d = (mx - px) ** 2 + (mz - pz) ** 2; if (d < bd) { bd = d; best = { ax: a[0], az: a[1], bx: b[0], bz: b[1], len } } } }
     return bd < 60 * 60 ? best : null } // 30m以内に歩ける道が無ければ置かない
   const yPal = [0x4a78c0, 0xd05a4a, 0x3a9a6a, 0xe0a838, 0x8a5ab0, 0xc04888, 0x4aa0a0, 0xcfcabd, 0xd8a0b8]
+  const rpick = (a) => a[Math.floor(Math.random() * a.length)]
   for (const [ax, az] of anchors) { const seg = nearestSeg(ax, az); if (!seg) continue
-    const adult = Math.random() < 0.5, boyP = Math.random() < 0.5
-    const hair = boyP ? 0x2a2218 : [0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86][Math.floor(Math.random() * 4)]
-    const hr = Math.random(), hat = hr < 0.34 ? 'cap' : hr < 0.56 ? (adult ? 'bucket' : 'straw') : false
-    const bag = adult && Math.random() < 0.5 ? [0xc8a060, 0x9a7a5a, 0xb0563f][Math.floor(Math.random() * 3)] : false
-    const p = makeVillager(seg.ax, seg.az, { shirt: yPal[Math.floor(Math.random() * yPal.length)], skirt: [0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a][Math.floor(Math.random() * 5)], skin: [0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584][Math.floor(Math.random() * 4)], hair, boy: boyP, simple: true, adult, bag, hat, band: yPal[Math.floor(Math.random() * yPal.length)], scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+    const adult = Math.random() < 0.42, boyP = Math.random() < 0.5 // 子ども中心(約6割)＋大人も混ぜる
+    const hair = boyP ? rpick([0x2a2218, 0x35291c, 0x46371f]) : rpick([0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86, 0x6a5440]) // 年配は白髪混じり(0x8c8c86)
+    const hr = Math.random(), hat = hr < 0.30 ? 'cap' : hr < 0.48 ? (adult ? 'bucket' : 'straw') : false
+    const bag = adult && Math.random() < 0.5 ? rpick([0xc8a060, 0x9a7a5a, 0xb0563f]) : false
+    const hairStyle = hat ? undefined : rpick(boyP ? ['short', 'short', 'buzz'] : ['short', 'pony', 'bob']) // 髪型＝帽子なしの人に個体差
+    const p = makeVillager(seg.ax, seg.az, { shirt: rpick(yPal), skirt: rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a]), skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat, band: rpick(yPal), hairStyle, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
     const t0 = Math.random()
     p.userData.ped = { sp: 0.85 + Math.random() * 0.4, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
     p.position.set(seg.ax + (seg.bx - seg.ax) * t0, p.position.y, seg.az + (seg.bz - seg.az) * t0)
