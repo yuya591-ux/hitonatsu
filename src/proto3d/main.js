@@ -1503,7 +1503,7 @@ function buildBonOdori(ox, oy, oz, grp) {
   const fglow = new THREE.Mesh(new THREE.CircleGeometry(12, 28), new THREE.MeshBasicMaterial({ color: 0xffb060, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); fglow.rotation.x = -Math.PI / 2; fglow.position.set(ox, oy + 0.06, oz); bonOdori.add(fglow) // 会場の光だまり
   townNightLights.push({ m: fglow, base: 0.34, ph: 0.7 })
   // 暖色の点光源＝夜に踊り手と地面を温かく照らす（櫓の灯り）。会場グループが見える開催日だけ有効＝非開催日は無灯（不可視グループ内のライトは描画対象外）。会場ごとに1灯＝軽い
-  const flight = new THREE.PointLight(0xffc674, 0, 30, 1.0); flight.position.set(ox, oy + 2.1, oz); flight.castShadow = false; bonOdori.add(flight); festLights.push({ light: flight, base: 20 })
+  const flight = new THREE.PointLight(0xffc674, 0, 32, 1.0); flight.position.set(ox, oy + 3.0, oz); flight.castShadow = false; bonOdori.add(flight); festLights.push({ light: flight, base: 28 }) // 少し高く＋明るく＝踊り手/浴衣まで暖色が届く（賑わいを上げる・2026-06-26）
   // 屋台（縁日）＝会場のまわりに並ぶ。[名前,屋根色,lx,lz,種類]。種類で店先の縁日小物を出し分け（金魚すくい/ヨーヨー/射的/お面）
   const stalls = [
     ['わたあめ', 0xd86a8a, -10, -6, 0], ['かきごおり', 0x4a8ac0, -10, 0, 0], ['やきそば', 0xc0552e, -10, 6, 0], ['たこやき', 0xe0902e, -10, 11, 0], // 西の列＝食べ物
