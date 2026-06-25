@@ -5136,7 +5136,7 @@ function makeVillager(x, z, opt) {
   }
   const LL = makeLeg(-1), LR = makeLeg(1)
   const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
-  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.16, 0.22, 14), charToon(opt.skirt)); shorts.scale.set(1, 1, 0.86); shorts.position.y = PROP.hipY + 0.06; g.add(shorts) }
+  if (opt.boy) { const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.16, 0.22, 14), charToon(opt.garment === 'jinbei' ? opt.shirt : opt.skirt)); shorts.scale.set(1, 1, 0.86); shorts.position.y = PROP.hipY + 0.06; g.add(shorts) } // 甚平は下も上と同色
   else if (opt.garment === 'dress') { const dress = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.66, 16), charToon(opt.skirt)); dress.position.y = PROP.hipY - 0.12; g.add(dress) // ワンピース＝裾が長くふくらむ（大人の女性/女の子）
     if (opt.apron) { const ap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.04), charToon(opt.apron === true ? 0xe8e2d4 : opt.apron)); ap.position.set(0, PROP.hipY + 0.02, 0.2); g.add(ap) } } // エプロン（おばさん）
   else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.36, 16), charToon(opt.skirt)); skirt.position.y = PROP.hipY + 0.02; g.add(skirt) } // 小学生のすっきりしたスカート
@@ -5144,10 +5144,17 @@ function makeVillager(x, z, opt) {
   const bld = opt.build || 1
   if (full) {
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.18, 16), shirtM); torso.scale.set(bld, 1, 0.84 * bld); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
-    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 14, 10), shirtM); shoulders.scale.set(1.2 * bld, 0.66, 0.82 * bld); shoulders.position.y = PROP.shoulderY; g.add(shoulders)
+    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 14, 10), opt.garment === 'tank' ? skin : shirtM); shoulders.scale.set((opt.garment === 'tank' ? 1.05 : 1.2) * bld, 0.66, 0.82 * bld); shoulders.position.y = PROP.shoulderY; g.add(shoulders) // ランニングシャツは肩が地肌
   } else {
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR + 0.008, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.2, 12), shirtM); torso.scale.set(bld, 1, 0.86 * bld); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
   }
+  // 甚平＝前合わせの縦帯＋腰ひも。昭和の夏の子ども/男性の普段着（C5★・2026-06-25）
+  if (opt.garment === 'jinbei') { const trim = charToon(opt.jinTrim || 0xeae3d2), fz = PROP.torsoBotR * 0.84 * bld + 0.03
+    const placket = new THREE.Mesh(new THREE.BoxGeometry(0.05, PROP.chestY - PROP.waistY + 0.2, 0.03), trim); placket.position.set(0.012, (PROP.waistY + PROP.chestY) / 2, fz); placket.rotation.z = 0.08; g.add(placket) // 前合わせ（わずかに斜め＝打ち合わせ）
+    const sash = new THREE.Mesh(new THREE.BoxGeometry(PROP.torsoBotR * 2.0 * bld, 0.055, PROP.torsoBotR * 1.72 * bld), charToon(opt.shirt)); sash.position.set(0, PROP.waistY + 0.06, 0); g.add(sash) // 腰ひも
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), trim); knot.position.set(0.04, PROP.waistY + 0.06, fz); g.add(knot) }
+  // ランニングシャツ＝肩ひも（地肌の肩に細い白い帯）。夏の年配の男性らしさ（C5★・2026-06-25）
+  else if (opt.garment === 'tank') { for (const sx of [-1, 1]) { const strap = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.07), shirtM); strap.position.set(sx * 0.07, (PROP.shoulderY + PROP.chestY) / 2 + 0.02, 0.03); strap.rotation.z = sx * 0.12; g.add(strap) } }
   // 首（主人公と統一・少し見せる）
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.11, 14), skin); neck.position.y = PROP.neckY; g.add(neck)
   // あたま＝小さめ（主人公と同じ小学生の頭身に統一）。大人はさらに小さめ＝大人びた頭身
@@ -5195,7 +5202,9 @@ function makeVillager(x, z, opt) {
   function makeArm(side) {
     const sh = new THREE.Group(); sh.position.set((PROP.torsoTopR + 0.05) * side, PROP.shoulderY, 0); sh.rotation.z = -0.05 * side; g.add(sh)
     if (full) {
-      const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 9), shirtM); sleeve.scale.set(1.05, 0.82, 1.05); sleeve.position.y = -0.04; sh.add(sleeve)
+      if (opt.garment === 'tank') { /* ランニングシャツ＝袖なし（肩は地肌） */ }
+      else if (opt.garment === 'jinbei') { const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.082, 0.18, 10), shirtM); sl.position.y = -0.1; sh.add(sl) } // 甚平＝四角ばった短い袖（やや広め）
+      else { const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 9), shirtM); sleeve.scale.set(1.05, 0.82, 1.05); sleeve.position.y = -0.04; sh.add(sleeve) }
       const upper = limbCap(PROP.armR, PROP.upperArm, skin); upper.position.y = -PROP.upperArm / 2 - 0.04; sh.add(upper)
       const elbow = new THREE.Group(); elbow.position.y = -PROP.upperArm; elbow.rotation.x = -0.16; sh.add(elbow) // 肘を軽く曲げて自然に
       const fore = limbCap(PROP.armR * 0.9, PROP.fore, skin); fore.position.y = -PROP.fore / 2; elbow.add(fore)
@@ -5240,7 +5249,7 @@ function makeVillager(x, z, opt) {
   registerBlinker(npcEyes) // 村人/通行人もまばたき
   { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 6, 12, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.058, P.eyeZ + 0.008); head.add(mouth) }
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult, char: true } // char:true＝細棒除外の対象外
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult, char: true, garment: opt.garment || (opt.boy ? 'shorts' : 'skirt') } // char:true＝細棒除外の対象外
   scene.add(g)
   return g
 }
@@ -5372,8 +5381,13 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     const hr = Math.random(), hat = hr < 0.30 ? 'cap' : hr < 0.48 ? (adult ? 'bucket' : 'straw') : false
     const bag = adult && Math.random() < 0.5 ? rpick([0xc8a060, 0x9a7a5a, 0xb0563f]) : false
     const hairStyle = hat ? undefined : rpick(boyP ? ['short', 'short', 'buzz'] : ['short', 'pony', 'bob']) // 髪型＝帽子なしの人に個体差
-    const garment = (!boyP && Math.random() < 0.42) ? 'dress' : undefined, apron = (garment === 'dress' && adult && Math.random() < 0.5) ? true : false // 女性/女の子の一部はワンピース・大人はエプロンも（服の型の個体差・C5★Step2）
-    const p = makeVillager(seg.ax, seg.az, { shirt: rpick(yPal), skirt: rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a]), skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat, band: rpick(yPal), hairStyle, garment, apron, build: adult ? 0.95 + Math.random() * 0.33 : 0.9 + Math.random() * 0.18, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
+    // 服の型＝時代考証（昭和の夏）。女性/女の子＝ワンピース、男性＝甚平、年配の男性＝ランニングシャツ。子ども中心（C5★Step2＋時代考証2026-06-25）
+    let garment, apron = false, shirt = rpick(yPal), skirt = rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a])
+    if (!boyP) { if (Math.random() < 0.42) { garment = 'dress'; apron = adult && Math.random() < 0.5 } } // 女性/女の子
+    else { const gr = Math.random()
+      if (adult && gr < 0.42) { garment = 'tank'; shirt = rpick([0xf0ece0, 0xe8e4d6, 0xeceadc]); skirt = rpick([0x4a4a52, 0x6a6256, 0x3a4250]) } // 年配の男性＝ランニングシャツ＋作業ズボン
+      else if (gr < 0.5) { garment = 'jinbei'; shirt = rpick([0x36506e, 0x2e3a52, 0x4a5a6a, 0x556070, 0x6a4248, 0x445a52]) } } // 甚平（藍/紺/鼠/えんじ/苔）
+    const p = makeVillager(seg.ax, seg.az, { shirt, skirt, skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat: garment === 'tank' && Math.random() < 0.55 ? 'straw' : hat, band: rpick(yPal), hairStyle, garment, apron, build: adult ? 0.95 + Math.random() * 0.33 : 0.9 + Math.random() * 0.18, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
     const t0 = Math.random()
     p.userData.ped = { sp: 0.85 + Math.random() * 0.4, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
     p.position.set(seg.ax + (seg.bx - seg.ax) * t0, p.position.y, seg.az + (seg.bz - seg.az) * t0)
