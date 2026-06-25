@@ -2876,7 +2876,7 @@ function buildShishigaya() {
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
   // ローラーすべり台の通り道（コリドー）は木を伐って見通しを作る＝すべり台が木に隠れない（ユーザー要望2026-06-25）。位置は makeRollerSlide と共有
   // 遊びの森は公園の西側。長いローラーすべり台は西の丘の上から東へ大きく蛇行しながら長く下る（実在は67mの蛇行ローラー・ユーザー要望2026-06-25）
-  const SLIDE_PATH = [[3682, -800], [3702, -780], [3716, -812], [3736, -788], [3754, -814], [3772, -792], [3784, -802]] // 蛇行する中心線（西の高所→東へ）
+  const SLIDE_PATH = [[3682, -800], [3702, -782], [3718, -808], [3736, -790], [3756, -802], [3776, -786], [3796, -772]] // 蛇行する中心線（西の高所42m→東北の低地19mへ＝地形が単調に下る経路に引き直し＝山に食い込まない・2026-06-26）
   const POOL = [4082, -966], ATH = [3705, -842] // プール=下の池の北東(北門ぎわ)／アスレチック=遊びの森の南西(すべり台と離す)。各ビルダーと共有
   { const nearPath = (px, pz, rad) => { for (let s = 0; s < SLIDE_PATH.length - 1; s++) { const ax = SLIDE_PATH[s][0], az = SLIDE_PATH[s][1], bx = SLIDE_PATH[s + 1][0], bz = SLIDE_PATH[s + 1][1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let t = ((px - ax) * dx + (pz - az) * dz) / l2; t = Math.max(0, Math.min(1, t)); const cx = px - (ax + dx * t), cz = pz - (az + dz * t); if (cx * cx + cz * cz < rad * rad) return true } return false }
     for (let i = tp.length - 1; i >= 0; i--) {
@@ -2933,9 +2933,9 @@ function buildShishigaya() {
   { const slideMat = toon(0xc6cace), railA = toon(0xd8663a), railB = toon(0x3f86b0), postMat = toon(0x7a5a38), deckMat = toon(0x9a7b4e), stepMat = toon(0xb8a986), sandMat = toon(0xdcc89a) // 支柱/台は木の色
     const V = THREE.Vector3, Q = THREE.Quaternion, M4 = THREE.Matrix4, ONE = new V(1, 1, 1), up = new V(0, 1, 0)
     const wp = SLIDE_PATH, n = wp.length, platH = 5.0, width = 1.6, hw = width / 2, clr = 1.4
-    // 高さプロファイル：てっぺんだけ塔の高さ・あとは地面に沿わせて低く（高すぎる支柱で浮いて見える不具合の解消・ユーザー指摘2026-06-26）。ただし単調に下る
+    // 高さプロファイル：てっぺんだけ塔の高さ・あとは地面に沿わせて低く（高すぎる支柱で浮かない）。下りつつ、地面+clrより下げない＝山に食い込まない（ユーザー指摘2026-06-26）
     const pts3 = wp.map(([x, z], i) => { const tg = heightAtYato(x, z); return new V(x, tg + (i === 0 ? platH : clr), z) })
-    for (let i = 1; i < n; i++) if (pts3[i].y > pts3[i - 1].y - 0.4) pts3[i].y = pts3[i - 1].y - 0.4 // 上り防止＝必ず下る
+    for (let i = 1; i < n; i++) { const tg = heightAtYato(pts3[i].x, pts3[i].z); pts3[i].y = Math.max(tg + clr, Math.min(pts3[i].y, pts3[i - 1].y - 0.3)) } // 必ず下る(前-0.3)＋地面+clrは死守(食い込み防止)
     const curve = new THREE.CatmullRomCurve3(pts3, false, 'catmullrom', 0.5), total = curve.getLength()
     slideRide = { curve, total, top: [wp[0][0], wp[0][1]], width } // 乗車機構が使う
     const g = new THREE.Group(), N = Math.max(60, Math.round(total))
