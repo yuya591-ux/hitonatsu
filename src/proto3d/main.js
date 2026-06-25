@@ -2389,7 +2389,7 @@ function buildShishigaya() {
         const pw = new THREE.Mesh(new THREE.PlaneGeometry(19, 13), waterMat); pw.rotation.x = -Math.PI / 2; pw.position.set(pcx, pg + 1.02, pcz); grp.add(pw) // 水面＝本物の水シェーダ(さざ波/きらめき/空の映り込み)
         const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
         grp.add(mk(new THREE.PlaneGeometry(24, 1.6), fm, pcx, pg + 1.3, pcz - 9, 0)); grp.add(mk(new THREE.PlaneGeometry(24, 1.6), fm, pcx, pg + 1.3, pcz + 9, 0)); grp.add(mk(new THREE.PlaneGeometry(18, 1.6), fm, pcx - 12, pg + 1.3, pcz, Math.PI / 2)); grp.add(mk(new THREE.PlaneGeometry(18, 1.6), fm, pcx + 12, pg + 1.3, pcz, Math.PI / 2)) }
-      // ── 校庭の昭和の定番：白線トラック・鉄棒・砂場・朝礼台・二宮金次郎像（ノスタルジーの核。旧プロト校(x757)にしか無かったのを、実際に遊ぶ獅子ヶ谷校へ・盆踊り会場の外周に配置・2026-06-26）──
+      // ── 校庭の昭和の定番：白線トラック・鉄棒・砂場・朝礼台（盆踊り会場の外周に配置・2026-06-26）。※二宮金次郎像はこの学校には無かった（ユーザー記憶）ので置かない
       { const yc = 3124, yz = -186
         { const tr = new THREE.Mesh(new THREE.RingGeometry(13.5, 14.3, 56), new THREE.MeshBasicMaterial({ color: 0xece8d8, transparent: true, opacity: 0.68, side: THREE.DoubleSide })); tr.rotation.x = -Math.PI / 2; tr.scale.set(1.6, 1, 1); tr.position.set(yc, heightAtYato(yc, yz) + 0.07, yz); grp.add(tr) } // 白線トラック（楕円＝運動場・盆踊りはこの内側）
         for (const [bx, bh] of [[3104, 1.1], [3106.2, 1.45]]) { const by = heightAtYato(bx, -214) // 鉄棒（高さ違い2本・西寄り）
@@ -2398,14 +2398,7 @@ function buildShishigaya() {
         { const sx = 3142, sz = -214, sy = heightAtYato(sx, sz); const sand = new THREE.Mesh(new THREE.BoxGeometry(4, 0.18, 4), toon(0xdcc89a)); sand.position.set(sx, sy + 0.09, sz); sand.receiveShadow = true; grp.add(sand) // 砂場（南東）＋木枠
           for (const [ox, oz, ww, dd] of [[0, -2, 4.3, 0.3], [0, 2, 4.3, 0.3], [-2, 0, 0.3, 4.3], [2, 0, 0.3, 4.3]]) { const fr = new THREE.Mesh(new THREE.BoxGeometry(ww, 0.22, dd), toon(0x9a7b4e)); fr.position.set(sx + ox, sy + 0.11, sz + oz); grp.add(fr) } }
         { const dx = 3104, dz = -186, dy = heightAtYato(dx, dz); const dais = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 1.6), toon(0xbcae96)); dais.position.set(dx, dy + 0.25, dz); dais.castShadow = true; addOutline(dais, 0.02); grp.add(dais) } // 朝礼台（西）
-        { const nx = 3106, nz = -158, ny = heightAtYato(nx, nz), st = new THREE.Group(), bronze = toon(0x6e7a5e) // 二宮金次郎像（薪を背負い本を読む少年・緑青ブロンズ・台座）。原作不問のオリジナル造形＝北西
-          const ped = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.8), toon(0xb8b0a0)); ped.position.y = 0.5; st.add(ped)
-          const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.32, 4, 8), bronze); torso.position.set(0, 1.32, 0); torso.rotation.x = 0.32; st.add(torso)
-          const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), bronze); head.position.set(0, 1.64, 0.12); st.add(head)
-          const book = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.2), bronze); book.position.set(0, 1.44, 0.28); book.rotation.x = -0.5; st.add(book)
-          for (let i = 0; i < 4; i++) { const fw = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 5), toon(0x5a6a4e)); fw.position.set(-0.08 + i * 0.05, 1.36, -0.2); fw.rotation.x = 0.3; st.add(fw) } // 背中の薪
-          for (const lx of [-0.07, 0.07]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.42, 6), bronze); leg.position.set(lx, 1.05, 0.03); st.add(leg) }
-          st.traverse((o) => { if (o.isMesh) o.castShadow = true }); st.position.set(nx, ny, nz); grp.add(st) }
+        // ※二宮金次郎像は実際の獅子ヶ谷小学校には無かった（ユーザーの記憶2026-06-26）ので置かない
       }
       signOn(3061, -185, 14, gmax4(3061, -178, 50, 12), 12, name, '#2f5a8a') }
     const buildApt = (cx, cz, w, d, floors, name) => { const gB = gmin4(cx, cz, w, d), slope = Math.min(10, gmax4(cx, cz, w, d) - gB), h = slope + floors * 3, ry = faceRoad(cx, cz), co = Math.cos(ry), si = Math.sin(ry), hw = w / 2, hd = d / 2 // 当時の中層マンション＝バルコニー面＋陸屋根＋名前看板（バルコニー/名前看板が道に正対＝看板が裏向き鏡文字にならない・2026-06-24）
