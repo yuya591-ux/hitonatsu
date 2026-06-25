@@ -2618,7 +2618,7 @@ function buildShishigaya() {
       for (let y = 0; y <= 64; y += 16) { x.beginPath(); x.moveTo(0, y); x.lineTo(64, y); x.stroke() } // 横目地
       for (let r = 0; r < 4; r++) { const off = (r % 2) * 16; for (let xx = off; xx <= 64; xx += 32) { x.beginPath(); x.moveTo(xx, r * 16); x.lineTo(xx, r * 16 + 16); x.stroke() } } // 馬目地の縦
       const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.5, 1); return t })()
-    const wallP = [], hedgeP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
+    const wallP = [], hedgeP = [], boardP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] } // boardP=板塀（木の板塀・F5・2026-06-25）
     const cenD2 = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
     const rds = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD2(a) - cenD2(b))
     for (const rd of rds) { if (wallP.length + hedgeP.length > 760) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
@@ -2627,14 +2627,19 @@ function buildShishigaya() {
           if (!occAt(wx + nx * sd * 3.5, wz + nz * sd * 3.5)) continue // 家がある側だけ＝塀の向こうに家
           if (Math.hypot(wx - 3008, wz + 8) < 50 || inWater(wx, wz) || heightAtYato(wx, wz) < 3) continue
           const seed = Math.abs(Math.round(wx) * 7 + Math.round(wz) * 5); if (seed % 5 === 0) continue // 5区画に1つは開ける（門/車庫の出入口）
-          ;(seed % 3 === 0 ? hedgeP : wallP).push([wx, wz, ang]) } } }
+          const r6 = seed % 6; (r6 < 2 ? hedgeP : r6 < 3 ? boardP : wallP).push([wx, wz, ang]) } } } // 生垣/板塀/ブロック塀を混在＝住宅地の塀の多様化
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), eu = new THREE.Euler()
     if (wallP.length) { const wI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.3, 0.28), new THREE.MeshToonMaterial({ color: 0xffffff, map: blockTex, gradientMap: GRAD }), wallP.length); wI.castShadow = wI.receiveShadow = true; wallP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.65, z), q, sc); wI.setMatrixAt(i, m4) }); scene.add(wI) } // ブロック塀
     if (hedgeP.length) { const hedgeTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#5f8540'; x.fillRect(0, 0, 64, 64) // 刈り込んだ生垣の葉のまだら（のっぺりした緑の箱を脱す・F5・2026-06-25）
         for (let i = 0; i < 80; i++) { const lg = Math.random() < 0.5; x.fillStyle = lg ? 'rgba(38,66,28,0.30)' : 'rgba(150,182,108,0.26)'; const r = 1.5 + Math.random() * 4.5, px = Math.random() * 64, py = Math.random() * 64; for (const ox of [-64, 0, 64]) for (const oy of [-64, 0, 64]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, 6.283); x.fill() } } // 葉の濃淡（継ぎ目をまたぐ）
         const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 1); return t })()
       const hI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.0, 0.7), new THREE.MeshToonMaterial({ color: 0xffffff, map: hedgeTex, gradientMap: GRAD }), hedgeP.length); hI.castShadow = true; hedgeP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.5, z), q, sc); hI.setMatrixAt(i, m4) }); scene.add(hI) } // 生垣（葉のテクスチャ）
-    console.log('[shishigaya] 塀', wallP.length, '生垣', hedgeP.length) }
+    if (boardP.length) { const boardTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#9a7a4e'; x.fillRect(0, 0, 64, 64) // 板塀（縦板＋木目）
+        x.strokeStyle = 'rgba(78,56,32,0.5)'; x.lineWidth = 2; for (let px = 2; px <= 64; px += 12) { x.beginPath(); x.moveTo(px, 0); x.lineTo(px, 64); x.stroke() } // 板の継ぎ目（縦）
+        x.strokeStyle = 'rgba(120,92,58,0.28)'; x.lineWidth = 1; for (let i = 0; i < 26; i++) { const px = Math.random() * 64; x.beginPath(); x.moveTo(px, 0); x.lineTo(px + (Math.random() - 0.5) * 3, 64); x.stroke() } // 木目の縦筋
+        const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.5, 1); return t })()
+      const bI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.15, 0.09), new THREE.MeshToonMaterial({ color: 0xffffff, map: boardTex, gradientMap: GRAD }), boardP.length); bI.castShadow = bI.receiveShadow = true; boardP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.58, z), q, sc); bI.setMatrixAt(i, m4) }); scene.add(bI) } // 板塀（木の塀）
+    console.log('[shishigaya] 塀', wallP.length, '生垣', hedgeP.length, '板塀', boardP.length) }
   // ── 道ばたの夏草（伸び放題の路傍＝手入れされていない生活感。道のへりの少し外に点々と。水/建物の上は避ける。1ドロー）2026-06-24 ──
   { const weedP = [], occW = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
     for (const rd of SG.roads) { if (weedP.length > 820) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
