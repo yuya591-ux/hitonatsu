@@ -1549,6 +1549,12 @@ const taisoFigs = [] // 体操する人＝｛g, armL, armR, baseY, ph, lead｝
 const yatoTreePos = [] // 獅子ヶ谷の核の近くの木の位置[x,z,y]（虫取りのカブトムシ/セミを木の幹に止めるのに使う）
 let yatoTreeShader = null // 樹冠を夏の風でそよがせるシェーダ（草と同じ仕組み・毎フレームuTime更新）
 let yatoRiceShader = null // 谷戸田の稲を夏風でしならせるシェーダ（草/樹冠と同じ仕組み・毎フレームuTime更新）
+// まばたき＝顔を生きているように。目のメッシュ(白目/瞳/きらり)をY方向に一瞬つぶす。主人公/村人/通行人に共通（C1・2026-06-25）
+const blinkers = []
+const registerBlinker = (eyeMeshes) => blinkers.push({ eyes: eyeMeshes.map((m) => ({ m, by: m.scale.y })), timer: 1.2 + Math.random() * 4, blinkT: 0 })
+function updateBlinks(dt) { for (const b of blinkers) {
+  if (b.blinkT > 0) { b.blinkT -= dt; const p = b.blinkT / 0.13, k = 0.12 + 0.88 * Math.min(1, Math.abs(p - 0.5) * 2); for (const e of b.eyes) e.m.scale.y = e.by * (b.blinkT > 0 ? k : 1) } // 閉じ→開き（中間で細い線＝まばたき）
+  else { b.timer -= dt; if (b.timer <= 0) { b.blinkT = 0.13; b.timer = 2.2 + Math.random() * 4.5 } } } } // 数秒ごとにランダムでまばたき（個体ごとに位相ずれ）
 const suikawari = new THREE.Group(); suikawari.visible = false; scene.add(suikawari) // すいか割り（夏の昼下がり、原っぱで＝夏休みの定番）。updateSuikaで動かす
 const suikaFigs = [] // ｛g, armL, armR, baseY, ph, role(swing/watch)｝
 // 簡単な低ポリの人（胴・頭・髪・腕2本）。盆踊り/ラジオ体操/通行人などで共用できる素体
@@ -4911,12 +4917,15 @@ outlineObj(boy, 0.03)
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a89a, transparent: true, opacity: 0.38 })
   // 目＝小さめで繊細・素朴（過度なデフォルメを避ける）。白目＋茶の瞳＋小さなきらり1つ・ふんわり頬。眉は出さない（やさしい印象）
+  const boyEyes = []
   for (const ex of [-P.eyeX, P.eyeX]) {
     const sclera = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 16, 14), hiMat); sclera.scale.set(0.92, 1.12, 0.4); sclera.position.set(ex, P.eyeY, P.eyeZ); head.add(sclera)
     const iris = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
     const hi = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.32, 8, 8), hiMat); hi.position.set(ex + 0.012, P.eyeY + 0.016, P.eyeZ + 0.024); head.add(hi)
     const bl = new THREE.Mesh(new THREE.SphereGeometry(0.038, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.35); bl.position.set(ex + (ex > 0 ? 0.04 : -0.04), -0.05, P.eyeZ - 0.006); head.add(bl)
+    boyEyes.push(sclera, iris, hi)
   }
+  registerBlinker(boyEyes) // 主人公もまばたき
   // 口＝小さなにっこり（線だけ・暗い穴は作らない）
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 6, 12, Math.PI * 0.9), eyeMat)
   mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.058, P.eyeZ + 0.008); head.add(mouth)
@@ -5064,19 +5073,21 @@ function makeVillager(x, z, opt) {
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xf2a89a, transparent: true, opacity: 0.38 })
   // ※主人公と同じ繊細で素朴な作りに統一（小さめの目＋きらり1つ・眉なし・ふんわり頬）＝同じ世界の住人に
-  const P = PROP
+  const P = PROP, npcEyes = []
   for (const ex of [-P.eyeX, P.eyeX]) {
     if (opt.simple) { // 背景の通行人＝白目＋瞳＋きらり（軽量・主人公と同じ繊細さ）
       const sc = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 10, 8), hiMat); sc.scale.set(0.9, 1.1, 0.4); sc.position.set(ex, P.eyeY, P.eyeZ); head.add(sc)
       const ir = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 10, 8), eyeMat); ir.scale.set(0.96, 1, 0.42); ir.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(ir)
-      const h0 = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.3, 6, 6), hiMat); h0.position.set(ex + 0.011, P.eyeY + 0.014, P.eyeZ + 0.02); head.add(h0); continue
+      const h0 = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.3, 6, 6), hiMat); h0.position.set(ex + 0.011, P.eyeY + 0.014, P.eyeZ + 0.02); head.add(h0); npcEyes.push(sc, ir, h0); continue
     }
     const sclera = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR, 16, 14), hiMat); sclera.scale.set(0.92, 1.12, 0.4); sclera.position.set(ex, P.eyeY, P.eyeZ); head.add(sclera)
     const iris = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * P.irisRatio, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
     const hi = new THREE.Mesh(new THREE.SphereGeometry(P.eyeR * 0.32, 8, 8), hiMat); hi.position.set(ex + 0.012, P.eyeY + 0.016, P.eyeZ + 0.024); head.add(hi)
     const bl = new THREE.Mesh(new THREE.SphereGeometry(0.038, 12, 10), blushMat); bl.scale.set(1, 0.6, 0.35); bl.position.set(ex + (ex > 0 ? 0.04 : -0.04), -0.05, P.eyeZ - 0.006); head.add(bl)
     if (opt.adult) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.011, 0.018), new THREE.MeshBasicMaterial({ color: 0x5a4636 })); brow.position.set(ex, P.eyeY + 0.05, P.eyeZ + 0.01); brow.rotation.z = ex > 0 ? 0.08 : -0.08; head.add(brow) } // 大人＝やわらかい眉
+    npcEyes.push(sclera, iris, hi)
   }
+  registerBlinker(npcEyes) // 村人/通行人もまばたき
   { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 6, 12, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.058, P.eyeZ + 0.008); head.add(mouth) }
   addContactShadow(g, 0.6)
   g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult, char: true } // char:true＝細棒除外の対象外
@@ -7008,6 +7019,7 @@ function update(dt) {
   updateToro(dt) // 灯籠流し（二ツ池・夏の夕暮れ〜夜だけ流れる）
   updateTaiso() // ラジオ体操（家の近くの公園・夏休みの早朝だけ）
   updateSuika() // すいか割り（原っぱ・夏の昼下がりだけ）
+  updateBlinks(dt) // まばたき（主人公/村人/通行人が数秒ごとに目をつぶる＝生きている顔に）
   maybeCricket(dt) // 夜の虫の音
   // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
   if (lastWeatherForDrip > 0.4 && weather < 0.28) { dripQueue = 8; if (nightFactor(tday) < 0.2) rainbowTimer = 26 }
@@ -8157,6 +8169,8 @@ window.__proto3d = {
   _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
+  _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
+  _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
   _info() { // 検証用：シーン1回描画の実コスト
     renderer.info.autoReset = false; renderer.info.reset()
     renderer.render(scene, camera)
