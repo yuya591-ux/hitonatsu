@@ -2855,11 +2855,12 @@ function buildShishigaya() {
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
   // ローラーすべり台の通り道（コリドー）は木を伐って見通しを作る＝すべり台が木に隠れない（ユーザー要望2026-06-25）。位置は makeRollerSlide と共有
   // 遊びの森は公園の西側。長いローラーすべり台は西の丘を東へくだり中の池のほとりへ（実在に忠実・公式サイト調査2026-06-25）
-  const SLIDE_TOP = [3712, -786], SLIDE_END = [3775, -778], POOL = [4082, -966] // すべり台=西の丘(遊びの森)／プール=下の池の北東(北門ぎわ)。makePool/makeRollerSlideと共有
+  const SLIDE_TOP = [3712, -786], SLIDE_END = [3775, -778], POOL = [4082, -966], ATH = [3740, -812] // すべり台/アスレチック=西の丘(遊びの森)／プール=下の池の北東(北門ぎわ)。各ビルダーと共有
   { const [stx, stz] = SLIDE_TOP, [enx, enz] = SLIDE_END, sdx = enx - stx, sdz = enz - stz, sl2 = sdx * sdx + sdz * sdz || 1
     for (let i = tp.length - 1; i >= 0; i--) { const px = tp[i][0] - stx, pz = tp[i][1] - stz; let t = (px * sdx + pz * sdz) / sl2; t = Math.max(0, Math.min(1, t)); const cxx = px - sdx * t, czz = pz - sdz * t
       if (cxx * cxx + czz * czz < 49) { tp.splice(i, 1); continue } // すべり台：中心線から7m以内の木を伐採
-      if (Math.abs(tp[i][0] - POOL[0]) < 22 && Math.abs(tp[i][1] - POOL[1]) < 12) tp.splice(i, 1) } } // プール＋幼児プールの敷地の木を伐採
+      if (Math.abs(tp[i][0] - POOL[0]) < 22 && Math.abs(tp[i][1] - POOL[1]) < 12) { tp.splice(i, 1); continue } // プール＋幼児プールの敷地の木を伐採
+      if (Math.abs(tp[i][0] - ATH[0]) < 20 && Math.abs(tp[i][1] - ATH[1]) < 16) tp.splice(i, 1) } } // アスレチック広場の木を間引く
   // 木漏れ日：街路樹/木立の一部の真下に、葉の隙間から落ちる光のゆらぎ（既存dapple系を獅子ヶ谷へ＝歩く所に木かげのゆらめき。2026-06-24）。歩道沿いに散らす（数は控えめ＝加算半透明の負荷を抑える）
   { const step = Math.max(1, Math.floor(tp.length / 22)); let dn = 0; for (let i = 0; i < tp.length && dn < 22; i += step) { const tx = tp[i][0], tz = tp[i][1]; if (heightAtYato(tx, tz) < 2) continue; addDapple(tx, tz, 2.2 + Math.random() * 0.8); dn++ } }
   if (tp.length) {
@@ -3012,6 +3013,23 @@ function buildShishigaya() {
     const pole = add(new THREE.CylinderGeometry(0.03, 0.03, 2.2, 6), woodD, 2.7, 1.3, 1.6); const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), new THREE.MeshToonMaterial({ color: 0xf4f4f0, gradientMap: GRAD, side: THREE.DoubleSide })); flag.position.set(3.05, 1.9, 1.6); g.add(flag)
     g.position.set(sx, sy, sz); g.rotation.y = ry; mergedOutline(g, 0.03); scene.add(g)
     addBox(sx, sz - 1.4, 2.6, 0.9, 0, 0.3) // 奥の壁だけ当たり判定（カウンター前は歩ける）
+  }
+  // ───── 三ツ池公園「遊びの森/冒険の森」のアスレチック（丸太の砦・うんてい・平均台・タイヤ跳び）西の丘＝すべり台のそば。実在に忠実2026-06-25 ─────
+  { const log = toon(0x8a6a44), logD = toon(0x6a4e30), plat = toon(0xa9885a), tire = toon(0x33312e), A = new THREE.Group()
+    const am = (geo, mat, x, y, z, rx, ry, rz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; if (rz) m.rotation.z = rz; m.castShadow = true; A.add(m); return m }
+    const fort = (fx, fz) => { const fy = heightAtYato(fx, fz) // 丸太のとりで（登る台）
+      for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) am(new THREE.CylinderGeometry(0.12, 0.14, 2.4, 7), logD, fx + ox, fy + 1.2, fz + oz)
+      am(new THREE.BoxGeometry(2.4, 0.16, 2.4), plat, fx, fy + 1.6, fz)
+      for (const [ox, oz, w, d] of [[0, -1, 2.4, 0.12], [-1, 0, 0.12, 2.4], [1, 0, 0.12, 2.4]]) am(new THREE.BoxGeometry(w, 0.5, d), log, fx + ox, fy + 2.0, fz + oz) // 手すり(前は開ける)
+      for (let i = 0; i < 4; i++) am(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 5), log, fx, fy + 0.35 + i * 0.4, fz + 1.05, 0, 0, Math.PI / 2) } // はしごの段
+    const monkey = (mx, mz, len) => { const my = heightAtYato(mx, mz) // うんてい
+      for (const oz of [-len / 2, len / 2]) for (const ox of [-0.7, 0.7]) am(new THREE.CylinderGeometry(0.08, 0.1, 2.3, 7), logD, mx + ox, my + 1.05, mz + oz, oz > 0 ? -0.18 : 0.18)
+      for (const ox of [-0.62, 0.62]) am(new THREE.CylinderGeometry(0.06, 0.06, len, 6), log, mx + ox, my + 2.0, mz, Math.PI / 2)
+      for (let i = 0; i <= len; i += 0.5) am(new THREE.CylinderGeometry(0.035, 0.035, 1.3, 5), log, mx, my + 2.0, mz - len / 2 + i, 0, 0, Math.PI / 2) }
+    const beam = (bx, bz) => { const by = heightAtYato(bx, bz); am(new THREE.CylinderGeometry(0.13, 0.13, 4, 8), log, bx, by + 0.5, bz, Math.PI / 2); for (const oz of [-1.6, 1.6]) am(new THREE.CylinderGeometry(0.08, 0.1, 1.0, 6), logD, bx, by + 0.25, bz + oz) } // 平均台
+    const tires = (tx, tz) => { for (let i = 0; i < 4; i++) { const x = tx + i * 1.2, y = heightAtYato(x, tz), t = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.13, 8, 14), tire); t.position.set(x, y + 0.26, tz); t.rotation.x = Math.PI / 2; t.castShadow = true; A.add(t) } } // タイヤ跳び
+    fort(ATH[0] - 5, ATH[1] + 6); monkey(ATH[0] + 8, ATH[1] - 3, 4); beam(ATH[0] - 10, ATH[1] - 6); tires(ATH[0] + 2, ATH[1] + 9)
+    mergedOutline(A, 0.028); scene.add(A)
   }
   // ── 夏草の茂み：歩く谷あいの地面のベタ塗りを解消＝足元のエモさ。建物/水/道/急斜面を避け、平〜緩斜面の低〜中標高に密に。風になびく（InstancedMeshで1ドロー） ──
   { const roadOcc = new Uint8Array(GC * GC) // 道の通るセルは草を生やさない（路面に草が刺さらない。セル6mなので路肩1mほどから生える）
