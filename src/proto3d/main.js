@@ -5692,6 +5692,31 @@ composer.addPass(gradePass)
 // 重い端末は CEL.inkEdges=false で丸ごと切れる（背面法の輪郭線だけ残る）。
 const _db = renderer.getDrawingBufferSize(new THREE.Vector2())
 const normalRT = new THREE.WebGLRenderTarget(_db.x, _db.y, { depthTexture: new THREE.DepthTexture(_db.x, _db.y, THREE.UnsignedIntType) })
+// ── 被写界深度(DOF)：主人公(画面中央やや下)にピント、ピント面から離れた遠景/最近景だけをやわらかくぼかす。インク線の前に置き＝色だけ柔らかく輪郭線はくっきり＝温かいトゥーンを保つ弱めのボケ（A1・ユーザー承認2026-06-25「弱めに」）──
+const dofPass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null }, tDepth: { value: normalRT.depthTexture },
+    texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: camera.far },
+    strength: { value: 1.0 }, maxCoc: { value: 2.4 }, focusBias: { value: 7.0 }, // strength=効きの強さ・maxCoc=最大ボケ径(px)・focusBias=ピント面の許容(大きいほど手前は鈍感)
+  },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tDepth; uniform vec2 texel; uniform float near, far, strength, maxCoc, focusBias;
+    float eyeZ(vec2 uv){ float z = texture2D(tDepth, uv).x; return (2.0*near*far)/(far+near-(2.0*z-1.0)*(far-near)); } // 線形の視線距離
+    void main(){
+      float fz = clamp(eyeZ(vec2(0.5, 0.45)), near + 2.0, 110.0); // フォーカス＝画面中央やや下(主人公)・遠すぎ(空)で全面ボケしないよう頭打ち
+      float dz = eyeZ(vUv);
+      float coc = clamp(abs(dz - fz) / (fz + focusBias) * strength, 0.0, 1.0) * maxCoc; // ピント面から離れるほどボケる(相対距離・近距離は鈍感)
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      if (coc > 0.35) { // ピント面の近くはそのまま＝トゥーンのくっきりを保つ
+        vec3 sum = col;
+        for (int i = 0; i < 8; i++) { float a = float(i) * 0.7853981; vec2 o = vec2(cos(a), sin(a)) * coc * texel; sum += texture2D(tDiffuse, vUv + o).rgb; }
+        col = sum / 9.0;
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+})
+dofPass.enabled = true
+composer.addPass(dofPass)
 const normalMat = new THREE.MeshNormalMaterial()
 const inkPass = new ShaderPass({
   uniforms: {
@@ -5744,8 +5769,10 @@ function resize() {
     normalRT.depthTexture = new THREE.DepthTexture(db.x, db.y, THREE.UnsignedIntType)
     inkPass.uniforms.tNormal.value = normalRT.texture  // 参照を貼り直す（setSizeでtextureは作り直される）
     inkPass.uniforms.tDepth.value = normalRT.depthTexture
+    dofPass.uniforms.tDepth.value = normalRT.depthTexture // 被写界深度も深度テクスチャを貼り直す
   }
   inkPass.uniforms.texel.value.set(1 / db.x, 1 / db.y) // エッジ検出のテクセル幅も新解像度に
+  dofPass.uniforms.texel.value.set(1 / w, 1 / h) // 被写界深度のボケ径も新解像度に
   camera.aspect = w / h            // カメラのアスペクト・投影行列も更新
   camera.updateProjectionMatrix()
 }
@@ -7934,7 +7961,7 @@ renderer.setAnimationLoop(() => {
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
   if (floatMode && window.__updFlightHud) window.__updFlightHud() // 風船飛行のメーター更新
-  if (inkPass.enabled) { // インク線用にシーンの法線/深度を別RTへ（layer1の輪郭ハル・空は外す＝実体だけのきれいな法線）
+  if (inkPass.enabled || dofPass.enabled) { // インク線/被写界深度用にシーンの法線/深度を別RTへ（layer1の輪郭ハル・空は外す＝実体だけのきれいな法線）。DOFは深度のみ使用
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     renderer.setRenderTarget(normalRT); renderer.clear(); renderer.render(scene, camera)
     renderer.setRenderTarget(null); scene.overrideMaterial = null; camera.layers.enable(1)
@@ -8259,6 +8286,7 @@ window.__proto3d = {
   _heat(v) { gradePass.uniforms.heat.value = v }, // 検証/調整用：陽炎の強さ 0..1（時刻自動だが固定して見る用）
   _vig(v) { gradePass.uniforms.vig.value = v }, // 検証/調整用：周辺減光の強さ
   _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
+  _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
