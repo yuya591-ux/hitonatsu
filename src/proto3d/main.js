@@ -5080,12 +5080,13 @@ function makeVillager(x, z, opt) {
   else if (opt.garment === 'dress') { const dress = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.66, 16), charToon(opt.skirt)); dress.position.y = PROP.hipY - 0.12; g.add(dress) // ワンピース＝裾が長くふくらむ（大人の女性/女の子）
     if (opt.apron) { const ap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.04), charToon(opt.apron === true ? 0xe8e2d4 : opt.apron)); ap.position.set(0, PROP.hipY + 0.02, 0.2); g.add(ap) } } // エプロン（おばさん）
   else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.36, 16), charToon(opt.skirt)); skirt.position.y = PROP.hipY + 0.02; g.add(skirt) } // 小学生のすっきりしたスカート
-  // 胴＝すっきり縦長（主人公と統一）。会話する村人は肩つき、背景の人は1本。
+  // 胴＝すっきり縦長（主人公と統一）。会話する村人は肩つき、背景の人は1本。opt.build=体格(肥痩)の個体差（C5★Step3）
+  const bld = opt.build || 1
   if (full) {
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.18, 16), shirtM); torso.scale.set(1, 1, 0.84); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
-    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 14, 10), shirtM); shoulders.scale.set(1.2, 0.66, 0.82); shoulders.position.y = PROP.shoulderY; g.add(shoulders)
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.18, 16), shirtM); torso.scale.set(bld, 1, 0.84 * bld); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
+    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 14, 10), shirtM); shoulders.scale.set(1.2 * bld, 0.66, 0.82 * bld); shoulders.position.y = PROP.shoulderY; g.add(shoulders)
   } else {
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR + 0.008, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.2, 12), shirtM); torso.scale.set(1, 1, 0.86); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR + 0.008, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.2, 12), shirtM); torso.scale.set(bld, 1, 0.86 * bld); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
   }
   // 首（主人公と統一・少し見せる）
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.11, 14), skin); neck.position.y = PROP.neckY; g.add(neck)
@@ -5312,7 +5313,7 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     const bag = adult && Math.random() < 0.5 ? rpick([0xc8a060, 0x9a7a5a, 0xb0563f]) : false
     const hairStyle = hat ? undefined : rpick(boyP ? ['short', 'short', 'buzz'] : ['short', 'pony', 'bob']) // 髪型＝帽子なしの人に個体差
     const garment = (!boyP && Math.random() < 0.42) ? 'dress' : undefined, apron = (garment === 'dress' && adult && Math.random() < 0.5) ? true : false // 女性/女の子の一部はワンピース・大人はエプロンも（服の型の個体差・C5★Step2）
-    const p = makeVillager(seg.ax, seg.az, { shirt: rpick(yPal), skirt: rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a]), skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat, band: rpick(yPal), hairStyle, garment, apron, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
+    const p = makeVillager(seg.ax, seg.az, { shirt: rpick(yPal), skirt: rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a]), skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat, band: rpick(yPal), hairStyle, garment, apron, build: adult ? 0.95 + Math.random() * 0.33 : 0.9 + Math.random() * 0.18, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
     const t0 = Math.random()
     p.userData.ped = { sp: 0.85 + Math.random() * 0.4, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
     p.position.set(seg.ax + (seg.bx - seg.ax) * t0, p.position.y, seg.az + (seg.bz - seg.az) * t0)
