@@ -556,7 +556,7 @@ scene.add(sunBall)
 const PAL = {
   morn: { light: 0xffe9c8, li: 1.7, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xdbe7f0, hi: 1.16, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.55 }, // 朝＝低照度・青白くひんやり・靄がかる。環境光を少し下げて朝陽の影を出す
   noon: { light: 0xffeac6, li: 2.4, sky: 0x8cc0e2, mid: 0xc8e2ec, bot: 0xf1f3e4, fog: 0xe3eae8, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34 }, // 真昼＝陰影は残しつつ直射を金色寄りの暖色へ(0xfff4e2→0xffeac6)＝臨床的でない“いつまでも夏の昼”。空もほんの少しやわらかく（夢のトーン2026-06-24）
-  dusk: { light: 0xff9a4f, li: 2.05, sky: 0x6a5a98, mid: 0xd98860, bot: 0xe6a890, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd29a86, hgnd: 0x5a5e72, ball: 0xff8f48, rim: 0xff7a30, ri: 1.32 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)。灯りの暖色だけ残し、空気は紫灰へ
+  dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
@@ -5585,10 +5585,11 @@ const gradePass = new ShaderPass({
         c = mix(c, vec3(g2) * vec3(0.82, 0.9, 1.02), rain * 0.5);
         c *= 1.0 - rain * 0.22;
       }
-      // 黄金色の夕（ゴールデンアワー）：夕方は画面全体を温かく金色に染め、上空ほど茜色に
+      // 黄金色の夕（ゴールデンアワー）：夕方は画面全体を温かく金色に染め、上空は茜（紫みを残す）・地平は燃える夕陽の橙に
       if (golden > 0.001) {
-        c += golden * vec3(0.10, 0.045, -0.05) * (0.12 + lum);          // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
-        c += golden * vec3(0.05, 0.0, 0.02) * smoothstep(0.45, 1.0, vUv.y); // 上空は茜色がかる
+        c += golden * vec3(0.12, 0.05, -0.06) * (0.12 + lum);              // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
+        c += golden * vec3(0.06, 0.005, 0.03) * smoothstep(0.5, 1.0, vUv.y);  // 上空は茜色がかる（紫みを残し奥行き）
+        c += golden * vec3(0.12, 0.038, -0.03) * smoothstep(0.62, 0.16, vUv.y); // 地平ちかくは燃える夕陽色（下ほど強い橙＝マジックアワー）
       }
       // ── 記憶のトーン（褪せた夏の写真／古いアルバム）：全体に弱い暖色＋もう一段の退色＋黒を少し持ち上げた“ミルキー”感。
       //   ノスタルジーの正体の半分は色のトーン。鮮やかな低ポリ絵を「思い出の中の風景」に寄せる（ユーザー要望2026-06-23）──
@@ -7434,7 +7435,7 @@ function update(dt) {
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.32 : 0 // 控えめ＝光条であって閃光事故にしない
-  gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.6, 0.74) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.93)) // 夕方の黄金色
+  gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
   gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.3 : 0.16) // 真昼の晴天だけ・控えめ（ユーザー「強すぎ」→0.55→0.3に弱める2026-06-24）
   godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
