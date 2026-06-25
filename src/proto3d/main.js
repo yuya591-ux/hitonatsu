@@ -1459,6 +1459,7 @@ function makeShop(x, z, rot, opt) {
   return g
 }
 const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自販機）。nfで点灯＝夜のエモさ
+const festLights = [] // お祭り会場の暖色の灯り（点光源）＝夜に踊り手と地面を温かく照らす（黒シルエットを解消・ユーザー指摘2026-06-26）
 const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori) // 盆踊り会場（櫓＋提灯）＝小学校の校庭。開催日だけ姿を見せる
 // 盆踊りの会場（櫓＋紅白幕＋太鼓＋提灯ガーランド＋屋台）を任意の場所(ox,oy,oz)に建てる。bonOdoriグループに入れ開催日だけ姿を見せ夜に灯る。獅子ヶ谷小学校の校庭(3124,-186)など複数会場で共用（ユーザー要望2026-06-24）
 function buildBonOdori(ox, oy, oz, grp) {
@@ -1488,6 +1489,8 @@ function buildBonOdori(ox, oy, oz, grp) {
   const cs = new THREE.Mesh(new THREE.CircleGeometry(2.6, 18), shadowMat); cs.rotation.x = -Math.PI / 2; cs.position.set(ox, oy + 0.05, oz); bonOdori.add(cs) // 櫓の接地影
   const fglow = new THREE.Mesh(new THREE.CircleGeometry(12, 28), new THREE.MeshBasicMaterial({ color: 0xffb060, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); fglow.rotation.x = -Math.PI / 2; fglow.position.set(ox, oy + 0.06, oz); bonOdori.add(fglow) // 会場の光だまり
   townNightLights.push({ m: fglow, base: 0.34, ph: 0.7 })
+  // 暖色の点光源＝夜に踊り手と地面を温かく照らす（櫓の灯り）。会場グループが見える開催日だけ有効＝非開催日は無灯（不可視グループ内のライトは描画対象外）。会場ごとに1灯＝軽い
+  const flight = new THREE.PointLight(0xffc674, 0, 30, 1.0); flight.position.set(ox, oy + 2.1, oz); flight.castShadow = false; bonOdori.add(flight); festLights.push({ light: flight, base: 20 })
   // 屋台（縁日）＝会場のまわりに並ぶ。[名前,屋根色,lx,lz,種類]。種類で店先の縁日小物を出し分け（金魚すくい/ヨーヨー/射的/お面）
   const stalls = [
     ['わたあめ', 0xd86a8a, -10, -6, 0], ['かきごおり', 0x4a8ac0, -10, 0, 0], ['やきそば', 0xc0552e, -10, 6, 0], ['たこやき', 0xe0902e, -10, 11, 0], // 西の列＝食べ物
@@ -7563,6 +7566,7 @@ function update(dt) {
   for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
   // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
   for (const L of townNightLights) { const fa = L.fa ?? 0.1; L.m.material.opacity = nf * L.base * (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph)) } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
+  for (const L of festLights) L.light.intensity = nf * L.base * (0.94 + 0.06 * Math.sin(tsec * 2.4)) // お祭りの暖色光＝夜に点り、ほのかに揺れる（不可視会場のライトは描画されない＝開催日だけ灯る）
   if (tvGlowMesh) { const flick = THREE.MathUtils.clamp(0.62 + 0.42 * Math.sin(tsec * 6.8) * Math.sin(tsec * 11.4 + 0.6), 0.22, 1) // ブラウン管TVの不規則な明滅（速い2波の積＝チラチラ）
     tvGlowMesh.material.opacity = nf * 0.7 * flick } // 夜の家々の窓にTVの青い灯りがちらつく（1990年代の夕暮れ）
   // 花火（縁日の夜の“決まった時間だけ”＝花火大会。一晩中は上げない。FIREWORK.days/from/toで調整）
