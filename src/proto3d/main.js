@@ -5634,13 +5634,7 @@ const stars = (() => {
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, map: dotTex, size: 2.4, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false })) // 丸い星にして満天らしく（A8・2026-06-25）
   pts.layers.set(1); scene.add(pts); return pts // 星はインク線の法線パスから除外（昼は透明でも法線パスは不透明で描かれ、空に四角が散る不具合）
 })()
-const fireflies = (() => {
-  const g = new THREE.BufferGeometry(); const p = []
-  for (let i = 0; i < 150; i++) p.push((Math.random() - 0.5) * 72, 0.3 + Math.random() * 3.2, (Math.random() - 0.5) * 72) // プレイヤーの周りに低く漂う蛍（草むらの高さ）
-  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcaff86, size: 2.6, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })) // 画面内一定サイズ＝近くで巨大な緑の四角にならない
-  pts.layers.set(1); scene.add(pts); return pts // 蛍も除外
-})()
+// 蛍は水辺アンカー式の新システムへ（下記）＝プレイヤー追従ではなく池/川/谷の草地に定位し、個体ごとに明滅する
 // ── 雨上がりの虹（夏の夕立が上がると、空にそっと架かる）──
 const rainbow = new THREE.Group()
 {
@@ -5653,6 +5647,47 @@ const rainbow = new THREE.Group()
   rainbow.visible = false; scene.add(rainbow)
 }
 let rainbowTimer = 0, rainbowF = 0
+// ── 蛍（ホタル）：夏の夕暮れ〜夜、水辺と田んぼのほとりを ぽっ…ぽっ…と低く舞う。きれいな水辺に棲むので池/川のほとりに置く＝「ぼくの夏休み」的ノスタルジーの象徴（2026-06-26）──
+let fireflies = null
+{
+  const inW = (x, z) => SG.waters.some((q) => q.p && q.p.length >= 3 && pip(x, z, q.p))
+  const cands = []
+  // 本物のホタルは特定の場所に群れる＝点在ではなく密な「むれ」をいくつか作る。各むれの中心(seed)のまわりに密集させる
+  const seeds = []
+  for (const w of SG.waters) { if (!w.p || w.p.length < 3 || w.p.length < 3) continue // 各池ごとに岸の2〜3点を群れの中心に
+    let cx = 0, cz = 0; for (const q of w.p) { cx += q[0]; cz += q[1] } cx /= w.p.length; cz /= w.p.length
+    const step = Math.max(1, Math.floor(w.p.length / 3))
+    for (let k = 0; k < w.p.length; k += step) { const v = w.p[k]; let dx = v[0] - cx, dz = v[1] - cz, dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl
+      const x = v[0] + dx * (3 + Math.random() * 3), z = v[1] + dz * (3 + Math.random() * 3); if (heightAtYato(x, z) >= 1 && !inW(x, z)) seeds.push([x, z, 16 + Math.random() * 8]) } }
+  for (let k = 0; k < 9; k++) { const a = Math.random() * 6.283, r = 40 + Math.sqrt(Math.random()) * 210, x = 3010 + Math.cos(a) * r, z = -120 + Math.sin(a) * r // 谷の散歩道ぞいの群れ（夕暮れの家路で蛍に出会う＝いちばんノスタルジックな瞬間）
+    if (heightAtYato(x, z) >= 2 && !inW(x, z)) seeds.push([x, z, 20 + Math.random() * 10]) }
+  for (const [sx, sz, cnt] of seeds) for (let k = 0; k < cnt; k++) { const rr = Math.sqrt(Math.random()) * 6.5, a = Math.random() * 6.283, x = sx + Math.cos(a) * rr, z = sz + Math.sin(a) * rr // むれの中で半径6.5mに密集
+    if (heightAtYato(x, z) >= 1 && !inW(x, z)) cands.push([x, z]) }
+  for (let i = cands.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = cands[i]; cands[i] = cands[j]; cands[j] = t }
+  const N = Math.min(420, cands.length)
+  if (N > 0) {
+    const pos = new Float32Array(N * 3), anchor = new Float32Array(N * 3), seed = new Float32Array(N), phase = new Float32Array(N), speed = new Float32Array(N)
+    for (let i = 0; i < N; i++) { const x = cands[i][0], z = cands[i][1], y = heightAtYato(x, z)
+      anchor[i * 3] = x; anchor[i * 3 + 1] = y; anchor[i * 3 + 2] = z; pos[i * 3] = x; pos[i * 3 + 1] = y + 0.6; pos[i * 3 + 2] = z
+      seed[i] = Math.random(); phase[i] = Math.random() * 6.283; speed[i] = 1.3 + Math.random() * 1.9 }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    geo.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1))
+    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speed, 1))
+    const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uTime: { value: 0 }, uGlow: { value: 0 }, uColor: { value: new THREE.Color(0xc6ff7e) }, uSize: { value: 620 } },
+      vertexShader: `attribute float aPhase; attribute float aSpeed; varying float vB; uniform float uTime, uGlow, uSize;
+        void main(){ float pulse = pow(0.5 + 0.5 * sin(uTime * aSpeed + aPhase), 1.7); // ふわっと明滅＋暗い間（本物のホタルらしい）
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          float far = 1.0 - smoothstep(90.0, 190.0, -mv.z); vB = (0.18 + 0.82 * pulse) * uGlow * far; // 消えても薄く残し、遠くはフォグ代わりに減衰
+          gl_PointSize = clamp(uSize * (0.5 + 0.6 * pulse) / max(1.0, -mv.z), 2.0, 46.0); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `varying float vB; uniform vec3 uColor;
+        void main(){ float r = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.08, r); // やわらかい円＝芯が明るく外がにじむ
+          gl_FragColor = vec4(uColor * 1.5, a * vB); }` })
+    const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.layers.set(1); scene.add(pts) // インク線の法線パスから除外
+    fireflies = { geo, mat, pos, anchor, seed, count: N }
+  }
+}
 // 提灯（家の軒先・夜にあかりが灯る）
 const lanterns = []
 for (let i = 0; i < 5; i++) {
@@ -7599,10 +7634,7 @@ function update(dt) {
   moon.material.opacity = nf
   moonGlow.material.opacity = nf * 0.5
   stars.material.opacity = nf
-  const ffF = THREE.MathUtils.smoothstep(tday, 0.58, 0.76) // 蛍は夕暮れから出はじめる（夜だけでなく薄暮にも）
-  fireflies.material.opacity = ffF * (0.6 + 0.22 * Math.sin(tsec * 2.2)) // ゆるやかな明滅（全部一斉に消えない控えめな揺れ）
-  fireflies.rotation.y = tsec * 0.05
-  fireflies.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z), boy.position.z) // プレイヤーの周りに漂わせる＝どのエリア(谷戸)でも草むらに蛍（以前は原点(旧町)に取り残されていた）
+  // 蛍の明滅・漂いは下段（townNightLightsの後）の水辺アンカー式で更新する
   // 田舎家の窓あかり（夕方からともり、夜も灯る＝遠くの灯）
   const homeLit = THREE.MathUtils.smoothstep(tday, 0.6, 0.74)
   for (let i = 0; i < houseGlows.length; i++) houseGlows[i].material.opacity = homeLit * (0.85 + 0.08 * Math.sin(tsec * 2.4 + i * 2)) // ほのかな揺らぎ
@@ -7616,6 +7648,14 @@ function update(dt) {
   for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
   // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
   for (const L of townNightLights) { const fa = L.fa ?? 0.1; L.m.material.opacity = nf * L.base * (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph)) } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
+  // 蛍：夕暮れ(0.55)〜夜に灯り、低くふわふわ漂う。明るい時間は更新を止めて軽くする
+  if (fireflies) { const fg = THREE.MathUtils.smoothstep(tday, 0.55, 0.70); fireflies.mat.uniforms.uGlow.value = fg; fireflies.mat.uniforms.uTime.value = tsec
+    if (fg > 0.02) { const P = fireflies.pos, A = fireflies.anchor, S = fireflies.seed, n = fireflies.count
+      for (let i = 0; i < n; i++) { const ph = S[i] * 6.283
+        P[i * 3] = A[i * 3] + Math.sin(tsec * 0.5 + ph) * 1.5 + Math.cos(tsec * 0.22 + ph * 2.0) * 0.8
+        P[i * 3 + 2] = A[i * 3 + 2] + Math.cos(tsec * 0.41 + ph * 1.3) * 1.5 + Math.sin(tsec * 0.18 + ph) * 0.8
+        P[i * 3 + 1] = A[i * 3 + 1] + 0.55 + Math.sin(tsec * 0.6 + ph * 1.7) * 0.5 } // 地面すれすれ〜1mを ゆっくり漂う
+      fireflies.geo.attributes.position.needsUpdate = true } }
   for (const L of festLights) L.light.intensity = nf * L.base * (0.94 + 0.06 * Math.sin(tsec * 2.4)) // お祭りの暖色光＝夜に点り、ほのかに揺れる（不可視会場のライトは描画されない＝開催日だけ灯る）
   if (tvGlowMesh) { const flick = THREE.MathUtils.clamp(0.62 + 0.42 * Math.sin(tsec * 6.8) * Math.sin(tsec * 11.4 + 0.6), 0.22, 1) // ブラウン管TVの不規則な明滅（速い2波の積＝チラチラ）
     tvGlowMesh.material.opacity = nf * 0.7 * flick } // 夜の家々の窓にTVの青い灯りがちらつく（1990年代の夕暮れ）
