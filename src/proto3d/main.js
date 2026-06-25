@@ -7527,12 +7527,13 @@ function update(dt) {
   scene.fog.color.copy(_todFog).lerp(_rainFog, weather * 0.5)
   const onRoofHi = area === 'yato' && boy.userData._high // サンライズの屋上にいる（地面より十分高い）
   if (typeof window !== 'undefined' && window.__fogFar) { scene.fog.near = 9000; scene.fog.far = 12000 } // 検証用：俯瞰を見通す（本番では未設定）
-  else if (flying) { scene.fog.near = 80; scene.fog.far = 900 } // 飛行モード：空から遠景まで見渡せる
-  else if (onRoofHi) { scene.fog.near = 80; scene.fog.far = 720 - weather * 200 } // 屋上：高所は霞が晴れて、町・二ツ池・遠くの山まで見渡せる
-  else if (area === 'yato') { scene.fog.near = 108 - weather * 30; scene.fog.far = 470 - weather * 170 // 霞の始まりは奥（中景はくっきり）＋到達を560→470へ少し手前に＝遠景がぼんやり留まらず最後はやわらかく霞へ溶ける（線が浮かない・ユーザー指摘の遠景のモヤを自然に・2026-06-25）
-    if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 90, 0, 1); scene.fog.near -= altF * 22; scene.fog.far -= altF * 70 } } // 高く浮くほど遠景がやわらかく霞む＝“夢で空から見た町”の俯瞰（控えめ・町は見える範囲）2026-06-24
+  // 霞の方針：地上は近〜中景に霞をかけてノスタルジー（コージーな空気遠近）。高い所（屋上/飛行/高く浮く）は手前を澄ませて町・池・遠くの山まで“きれい”に見渡せ、いちばん遠い地平/世界の縁だけやわらかく霞に溶かして隠す＝バランス（ユーザー要望2026-06-26）
+  else if (flying) { scene.fog.near = 400; scene.fog.far = 1250 } // 飛行：空から町全体を見渡す（遠い地平だけ霞む・世界の縁は霞に隠れる）
+  else if (onRoofHi) { scene.fog.near = 380 - weather * 80; scene.fog.far = 1200 - weather * 320 } // 屋上：手前を澄ませて町/二ツ池/遠くの山まで広く見渡す＋縁は霞へ溶ける
+  else if (area === 'yato') { scene.fog.near = 108 - weather * 30; scene.fog.far = 470 - weather * 170 // 地上：霞の始まりは奥（中景はくっきり）＋遠景はやわらかく霞へ溶ける（コージーな空気遠近）
+    if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 80, 0, 1); scene.fog.near += altF * 250; scene.fog.far += altF * 720 } } // 高く昇るほど手前が澄んで遠くまで見渡せる＝夢で空から見た町（以前は逆に霞ませていたのを反転・ユーザー要望2026-06-26）
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
-  if (typeof window === 'undefined' || !window.__freezeCam) { const wf = (flying || onRoofHi) ? 1300 : 600; if (camera.far !== wf) { camera.far = wf; camera.updateProjectionMatrix() } } // 屋上/飛行は遠くまで描画（検証のフリーズカメラには触れない）
+  if (typeof window === 'undefined' || !window.__freezeCam) { const wf = Math.max(620, Math.ceil(scene.fog.far / 200) * 200 + 200); if (camera.far !== wf) { camera.far = wf; camera.updateProjectionMatrix() } } // カメラ遠方面は霞の到達に追従＝霞で隠れる範囲だけ描く（高所は遠景まで、地上は近くまで＝負荷も霞に応じて軽い）
   // 光のボケ：雨×暗さ（夕暮れ〜夜）で軒の灯りがにじむ玉ボケ。ゆっくり昇って明滅
   { const nf = nightFactor(tday), vis = weather * THREE.MathUtils.clamp(nf * 1.5 + 0.14, 0, 1)
     bokeh.material.opacity = vis * 0.5
