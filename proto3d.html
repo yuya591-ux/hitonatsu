@@ -55,10 +55,11 @@
       #dock > button { position: static; appearance: none; border: none; cursor: pointer; font-family: inherit; color: #4a4032;
         background: rgba(255,250,240,0.92); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
       #dock #lie { padding: 0.55em 1.2em; font-size: clamp(14px,2.6vw,18px); }
-      #dock #bike, #dock #float { padding: 0.45em 0.85em; font-size: clamp(17px,3.2vw,22px); line-height: 1; }
-      #dock #bike:active, #dock #float:active, #dock #lie:active { transform: scale(0.93); }
+      #dock #bike, #dock #float, #dock #fpvbtn { padding: 0.45em 0.85em; font-size: clamp(17px,3.2vw,22px); line-height: 1; }
+      #dock #bike:active, #dock #float:active, #dock #lie:active, #dock #fpvbtn:active { transform: scale(0.93); }
       #bike.on { background: rgba(122,168,106,0.95); color: #fff; }
       #float.on { background: rgba(120,150,200,0.95); color: #fff; }
+      #fpvbtn.on { background: rgba(120,150,200,0.95); color: #fff; }
       body.flying #dock { display: none !important; }
       body.pm-on #dock { display: none !important; }
       /* ── ふわり浮遊（風船飛行）の操作UI：🎈トグル→浮遊中だけ出る。右下に2列×3段（高度▲▼／ズーム＋−／速さ・主観）＝右親指だけで全部届く・横画面でも崩れない。左にステータスメーター（2026-06-23再設計） ── */
@@ -321,7 +322,7 @@
     <button id="zin" class="hud zbtn">＋</button>
     <button id="zout" class="hud zbtn">－</button>
     <button id="act" class="hud">すわる</button>
-    <div id="dock" class="hud"><button id="lie">ねころぶ</button><button id="bike">🚲</button><button id="float">🎈</button></div>
+    <div id="dock" class="hud"><button id="lie">ねころぶ</button><button id="bike">🚲</button><button id="float">🎈</button><button id="fpvbtn">👁</button></div>
     <button id="fl-up" class="hud">▲<br>うく</button>
     <button id="fl-down" class="hud">▼<br>おりる</button>
     <button id="fl-zin" class="hud">＋</button>

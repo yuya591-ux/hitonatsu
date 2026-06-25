@@ -7168,6 +7168,11 @@ tapBtn(floatEl, () => { if (mode !== 'walk') return
   else if (!floatExiting) { floatExiting = true; floatEl.classList.remove('on') } }) // もう一度＝ゆっくり降りる
 { const hold = (id, set) => { const el = document.getElementById(id); if (!el) return; el.addEventListener('pointerdown', (e) => { e.preventDefault(); set(1) }); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, () => set(0)) }
   hold('fl-up', (v) => { floatUp = v }); hold('fl-down', (v) => { floatDown = v }) } // ▲うく/▼おりる（押している間だけ）
+// 主観視点トグルを全ボタン同期（ワンボタン切替・ユーザー要望2026-06-26）
+const fpvBtnEl = document.getElementById('fpvbtn')
+function syncFpvBtns() { if (fpvBtnEl) fpvBtnEl.classList.toggle('on', fpv); const sb = document.getElementById('set-fpv'); if (sb) { sb.classList.toggle('on', fpv); sb.textContent = fpv ? 'ON' : 'OFF' } const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.toggle('on', fpv) }
+function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04; syncFpvBtns() } // ONで視線を水平（少しだけ下＝足元の道が見える）
+tapBtn(fpvBtnEl, () => { if (mode === 'walk') toggleFpv() }) // ねころぶ列の👁＝主観視点ワンボタン
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 tapBtn(zinEl, () => zoomStep(0.8))
 tapBtn(zoutEl, () => zoomStep(1.25))
@@ -7177,7 +7182,7 @@ tapBtn(zoutEl, () => zoomStep(1.25))
   if (flZout) flZout.addEventListener('click', () => zoomStep(1 / 0.82))
   const updFlSpeed = () => { if (flSpeed) flSpeed.innerHTML = 'はやさ<br>' + FLOAT_SPEEDS[floatSpeedI].lbl }
   if (flSpeed) flSpeed.addEventListener('click', () => { floatSpeedI = (floatSpeedI + 1) % FLOAT_SPEEDS.length; updFlSpeed() }); updFlSpeed()
-  if (flFpv) flFpv.addEventListener('click', () => { fpv = !fpv; camSnap = true; flFpv.classList.toggle('on', fpv); if (setFpvBtn) { setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF' } }) // 飛行中の主観視点トグル（設定とも同期）。camSnapで切替時のカメラ瞬間移動＝体内を通り抜ける表示の乱れを防ぐ
+  if (flFpv) flFpv.addEventListener('click', () => { toggleFpv() }) // 飛行中の主観視点トグル（全ボタン同期＝toggleFpv）
   window.__updFlightHud = () => { // 毎フレーム：高度/速さ/ズームのメーターを更新
     const alt = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / floatMaxH, 0, 1)
     const zoomN = fpv ? (78 - fpvFov) / 52 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
@@ -8142,10 +8147,11 @@ function update(dt) {
     } else camOcclT += (1 - camOcclT) * Math.min(1, dt * 1.5) // 屋上では戻す
     { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
-    if (fpv) { const cp2 = Math.cos(camCtl.pitch), hx = boy.position.x, hy = boy.position.y + 1.45, hz = boy.position.z // 主観視点＝頭の高さからyaw/pitch方向を見る（3人称でカメラが主人公を見る向きの逆）
-      camGoal.set(hx, hy, hz); lookGoal.set(hx - Math.sin(camCtl.yaw) * cp2 * 12, hy - Math.sin(camCtl.pitch) * 12, hz - Math.cos(camCtl.yaw) * cp2 * 12)
-      camera.fov += (fpvFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix() } // 主観視点の画角ズーム（fpvFov・ピンチ/＋－で調整）
-    boy.visible = !fpv // 主観視点では自分の体を隠す（頭の中が映らない）
+    if (fpv) { const cp2 = Math.cos(camCtl.pitch), fx = -Math.sin(camCtl.yaw) * cp2, fy = -Math.sin(camCtl.pitch), fz = -Math.cos(camCtl.yaw) * cp2 // 視線方向
+      const hx = boy.position.x, hy = boy.position.y + 1.66, hz = boy.position.z, back = 1.35 // 目線を高く＋肩ごしに少し引く（ユーザー要望2026-06-26）
+      camGoal.set(hx - fx * back, hy + 0.18 - fy * back, hz - fz * back); lookGoal.set(hx + fx * 12, hy + fy * 12, hz + fz * 12)
+      camera.fov += (fpvFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix() }
+    boy.visible = true // 引き気味の主観（肩ごし）は体を見せる＝後頭部だけ手前に映る
   } else if (mode === 'lying') {
     // 「よいしょ」と その場に “必ず仰向け” で横になる所作（約1.05秒）。固定アングルでお腹が上を向くのを見せる
     lieT += dt
@@ -8398,7 +8404,7 @@ if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEP
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
 const setFpvBtn = document.getElementById('set-fpv')
-if (setFpvBtn) setFpvBtn.addEventListener('click', () => { fpv = !fpv; camSnap = true; setFpvBtn.classList.toggle('on', fpv); setFpvBtn.textContent = fpv ? 'ON' : 'OFF'; if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。camSnapで切替時のカメラ瞬間移動
+if (setFpvBtn) setFpvBtn.addEventListener('click', () => { toggleFpv(); if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。toggleFpvが全ボタン同期＋水平視線
 // はじまりの場所＝いま立っている所を開始地点として保存（つぎに始めるときここから／トップ画面もここを映す）。標準にもどすボタンつき。ユーザー要望2026-06-24
 const setSpawnBtn = document.getElementById('set-spawn')
 if (setSpawnBtn) { if (spawnCustom) { setSpawnBtn.classList.add('on') }
