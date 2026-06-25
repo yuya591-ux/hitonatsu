@@ -7203,6 +7203,8 @@ function update(dt) {
   // 商店街の通行人：一様に行進せず、立ち止まったり向きを変えたり＝右往左往して自然に
   for (const p of pedestrians) {
     const u = p.userData.ped
+    const out = tday > 0.08 && tday < 0.80 + (u.ph / 6) * 0.13 // 朝に出て、夕〜宵に家へ帰る（遅くまで居る人も）＝夜は窓あかりだけの静かな通り（C11・2026-06-25）
+    p.visible = out; if (!out) continue
     u.timer -= dt
     if (u.timer <= 0) {
       if (u.state === 'pause') { u.state = 'walk'; u.timer = 3 + Math.random() * 7 } // 歩き出す
