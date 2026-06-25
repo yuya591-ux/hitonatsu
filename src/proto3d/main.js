@@ -644,11 +644,11 @@ const yatoGroundTex = (() => {
   const s = 256, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
   x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
   const blob = (col, a, n, rmin, rmax) => { for (let i = 0; i < n; i++) { const px = Math.random() * s, py = Math.random() * s, r = rmin + Math.random() * (rmax - rmin); x.globalAlpha = a; x.fillStyle = col; for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, 6.283); x.fill() } } }
-  blob('#9aa882', 0.24, 100, 10, 40)  // 草地のまだら（やや暗い緑灰＝陰る所）
-  blob('#d6ccab', 0.22, 60, 8, 26)    // 乾いた土／枯れ草の斑（暖色灰）
-  blob('#d4e0b6', 0.18, 80, 6, 22)    // 明るい草のかたまり（光る所）
-  x.lineCap = 'round' // 短い草の筆致＝近くで見たときの細かな手ざわり
-  for (let i = 0; i < 1800; i++) { const px = Math.random() * s, py = Math.random() * s, a = (Math.random() - 0.5) * 0.9 - 1.57, len = 2 + Math.random() * 5, dark = Math.random() < 0.5; x.globalAlpha = 0.13 + Math.random() * 0.10; x.strokeStyle = dark ? '#8a987080' : '#ecf0dc'; x.lineWidth = 0.8 + Math.random() * 0.8; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len); x.stroke() }
+  blob('#9aa882', 0.17, 110, 8, 34)   // 草地のまだら（やや暗い緑灰＝陰る所）。マクロな斑のコントラストを下げ、上空からのタイル反復(格子模様)を目立たなく（D9・2026-06-25）
+  blob('#d6ccab', 0.16, 70, 7, 22)    // 乾いた土／枯れ草の斑（暖色灰）
+  blob('#d4e0b6', 0.14, 90, 6, 20)    // 明るい草のかたまり（光る所）
+  x.lineCap = 'round' // 短い草の筆致＝近くで見たときの細かな手ざわり（本数を増やして足元の密度を上げる）
+  for (let i = 0; i < 2600; i++) { const px = Math.random() * s, py = Math.random() * s, a = (Math.random() - 0.5) * 0.9 - 1.57, len = 2 + Math.random() * 5, dark = Math.random() < 0.5; x.globalAlpha = 0.12 + Math.random() * 0.10; x.strokeStyle = dark ? '#8a987080' : '#ecf0dc'; x.lineWidth = 0.8 + Math.random() * 0.8; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len); x.stroke() }
   x.globalAlpha = 1
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t
 })()
@@ -1625,7 +1625,7 @@ function buildShishigaya() {
   const cLow = new THREE.Color(0xb6ad99), cGrass = new THREE.Color(0x86b257), cDark = new THREE.Color(0x5f8a3e)
   for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + gcx, wz = gp.getZ(i) + SG.gz0, y = heightAtYato(wx, wz); gp.setY(i, y); const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 3, 9)); c.lerp(cDark, THREE.MathUtils.smoothstep(y, 18, 40)); gcol.push(c.r, c.g, c.b) }
   ggeo.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3)); ggeo.computeVertexNormals()
-  const groundTex = yatoGroundTex.clone(); groundTex.needsUpdate = true; groundTex.repeat.set(Math.round(gw / 42), Math.round(SG.half * 2 / 42)) // タイル≒42mで地面の質感を出す（頂点色に掛け算＝色相は標高グラデのまま）
+  const groundTex = yatoGroundTex.clone(); groundTex.needsUpdate = true; groundTex.repeat.set(Math.round(gw / 34), Math.round(SG.half * 2 / 34)) // タイル≒34mで地面の質感を出す（42→34＝足元の手ざわりを細かく・頂点色に掛け算＝色相は標高グラデのまま）
   const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })); gm.position.set(gcx, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
   // 建物：種別で描き分け。集合住宅(apartments)=陸屋根の中層棟＋バルコニー面／家(house等)=低い切妻／事務所・大箱=陸屋根。中心のサンライズ北寺尾は7階の主役マンション
   const bv = [], bc = [], bidx = [], buv = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
