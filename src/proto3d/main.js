@@ -794,17 +794,19 @@ const waterMat = new THREE.ShaderMaterial({
     void main(){
       float d = distance(vUv, vec2(0.5)) * 2.0;
       vec3 col = mix(deep, shallow, smoothstep(0.4, 1.0, d)); // 岸ほど淡く
-      // 2層のさざ波（向きと速さを変えて重ねる＝のっぺりしない）
-      float w1 = sin(vW.x * 0.7 + uTime * 0.9) * sin(vW.z * 0.7 - uTime * 0.7);
-      float w2 = sin(vW.x * 1.7 - uTime * 1.3 + 1.7) * sin(vW.z * 1.4 + uTime * 1.1);
-      col += vec3(0.06, 0.10, 0.10) * smoothstep(0.30, 0.95, w1);
-      col += vec3(0.05, 0.08, 0.09) * smoothstep(0.45, 0.98, w2);
-      // 空の映り込み（横じまの帯＝水面の反射のゆらぎ）
-      float band = sin(vW.z * 0.9 + uTime * 0.5 + sin(vW.x * 0.6) * 0.8);
-      col = mix(col, sky, 0.18 * smoothstep(0.2, 1.0, band));
-      // 太陽のきらめき（細かい点滅）
+      // 遠く（grazing）はさざ波の周期がパースで潰れて縞に見えるので、手前だけ揺らし中〜遠景は穏やかな鏡面に（縞模様の解消・2026-06-26）
+      float prox = 1.0 - smoothstep(14.0, 62.0, distance(vW, cameraPosition));
+      // 2層のさざ波（向きと速さを変えて重ねる＝のっぺりしない）。各方向の位相を直交方向で歪ませ、規則的な格子にならないように
+      float w1 = sin(vW.x * 0.7 + uTime * 0.9 + sin(vW.z * 0.33 + uTime * 0.2) * 1.1) * sin(vW.z * 0.7 - uTime * 0.7 + sin(vW.x * 0.31) * 1.0);
+      float w2 = sin(vW.x * 1.7 - uTime * 1.3 + 1.7 + sin(vW.z * 0.5) * 0.9) * sin(vW.z * 1.4 + uTime * 1.1);
+      col += vec3(0.045, 0.072, 0.075) * smoothstep(0.42, 0.97, w1) * prox;
+      col += vec3(0.035, 0.055, 0.062) * smoothstep(0.55, 0.99, w2) * prox;
+      // 空の映り込み（水面のゆらめき）。直線の横じまにならないよう2方向＋低周波で歪ませ、近くだけ揺らす
+      float band = sin(vW.z * 0.72 + uTime * 0.5 + sin(vW.x * 0.5 + uTime * 0.3) * 1.35 + sin(vW.z * 0.29 - uTime * 0.18) * 1.15);
+      col = mix(col, sky, 0.13 * prox * smoothstep(0.25, 1.0, band));
+      // 太陽のきらめき（細かい点滅）＝近くだけ
       float sp = sin(vW.x * 6.0 + uTime * 3.0) * sin(vW.z * 5.3 + uTime * 2.1);
-      col += glint * 0.26 * smoothstep(0.92, 1.0, sp);
+      col += glint * 0.26 * smoothstep(0.92, 1.0, sp) * prox;
       // 岸ぎわの泡（白い縁取り）＋透け
       float foam = smoothstep(0.86, 0.99, d) * (0.6 + 0.4 * sin(vW.x * 3.0 + vW.z * 3.0 + uTime * 2.0));
       col = mix(col, vec3(0.96, 0.99, 1.0), foam * 0.5);
