@@ -1548,6 +1548,7 @@ const radioTaiso = new THREE.Group(); radioTaiso.visible = false; scene.add(radi
 const taisoFigs = [] // 体操する人＝｛g, armL, armR, baseY, ph, lead｝
 const yatoTreePos = [] // 獅子ヶ谷の核の近くの木の位置[x,z,y]（虫取りのカブトムシ/セミを木の幹に止めるのに使う）
 let yatoTreeShader = null // 樹冠を夏の風でそよがせるシェーダ（草と同じ仕組み・毎フレームuTime更新）
+let yatoRiceShader = null // 谷戸田の稲を夏風でしならせるシェーダ（草/樹冠と同じ仕組み・毎フレームuTime更新）
 const suikawari = new THREE.Group(); suikawari.visible = false; scene.add(suikawari) // すいか割り（夏の昼下がり、原っぱで＝夏休みの定番）。updateSuikaで動かす
 const suikaFigs = [] // ｛g, armL, armR, baseY, ph, role(swing/watch)｝
 // 簡単な低ポリの人（胴・頭・髪・腕2本）。盆踊り/ラジオ体操/通行人などで共用できる素体
@@ -2482,14 +2483,40 @@ function buildShishigaya() {
   const fv = [], fidx = [], fo = { n: 0 }, wv = [], widx = [], wo = { n: 0 }; let riceP = [], reedP = []; const azeGeos = []; const _am = new THREE.Matrix4()
   for (const g of SG.greens) if (g.kind === 'farm' && g.p.length >= 3) { fanPoly(g.p, fv, fidx, (x, z) => heightAtYato(x, z) + 0.08, fo)
     let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
-    for (let z = mnz + 1; z < mxz && riceP.length < 8000; z += 1.35) for (let x = mnx + 1; x < mxx; x += 1.15) if (pip(x, z, g.p)) riceP.push([x, z]) // 密に植えた稲＝青田（疎な畝→びっしりの緑へ）
+    for (let z = mnz + 1; z < mxz && riceP.length < 60000; z += 1.35) for (let x = mnx + 1; x < mxx; x += 1.15) if (pip(x, z, g.p) && Math.random() < 0.44) riceP.push([x, z]) // 全部の谷戸田に植える＝上限8000株で67枚中60枚が空っぽの緑の板だった不具合を解消。確率間引き0.44で総数を抑えつつ全田を青田に（2026-06-25 D1）
     for (let k = 0; k < g.p.length; k++) { const a = g.p[k], b = g.p[(k + 1) % g.p.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 1.5) continue; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2; const cg = new THREE.BoxGeometry(len + 0.4, 0.22, 0.5); _am.makeRotationY(-Math.atan2(b[1] - a[1], b[0] - a[0])); _am.setPosition(mx, heightAtYato(mx, mz) + 0.18, mz); cg.applyMatrix4(_am); azeGeos.push(cg) } } // 区画を囲うあぜ道（土の畝）＝棚田らしい“絵”に
-  if (fv.length) { const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3)); fg.setIndex(fidx); fg.computeVertexNormals(); scene.add(new THREE.Mesh(fg, new THREE.MeshToonMaterial({ color: 0x7ba048, gradientMap: GRAD, map: watercolorTex }))) }
+  if (fv.length) { const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3)); fg.setIndex(fidx); fg.computeVertexNormals(); scene.add(new THREE.Mesh(fg, new THREE.MeshToonMaterial({ color: 0x66723c, gradientMap: GRAD, map: watercolorTex }))) } // 水を張った田の地色を一段暗い緑(泥水)に＝上から見ると明るい稲の列が浮き立つ（青田の畝）。元0x7ba048は稲と同色で“のっぺり”だった
   if (azeGeos.length) { const ag = mergeGeometries(azeGeos, false); azeGeos.forEach((g) => g.dispose()); const am = new THREE.Mesh(ag, toon(0xb09a72)); am.receiveShadow = true; am.castShadow = true; scene.add(am) } // あぜ道（土の畝・全田まとめて1メッシュ）
   for (const wt of SG.waters) if (wt.p.length >= 3) { fanPoly(wt.p, wv, widx, (x, z) => heightAtYato(x, z) + 0.2, wo)
     for (let k = 0; k < wt.p.length && reedP.length < 800; k++) { const a = wt.p[k], b = wt.p[(k + 1) % wt.p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 0; t < seg; t += 2.6) reedP.push([a[0] + (b[0] - a[0]) * t / seg, a[1] + (b[1] - a[1]) * t / seg]) } }
   if (wv.length) { const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wv, 3)); wg.setIndex(widx); wg.computeVertexNormals(); scene.add(new THREE.Mesh(wg, waterMat)) }
-  if (riceP.length) { const rcI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.14, 0.64, 4), toon(0x6fa340), riceP.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); riceP.forEach(([x, z], i) => { const s = 0.85 + Math.random() * 0.4; sc.set(s, 0.85 + Math.random() * 0.35, s); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28); m.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.34, z), q, sc); rcI.setMatrixAt(i, m) }); rcI.castShadow = false; scene.add(rcI) } // 株ごとに高さ/向きをばらつかせ青田らしく
+  if (riceP.length) { // ── 稲株＝1株を数枚の葉が放射状に立ち上がる束に（単純4角コーンの“ビニール感”を脱す）＋株ごとに青田の緑を変え＋夏風でしなる。3種の束形に振り分けて反復感を消す（全部1マテリアル＝シェーダ更新は1つ・低ポリ脱却2026-06-25 D1）──
+    const riceMat = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: GRAD, side: THREE.DoubleSide }) // 緑はinstanceColorで株ごとに与える（materialは白）
+    riceMat.onBeforeCompile = (sh) => { sh.uniforms.uTime = { value: 0 }; sh.uniforms.uWind = { value: 0.5 }
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float rph = (instanceMatrix[3].x + instanceMatrix[3].z) * 0.3; // 株ごとの位相
+        transformed.x += sin(uTime * 1.05 + rph) * (0.05 + uWind * 0.14) * max(position.y, 0.0); // 上(穂先)ほど大きくしなる
+        transformed.z += sin(uTime * 0.83 + rph + 1.0) * (0.03 + uWind * 0.08) * max(position.y, 0.0);`)
+      yatoRiceShader = sh }
+    const makeClump = (seed) => { let r = seed % 233280; const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280 } // 種で決定的＝3種を作り分け
+      const pos = [], idx = []; const NB = 5 + Math.floor(rnd() * 2) // 5〜6枚の葉
+      for (let b = 0; b < NB; b++) { const ang = (b / NB) * 6.283 + rnd() * 0.7, dx = Math.cos(ang), dz = Math.sin(ang), nx = -dz, nz = dx
+        const h = 0.5 + rnd() * 0.22, lean = 0.1 + rnd() * 0.16, wB = 0.028, ox = (rnd() - 0.5) * 0.05, oz = (rnd() - 0.5) * 0.05 // 葉の丈/外への倒れ/根元の散らし
+        const bL = [ox + nx * wB, 0, oz + nz * wB], bR = [ox - nx * wB, 0, oz - nz * wB] // 根元（幅広）
+        const mL = [ox + dx * lean * h * 0.4 + nx * wB * 0.55, h * 0.55, oz + dz * lean * h * 0.4 + nz * wB * 0.55], mR = [ox + dx * lean * h * 0.4 - nx * wB * 0.55, h * 0.55, oz + dz * lean * h * 0.4 - nz * wB * 0.55] // 中ほど（細く・少し倒れ）
+        const tp = [ox + dx * lean * h, h, oz + dz * lean * h] // 葉先（外へ倒れ尖る）
+        const base = pos.length / 3; for (const v of [bL, bR, mL, mR, tp]) pos.push(v[0], v[1], v[2])
+        idx.push(base, base + 1, base + 3, base, base + 3, base + 2, base + 2, base + 3, base + 4) }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g }
+    const variants = [makeClump(7), makeClump(31), makeClump(95)], buckets = [[], [], []]
+    riceP.forEach((p, i) => buckets[i % 3].push(p)) // 3種へ均等に振り分け
+    const col = new THREE.Color()
+    variants.forEach((g, vi) => { const arr = buckets[vi]; if (!arr.length) return
+      const rcI = new THREE.InstancedMesh(g, riceMat, arr.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3()
+      arr.forEach(([x, z], i) => { const s = 0.85 + Math.random() * 0.4; sc.set(s, 0.9 + Math.random() * 0.3, s); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28); m.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.05, z), q, sc); rcI.setMatrixAt(i, m)
+        const t = Math.random(); col.setRGB(0.40 + t * 0.13, 0.58 + t * 0.12, 0.20 + t * 0.12); rcI.setColorAt(i, col) }) // 株ごとに青田の緑をばらつかせる（みずみずしい黄緑〜濃い緑）
+      rcI.instanceMatrix.needsUpdate = true; if (rcI.instanceColor) rcI.instanceColor.needsUpdate = true; rcI.castShadow = false; scene.add(rcI) }) } // 株ごとに高さ/向き/色をばらつかせ青田らしく
   if (reedP.length) { const rdI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.8, 4), toon(0x6f8a3e), reedP.length), m = new THREE.Matrix4(); reedP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.4, z); rdI.setMatrixAt(i, m) }); scene.add(rdI) }
   // 池情報（面積順）と「水の中か」判定＝三ツ池公園の作り込みと桜配置に使う
   const inWater = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p))
@@ -6913,6 +6940,7 @@ function update(dt) {
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
   if (yatoTreeShader) { yatoTreeShader.uniforms.uTime.value = tsec; yatoTreeShader.uniforms.uWind.value = wind } // 樹冠も夏の風でそよぐ
+  if (yatoRiceShader) { yatoRiceShader.uniforms.uTime.value = tsec; yatoRiceShader.uniforms.uWind.value = wind } // 谷戸田の稲も夏風でしなる
   waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
   { // 水面を時間帯になじませる（空を映し、夕は橙、夜は紺・暗く）
     const wnf = nightFactor(tday)
