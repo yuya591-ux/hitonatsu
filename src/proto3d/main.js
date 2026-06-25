@@ -2848,6 +2848,10 @@ function buildShishigaya() {
   for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
   let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
+  // ローラーすべり台の通り道（コリドー）は木を伐って見通しを作る＝すべり台が木に隠れない（ユーザー要望2026-06-25）。位置は makeRollerSlide と共有
+  const SLIDE_TOP = [3786, -889], SLIDE_END = [3817, -845]
+  { const [stx, stz] = SLIDE_TOP, [enx, enz] = SLIDE_END, sdx = enx - stx, sdz = enz - stz, sl2 = sdx * sdx + sdz * sdz || 1
+    for (let i = tp.length - 1; i >= 0; i--) { const px = tp[i][0] - stx, pz = tp[i][1] - stz; let t = (px * sdx + pz * sdz) / sl2; t = Math.max(0, Math.min(1, t)); const cxx = px - sdx * t, czz = pz - sdz * t; if (cxx * cxx + czz * czz < 49) tp.splice(i, 1) } } // 中心線から7m以内の木を伐採
   // 木漏れ日：街路樹/木立の一部の真下に、葉の隙間から落ちる光のゆらぎ（既存dapple系を獅子ヶ谷へ＝歩く所に木かげのゆらめき。2026-06-24）。歩道沿いに散らす（数は控えめ＝加算半透明の負荷を抑える）
   { const step = Math.max(1, Math.floor(tp.length / 22)); let dn = 0; for (let i = 0; i < tp.length && dn < 22; i += step) { const tx = tp[i][0], tz = tp[i][1]; if (heightAtYato(tx, tz) < 2) continue; addDapple(tx, tz, 2.2 + Math.random() * 0.8); dn++ } }
   if (tp.length) {
@@ -2894,6 +2898,45 @@ function buildShishigaya() {
     for (let x = mnx + 1; x <= mxx - 1; x += 1) { let run = null; for (let z = mnz - 2; z <= mxz + 2; z += 0.5) { const w = pip(x, z, P); if (w && run == null) run = z; else if (!w && run != null) { const span = (z - 0.5) - run; if (span >= 6 && span <= 24 && (!best || span < best.span)) best = { span, a: [x, run], b: [x, z - 0.5] }; run = null } } }
     if (best) { const dx = best.b[0] - best.a[0], dz = best.b[1] - best.a[1], l = Math.hypot(dx, dz) || 1, ex = dx / l * 2, ez = dz / l * 2; buildTaiko(best.a[0] - ex, best.a[1] - ez, best.b[0] + ex, best.b[1] + ez) } // 両端を岸に2m延長
     else buildTaiko(pi.cx - 8, pi.cz, pi.cx + 8, pi.cz) }
+  // ───── 三ツ池公園の名物：長いローラーすべり台（丘の斜面をくだる・昭和〜平成の子どもの宝物）ユーザー要望2026-06-25 ─────
+  { const slideMat = toon(0xc6cace), railA = toon(0xd8663a), railB = toon(0x3f86b0), postMat = toon(0x8b9096), deckMat = toon(0x4f7f6a), stepMat = toon(0xb8a986), sandMat = toon(0xdcc89a)
+    const V = THREE.Vector3, Q = THREE.Quaternion
+    const makeRollerSlide = (topX, topZ, endX, endZ, platH, width) => {
+      const g = new THREE.Group(), topY = heightAtYato(topX, topZ), endY = heightAtYato(endX, endZ)
+      const dx = endX - topX, dz = endZ - topZ, L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, nx = -uz, nz = ux, hw = width / 2
+      const platTop = topY + platH, bedEnd = endY + 0.55, yaw = Math.atan2(ux, uz)
+      const add = (geo, mat, x, y, z, q) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (q) m.quaternion.copy(q); m.castShadow = true; g.add(m); return m }
+      // 出発の塔：4本柱＋デッキ＋低い手すり
+      for (const [sw, sl] of [[-hw - 0.15, -0.4], [hw + 0.15, -0.4], [-hw - 0.15, -2.0], [hw + 0.15, -2.0]]) { const px = topX + nx * sw + ux * sl, pz = topZ + nz * sw + uz * sl, gy = heightAtYato(px, pz); add(new THREE.CylinderGeometry(0.1, 0.12, platTop - gy + 0.2, 8), postMat, px, (gy + platTop) / 2, pz) }
+      const deckCx = topX - ux * 1.1, deckCz = topZ - uz * 1.1, deckQ = new Q().setFromAxisAngle(new V(0, 1, 0), yaw)
+      add(new THREE.BoxGeometry(width + 0.5, 0.16, 2.4), deckMat, deckCx, platTop, deckCz, deckQ)
+      for (const sw of [-1, 1]) add(new THREE.BoxGeometry(0.08, 0.62, 2.4), postMat, deckCx + nx * sw * (hw + 0.2), platTop + 0.4, deckCz + nz * sw * (hw + 0.2), deckQ) // 横の手すり
+      add(new THREE.BoxGeometry(width + 0.5, 0.62, 0.08), postMat, deckCx - ux * 1.15, platTop + 0.4, deckCz - uz * 1.15, deckQ) // 後ろの手すり
+      // ローラーの床（細い金属の軸が連なる）
+      const N = Math.max(16, Math.round(L * 0.95)), rollQ = new Q().setFromUnitVectors(new V(0, 1, 0), new V(nx, 0, nz))
+      for (let i = 0; i <= N; i++) { const t = i / N; add(new THREE.CylinderGeometry(0.072, 0.072, width, 8), slideMat, topX + ux * L * t, platTop + (bedEnd - platTop) * t, topZ + uz * L * t, rollQ) }
+      // 側面レール（左右で色ちがい＝楽しげ）＋支え柱
+      const Tlen = Math.hypot(L, bedEnd - platTop), railQ = new Q().setFromUnitVectors(new V(0, 0, 1), new V(dx, bedEnd - platTop, dz).normalize())
+      for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.12, 0.6, Tlen), sd > 0 ? railA : railB, (topX + endX) / 2 + nx * sd * (hw + 0.12), (platTop + bedEnd) / 2 + 0.26, (topZ + endZ) / 2 + nz * sd * (hw + 0.12), railQ)
+      const posts = Math.max(2, Math.round(L / 7))
+      for (let i = 1; i < posts; i++) { const t = i / posts, px = topX + ux * L * t, pz = topZ + uz * L * t, by = platTop + (bedEnd - platTop) * t - 0.12, gy = heightAtYato(px, pz); if (by - gy < 0.7) continue; add(new THREE.CylinderGeometry(0.1, 0.13, by - gy + 0.1, 8), postMat, px, (gy + by) / 2, pz); for (const sd of [-1, 1]) add(new THREE.CylinderGeometry(0.05, 0.05, by - gy, 5), postMat, px + nx * sd * hw * 0.7, (gy + by) / 2, pz + nz * sd * hw * 0.7) } // 中央柱＋ハの字の筋交い風
+      // 横の階段（すべり台のわきを登る）＝桁(ストリンガー)＋水平な段板＋手すり
+      const so = hw + 1.5, sFrac = 0.92
+      const sTopX = topX + nx * so, sTopZ = topZ + nz * so, sBotX = topX + ux * L * sFrac + nx * so, sBotZ = topZ + uz * L * sFrac + nz * so, sTopY = platTop, sBotY = heightAtYato(sBotX, sBotZ) + 0.35
+      const sdx = sBotX - sTopX, sdy = sBotY - sTopY, sdz = sBotZ - sTopZ, sLen = Math.hypot(sdx, sdy, sdz), stairQ = new Q().setFromUnitVectors(new V(0, 0, 1), new V(sdx, sdy, sdz).normalize())
+      add(new THREE.BoxGeometry(1.1, 0.2, sLen), deckMat, (sTopX + sBotX) / 2, (sTopY + sBotY) / 2, (sTopZ + sBotZ) / 2, stairQ) // 桁
+      const stairN = Math.max(12, Math.round(L * 0.85))
+      for (let i = 1; i < stairN; i++) { const t = i / stairN; add(new THREE.BoxGeometry(1.0, 0.09, 0.32), stepMat, sTopX + sdx * t, sTopY + sdy * t + 0.13, sTopZ + sdz * t, deckQ) } // 水平な段板
+      for (const sd of [-1, 1]) { add(new THREE.BoxGeometry(0.07, 0.5, sLen), postMat, (sTopX + sBotX) / 2 + nx * sd * 0.5, (sTopY + sBotY) / 2 + 0.46, (sTopZ + sBotZ) / 2 + nz * sd * 0.5, stairQ) } // 両側の手すり
+      // 下の着地（砂のマウンド＝ふんわり止まる）
+      const runX = endX + ux * 1.8, runZ = endZ + uz * 1.8, runY = heightAtYato(runX, runZ)
+      add(new THREE.CylinderGeometry(2.2, 2.5, 0.24, 18), sandMat, runX, runY + 0.06, runZ)
+      mergedOutline(g, 0.03); scene.add(g)
+      addBox(topX - ux * 1.1, topZ - uz * 1.1, hw + 0.3, 1.3, yaw, 0.2) // 塔の足元だけ当たり判定（細い）
+      return { topX, topZ, endX, endZ }
+    }
+    makeRollerSlide(SLIDE_TOP[0], SLIDE_TOP[1], SLIDE_END[0], SLIDE_END[1], 5.4, 1.5)
+  }
   // ── 夏草の茂み：歩く谷あいの地面のベタ塗りを解消＝足元のエモさ。建物/水/道/急斜面を避け、平〜緩斜面の低〜中標高に密に。風になびく（InstancedMeshで1ドロー） ──
   { const roadOcc = new Uint8Array(GC * GC) // 道の通るセルは草を生やさない（路面に草が刺さらない。セル6mなので路肩1mほどから生える）
     for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1; for (let t = 0; t <= l; t += 3) { const c = cellOf(x0 + dx * t / l, z0 + dz * t / l); if (c >= 0) roadOcc[c] = 1 } } }
