@@ -2859,7 +2859,7 @@ function buildShishigaya() {
   { const [stx, stz] = SLIDE_TOP, [enx, enz] = SLIDE_END, sdx = enx - stx, sdz = enz - stz, sl2 = sdx * sdx + sdz * sdz || 1
     for (let i = tp.length - 1; i >= 0; i--) { const px = tp[i][0] - stx, pz = tp[i][1] - stz; let t = (px * sdx + pz * sdz) / sl2; t = Math.max(0, Math.min(1, t)); const cxx = px - sdx * t, czz = pz - sdz * t
       if (cxx * cxx + czz * czz < 49) { tp.splice(i, 1); continue } // すべり台：中心線から7m以内の木を伐採
-      if (Math.abs(tp[i][0] - POOL[0]) < 15 && Math.abs(tp[i][1] - POOL[1]) < 11) tp.splice(i, 1) } } // プールの敷地の木を伐採
+      if (Math.abs(tp[i][0] - POOL[0]) < 22 && Math.abs(tp[i][1] - POOL[1]) < 12) tp.splice(i, 1) } } // プール＋幼児プールの敷地の木を伐採
   // 木漏れ日：街路樹/木立の一部の真下に、葉の隙間から落ちる光のゆらぎ（既存dapple系を獅子ヶ谷へ＝歩く所に木かげのゆらめき。2026-06-24）。歩道沿いに散らす（数は控えめ＝加算半透明の負荷を抑える）
   { const step = Math.max(1, Math.floor(tp.length / 22)); let dn = 0; for (let i = 0; i < tp.length && dn < 22; i += step) { const tx = tp[i][0], tz = tp[i][1]; if (heightAtYato(tx, tz) < 2) continue; addDapple(tx, tz, 2.2 + Math.random() * 0.8); dn++ } }
   if (tp.length) {
@@ -2977,15 +2977,46 @@ function buildShishigaya() {
     add(new THREE.ConeGeometry(1.3, 0.5, 16), red, cx - DW / 2 + 2, deckY + 4.2, cz - 1.4) // パラソル
     // 更衣室（小屋）＝北辺の外（段地のへり）
     { const sx = cx, sz = cz - DD / 2 - 2.6, sy = heightAtYato(sx, sz); add(new THREE.BoxGeometry(6, 2.6, 3), toon(0xdcd6c6), sx, sy + 1.3, sz); add(new THREE.BoxGeometry(6.4, 0.3, 3.4), toon(0x6a7a72), sx, sy + 2.75, sz); add(new THREE.BoxGeometry(1.0, 1.8, 0.1), toon(0x5a6a8a), sx - 1.4, sy + 0.9, sz + 1.5); add(new THREE.BoxGeometry(1.0, 1.8, 0.1), toon(0x8a5a6a), sx + 1.4, sy + 0.9, sz + 1.5); addBox(sx, sz, 3.1, 1.6, 0, 0.3) } // 男女の入口＋当たり判定
+    // 幼児用プール＝スワン形・カエル形（実在の三ツ池プールに忠実・25mプールの東どなり）。浅いので掘り下げ不要＝低い縁＋浅い水＋飾り
+    const makeKiddie = (kx, kz, kind) => { const ky = heightAtYato(kx, kz), r = 2.3
+      add(new THREE.CylinderGeometry(r + 1.0, r + 1.0, 0.22, 24), deckMat, kx, ky + 0.11, kz) // 小さなデッキパッド
+      add(new THREE.CylinderGeometry(r, r, 0.14, 24), waterMat, kx, ky + 0.26, kz) // 浅い水
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.11, 8, 24), coping); rim.rotation.x = Math.PI / 2; rim.position.set(kx, ky + 0.3, kz); rim.receiveShadow = true; g.add(rim)
+      if (kind === 'swan') { const sw = toon(0xf4f4ee) // 白鳥＝体＋首＋頭＋くちばし
+        add(new THREE.SphereGeometry(0.5, 12, 10), sw, kx, ky + 0.66, kz - r + 0.4); const nk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 1.0, 8), sw); nk.position.set(kx, ky + 1.2, kz - r + 0.55); nk.rotation.x = 0.35; nk.castShadow = true; g.add(nk)
+        add(new THREE.SphereGeometry(0.16, 10, 8), sw, kx, ky + 1.66, kz - r + 0.8); add(new THREE.ConeGeometry(0.06, 0.22, 6), toon(0xe0a030), kx, ky + 1.64, kz - r + 0.98) }
+      else { const fr = toon(0x6fae54) // カエル＝体＋目玉
+        add(new THREE.SphereGeometry(0.62, 12, 10), fr, kx, ky + 0.56, kz - r + 0.4); for (const ex of [-0.26, 0.26]) { add(new THREE.SphereGeometry(0.18, 10, 8), fr, kx + ex, ky + 1.02, kz - r + 0.4); add(new THREE.SphereGeometry(0.08, 8, 6), toon(0x232318), kx + ex, ky + 1.08, kz - r + 0.27) } } }
+    makeKiddie(cx + DW / 2 + 4.0, cz - 2.5, 'swan'); makeKiddie(cx + DW / 2 + 4.2, cz + 3.0, 'frog')
     mergedOutline(g, 0.025); scene.add(g)
     // 槽のふち4面に当たり判定（水の上を歩かない・デッキは歩ける）
     addBox(cx, cz - pd / 2 - 0.2, pw / 2 + 0.4, 0.3, 0, 0.1); addBox(cx, cz + pd / 2 + 0.2, pw / 2 + 0.4, 0.3, 0, 0.1)
     addBox(cx - pw / 2 - 0.2, cz, 0.3, pd / 2, 0, 0.1); addBox(cx + pw / 2 + 0.2, cz, 0.3, pd / 2, 0, 0.1)
   }
+  // ───── 三ツ池公園の売店（下ノ池のほとり・夏の店＝ラムネ/かき氷/アイス）実在に忠実・公式サイト調査2026-06-25 ─────
+  { const sx = 4082, sz = -940, sy = heightAtYato(sx, sz), g = new THREE.Group(), ry = 0 // 下ノ池の北の岸＝池(南)へ正対・プールとのあいだ
+    const wood = toon(0xcdb38a), woodD = toon(0x8a6a44), roofM = toon(0x9a4a3a), counter = toon(0xe6dcc2), red = toon(0xd23a2c), blue = toon(0x2a7ab0)
+    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m }
+    add(new THREE.BoxGeometry(5, 0.2, 3), counter, 0, 0.1, 0) // 床
+    add(new THREE.BoxGeometry(5, 2.4, 0.2), wood, 0, 1.3, -1.4) // 奥の壁
+    for (const ox of [-2.4, 2.4]) add(new THREE.BoxGeometry(0.2, 2.4, 3), wood, ox, 1.3, 0) // 両側壁
+    add(new THREE.BoxGeometry(5, 0.9, 0.4), counter, 0, 1.0, 1.4) // 売り台（カウンター）
+    add(new THREE.BoxGeometry(6, 0.2, 4), woodD, 0, 2.5, -0.2) // 屋根
+    // 縞の日除けテント（前面）
+    { const tex = document.createElement('canvas'); tex.width = 64; tex.height = 8; const c = tex.getContext('2d'); for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#d23a2c' : '#f4efe2'; c.fillRect(i * 8, 0, 8, 8) } const tx = new THREE.CanvasTexture(tex); tx.wrapS = THREE.RepeatWrapping; tx.repeat.set(5, 1)
+      const aw = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.1, 1.5), new THREE.MeshToonMaterial({ map: tx, gradientMap: GRAD })); aw.position.set(0, 2.35, 1.7); aw.rotation.x = -0.32; aw.castShadow = true; g.add(aw)
+      add(new THREE.BoxGeometry(5.4, 0.5, 0.06), counter, 0, 2.0, 2.36).rotation.x = -0.32 } // 前垂れ
+    // のれん/看板（ラムネ・かき氷の旗）
+    add(new THREE.BoxGeometry(0.9, 0.7, 0.04), red, -1.4, 1.95, 1.45); add(new THREE.BoxGeometry(0.9, 0.7, 0.04), blue, 1.4, 1.95, 1.45)
+    // かき氷の氷旗（白に赤）＝細い竿
+    const pole = add(new THREE.CylinderGeometry(0.03, 0.03, 2.2, 6), woodD, 2.7, 1.3, 1.6); const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), new THREE.MeshToonMaterial({ color: 0xf4f4f0, gradientMap: GRAD, side: THREE.DoubleSide })); flag.position.set(3.05, 1.9, 1.6); g.add(flag)
+    g.position.set(sx, sy, sz); g.rotation.y = ry; mergedOutline(g, 0.03); scene.add(g)
+    addBox(sx, sz - 1.4, 2.6, 0.9, 0, 0.3) // 奥の壁だけ当たり判定（カウンター前は歩ける）
+  }
   // ── 夏草の茂み：歩く谷あいの地面のベタ塗りを解消＝足元のエモさ。建物/水/道/急斜面を避け、平〜緩斜面の低〜中標高に密に。風になびく（InstancedMeshで1ドロー） ──
   { const roadOcc = new Uint8Array(GC * GC) // 道の通るセルは草を生やさない（路面に草が刺さらない。セル6mなので路肩1mほどから生える）
     for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1; for (let t = 0; t <= l; t += 3) { const c = cellOf(x0 + dx * t / l, z0 + dz * t / l); if (c >= 0) roadOcc[c] = 1 } } }
-    const bareZones = [[3124, -186, 31, 51], [3062, -150, 5, 5], [3050, -161, 16, 4.5], [3069, -157, 11, 4.5], [3055, -104, 14, 11], [4082, -966, 14, 9]] // 草を生やさない裸地＝[校庭][広場の池][裏門→校舎沿いの一本道(2区間)][学校プール][三ツ池プールのデッキ(下の池の北東)]。広場の残りは緑(夏草)で覆う＝ユーザー要望。マリノスG(雑草原っぱ)は除外しない
+    const bareZones = [[3124, -186, 31, 51], [3062, -150, 5, 5], [3050, -161, 16, 4.5], [3069, -157, 11, 4.5], [3055, -104, 14, 11], [4088, -966, 20, 10]] // 草を生やさない裸地＝[校庭][広場の池][裏門→校舎沿いの一本道(2区間)][学校プール][三ツ池プール＋幼児プールのデッキ(下の池の北東)]。広場の残りは緑(夏草)で覆う＝ユーザー要望。マリノスG(雑草原っぱ)は除外しない
     const inBare = (x, z) => bareZones.some(([bx, bz, hw, hd]) => Math.abs(x - bx) < hw && Math.abs(z - bz) < hd)
     const tuft = new THREE.IcosahedronGeometry(0.5, 0); tuft.scale(1, 0.5, 1) // 低い茂みのかたまり
     const gmat = new THREE.MeshToonMaterial({ gradientMap: GRAD }) // 色はinstanceColorで標高ごとに（白×instanceColor）
