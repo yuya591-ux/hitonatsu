@@ -2842,6 +2842,10 @@ function buildShishigaya() {
     let ns = 0 // 室外機＝範囲130m→340m・上限9→20に拡大（建物の壁ぎわなので道に出ない）
     for (const b of SG.buildings) { if (ns >= 20) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 340) continue; const seed = Math.abs(Math.round(x) * 5 + Math.round(z) * 2); if (seed % 5 !== 0) continue
       const rot = b[4]; shitsu(x + Math.cos(rot) * (b[2] / 2 + 0.3), z + Math.sin(rot) * (b[2] / 2 + 0.3), rot + Math.PI / 2); ns++ }
+    // 北門の住宅地（プール北東）に生活感＝中心から遠く既定の小物範囲外なので手置き。物干し/室外機/自販機で「人が住んでいる」気配
+    hoshi(4124, -1052, 0); hoshi(4178, -1090, Math.PI / 2); hoshi(4124, -1120, 0)
+    shitsu(4138, -1028, Math.PI / 2); shitsu(4164, -1104, -Math.PI / 2)
+    makeVending(4128, -984, 0.3, 0xc23a2c) // 小道の入口の自販機（プール帰りのラムネ）
     makeVending(2900, -50, 1.0, 0xc23a2c); makeVending(3052, -118, -0.6, 0x2a7ab0); makeVending(3120, -100, 0.4, 0xe0a838) // 道角の自販機（風呂上がり/夏のラムネ）
     { const g = new THREE.Group(), red = toon(0xc0392b); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red); body.position.y = 1.05; g.add(body); const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red); top.position.y = 2.1; g.add(top); placeProp(g, 2960, -86, 0, 0.04, 0.7) } // 丸ポスト
     // ── 1990年代の街角の生活ディテール：公衆電話ボックス（夜ぼんやり灯る）・町内会の掲示板・追加の自販機/丸ポスト（忠実な密集はそのまま“あの頃の手触り”を足す・ユーザー要望2026-06-24）──
