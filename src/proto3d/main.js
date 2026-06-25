@@ -6908,14 +6908,14 @@ function travel() {
     setTimeout(() => { autoWalk = null; transitioning = false }, 780) // 数歩あるいてから操作にもどす
   }, 470)
 }
-goEl.addEventListener('click', travel)
+tapBtn(goEl, travel)
 function advanceDialogue() {
   if (!dialogue) return
   dialogue.idx++
   if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none' }
   else dlgTextEl.textContent = dialogue.lines[dialogue.idx]
 }
-npcEl.addEventListener('click', () => {
+tapBtn(npcEl, () => {
   const act = npcEl.dataset.act
   if (act === 'pet') petCat()
   else if (act === 'buy') buyRamune()
@@ -6972,7 +6972,7 @@ function doCatch() {
   catchTarget = null
   if (catchEl) catchEl.style.display = 'none'
 }
-if (catchEl) catchEl.addEventListener('click', doCatch)
+tapBtn(catchEl, doCatch)
 
 // ── 釣り（池）──
 const fishEl = document.getElementById('fish')
@@ -7023,7 +7023,7 @@ function reel() {
   } else if (fishState === 'wait') endFishing('はやい！ にげられた')
 }
 function endFishing(msg) { fishState = 'idle'; clearTimeout(fishTimer); floatMesh.visible = false; if (fishEl) fishEl.textContent = 'つる'; if (msg) showToast(msg) }
-if (fishEl) fishEl.addEventListener('click', () => { if (fishState === 'idle') castLine(); else reel() })
+tapBtn(fishEl, () => { if (fishState === 'idle') castLine(); else reel() })
 
 // ぷにコン（指でスライドした方向へ歩く・白猫プロジェクト風）
 const stickEl = document.getElementById('stick')
@@ -7041,6 +7041,10 @@ let camSnap = false // 主観⇄三人称の切替時だけカメラを瞬間移
 let lastInteract = performance.now()
 const IDLE_MS = 4500 // この秒数 何も触らないとHUDをフェードアウト
 function pokeUI() { lastInteract = performance.now(); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle') }
+// 操作ボタンは pointerdown で即発火＝タッチの click 依存をやめる（移動スティック操作中でも2本目の指で確実に押せる＝マルチタッチ／フェード復帰後/横画面下端でも不発にならない・ユーザー指摘2026-06-26）。ゴーストclickは抑制し、キーボードEnter等のclickは通す
+function tapBtn(el, fn) { if (!el) return; let t = 0
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); pokeUI(); t = performance.now(); fn(e) })
+  el.addEventListener('click', (e) => { if (performance.now() - t < 700) { e.preventDefault(); return } pokeUI(); fn(e) }) }
 // ボタン/HUDを押したら必ず“操作した”とみなしてタイマーをリセット（キャプチャ段階で先に拾う）
 document.addEventListener('pointerdown', (e) => { if (e.target && e.target.closest && e.target.closest('button, .hud')) pokeUI() }, true)
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
@@ -7058,7 +7062,7 @@ const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new T
 const warpRay = new THREE.Raycaster() // 飛行中タップ→主人公をワープ
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
 let jumpY = 0, jumpV = 0, airborne = false, landSquash = 0 // ジャンプ（高さ・上下速度・空中フラグ・着地のつぶれ）
-function doJump() { if (jumpY <= 0.02 && mode === 'walk' && !flying && !floatMode) { jumpV = 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音（浮遊中は跳ねない）
+function doJump() { if (jumpY <= 0.02 && mode === 'walk' && !flying && !floatMode && !riding) { jumpV = 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音（浮遊/自転車中は跳ねない）
 
 function startPuni(id, x, y) {
   puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
@@ -7142,8 +7146,7 @@ function onUp(e) {
   if (e.pointerId === puni.id) { endPuni() }
   else if (lookIds.has(e.pointerId)) {
     lookIds.delete(e.pointerId)
-    // 視点側を動かさず軽くタップ＝ジャンプ（ボタンが届かない時の保険）
-    if (!p.moved && performance.now() - p.t < 250) doJump()
+    // （旧：視点側タップでジャンプの保険は廃止＝ジャンプボタンを pointerdown で確実化したので「別の場所を押すと跳ぶ」誤作動を解消・ユーザー指摘2026-06-26）
     if (lookIds.size === 2) pinchInit(); else pinchD = 0
   }
 }
@@ -7156,18 +7159,18 @@ addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 const jumpEl = document.getElementById('jump')
 const zinEl = document.getElementById('zin')
 const zoutEl = document.getElementById('zout')
-if (jumpEl) jumpEl.addEventListener('click', () => doJump())
+tapBtn(jumpEl, () => doJump())
 const bikeEl = document.getElementById('bike')
-if (bikeEl) bikeEl.addEventListener('click', () => { if (mode !== 'walk') return; riding = !riding; bikeEl.classList.toggle('on', riding); if (riding && floatMode) { floatExiting = true } }) // 自転車に乗る/降りる（浮遊中なら降りる）
+tapBtn(bikeEl, () => { if (mode !== 'walk') return; riding = !riding; bikeEl.classList.toggle('on', riding); document.body.classList.toggle('riding', riding); if (riding && floatMode) { floatExiting = true } }) // 自転車に乗る/降りる（浮遊中なら降りる）
 const floatEl = document.getElementById('float')
-if (floatEl) floatEl.addEventListener('click', () => { if (mode !== 'walk') return
-  if (!floatMode) { floatMode = true; floatExiting = false; riding = false; if (bikeEl) bikeEl.classList.remove('on'); floatVel.set(0, 3, 0); document.body.classList.add('floating'); floatEl.classList.add('on') } // ふわり浮く
+tapBtn(floatEl, () => { if (mode !== 'walk') return
+  if (!floatMode) { floatMode = true; floatExiting = false; riding = false; if (bikeEl) bikeEl.classList.remove('on'); document.body.classList.remove('riding'); floatVel.set(0, 3, 0); document.body.classList.add('floating'); floatEl.classList.add('on') } // ふわり浮く
   else if (!floatExiting) { floatExiting = true; floatEl.classList.remove('on') } }) // もう一度＝ゆっくり降りる
 { const hold = (id, set) => { const el = document.getElementById(id); if (!el) return; el.addEventListener('pointerdown', (e) => { e.preventDefault(); set(1) }); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, () => set(0)) }
   hold('fl-up', (v) => { floatUp = v }); hold('fl-down', (v) => { floatDown = v }) } // ▲うく/▼おりる（押している間だけ）
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
-if (zinEl) zinEl.addEventListener('click', () => zoomStep(0.8))
-if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
+tapBtn(zinEl, () => zoomStep(0.8))
+tapBtn(zoutEl, () => zoomStep(1.25))
 // ── 風船飛行のUI：ズーム＋−／速さ3段／主観視点トグル（飛行中だけ出る） ──
 { const flZin = document.getElementById('fl-zin'), flZout = document.getElementById('fl-zout'), flSpeed = document.getElementById('fl-speed'), flFpv = document.getElementById('fl-fpv')
   if (flZin) flZin.addEventListener('click', () => zoomStep(0.82))
@@ -7187,13 +7190,13 @@ if (zoutEl) zoutEl.addEventListener('click', () => zoomStep(1.25))
 const hintEl = document.getElementById('hint')
 if (hintEl) { setTimeout(() => hintEl.classList.add('gone'), 6500); canvas.addEventListener('pointerdown', () => hintEl.classList.add('gone'), { once: true }) }
 
-actBtn.addEventListener('click', () => {
+tapBtn(actBtn, () => {
   const spot = actBtn.dataset.spot
   if (mode === 'walk') { if (spot === 'swing') rideSwing(); else if (spot === 'slide') rideSlide(); else if (spot === 'sunup') sunGoRoof(); else if (spot === 'sundown') sunLeaveRoof(); else sitDown(spot || 'bench') }
   else if (mode === 'swing' && spot === 'offswing') getOffSwing()
   else if (mode === 'sliding' && spot === 'slideview' && sliding) { sliding.pov = sliding.pov === 'first' ? 'third' : 'first'; camSnap = true } // すべり台の視点きりかえ（主観⇄背中ごし）
 })
-lieBtn.addEventListener('click', () => { if (mode === 'walk') lieDown() })
+tapBtn(lieBtn, () => { if (mode === 'walk') lieDown() })
 
 let lieT = 0 // 横になる所作のタイマー（mode='lying' の進行）
 function lieDown() {
@@ -8641,6 +8644,7 @@ window.__proto3d = {
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
+  get _jumpState() { return { airborne, jumpV: +jumpV.toFixed(1), riding, mode } }, // 検証用：ジャンプ状態
   _slideTop() { return slideRide ? slideRide.top : null }, // 検証用：すべり台のてっぺん座標
   _rideSlide() { if (!slideRide) return null; area = 'yato'; onYato = true; boy.position.set(slideRide.top[0], heightAt(slideRide.top[0], slideRide.top[1]), slideRide.top[1]); rideSlide(); return { total: +slideRide.total.toFixed(1) } }, // 検証用：すべり台に乗る
   get _slideState() { return sliding ? { s: +sliding.s.toFixed(1), v: +sliding.v.toFixed(1), pov: sliding.pov, mode } : { mode } }, // 検証用：滑走状態

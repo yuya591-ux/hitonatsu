@@ -89,6 +89,13 @@
       body.ui-idle #sleep, body.ui-idle #set-btn, body.ui-idle #fl-up, body.ui-idle #fl-down, body.ui-idle #fl-zin,
       body.ui-idle #fl-zout, body.ui-idle #fl-speed, body.ui-idle #fl-fpv, body.ui-idle #fl-gauges, body.ui-idle #stick {
         opacity: 0 !important; pointer-events: none !important; }
+      /* ただし操作ボタンはフェード中でも押せる＝1タップで効く（消えていても押せて、同時にUIが戻る・ユーザー指摘2026-06-26） */
+      body.ui-idle #jump, body.ui-idle #zin, body.ui-idle #zout, body.ui-idle #dock, body.ui-idle #dock > button,
+      body.ui-idle #act, body.ui-idle #npc, body.ui-idle #go, body.ui-idle #catch, body.ui-idle #fish,
+      body.ui-idle #fl-up, body.ui-idle #fl-down, body.ui-idle #fl-zin, body.ui-idle #fl-zout, body.ui-idle #fl-speed, body.ui-idle #fl-fpv {
+        pointer-events: auto !important; }
+      /* 自転車に乗っている間はジャンプボタンを隠す（出ているのに効かない＝混乱の元・ユーザー指摘2026-06-26） */
+      body.riding #jump { display: none !important; }
       /* 横向きのおすすめ（縦持ちのスマホにだけ・やさしく・閉じれる） */
       #rotate { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); display: none;
         padding: 0.5em 1.2em; font-size: clamp(13px,3vw,18px); letter-spacing: 0.06em; color: #fdf7ec;
