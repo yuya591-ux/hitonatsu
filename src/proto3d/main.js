@@ -3060,7 +3060,11 @@ function buildShishigaya() {
       for (let i = 0; i <= len; i += 0.5) am(new THREE.CylinderGeometry(0.035, 0.035, 1.3, 5), log, mx, my + 2.0, mz - len / 2 + i, 0, 0, Math.PI / 2) }
     const beam = (bx, bz) => { const by = heightAtYato(bx, bz); am(new THREE.CylinderGeometry(0.13, 0.13, 4, 8), log, bx, by + 0.5, bz, Math.PI / 2); for (const oz of [-1.6, 1.6]) am(new THREE.CylinderGeometry(0.08, 0.1, 1.0, 6), logD, bx, by + 0.25, bz + oz) } // 平均台
     const tires = (tx, tz) => { for (let i = 0; i < 4; i++) { const x = tx + i * 1.2, y = heightAtYato(x, tz), t = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.13, 8, 14), tire); t.position.set(x, y + 0.26, tz); t.rotation.x = Math.PI / 2; t.castShadow = true; A.add(t) } } // タイヤ跳び
+    const stumps = (sx, sz) => { for (let i = 0; i < 6; i++) { const x = sx + i * 1.0, z = sz + (i % 2 ? 0.7 : -0.7), y = heightAtYato(x, z), h = 0.45 + (i % 3) * 0.28; am(new THREE.CylinderGeometry(0.22, 0.26, h, 9), i % 2 ? logD : log, x, y + h / 2, z) } } // 丸太の飛び石（ジグザグに跳んで渡る）
+    const climbPoles = (cx, cz) => { for (let i = 0; i < 3; i++) { const x = cx + i * 0.9, y = heightAtYato(x, cz); am(new THREE.CylinderGeometry(0.07, 0.07, 2.6, 7), log, x, y + 1.3, cz) } am(new THREE.CylinderGeometry(0.06, 0.06, 2.1, 6), logD, cx + 0.9, heightAtYato(cx + 0.9, cz) + 2.55, cz, 0, 0, Math.PI / 2) } // のぼり棒（上に渡し木）
+    const rings = (rx, rz) => { const ry = heightAtYato(rx, rz); for (const ox of [-1.4, 1.4]) am(new THREE.CylinderGeometry(0.09, 0.11, 2.7, 7), logD, rx + ox, ry + 1.35, rz); am(new THREE.CylinderGeometry(0.07, 0.07, 3.0, 6), log, rx, ry + 2.6, rz, Math.PI / 2); for (const ox of [-0.7, 0, 0.7]) { am(new THREE.CylinderGeometry(0.018, 0.018, 0.78, 5), logD, rx + ox, ry + 2.2, rz); const rg = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 6, 12), tire); rg.position.set(rx + ox, ry + 1.8, rz); rg.castShadow = true; A.add(rg) } } // 吊り輪（ぶら下がる）
     fort(ATH[0] - 5, ATH[1] + 6); monkey(ATH[0] + 8, ATH[1] - 3, 4); beam(ATH[0] - 10, ATH[1] - 6); tires(ATH[0] + 2, ATH[1] + 9)
+    stumps(ATH[0] - 4, ATH[1] - 11); climbPoles(ATH[0] + 9, ATH[1] + 7); rings(ATH[0] + 13, ATH[1] - 7) // 追加で「冒険の森」らしく充実（2026-06-26）
     mergedOutline(A, 0.028); scene.add(A)
   }
   // ───── 三ツ池公園の広場の小物：池のほとりのベンチ＋水飲み場（休み所＝実在の公園らしさ）2026-06-25 ─────
