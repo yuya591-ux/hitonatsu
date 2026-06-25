@@ -3031,6 +3031,25 @@ function buildShishigaya() {
     fort(ATH[0] - 5, ATH[1] + 6); monkey(ATH[0] + 8, ATH[1] - 3, 4); beam(ATH[0] - 10, ATH[1] - 6); tires(ATH[0] + 2, ATH[1] + 9)
     mergedOutline(A, 0.028); scene.add(A)
   }
+  // ───── 三ツ池公園の広場の小物：池のほとりのベンチ＋水飲み場（休み所＝実在の公園らしさ）2026-06-25 ─────
+  { const woodB = toon(0x9a7b4e), woodL = toon(0x7a5e38), metal = toon(0xbfc4c2), metalD = toon(0x8a9aa0)
+    const makeBench = (bx, bz, bry) => { const by = heightAtYato(bx, bz), g = new THREE.Group()
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.5), woodB); seat.position.y = 0.45; g.add(seat)
+      const back = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 0.08), woodB); back.position.set(0, 0.72, -0.21); g.add(back)
+      for (const sx of [-0.65, 0.65]) for (const sz of [-0.18, 0.18]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.08), woodL); leg.position.set(sx, 0.22, sz); g.add(leg) }
+      g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(bx, by, bz); g.rotation.y = bry; mergedOutline(g, 0.02); scene.add(g) }
+    const makeFountain = (fx, fz) => { const fy = heightAtYato(fx, fz)
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.9, 8), metal); st.position.set(fx, fy + 0.45, fz); st.castShadow = true; scene.add(st)
+      const ba = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.18, 12), toon(0xcfd4d2)); ba.position.set(fx, fy + 0.95, fz); scene.add(ba)
+      const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 5), metalD); sp.position.set(fx, fy + 1.12, fz); scene.add(sp) }
+    let nb = 0
+    for (const pi of pondInfo.slice(0, 6)) { if (pi.cx < 3500 || pi.area < 8000) continue // 三ツ池エリアの3池のほとりだけ
+      for (let a = 0; a < 14 && nb < 22; a++) { const ang = a / 14 * 6.283 + 0.6, ex = pi.cx + Math.cos(ang) * (pi.r + 4.5), ez = pi.cz + Math.sin(ang) * (pi.r + 4.5)
+        if (inWater(ex, ez) || onYatoRoadCore(ex, ez) || heightAtYato(ex, ez) < 3) continue
+        if (Math.abs(heightAtYato(ex + 3, ez) - heightAtYato(ex - 3, ez)) + Math.abs(heightAtYato(ex, ez + 3) - heightAtYato(ex, ez - 3)) > 4.5 || Math.random() < 0.25) continue // 平らな所だけ・少しまばらに
+        makeBench(ex, ez, Math.atan2(pi.cx - ex, pi.cz - ez)); nb++ } } // 座ると池を向く
+    makeFountain(4076, -950); makeFountain(3758, -802) // プールのそば・遊びの森
+  }
   // ── 夏草の茂み：歩く谷あいの地面のベタ塗りを解消＝足元のエモさ。建物/水/道/急斜面を避け、平〜緩斜面の低〜中標高に密に。風になびく（InstancedMeshで1ドロー） ──
   { const roadOcc = new Uint8Array(GC * GC) // 道の通るセルは草を生やさない（路面に草が刺さらない。セル6mなので路肩1mほどから生える）
     for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1; for (let t = 0; t <= l; t += 3) { const c = cellOf(x0 + dx * t / l, z0 + dz * t / l); if (c >= 0) roadOcc[c] = 1 } } }
