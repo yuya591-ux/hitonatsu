@@ -1743,9 +1743,15 @@ function buildShishigaya() {
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 3.5)), vt = Math.max(1, Math.round(h / 3)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=窓の間口, v=階＝壁に窓が並ぶ
         ;[p0, p1, p2, p3].forEach((p, qi) => { bv.push(p[0], p[1], p[2]); bc.push(wc[0], wc[1], wc[2]); buv.push(uvq[qi][0], uvq[qi][1]) }); bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 }
-      const rh = Math.min(4, Math.min(w, d) * 0.5 + 1), rg = h + rh, e0 = L(-hw, h, -hd), e1 = L(hw, h, -hd), e2 = L(hw, h, hd), e3 = L(-hw, h, hd)
-      if (w >= d) { const r0 = L(-hw, rg, 0), r1 = L(hw, rg, 0); pushTri(rc, e3, e2, r1); pushTri(rc, e3, r1, r0); pushTri(rc, e1, e0, r0); pushTri(rc, e1, r0, r1); pushTri(wc, e0, e3, r0); pushTri(wc, e2, e1, r1) }
-      else { const r0 = L(0, rg, -hd), r1 = L(0, rg, hd); pushTri(rc, e1, e2, r1); pushTri(rc, e1, r1, r0); pushTri(rc, e3, e0, r0); pushTri(rc, e3, r0, r1); pushTri(wc, e0, e1, r0); pushTri(wc, e2, e3, r1) }
+      const rh = Math.min(4, Math.min(w, d) * 0.5 + 1), rg = h + rh, eo = Math.min(0.5, Math.min(w, d) * 0.12), eh = h - 0.04 // 軒の出（屋根が壁より外へ張り出す＝本物らしい庇＋軒下の影。低ポリ脱却2026-06-25）
+      const e0 = L(-hw, h, -hd), e1 = L(hw, h, -hd), e2 = L(hw, h, hd), e3 = L(-hw, h, hd) // 妻壁の頂点（壁の位置）
+      const x0 = -(hw + eo), x1 = hw + eo, z0 = -(hd + eo), z1 = hd + eo, a0 = L(x0, eh, z0), a1 = L(x1, eh, z0), a2 = L(x1, eh, z1), a3 = L(x0, eh, z1) // 軒先（外へ張り出す）
+      if (w >= d) { const r0 = L(x0, rg, 0), r1 = L(x1, rg, 0)
+        pushTri(rc, a3, a2, r1); pushTri(rc, a3, r1, r0); pushTri(rc, a1, a0, r0); pushTri(rc, a1, r0, r1) // 2枚の屋根面（軒が外へ張り出す）
+        pushTri(wc, e0, e3, L(-hw, rg, 0)); pushTri(wc, e2, e1, L(hw, rg, 0)) } // 妻壁の三角（壁の位置）
+      else { const r0 = L(0, rg, z0), r1 = L(0, rg, z1)
+        pushTri(rc, a1, a2, r1); pushTri(rc, a1, r1, r0); pushTri(rc, a3, a0, r0); pushTri(rc, a3, r0, r1) // 2枚の屋根面
+        pushTri(wc, e0, e1, L(0, rg, -hd)); pushTri(wc, e2, e3, L(0, rg, hd)) } // 妻壁の三角
     }
   })
   // ───── サンライズ鶴見北寺尾I：実輪郭(雁行型)を7階RCで忠実再現。斜面の途中に建ち、NW端(谷=二ツ池/眺望側)の7階は部屋でなく開放テラス＋下から上がる階段室 ─────
