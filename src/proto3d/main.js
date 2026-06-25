@@ -1549,6 +1549,7 @@ const taisoFigs = [] // 体操する人＝｛g, armL, armR, baseY, ph, lead｝
 const yatoTreePos = [] // 獅子ヶ谷の核の近くの木の位置[x,z,y]（虫取りのカブトムシ/セミを木の幹に止めるのに使う）
 let yatoTreeShader = null // 樹冠を夏の風でそよがせるシェーダ（草と同じ仕組み・毎フレームuTime更新）
 let yatoRiceShader = null // 谷戸田の稲を夏風でしならせるシェーダ（草/樹冠と同じ仕組み・毎フレームuTime更新）
+let yatoReedShader = null // 水際の葦を夏風でしならせるシェーダ（同上）
 // まばたき＝顔を生きているように。目のメッシュ(白目/瞳/きらり)をY方向に一瞬つぶす。主人公/村人/通行人に共通（C1・2026-06-25）
 const blinkers = []
 const registerBlinker = (eyeMeshes) => blinkers.push({ eyes: eyeMeshes.map((m) => ({ m, by: m.scale.y })), timer: 1.2 + Math.random() * 4, blinkT: 0 })
@@ -2523,7 +2524,31 @@ function buildShishigaya() {
       arr.forEach(([x, z], i) => { const s = 0.85 + Math.random() * 0.4; sc.set(s, 0.9 + Math.random() * 0.3, s); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28); m.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.05, z), q, sc); rcI.setMatrixAt(i, m)
         const t = Math.random(); col.setRGB(0.40 + t * 0.13, 0.58 + t * 0.12, 0.20 + t * 0.12); rcI.setColorAt(i, col) }) // 株ごとに青田の緑をばらつかせる（みずみずしい黄緑〜濃い緑）
       rcI.instanceMatrix.needsUpdate = true; if (rcI.instanceColor) rcI.instanceColor.needsUpdate = true; rcI.castShadow = false; scene.add(rcI) }) } // 株ごとに高さ/向き/色をばらつかせ青田らしく
-  if (reedP.length) { const rdI = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.8, 4), toon(0x6f8a3e), reedP.length), m = new THREE.Matrix4(); reedP.forEach(([x, z], i) => { m.makeTranslation(x, heightAtYato(x, z) + 0.4, z); rdI.setMatrixAt(i, m) }); scene.add(rdI) }
+  if (reedP.length) { // ── 葦＝背の高い細葉の束（単純コーン1本→数枚の細葉）＋一部にガマの穂（茶の穂先）＋夏風でしなる。低ポリ脱却D6・2026-06-25 ──
+    const reedMat = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: GRAD, side: THREE.DoubleSide }) // 緑はinstanceColor
+    reedMat.onBeforeCompile = (sh) => { sh.uniforms.uTime = { value: 0 }; sh.uniforms.uWind = { value: 0.5 }
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float eph = (instanceMatrix[3].x + instanceMatrix[3].z) * 0.3;
+        transformed.x += sin(uTime * 0.95 + eph) * (0.06 + uWind * 0.16) * max(position.y, 0.0); // 背が高いので穂先がよくしなる
+        transformed.z += sin(uTime * 0.74 + eph + 1.0) * (0.04 + uWind * 0.09) * max(position.y, 0.0);`)
+      yatoReedShader = sh }
+    const reedGeo = (() => { const pos = [], idx = [], NB = 4 // 細い葉4枚が立ち上がる
+      for (let b = 0; b < NB; b++) { const ang = (b / NB) * 6.283 + (b * 1.7), dx = Math.cos(ang), dz = Math.sin(ang), nx = -dz, nz = dx
+        const h = 1.15 + (b % 2) * 0.3, lean = 0.07 + (b % 3) * 0.04, wB = 0.022, ox = Math.cos(ang) * 0.04, oz = Math.sin(ang) * 0.04
+        const bL = [ox + nx * wB, 0, oz + nz * wB], bR = [ox - nx * wB, 0, oz - nz * wB]
+        const mL = [ox + dx * lean * h * 0.5 + nx * wB * 0.5, h * 0.6, oz + dz * lean * h * 0.5 + nz * wB * 0.5], mR = [ox + dx * lean * h * 0.5 - nx * wB * 0.5, h * 0.6, oz + dz * lean * h * 0.5 - nz * wB * 0.5]
+        const tp = [ox + dx * lean * h, h, oz + dz * lean * h], base = pos.length / 3
+        for (const v of [bL, bR, mL, mR, tp]) pos.push(v[0], v[1], v[2]); idx.push(base, base + 1, base + 3, base, base + 3, base + 2, base + 2, base + 3, base + 4) }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g })()
+    const rdI = new THREE.InstancedMesh(reedGeo, reedMat, reedP.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), col = new THREE.Color()
+    const cattails = [] // ガマの穂（茶）を立てる位置
+    reedP.forEach(([x, z], i) => { const sc = 0.8 + Math.random() * 0.6, hsc = 0.9 + Math.random() * 0.5; s.set(sc, hsc, sc); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28); m.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.06, z), q, s); rdI.setMatrixAt(i, m)
+      const t = Math.random(); col.setRGB(0.30 + t * 0.12, 0.50 + t * 0.12, 0.24 + t * 0.10); rdI.setColorAt(i, col)
+      if (Math.random() < 0.28) cattails.push([x, z, 1.15 * hsc]) }) // 約3割にガマの穂
+    rdI.instanceMatrix.needsUpdate = true; if (rdI.instanceColor) rdI.instanceColor.needsUpdate = true; rdI.castShadow = false; scene.add(rdI)
+    if (cattails.length) { const headGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.26, 6), headMat = toon(0x6e4a2c), ci = new THREE.InstancedMesh(headGeo, headMat, cattails.length), hm = new THREE.Matrix4()
+      cattails.forEach(([x, z, hh], i) => { hm.makeTranslation(x, heightAtYato(x, z) + 0.06 + hh, z); ci.setMatrixAt(i, hm) }); ci.castShadow = false; scene.add(ci) } } // ガマの穂（茶の円柱・穂先）
   // 池情報（面積順）と「水の中か」判定＝三ツ池公園の作り込みと桜配置に使う
   const inWater = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p))
   const pondInfo = SG.waters.filter((w) => w.p.length >= 3).map((w) => { let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9, cx = 0, cz = 0; for (const q of w.p) { cx += q[0]; cz += q[1]; if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } cx /= w.p.length; cz /= w.p.length; return { w, cx, cz, area: (mxx - mnx) * (mxz - mnz), r: Math.max(mxx - mnx, mxz - mnz) / 2 } }).sort((a, b) => b.area - a.area)
@@ -7004,6 +7029,7 @@ function update(dt) {
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
   if (yatoTreeShader) { yatoTreeShader.uniforms.uTime.value = tsec; yatoTreeShader.uniforms.uWind.value = wind } // 樹冠も夏の風でそよぐ
   if (yatoRiceShader) { yatoRiceShader.uniforms.uTime.value = tsec; yatoRiceShader.uniforms.uWind.value = wind } // 谷戸田の稲も夏風でしなる
+  if (yatoReedShader) { yatoReedShader.uniforms.uTime.value = tsec; yatoReedShader.uniforms.uWind.value = wind } // 水際の葦も夏風でしなる
   if (windGain) { const ctx = listener.context, gust = THREE.MathUtils.clamp((wind - 0.32) / 0.95, 0, 1) // 揺れと同じwindで風の音も増減＝草木が鳴って世界が呼吸する（G1）
     windGain.gain.setTargetAtTime(gust * gust * AUDIO.windVol * (1 - weather * 0.7), ctx.currentTime, 0.45) // 突風ほど葉ずれ「ザー」が増す（二乗で凪は無音に近く）・雨では控える
     if (windLP) windLP.frequency.setTargetAtTime(420 + gust * 950, ctx.currentTime, 0.5) } // 突風で明るい葉ずれへ開く
