@@ -6028,7 +6028,7 @@ composer.addPass(bloom)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.66 }, heat: { value: 0.0 }, time: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
   fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform vec2 texel;
@@ -8356,7 +8356,7 @@ function update(dt) {
   // 止め絵：座って景色をながめる間は、周辺減光と記憶の色を少し強めて“ただ味わう一枚絵”に（立つと戻る）
   { const ct = mode === 'sit' ? 1 : 0
     gradePass.uniforms.vig.value += ((0.16 + ct * 0.12) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
-    gradePass.uniforms.mem.value += ((0.66 + ct * 0.16) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6) }
+    gradePass.uniforms.mem.value += ((0.78 + ct * 0.12) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6) }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
   if (window.__freezeCam || titleView) return // 検証用：カメラ固定／タイトル中はtitleCamが全部やるのでupdateはカメラに触れない（取り合いの揺れ防止）
