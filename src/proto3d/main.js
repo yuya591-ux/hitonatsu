@@ -8176,8 +8176,11 @@ function update(dt) {
     { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
     if (fpv) { const cp2 = Math.cos(camCtl.pitch), fx = -Math.sin(camCtl.yaw) * cp2, fy = -Math.sin(camCtl.pitch), fz = -Math.cos(camCtl.yaw) * cp2 // 視線方向
-      const hx = boy.position.x, hy = boy.position.y + 1.66, hz = boy.position.z, back = 0.7 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける・坂でも頭が手前に巨大化しない）
-      camGoal.set(hx - fx * back, hy + 0.12 - fy * back, hz - fz * back); lookGoal.set(hx + fx * 12, hy + fy * 12, hz + fz * 12)
+      const hx = boy.position.x, hy = boy.position.y + 1.66, hz = boy.position.z, back = 0.45 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける）
+      camGoal.set(hx - fx * back, hy + 0.1 - fy * back, hz - fz * back)
+      const cgy = heightAt(camGoal.x, camGoal.z) + 0.45; if (camGoal.y < cgy) camGoal.y = cgy // ★引いたカメラが坂/丘の中にめり込んで真っ暗になる不具合を解消（獅子ヶ谷の起伏でFPVが地中に潜る・ユーザー指摘の主観改善2026-06-26）
+      if (pushOutOfColliders(camGoal.x, camGoal.z).hit) camGoal.set(hx, hy + 0.1, hz) // 引いたカメラが建物の中に入るなら目線へ戻す＝壁の中で真っ暗にならない
+      lookGoal.set(hx + fx * 12, hy + fy * 12, hz + fz * 12)
       camera.fov += (fpvFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix() }
     boy.visible = !fpv // 主観視点では体を隠す＝坂を見下ろした時に後頭部が手前で巨大化する不具合を解消（ユーザー指摘の主観改善2026-06-26）
   } else if (mode === 'lying') {
