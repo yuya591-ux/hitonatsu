@@ -5791,6 +5791,27 @@ const clouds = []
     scene.add(g); clouds.push(g)
   }
 }
+// ── 飛行機雲（夏の空に一機だけ・ゆっくり横切り、白い尾を引いてやがて溶ける）＝昭和の夏の空のノスタルジー。2026-06-26 ──
+const contrail = (() => {
+  const grp = new THREE.Group(); grp.visible = false
+  const trail = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.4), new THREE.MeshBasicMaterial({ color: 0xfbfdff, fog: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }))
+  trail.rotation.x = -Math.PI / 2; trail.layers.set(1); grp.add(trail) // 水平に寝かせ＝見上げると空をよぎる一本の線
+  const plane = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.8, 6), new THREE.MeshBasicMaterial({ color: 0x4a4a52, fog: false })); plane.layers.set(1); grp.add(plane)
+  scene.add(grp)
+  return { grp, trail, plane, t: 0, dur: 52, nextAt: 18 + Math.random() * 25, len: 240, y: 150, dir: 1, zoff: 0 }
+})()
+function updateContrail(dt) {
+  const c = contrail
+  if (!c.grp.visible) { c.nextAt -= dt; if (c.nextAt <= 0 && tday > 0.16 && tday < 0.64) { c.grp.visible = true; c.t = 0; c.dir = Math.random() < 0.5 ? 1 : -1; c.zoff = (Math.random() - 0.5) * 90; c.y = 138 + Math.random() * 36 } return }
+  c.t += dt; const p = c.t / c.dur
+  if (p >= 1) { c.grp.visible = false; c.nextAt = 150 + Math.random() * 210; return }
+  const cx = camera.position.x, cz = camera.position.z + c.zoff
+  const planeX = cx - c.dir * c.len * 0.5 + c.dir * c.len * p
+  c.plane.position.set(planeX, c.y, cz); c.plane.rotation.z = c.dir > 0 ? -Math.PI / 2 : Math.PI / 2 // 機首を進行方向へ
+  const tailLen = Math.min(c.len * 0.72, c.len * p), midX = planeX - c.dir * tailLen * 0.5
+  c.trail.position.set(midX, c.y - 0.4, cz); c.trail.scale.set(tailLen, 1, 1)
+  c.trail.material.opacity = 0.7 * Math.min(1, p * 4) * Math.min(1, (1 - p) * 3.2) // 白い尾＝出と消えはうっすら溶ける
+}
 // ── 入道雲（夏の空のシンボル）。多数の球を有機的に詰めて1ジオメトリに統合＝軽い。
 // 法線の上向きで「上は白く下は陰る」独自シェーダ＝もくもくの立体感。複数を各所に配置 ──
 const thunderheads = []
@@ -7407,6 +7428,7 @@ function update(dt) {
   if (window.__motes) { const mo = window.__motes; mo.rotation.y = tsec * 0.02; mo.position.set(boy.position.x, heightAt(boy.position.x, boy.position.z), boy.position.z); mo.material.opacity = 0.5 * (1 - nightFactor(tday)) * (0.5 + 0.5 * THREE.MathUtils.smoothstep(tday, 0.12, 0.4)) } // 陽に舞うちりをプレイヤーの周りに（以前は旧町の原点に取り残され谷戸で見えず）＋夜はフェード（日中の光の粒なので）
   // 雲がゆっくり流れる
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
+  updateContrail(dt) // 飛行機雲（夏の空に一機）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   for (const t of thunderheads) {
@@ -8658,6 +8680,7 @@ window.__proto3d = {
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
+  _contrail() { contrail.grp.visible = true; contrail.t = 8; contrail.dir = 1; contrail.zoff = 0; contrail.y = 150 }, // 検証用：飛行機雲を今すぐ出す（中ほどまで進んだ状態）
   get _jumpState() { return { airborne, jumpV: +jumpV.toFixed(1), riding, mode } }, // 検証用：ジャンプ状態
   _slideTop() { return slideRide ? slideRide.top : null }, // 検証用：すべり台のてっぺん座標
   _rideSlide() { if (!slideRide) return null; area = 'yato'; onYato = true; boy.position.set(slideRide.top[0], heightAt(slideRide.top[0], slideRide.top[1]), slideRide.top[1]); rideSlide(); return { total: +slideRide.total.toFixed(1) } }, // 検証用：すべり台に乗る
