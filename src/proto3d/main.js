@@ -5202,9 +5202,29 @@ for (const [dx, col, sp, boyP] of pedDefs) {
   const skin = [0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xddb088][Math.floor(Math.random() * 5)] // 肌色の個体差
   const pants = [0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0xccc4b4][Math.floor(Math.random() * 6)] // ズボン/スカートの色幅（平成初期：紺/ベージュ/デニム/白など）
   const p = makeVillager(TOWN.x + dx, TOWN.z - 18, { shirt: col, skirt: pants, skin, hair, boy: boyP, simple: true, adult, bag, hat, band, scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
-  p.userData.ped = { sp, dir: Math.random() < 0.5 ? 1 : -1, z0: TOWN.z - 28, z1: TOWN.z + 28, x: TOWN.x + dx, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
-  p.position.z = TOWN.z - 28 + Math.random() * 56; p.rotation.y = p.userData.ped.dir > 0 ? 0 : Math.PI // 散らばった初期位置・向き
+  const t0 = Math.random() // 区間A→B（旧プロト町は南北の直線）に沿って前後に歩く
+  p.userData.ped = { sp, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: TOWN.x + dx, az: TOWN.z - 28, bx: TOWN.x + dx, bz: TOWN.z + 28, len: 56, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
+  p.position.set(TOWN.x + dx, p.position.y, TOWN.z - 28 + t0 * 56) // 散らばった初期位置
   pedestrians.push(p)
+}
+// ── 獅子ヶ谷の町に通行人を配く（C10・2026-06-25）：今まで人は旧プロト町(x≈1000)だけで、磨いている獅子ヶ谷(x>2200)は無人だった。賑わいの核（商店街/学校通り/バス通り/各所）の最寄りの道に沿って前後に歩く人を置く ──
+{ const anchors = [[2740, -125], [2762, -150], [2690, -112], [2770, -180], [3010, 22], [3052, -22], [3060, -160], [3122, -82], [2960, -330], [3200, -44], [2950, -520], [2520, 230]] // game座標の賑わい候補
+  const nearestSeg = (px, pz) => { let best = null, bd = 1e18
+    for (const rd of SG.roads) { if ((rd.w || 2) < 3 || !rd.p || rd.p.length < 2) continue // 幅3m以上の歩ける道だけ
+      for (let k = 0; k < rd.p.length - 1; k++) { const a = rd.p[k], b = rd.p[k + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 7) continue
+        const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, d = (mx - px) ** 2 + (mz - pz) ** 2; if (d < bd) { bd = d; best = { ax: a[0], az: a[1], bx: b[0], bz: b[1], len } } } }
+    return bd < 60 * 60 ? best : null } // 30m以内に歩ける道が無ければ置かない
+  const yPal = [0x4a78c0, 0xd05a4a, 0x3a9a6a, 0xe0a838, 0x8a5ab0, 0xc04888, 0x4aa0a0, 0xcfcabd, 0xd8a0b8]
+  for (const [ax, az] of anchors) { const seg = nearestSeg(ax, az); if (!seg) continue
+    const adult = Math.random() < 0.5, boyP = Math.random() < 0.5
+    const hair = boyP ? 0x2a2218 : [0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86][Math.floor(Math.random() * 4)]
+    const hr = Math.random(), hat = hr < 0.34 ? 'cap' : hr < 0.56 ? (adult ? 'bucket' : 'straw') : false
+    const bag = adult && Math.random() < 0.5 ? [0xc8a060, 0x9a7a5a, 0xb0563f][Math.floor(Math.random() * 3)] : false
+    const p = makeVillager(seg.ax, seg.az, { shirt: yPal[Math.floor(Math.random() * yPal.length)], skirt: [0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a][Math.floor(Math.random() * 5)], skin: [0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584][Math.floor(Math.random() * 4)], hair, boy: boyP, simple: true, adult, bag, hat, band: yPal[Math.floor(Math.random() * yPal.length)], scale: adult ? 1.12 + Math.random() * 0.1 : 0.86 + Math.random() * 0.12, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+    const t0 = Math.random()
+    p.userData.ped = { sp: 0.85 + Math.random() * 0.4, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
+    p.position.set(seg.ax + (seg.bx - seg.ax) * t0, p.position.y, seg.az + (seg.bz - seg.az) * t0)
+    pedestrians.push(p) }
 }
 // 屋台のお客（夕方〜夜にだけ現れて、カウンターに立つ＝縁日の賑わい）
 const yataiPatrons = []
@@ -7176,19 +7196,24 @@ function update(dt) {
       else { const r = Math.random()
         if (r < 0.42) { u.state = 'pause'; u.timer = 1.5 + Math.random() * 4.5 } // ふと立ち止まる
         else { if (r < 0.62) u.dir *= -1; u.timer = 3 + Math.random() * 7 } // 気まぐれに引き返す
-        p.rotation.y = u.dir > 0 ? 0 : Math.PI
       }
     }
+    const ang = Math.atan2(u.bx - u.ax, u.bz - u.az) // 進行方向（区間A→Bに沿う）
     if (u.state === 'pause') { // 立ち止まり：息づかい＋見回す、手足は下ろす
-      p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(tsec * 1.3 + u.ph)) * 0.012
+      p.position.y = heightAt(p.position.x, p.position.z) + Math.abs(Math.sin(tsec * 1.3 + u.ph)) * 0.012
       p.userData.legL.rotation.x *= 0.85; p.userData.legR.rotation.x *= 0.85; p.userData.armL.rotation.x *= 0.85; p.userData.armR.rotation.x *= 0.85
-      p.userData.head.rotation.y = Math.sin(tsec * 0.5 + u.ph) * 0.5
+      const bx = boy.position.x - p.position.x, bz = boy.position.z - p.position.z, bd = Math.hypot(bx, bz) // 近くを通る主人公に気づいて顔を向ける（生きた町）
+      if (bd < 7) { let ha = Math.atan2(bx, bz) - p.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832
+        p.userData.head.rotation.y += (THREE.MathUtils.clamp(ha, -1.1, 1.1) - p.userData.head.rotation.y) * Math.min(1, dt * 5) }
+      else p.userData.head.rotation.y = Math.sin(tsec * 0.5 + u.ph) * 0.5 // 遠いときはぼんやり見回す
     } else {
-      p.position.z += u.sp * u.dir * dt
-      if (p.position.z > u.z1) { u.dir = -1; p.rotation.y = Math.PI } else if (p.position.z < u.z0) { u.dir = 1; p.rotation.y = 0 }
+      u.t += (u.sp * u.dir * dt) / u.len // 区間に沿って前後に歩く
+      if (u.t > 1) { u.t = 1; u.dir = -1 } else if (u.t < 0) { u.t = 0; u.dir = 1 }
+      p.position.x = u.ax + (u.bx - u.ax) * u.t; p.position.z = u.az + (u.bz - u.az) * u.t
+      p.rotation.y = u.dir > 0 ? ang : ang + Math.PI
       const ad = p.userData.adult // 大人は落ち着いた歩き（よちよちしない）
-      p.position.x = u.x; p.userData.wph += dt * (ad ? 5.2 : 7)
-      p.position.y = heightAt(u.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * (ad ? 0.022 : 0.05)
+      p.userData.wph += dt * (ad ? 5.2 : 7)
+      p.position.y = heightAt(p.position.x, p.position.z) + Math.abs(Math.sin(p.userData.wph)) * (ad ? 0.022 : 0.05)
       const sw = Math.sin(p.userData.wph) * (ad ? 0.4 : 0.5); p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
       p.userData.armL.rotation.x = -sw * (ad ? 0.7 : 1); p.userData.armR.rotation.x = sw * (ad ? 0.7 : 1)
       p.userData.head.rotation.y *= 0.9
@@ -8174,7 +8199,7 @@ window.__proto3d = {
   get area() { return area },
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
-  villager, townLady, townKid, farmer, cat, // 検証用
+  villager, townLady, townKid, farmer, cat, pedestrians, // 検証用
   heightAt(x, z) { return heightAt(x, z) }, // 検証用：地形の高さを問い合わせ（接地点検）
   colliders, _collide(x, z) { return pushOutOfColliders(x, z) }, // 検証用：当たり判定（点を外へ押し出す）
   SG, heightAtYato(x, z) { return heightAtYato(x, z) }, // 検証用：獅子ヶ谷の道/建物/水データ＋実標高（道ふさぎの洗い出しに使う）
