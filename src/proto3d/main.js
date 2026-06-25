@@ -4813,7 +4813,10 @@ function makeCat() {
 const cat = makeCat()
 const CAT_HOME = { x: 3016, z: 34 } // 猫の縄張り＝サンライズ前(開始地点のそば)。以前は旧フィールド(-10,18)でプレイヤーが一生出会えなかった→歩く場所へ
 cat.position.set(CAT_HOME.x, heightAt(CAT_HOME.x, CAT_HOME.z), CAT_HOME.z)
-Object.assign(cat.userData, { tx: CAT_HOME.x, tz: CAT_HOME.z, rest: 2000, phase: 0 })
+Object.assign(cat.userData, { tx: CAT_HOME.x, tz: CAT_HOME.z, rest: 2000, phase: 0, homeX: CAT_HOME.x, homeZ: CAT_HOME.z })
+// 獅子ヶ谷にもう1匹＝商店街のそばの野良猫（人や店のまわりにいる・C15・2026-06-25）。なでられるのは開始地点の猫(cat)、この子は気ままに歩くだけ
+const cats = [cat]
+{ const c2 = makeCat(), hx = 2758, hz = -150; c2.position.set(hx, heightAt(hx, hz), hz); Object.assign(c2.userData, { tx: hx, tz: hz, rest: 1500 + Math.random() * 2500, phase: 0, homeX: hx, homeZ: hz }); cats.push(c2) }
 
 // ── 主人公（丸っこく立体的な少年・麦わら帽子。あどけない頭でっかちの体つき）──
 // ※特定作品のキャラ・顔の模倣はしない。素朴で可愛い普遍的なトゥーン顔。
@@ -7262,18 +7265,18 @@ function update(dt) {
       p.userData.head.rotation.y *= 0.9
     }
   }
-  // うろつく猫（家のまわりを気ままに・休む）
-  {
-    const u = cat.userData
+  // うろつく猫（縄張りのまわりを気ままに・休む）。獅子ヶ谷に複数匹
+  for (const ct of cats) {
+    const u = ct.userData
     if (u.rest > 0) { u.rest -= dt * 1000 } else {
-      const dx = u.tx - cat.position.x, dz = u.tz - cat.position.z; const d = Math.hypot(dx, dz)
+      const dx = u.tx - ct.position.x, dz = u.tz - ct.position.z; const d = Math.hypot(dx, dz)
       if (d < 0.3) {
         if (Math.random() < 0.5) u.rest = 2000 + Math.random() * 4000
-        else { u.tx = CAT_HOME.x + (Math.random() - 0.5) * 18; u.tz = CAT_HOME.z + (Math.random() - 0.5) * 18 }
-      } else { const s = 1.1 * dt; cat.position.x += (dx / d) * s; cat.position.z += (dz / d) * s; cat.rotation.y = Math.atan2(dx, dz); u.phase += dt * 8 }
+        else { u.tx = u.homeX + (Math.random() - 0.5) * 18; u.tz = u.homeZ + (Math.random() - 0.5) * 18 }
+      } else { const s = 1.1 * dt; ct.position.x += (dx / d) * s; ct.position.z += (dz / d) * s; ct.rotation.y = Math.atan2(dx, dz); u.phase += dt * 8 }
     }
-    cat.position.y = heightAt(cat.position.x, cat.position.z) + (u.rest <= 0 ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
-    u.tail.rotation.z = -1.0 + Math.sin(tsec * 2.5) * 0.28 // 尻尾をゆらす
+    ct.position.y = heightAt(ct.position.x, ct.position.z) + (u.rest <= 0 ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
+    if (u.tail) u.tail.rotation.z = -1.0 + Math.sin(tsec * 2.5 + (ct === cat ? 0 : 1.3)) * 0.28 // 尻尾をゆらす
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
