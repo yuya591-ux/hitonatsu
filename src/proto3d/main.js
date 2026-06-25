@@ -2912,14 +2912,12 @@ function buildShishigaya() {
     if (best) { const dx = best.b[0] - best.a[0], dz = best.b[1] - best.a[1], l = Math.hypot(dx, dz) || 1, ex = dx / l * 2, ez = dz / l * 2; buildTaiko(best.a[0] - ex, best.a[1] - ez, best.b[0] + ex, best.b[1] + ez) } // 両端を岸に2m延長
     else buildTaiko(pi.cx - 8, pi.cz, pi.cx + 8, pi.cz) }
   // ───── 三ツ池公園の名物：長いローラーすべり台（西の丘の上から大きく蛇行して下る・乗って滑れる）ユーザー要望2026-06-25 ─────
-  { const slideMat = toon(0xc6cace), railA = toon(0xd8663a), railB = toon(0x3f86b0), postMat = toon(0x8b9096), deckMat = toon(0x4f7f6a), stepMat = toon(0xb8a986), sandMat = toon(0xdcc89a)
+  { const slideMat = toon(0xc6cace), railA = toon(0xd8663a), railB = toon(0x3f86b0), postMat = toon(0x7a5a38), deckMat = toon(0x9a7b4e), stepMat = toon(0xb8a986), sandMat = toon(0xdcc89a) // 支柱/台は木の色
     const V = THREE.Vector3, Q = THREE.Quaternion, M4 = THREE.Matrix4, ONE = new V(1, 1, 1), up = new V(0, 1, 0)
-    const wp = SLIDE_PATH, n = wp.length, platH = 5.2, width = 1.6, hw = width / 2
-    // 2D弧長と、なめらかに下る高さプロファイル（弧長に比例して下降・地面より必ず上・単調）
-    const arc = [0]; for (let i = 1; i < n; i++) arc[i] = arc[i - 1] + Math.hypot(wp[i][0] - wp[i - 1][0], wp[i][1] - wp[i - 1][1])
-    const L2d = arc[n - 1], topY = heightAtYato(wp[0][0], wp[0][1]) + platH, botY = heightAtYato(wp[n - 1][0], wp[n - 1][1]) + 0.5
-    const pts3 = wp.map(([x, z], i) => { let y = topY + (botY - topY) * (arc[i] / L2d); y = Math.max(y, heightAtYato(x, z) + 0.7); return new V(x, y, z) })
-    for (let i = 1; i < n; i++) if (pts3[i].y > pts3[i - 1].y - 0.25) pts3[i].y = pts3[i - 1].y - 0.25
+    const wp = SLIDE_PATH, n = wp.length, platH = 5.0, width = 1.6, hw = width / 2, clr = 1.4
+    // 高さプロファイル：てっぺんだけ塔の高さ・あとは地面に沿わせて低く（高すぎる支柱で浮いて見える不具合の解消・ユーザー指摘2026-06-26）。ただし単調に下る
+    const pts3 = wp.map(([x, z], i) => { const tg = heightAtYato(x, z); return new V(x, tg + (i === 0 ? platH : clr), z) })
+    for (let i = 1; i < n; i++) if (pts3[i].y > pts3[i - 1].y - 0.4) pts3[i].y = pts3[i - 1].y - 0.4 // 上り防止＝必ず下る
     const curve = new THREE.CatmullRomCurve3(pts3, false, 'catmullrom', 0.5), total = curve.getLength()
     slideRide = { curve, total, top: [wp[0][0], wp[0][1]], width } // 乗車機構が使う
     const g = new THREE.Group(), N = Math.max(60, Math.round(total))
@@ -2943,14 +2941,19 @@ function buildShishigaya() {
     const addMerged = (geos, mat, sh) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = !!sh; m.receiveShadow = true; g.add(m); geos.forEach((x) => x.dispose()) }
     // 床/レール/手すりの細い影は地面に散らかって不気味なので影を落とさない＝接地は支柱の影だけで十分（ユーザー指摘2026-06-26）
     addMerged(rollG, slideMat, false); addMerged(rAG, railA, false); addMerged(rBG, railB, false); addMerged(postG, postMat, true); addMerged(stepG, stepMat, false); addMerged(handG, postMat, false)
-    // 出発の塔＋デッキ＋手すり（P0）
+    // 出発の木のやぐら（登り台）：太い木柱4本＋上下2段の貫＋筋交い＋中段の踊り場＋デッキ＝高い出発点を木組みで自然に支える（ユーザー要望2026-06-26）
     const add = (geo, mat, p, qq) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p); if (qq) m.quaternion.copy(qq); m.castShadow = true; g.add(m); return m }
     const P0 = SP[0], h0 = new V(ST[0].x, 0, ST[0].z).normalize(), pp0 = new V(-h0.z, 0, h0.x), yaw0 = Math.atan2(h0.x, h0.z), deckQ = new Q().setFromAxisAngle(up, yaw0)
-    const deckC = P0.clone().addScaledVector(h0, -1.1)
-    for (const [sw, sl] of [[-hw - 0.2, -0.3], [hw + 0.2, -0.3], [-hw - 0.2, -2.0], [hw + 0.2, -2.0]]) { const px = P0.x + pp0.x * sw + h0.x * sl, pz = P0.z + pp0.z * sw + h0.z * sl, gy = heightAtYato(px, pz); add(new THREE.CylinderGeometry(0.1, 0.12, P0.y - gy + 0.2, 8), postMat, new V(px, (gy + P0.y) / 2, pz)) }
-    add(new THREE.BoxGeometry(width + 0.6, 0.16, 2.4), deckMat, deckC, deckQ)
-    for (const sw of [-1, 1]) add(new THREE.BoxGeometry(0.08, 0.62, 2.4), postMat, new V(deckC.x + pp0.x * sw * (hw + 0.25), deckC.y + 0.4, deckC.z + pp0.z * sw * (hw + 0.25)), deckQ)
-    add(new THREE.BoxGeometry(width + 0.6, 0.62, 0.08), postMat, new V(deckC.x - h0.x * 1.15, deckC.y + 0.4, deckC.z - h0.z * 1.15), deckQ)
+    const deckC = P0.clone().addScaledVector(h0, -1.15), tw = hw + 0.55, tl = 1.35, corners = []
+    for (const sw of [-1, 1]) for (const sl of [-1, 1]) { const cxp = deckC.x + pp0.x * sw * tw + h0.x * sl * tl, czp = deckC.z + pp0.z * sw * tw + h0.z * sl * tl, gy = heightAtYato(cxp, czp); corners.push([cxp, czp, gy]); add(new THREE.CylinderGeometry(0.12, 0.15, P0.y - gy + 0.3, 7), postMat, new V(cxp, (gy + P0.y) / 2, czp)) } // 太い木柱
+    const beam = (ax, ay, az, bx, by, bz, t) => { const mx = (ax + bx) / 2, my = (ay + by) / 2, mz = (az + bz) / 2, dir = new V(bx - ax, by - ay, bz - az), len = dir.length(); add(new THREE.BoxGeometry(t, t, len), postMat, new V(mx, my, mz), new Q().setFromUnitVectors(new V(0, 0, 1), dir.normalize())) }
+    const gmin = Math.min(...corners.map((c) => c[2]))
+    for (const ry of [P0.y - 0.25, (P0.y + gmin) / 2]) for (const [a, b] of [[0, 1], [2, 3], [0, 2], [1, 3]]) beam(corners[a][0], ry, corners[a][1], corners[b][0], ry, corners[b][1], 0.09) // 上下2段の貫
+    for (const [a, b] of [[0, 1], [2, 3]]) beam(corners[a][0], corners[a][2] + 0.3, corners[a][1], corners[b][0], P0.y - 0.3, corners[b][1], 0.07) // 側面の筋交い
+    { const mp = new V(deckC.x, (P0.y + gmin) / 2 + 0.08, deckC.z); add(new THREE.BoxGeometry(width + 0.6, 0.14, 2.5), deckMat, mp, deckQ) } // 中段の踊り場
+    add(new THREE.BoxGeometry(width + 0.8, 0.18, 2.9), deckMat, deckC, deckQ) // てっぺんのデッキ
+    for (const sw of [-1, 1]) add(new THREE.BoxGeometry(0.09, 0.7, 2.9), postMat, new V(deckC.x + pp0.x * sw * tw, deckC.y + 0.44, deckC.z + pp0.z * sw * tw), deckQ) // 横の手すり
+    add(new THREE.BoxGeometry(width + 0.8, 0.7, 0.09), postMat, new V(deckC.x - h0.x * 1.4, deckC.y + 0.44, deckC.z - h0.z * 1.4), deckQ) // 後ろの手すり
     // 着地（砂のマウンド）
     const PE = SP[N], hE = new V(ST[N].x, 0, ST[N].z).normalize(), runX = PE.x + hE.x * 1.6, runZ = PE.z + hE.z * 1.6, runY = heightAtYato(runX, runZ)
     add(new THREE.CylinderGeometry(2.2, 2.6, 0.24, 18), sandMat, new V(runX, runY + 0.06, runZ))
