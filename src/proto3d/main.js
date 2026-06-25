@@ -1744,7 +1744,7 @@ function buildShishigaya() {
       const h = slope + floors * 3, vt = Math.max(2, Math.round(h / 3)), wc = isHome ? [0.93, 0.88, 0.80] : aptWalls[seed % aptWalls.length]
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=戸数, v=階数(斜面の基礎ぶん含む)でバルコニーをタイル
-        ;[p0, p1, p2, p3].forEach((p, qi) => { av.push(p[0], p[1], p[2]); ac.push(wc[0], wc[1], wc[2]); auv.push(uvq[qi][0], uvq[qi][1]) }); aidx.push(ao, ao + 1, ao + 2, ao, ao + 2, ao + 3); ao += 4 }
+        ;[p0, p1, p2, p3].forEach((p, qi) => { av.push(p[0], p[1], p[2]); const cf = qi < 2 ? 0.72 : 1; ac.push(wc[0] * cf, wc[1] * cf, wc[2] * cf); auv.push(uvq[qi][0], uvq[qi][1]) }); aidx.push(ao, ao + 1, ao + 2, ao, ao + 2, ao + 3); ao += 4 } // 壁の底の頂点を暗く＝足元の接地の陰(AO)で“地に足がついた”感（追加ジオメトリ無し・E7・2026-06-25）
       pushTri(flatTop, L(-hw, h, -hd), L(hw, h, -hd), L(hw, h, hd)); pushTri(flatTop, L(-hw, h, -hd), L(hw, h, hd), L(-hw, h, hd)) // 陸屋根
       // パラペット（陸屋根のへりの立ち上がり＋笠木）＝屋上の縁に立体感。低ポリ脱却2026-06-25
       { const ph2 = 0.55, pe = 0.12, pT = h + ph2, pc = baseXZ.map(([lx, lz]) => [lx + Math.sign(lx) * pe, lz + Math.sign(lz) * pe])
@@ -1765,7 +1765,7 @@ function buildShishigaya() {
       const h = slope + stories * 3, wc = walls[seed % walls.length], rc = roofs[(seed >> 2) % roofs.length]
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 3.5)), vt = Math.max(1, Math.round(h / 3)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=窓の間口, v=階＝壁に窓が並ぶ
-        ;[p0, p1, p2, p3].forEach((p, qi) => { bv.push(p[0], p[1], p[2]); bc.push(wc[0], wc[1], wc[2]); buv.push(uvq[qi][0], uvq[qi][1]) }); bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 }
+        ;[p0, p1, p2, p3].forEach((p, qi) => { bv.push(p[0], p[1], p[2]); const cf = qi < 2 ? 0.72 : 1; bc.push(wc[0] * cf, wc[1] * cf, wc[2] * cf); buv.push(uvq[qi][0], uvq[qi][1]) }); bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 } // 壁の底を暗く＝足元の接地の陰（E7・2026-06-25）
       const rh = Math.min(4, Math.min(w, d) * 0.5 + 1), rg = h + rh, eo = Math.min(0.5, Math.min(w, d) * 0.12), eh = h - 0.04 // 軒の出（屋根が壁より外へ張り出す＝本物らしい庇＋軒下の影。低ポリ脱却2026-06-25）
       const e0 = L(-hw, h, -hd), e1 = L(hw, h, -hd), e2 = L(hw, h, hd), e3 = L(-hw, h, hd) // 妻壁の頂点（壁の位置）
       const x0 = -(hw + eo), x1 = hw + eo, z0 = -(hd + eo), z1 = hd + eo, a0 = L(x0, eh, z0), a1 = L(x1, eh, z0), a2 = L(x1, eh, z1), a3 = L(x0, eh, z1) // 軒先（外へ張り出す）
