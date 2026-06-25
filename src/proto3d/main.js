@@ -1562,8 +1562,19 @@ const suikaFigs = [] // ｛g, armL, armR, baseY, ph, role(swing/watch)｝
 function makePerson(shirt, pants, kid) { const g = new THREE.Group(), sc = kid ? 0.64 : 1
   const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * sc, 0.24 * sc, 0.72 * sc, 7), toon(pants)); legs.position.y = 0.36 * sc; g.add(legs)
   const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * sc, 0.24 * sc, 0.7 * sc, 8), toon(shirt)); torso.position.y = 1.02 * sc; g.add(torso)
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2 * sc, 10, 8), toon(0xf0d6b4)); head.position.y = 1.52 * sc; g.add(head)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215 * sc, 10, 8, 0, 6.283, 0, Math.PI * 0.6), toon(0x2a221c)); hair.position.y = 1.56 * sc; g.add(hair)
+  const hw3 = 0.94 + Math.random() * 0.12 // 顔幅の個体差
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2 * sc, 10, 8), toon(0xf0d6b4)); head.scale.set(hw3, 1, hw3); head.position.y = 1.52 * sc; g.add(head)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.215 * sc, 10, 8, 0, 6.283, 0, Math.PI * 0.6), toon([0x2a221c, 0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86][Math.floor(Math.random() * 5)])); hair.position.y = 1.56 * sc; g.add(hair) // 髪色も個体差（白髪混じりも）
+  // 顔＝白目/瞳/きらり＋小さな口（イベントの人物=ラジオ体操/すいか割りも主人公と同じ世界の住人に・C5★・2026-06-25）。素体の正面=+z（呼び出し側の回転で向きは正しく揃う）
+  const fEye = new THREE.MeshBasicMaterial({ color: 0x2e241c }), fHi = new THREE.MeshBasicMaterial({ color: 0xffffff }), pEyes = []
+  for (const ex of [-0.072, 0.072]) {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.031 * sc, 9, 7), fHi); w.scale.set(0.9, 1.12, 0.45); w.position.set(ex * sc, 1.55 * sc, 0.178 * sc); g.add(w)
+    const ir = new THREE.Mesh(new THREE.SphereGeometry(0.018 * sc, 8, 6), fEye); ir.position.set(ex * sc, 1.548 * sc, 0.192 * sc); g.add(ir)
+    const h0 = new THREE.Mesh(new THREE.SphereGeometry(0.008 * sc, 6, 6), fHi); h0.position.set(ex * sc + 0.009 * sc, 1.563 * sc, 0.2 * sc); g.add(h0)
+    pEyes.push(w, ir)
+  }
+  const mo = new THREE.Mesh(new THREE.TorusGeometry(0.02 * sc, 0.005 * sc, 6, 10, Math.PI * 0.9), fEye); mo.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mo.position.set(0, 1.472 * sc, 0.188 * sc); g.add(mo)
+  registerBlinker(pEyes)
   const arm = (s) => { const a = new THREE.Group(); a.position.set(s * 0.28 * sc, 1.3 * sc, 0); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * sc, 0.06 * sc, 0.62 * sc, 6), toon(shirt)); m.position.y = -0.3 * sc; a.add(m); g.add(a); return a }
   const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
 // 浴衣の柄＝グレースケールの繰り返しテクスチャ4種を1度だけ作って全踊り手で共有（浴衣の色でtintして柄に）。縞/水玉/格子/波
