@@ -1755,6 +1755,10 @@ function buildShishigaya() {
       const bz = Math.min(3.5, hd * 0.6), oy = h, ty = h + (isHome ? 3 : 2.2) // 屋上の階段室/水槽
       const roofBox = (lx0, lz0, lx1, lz1) => { const c4 = [[lx0, lz0], [lx1, lz0], [lx1, lz1], [lx0, lz1]]; for (let k = 0; k < 4; k++) { const a = c4[k], b = c4[(k + 1) % 4]; pushTri(rtBox, L(a[0], oy, a[1]), L(b[0], oy, b[1]), L(b[0], ty, b[1])); pushTri(rtBox, L(a[0], oy, a[1]), L(b[0], ty, b[1]), L(a[0], ty, a[1])) } pushTri(rtBox, L(lx0, ty, lz0), L(lx1, ty, lz0), L(lx1, ty, lz1)); pushTri(rtBox, L(lx0, ty, lz0), L(lx1, ty, lz1), L(lx0, ty, lz1)) }
       const bw = Math.min(8, hw); roofBox(hw - 1 - bw, -bz, hw - 1, bz)
+      if (!isHome && hw > 3.5 && hd > 3 && (seed % 5) < 2) { const tw = Math.min(1.3, hw * 0.3, hd * 0.3), tcx = -(hw - 1.6), tcz = -(hd - 1.6), t0 = h, t1 = h + 2.1 // 屋上の高架水槽/設備（階段室と反対の隅）＝陸屋根の表情に変化（約4割・E・2026-06-25）
+        const c4 = [[tcx - tw, tcz - tw], [tcx + tw, tcz - tw], [tcx + tw, tcz + tw], [tcx - tw, tcz + tw]]
+        for (let k = 0; k < 4; k++) { const a = c4[k], b = c4[(k + 1) % 4]; pushTri(rtBox, L(a[0], t0, a[1]), L(b[0], t0, b[1]), L(b[0], t1, b[1])); pushTri(rtBox, L(a[0], t0, a[1]), L(b[0], t1, b[1]), L(a[0], t1, a[1])) } // 側面
+        pushTri(rtBox, L(c4[0][0], t1, c4[0][1]), L(c4[1][0], t1, c4[1][1]), L(c4[2][0], t1, c4[2][1])); pushTri(rtBox, L(c4[0][0], t1, c4[0][1]), L(c4[2][0], t1, c4[2][1]), L(c4[3][0], t1, c4[3][1])) } // 天面
     } else { // ── 低い切妻の家 ──
       let stories = tc === 4 ? 1 : (area < 65 ? 1 : (area > 230 ? 3 : 2)); if (stories === 2 && seed % 4 === 0) stories = 1; if (stories === 1 && seed % 6 === 0 && tc !== 4) stories = 2
       if (villageLevel) stories = Math.min(stories, 2) // 田舎寄せ：3階の大きな家を2階までに（低い田舎家へ）
