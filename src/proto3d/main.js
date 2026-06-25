@@ -2645,9 +2645,10 @@ function buildShishigaya() {
     if (pfP.length) { const pf = new THREE.InstancedMesh(PARKFENCE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), pfP.length); pf.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); pfP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); pf.setMatrixAt(i, m4) }); scene.add(pf); console.log('[shishigaya] 公園の柵', pfP.length) } }
   // ガードレール（坂・崖ぞいの道の下り側）＋カーブミラー（急カーブ）＝山あいの道の定番（ユーザー要望2026-06-22）。各1インスタンスメッシュ
   { const TR = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z), RX = (x, y, z, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0)), new THREE.Vector3(1, 1, 1))
-    const GRAIL = mergeParts([ // 白いガードレール（桁2段＋支柱2本）長さ4m
-      { g: new THREE.BoxGeometry(4, 0.18, 0.06), m: TR(0, 0.72, 0), c: [0.93, 0.93, 0.9] }, { g: new THREE.BoxGeometry(4, 0.14, 0.06), m: TR(0, 0.42, 0), c: [0.9, 0.9, 0.87] },
-      { g: new THREE.BoxGeometry(0.09, 0.85, 0.09), m: TR(-1.8, 0.42, 0), c: [0.78, 0.78, 0.76] }, { g: new THREE.BoxGeometry(0.09, 0.85, 0.09), m: TR(1.8, 0.42, 0), c: [0.78, 0.78, 0.76] } ])
+    const GRAIL = mergeParts([ // 白いW型ガードレール（波形の主ビーム＋中央の溝＋支柱2本）長さ4m。2本の細桁→1本の幅広ビームで“ガードレールらしさ”を出す（F4・2026-06-25）
+      { g: new THREE.BoxGeometry(4, 0.34, 0.08), m: TR(0, 0.62, 0), c: [0.94, 0.94, 0.91] }, // 主ビーム（白・幅広＝W型ガードレール）
+      { g: new THREE.BoxGeometry(4, 0.05, 0.1), m: TR(0, 0.62, 0.012), c: [0.74, 0.75, 0.73] }, // 中央の溝（W型の真ん中の陰）
+      { g: new THREE.BoxGeometry(0.1, 0.62, 0.1), m: TR(-1.8, 0.31, 0), c: [0.72, 0.73, 0.71] }, { g: new THREE.BoxGeometry(0.1, 0.62, 0.1), m: TR(1.8, 0.31, 0), c: [0.72, 0.73, 0.71] } ])
     const MIRROR = mergeParts([ // カーブミラー＝灰ポール＋オレンジ枠＋鏡面（鏡は+zを向く）
       { g: new THREE.CylinderGeometry(0.06, 0.075, 3.6, 6), m: TR(0, 1.8, 0), c: [0.58, 0.6, 0.62] },
       { g: new THREE.CylinderGeometry(0.64, 0.64, 0.06, 16), m: RX(0, 3.4, 0.0, Math.PI / 2), c: [0.86, 0.5, 0.18] }, { g: new THREE.CylinderGeometry(0.56, 0.56, 0.06, 16), m: RX(0, 3.4, 0.07, Math.PI / 2), c: [0.72, 0.79, 0.83] } ])
