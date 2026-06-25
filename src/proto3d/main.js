@@ -444,6 +444,12 @@ const charToon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRA
 
 // ── トゥーンの輪郭線（インクのフチ）：少し膨らませた裏面を暗色で描く＝アニメ/僕夏的な線 ──
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: CEL.outline, side: THREE.BackSide, fog: true }) // ほぼ黒のインク線（セル画/手描きアニメの輪郭）。CEL.outlineで色・CEL.outlineScaleで太さ
+// 遠景では輪郭線（黒いハル）を霞色へ先に溶かす＝家の面より一足先に線を消す。これで「モヤの中に黒い線が浮いて気持ち悪い」を解消し、遠くの家は線のない柔らかいシルエットとして霞に溶ける（空気遠近・ユーザー指摘2026-06-25）
+OUTLINE_MAT.onBeforeCompile = (sh) => {
+  sh.uniforms.oFadeNear = { value: 95 }; sh.uniforms.oFadeFar = { value: 205 } // 霞が出はじめる距離(fog near≈108)に合わせて線を溶かす＝近〜中景の家に明るい縁取り(ハロ)が出ない
+  sh.vertexShader = 'varying float vOdist;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vOdist = -mvPosition.z;')
+  sh.fragmentShader = 'uniform float oFadeNear, oFadeFar; varying float vOdist;\n' + sh.fragmentShader.replace('#include <fog_fragment>', '#include <fog_fragment>\n  gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, smoothstep(oFadeNear, oFadeFar, vOdist));')
+}
 function addOutline(mesh, thickness = 0.05) {
   mesh.geometry.computeBoundingSphere()
   const r = (mesh.geometry.boundingSphere && mesh.geometry.boundingSphere.radius) || 1
@@ -554,8 +560,8 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe9c8, li: 1.7, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xe4edf4, hi: 1.16, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.55 }, // 朝＝低照度・青白くひんやり・靄がかる。霧色を空の地平に寄せ明るく（遠景が灰色の濁りでなく空に溶ける自然な空気遠近へ・2026-06-25）
-  noon: { light: 0xffeac6, li: 2.4, sky: 0x8cc0e2, mid: 0xc8e2ec, bot: 0xf1f3e4, fog: 0xe9eff3, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34 }, // 真昼＝直射を金色寄りの暖色へ。霧色を明るい空色に寄せ＝遠景が灰色の濁りにならず空にやわらかく溶ける（ユーザー指摘の遠景のモヤ修正2026-06-25）
+  morn: { light: 0xffe9c8, li: 1.7, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xdde9f1, hi: 1.16, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.55 }, // 朝＝低照度・青白くひんやり・靄がかる。霧色を地平の空色に合わせ少し落ち着かせ（明るすぎる白い帯にしない＝家の線が浮かない・2026-06-25）
+  noon: { light: 0xffeac6, li: 2.4, sky: 0x8cc0e2, mid: 0xc8e2ec, bot: 0xf1f3e4, fog: 0xdee9ee, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34 }, // 真昼＝直射を金色寄りの暖色へ。霧色を地平の空色(mid)寄りに落ち着かせ＝遠景の霞が空と地続きで、黒い輪郭線が浮かず自然に溶ける（ユーザー指摘の遠景のモヤ修正2026-06-25）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる
 }
@@ -7226,7 +7232,7 @@ function update(dt) {
   if (typeof window !== 'undefined' && window.__fogFar) { scene.fog.near = 9000; scene.fog.far = 12000 } // 検証用：俯瞰を見通す（本番では未設定）
   else if (flying) { scene.fog.near = 80; scene.fog.far = 900 } // 飛行モード：空から遠景まで見渡せる
   else if (onRoofHi) { scene.fog.near = 80; scene.fog.far = 720 - weather * 200 } // 屋上：高所は霞が晴れて、町・二ツ池・遠くの山まで見渡せる
-  else if (area === 'yato') { scene.fog.near = 105 - weather * 28; scene.fog.far = 560 - weather * 210 // 霞の始まりを75→105・到達を460→560へ奥に＝中景がくっきり残り、遠景だけがやわらかく溶ける（ユーザー指摘の遠景のモヤを自然に・2026-06-25）
+  else if (area === 'yato') { scene.fog.near = 108 - weather * 30; scene.fog.far = 470 - weather * 170 // 霞の始まりは奥（中景はくっきり）＋到達を560→470へ少し手前に＝遠景がぼんやり留まらず最後はやわらかく霞へ溶ける（線が浮かない・ユーザー指摘の遠景のモヤを自然に・2026-06-25）
     if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 90, 0, 1); scene.fog.near -= altF * 22; scene.fog.far -= altF * 70 } } // 高く浮くほど遠景がやわらかく霞む＝“夢で空から見た町”の俯瞰（控えめ・町は見える範囲）2026-06-24
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
   if (typeof window === 'undefined' || !window.__freezeCam) { const wf = (flying || onRoofHi) ? 1300 : 600; if (camera.far !== wf) { camera.far = wf; camera.updateProjectionMatrix() } } // 屋上/飛行は遠くまで描画（検証のフリーズカメラには触れない）
