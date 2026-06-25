@@ -62,6 +62,8 @@
       #fpvbtn.on { background: rgba(120,150,200,0.95); color: #fff; }
       body.flying #dock { display: none !important; }
       body.pm-on #dock { display: none !important; }
+      /* 滑走中は関係ないボタンを隠す＝視点きりかえ(#act)だけ残し、重なりを解消（ユーザー指摘2026-06-26） */
+      body.sliding #dock, body.sliding #jump, body.sliding #zin, body.sliding #zout { display: none !important; }
       /* ── ふわり浮遊（風船飛行）の操作UI：🎈トグル→浮遊中だけ出る。右下に2列×3段（高度▲▼／ズーム＋−／速さ・主観）＝右親指だけで全部届く・横画面でも崩れない。左にステータスメーター（2026-06-23再設計） ── */
       #fl-up, #fl-down, #fl-zin, #fl-zout, #fl-speed, #fl-fpv {
         appearance: none; border: none; cursor: pointer; width: 66px; height: 58px; box-sizing: border-box;
@@ -322,7 +324,7 @@
     <button id="zin" class="hud zbtn">＋</button>
     <button id="zout" class="hud zbtn">－</button>
     <button id="act" class="hud">すわる</button>
-    <div id="dock" class="hud"><button id="lie">ねころぶ</button><button id="bike">🚲</button><button id="float">🎈</button><button id="fpvbtn">👁</button></div>
+    <div id="dock" class="hud"><button id="lie">ねころぶ</button><button id="bike">🚲</button><button id="float">🎈</button><button id="fpvbtn" aria-label="主観視点">📷</button></div>
     <button id="fl-up" class="hud">▲<br>うく</button>
     <button id="fl-down" class="hud">▼<br>おりる</button>
     <button id="fl-zin" class="hud">＋</button>

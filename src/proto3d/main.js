@@ -7275,7 +7275,7 @@ tapBtn(floatEl, () => { if (mode !== 'walk') return
 const fpvBtnEl = document.getElementById('fpvbtn')
 function syncFpvBtns() { if (fpvBtnEl) fpvBtnEl.classList.toggle('on', fpv); const sb = document.getElementById('set-fpv'); if (sb) { sb.classList.toggle('on', fpv); sb.textContent = fpv ? 'ON' : 'OFF' } const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.toggle('on', fpv) }
 function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04; syncFpvBtns() } // ONで視線を水平（少しだけ下＝足元の道が見える）
-tapBtn(fpvBtnEl, () => { if (mode === 'walk') toggleFpv() }) // ねころぶ列の👁＝主観視点ワンボタン
+tapBtn(fpvBtnEl, () => { if (mode === 'walk') toggleFpv() }) // ねころぶ列の📷＝主観視点ワンボタン（怖い👁から差し替え・2026-06-26）
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 tapBtn(zinEl, () => zoomStep(0.8))
 tapBtn(zoutEl, () => zoomStep(1.25))
@@ -7382,6 +7382,7 @@ function sitDown(which) {
 }
 function standUp() {
   mode = 'walk'
+  document.body.classList.remove('sliding') // 滑走おわり＝ボタンを通常へ戻す
   boy.scale.setScalar(BOY_SCALE); landSquash = 0; airborne = false // 伸び縮みをリセット
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
   boy.userData.kneeL.rotation.x = 0.12; boy.userData.kneeR.rotation.x = 0.12
@@ -7413,6 +7414,7 @@ function rideSlide() {
   boy.rotation.order = 'YXZ'
   camSnap = true // 視点を滑走の後方カメラへスナップ（walkカメラから長く流れない）
   lookHint.style.display = 'none'
+  document.body.classList.add('sliding') // 滑走中＝関係ないボタン(ドック/ジャンプ/ズーム)を隠し、視点きりかえだけ残す（重なり解消・ユーザー指摘2026-06-26）
 }
 // サンライズの屋上へ（入口から内階段で上がるイメージ。カメラがすっと昇る）。屋上は平らで歩け、町を見渡せる
 function sunGoRoof() {
