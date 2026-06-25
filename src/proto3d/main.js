@@ -1733,6 +1733,12 @@ function buildShishigaya() {
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=戸数, v=階数(斜面の基礎ぶん含む)でバルコニーをタイル
         ;[p0, p1, p2, p3].forEach((p, qi) => { av.push(p[0], p[1], p[2]); ac.push(wc[0], wc[1], wc[2]); auv.push(uvq[qi][0], uvq[qi][1]) }); aidx.push(ao, ao + 1, ao + 2, ao, ao + 2, ao + 3); ao += 4 }
       pushTri(flatTop, L(-hw, h, -hd), L(hw, h, -hd), L(hw, h, hd)); pushTri(flatTop, L(-hw, h, -hd), L(hw, h, hd), L(-hw, h, hd)) // 陸屋根
+      // パラペット（陸屋根のへりの立ち上がり＋笠木）＝屋上の縁に立体感。低ポリ脱却2026-06-25
+      { const ph2 = 0.55, pe = 0.12, pT = h + ph2, pc = baseXZ.map(([lx, lz]) => [lx + Math.sign(lx) * pe, lz + Math.sign(lz) * pe])
+        for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], oa = pc[k], ob = pc[(k + 1) % 4]
+          pushTri(rtBox, L(oa[0], h, oa[1]), L(ob[0], h, ob[1]), L(ob[0], pT, ob[1])); pushTri(rtBox, L(oa[0], h, oa[1]), L(ob[0], pT, ob[1]), L(oa[0], pT, oa[1])) // 外面
+          pushTri(flatTop, L(a[0], pT, a[1]), L(b[0], pT, b[1]), L(ob[0], pT, ob[1])); pushTri(flatTop, L(a[0], pT, a[1]), L(ob[0], pT, ob[1]), L(oa[0], pT, oa[1])) // 天端（笠木）
+          pushTri(rtBox, L(b[0], h, b[1]), L(a[0], h, a[1]), L(a[0], pT, a[1])); pushTri(rtBox, L(b[0], h, b[1]), L(a[0], pT, a[1]), L(b[0], pT, b[1])) } } // 内面
       const bz = Math.min(3.5, hd * 0.6), oy = h, ty = h + (isHome ? 3 : 2.2) // 屋上の階段室/水槽
       const roofBox = (lx0, lz0, lx1, lz1) => { const c4 = [[lx0, lz0], [lx1, lz0], [lx1, lz1], [lx0, lz1]]; for (let k = 0; k < 4; k++) { const a = c4[k], b = c4[(k + 1) % 4]; pushTri(rtBox, L(a[0], oy, a[1]), L(b[0], oy, b[1]), L(b[0], ty, b[1])); pushTri(rtBox, L(a[0], oy, a[1]), L(b[0], ty, b[1]), L(a[0], ty, a[1])) } pushTri(rtBox, L(lx0, ty, lz0), L(lx1, ty, lz0), L(lx1, ty, lz1)); pushTri(rtBox, L(lx0, ty, lz0), L(lx1, ty, lz1), L(lx0, ty, lz1)) }
       const bw = Math.min(8, hw); roofBox(hw - 1 - bw, -bz, hw - 1, bz)
