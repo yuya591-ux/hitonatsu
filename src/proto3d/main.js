@@ -2527,6 +2527,19 @@ function buildShishigaya() {
   // 池情報（面積順）と「水の中か」判定＝三ツ池公園の作り込みと桜配置に使う
   const inWater = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p))
   const pondInfo = SG.waters.filter((w) => w.p.length >= 3).map((w) => { let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9, cx = 0, cz = 0; for (const q of w.p) { cx += q[0]; cz += q[1]; if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } cx /= w.p.length; cz /= w.p.length; return { w, cx, cz, area: (mxx - mnx) * (mxz - mnz), r: Math.max(mxx - mnx, mxz - mnz) / 2 } }).sort((a, b) => b.area - a.area)
+  // 睡蓮の葉＝二ツ池など大きい池に浮かぶ葉（夏の池の絵・一部に白い花）。睡蓮は群れて生えるのでクラスタ（かたまり）で配置＝点在より読みやすい。低ポリ脱却D6・2026-06-25
+  { const pads = [], flowers = []
+    for (const pi of pondInfo.slice(0, 6)) { if (pi.area < 150) continue
+      const nClusters = THREE.MathUtils.clamp(Math.round(pi.area / 550), 1, 6) // 池の広さに応じた群れの数
+      for (let cI = 0; cI < nClusters; cI++) { let ccx = 0, ccz = 0, ok = false
+        for (let tr = 0; tr < 14 && !ok; tr++) { ccx = pi.cx + (Math.random() - 0.5) * pi.r * 1.2; ccz = pi.cz + (Math.random() - 0.5) * pi.r * 1.2; ok = pip(ccx, ccz, pi.w.p) } // 群れの中心（池の中）
+        if (!ok) continue; const cn = 9 + Math.floor(Math.random() * 16) // 1群れ=9〜24枚
+        for (let i = 0; i < cn; i++) { const x = ccx + (Math.random() - 0.5) * 6, z = ccz + (Math.random() - 0.5) * 6; if (!pip(x, z, pi.w.p)) continue; pads.push([x, z]); if (Math.random() < 0.12) flowers.push([x, z]) } } }
+    if (pads.length) { const padGeo = new THREE.CircleGeometry(0.5, 7); padGeo.rotateX(-Math.PI / 2) // 水面に平らに浮く葉（七角＝少し有機的）
+      const im = new THREE.InstancedMesh(padGeo, new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: GRAD, side: THREE.DoubleSide }), pads.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), col = new THREE.Color()
+      pads.forEach(([x, z], i) => { const sc = 0.7 + Math.random() * 0.75; s.set(sc, 1, sc); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28); m.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.22, z), q, s); im.setMatrixAt(i, m); const t = Math.random(); col.setRGB(0.19 + t * 0.12, 0.42 + t * 0.14, 0.19 + t * 0.08); im.setColorAt(i, col) }) // 葉ごとに大きさ/向き/緑をばらつかせる
+      im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.castShadow = false; scene.add(im) }
+    for (const [x, z] of flowers) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshToonMaterial({ color: 0xfff2f5, gradientMap: GRAD })); fl.scale.set(1, 0.62, 1); fl.position.set(x, heightAtYato(x, z) + 0.3, z); fl.castShadow = false; scene.add(fl) } } // 白い睡蓮の花（ぽつぽつ）
   // 木：公園/森(多角形)＋山肌(建物の無い急斜面)＋三ツ池の桜。インスタンシングで多数を低負荷に
   const tp = [] // [x,z,sakura?]
   for (const g of SG.greens) { if (g.kind !== 'wood' && g.kind !== 'park') continue; const poly = g.p
