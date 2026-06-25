@@ -2941,7 +2941,8 @@ function buildShishigaya() {
         const hg = new THREE.BoxGeometry(0.06, 0.5, hlen * 1.1); m4.compose(hmid, q, ONE); hg.applyMatrix4(m4); handG.push(hg) } // 外側の手すり
     }
     const addMerged = (geos, mat, sh) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = !!sh; m.receiveShadow = true; g.add(m); geos.forEach((x) => x.dispose()) }
-    addMerged(rollG, slideMat, true); addMerged(rAG, railA, true); addMerged(rBG, railB, true); addMerged(postG, postMat, true); addMerged(stepG, stepMat, false); addMerged(handG, postMat, true)
+    // 床/レール/手すりの細い影は地面に散らかって不気味なので影を落とさない＝接地は支柱の影だけで十分（ユーザー指摘2026-06-26）
+    addMerged(rollG, slideMat, false); addMerged(rAG, railA, false); addMerged(rBG, railB, false); addMerged(postG, postMat, true); addMerged(stepG, stepMat, false); addMerged(handG, postMat, false)
     // 出発の塔＋デッキ＋手すり（P0）
     const add = (geo, mat, p, qq) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p); if (qq) m.quaternion.copy(qq); m.castShadow = true; g.add(m); return m }
     const P0 = SP[0], h0 = new V(ST[0].x, 0, ST[0].z).normalize(), pp0 = new V(-h0.z, 0, h0.x), yaw0 = Math.atan2(h0.x, h0.z), deckQ = new Q().setFromAxisAngle(up, yaw0)
@@ -7187,6 +7188,7 @@ actBtn.addEventListener('click', () => {
   const spot = actBtn.dataset.spot
   if (mode === 'walk') { if (spot === 'swing') rideSwing(); else if (spot === 'slide') rideSlide(); else if (spot === 'sunup') sunGoRoof(); else if (spot === 'sundown') sunLeaveRoof(); else sitDown(spot || 'bench') }
   else if (mode === 'swing' && spot === 'offswing') getOffSwing()
+  else if (mode === 'sliding' && spot === 'slideview' && sliding) { sliding.pov = sliding.pov === 'first' ? 'third' : 'first'; camSnap = true } // すべり台の視点きりかえ（主観⇄背中ごし）
 })
 lieBtn.addEventListener('click', () => { if (mode === 'walk') lieDown() })
 
@@ -7292,7 +7294,7 @@ function getOffSwing() {
 function rideSlide() {
   if (!slideRide || mode !== 'walk') return
   mode = 'sliding'; endPuni(); moving = false; vel.set(0, 0, 0); todayFlags.rodeSlide = true
-  sliding = { s: 0.3, v: 4.5 } // 弧長(m)と速さ(m/s)
+  sliding = { s: 0.3, v: 4.5, pov: 'first' } // 弧長(m)と速さ(m/s)・既定は主観視点
   boy.scale.setScalar(BOY_SCALE); landSquash = 0; airborne = false
   boy.rotation.order = 'YXZ'
   camSnap = true // 視点を滑走の後方カメラへスナップ（walkカメラから長く流れない）
@@ -8167,16 +8169,24 @@ function update(dt) {
     sliding.s += sliding.v * dt
     const u = Math.min(1, sliding.s / sr.total), P = sr.curve.getPointAt(u), Tn = sr.curve.getTangentAt(u)
     const dh = new THREE.Vector3(Tn.x, 0, Tn.z); dh.multiplyScalar(1 / (dh.length() || 1))
-    boy.visible = true; boy.position.set(P.x, P.y + 0.12, P.z)
-    boy.rotation.y = Math.atan2(-dh.x, -dh.z) // 進行方向（下り）を向く
-    boy.rotation.x = -0.3 - Math.asin(Math.max(-1, Math.min(1, -Tn.y))) * 0.45; boy.rotation.z = 0 // 斜面なりに後傾
+    boy.position.set(P.x, P.y + 0.12, P.z)
+    boy.rotation.y = Math.atan2(dh.x, dh.z) // 進行方向（下り）へ正対＝後ろから見ると背中（顔がこちらを向かない・ユーザー指摘2026-06-26）
+    boy.rotation.x = -0.28 - Math.asin(Math.max(-1, Math.min(1, -Tn.y))) * 0.4; boy.rotation.z = 0 // 斜面なりに後傾
     boy.userData.legL.rotation.x = -1.15; boy.userData.legR.rotation.x = -1.15 // 足を前へ投げ出す
     boy.userData.kneeL.rotation.x = 0.7; boy.userData.kneeR.rotation.x = 0.7
     boy.userData.armL.rotation.x = 0.5; boy.userData.armR.rotation.x = 0.5; boy.userData.head.rotation.x = 0
-    camGoal.set(P.x - dh.x * 5.5, P.y + 3.0, P.z - dh.z * 5.5) // 後ろ上から
-    lookGoal.set(P.x + dh.x * 3, P.y + 0.5, P.z + dh.z * 3) // 進む先を見る
-    camera.fov += (60 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix() // 広角で疾走感
-    actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
+    if (sliding.pov === 'first') { // 主観（既定）：主人公の頭から滑走方向を見る＝自分が滑っている視点。体は隠す
+      boy.visible = false
+      const ex = P.x + dh.x * 0.25, ey = P.y + 1.2, ez = P.z + dh.z * 0.25
+      camGoal.set(ex, ey, ez); lookGoal.set(ex + Tn.x * 12, ey + Tn.y * 12 - 0.6, ez + Tn.z * 12)
+      camera.fov += (66 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix() // 広角で疾走感
+    } else { // 三人称：後ろやや上から主人公の背中ごしに
+      boy.visible = true
+      camGoal.set(P.x - dh.x * 5.5, P.y + 3.0, P.z - dh.z * 5.5); lookGoal.set(P.x + dh.x * 3, P.y + 0.5, P.z + dh.z * 3)
+      camera.fov += (60 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix()
+    }
+    actBtn.textContent = sliding.pov === 'first' ? 'キャラを 見る' : '主観で 見る'; actBtn.dataset.spot = 'slideview'; actBtn.style.display = 'block' // 視点きりかえ
+    lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
     if (sliding.s >= sr.total) { // 着地＝立ち上がる
       const Te = sr.curve.getTangentAt(1), de = new THREE.Vector3(Te.x, 0, Te.z); de.multiplyScalar(1 / (de.length() || 1))
       boy.position.set(P.x + de.x * 2.4, 0, P.z + de.z * 2.4); boy.rotation.x = 0; boy.rotation.z = 0
@@ -8630,7 +8640,8 @@ window.__proto3d = {
   _jump() { doJump() }, // 検証用
   _slideTop() { return slideRide ? slideRide.top : null }, // 検証用：すべり台のてっぺん座標
   _rideSlide() { if (!slideRide) return null; area = 'yato'; onYato = true; boy.position.set(slideRide.top[0], heightAt(slideRide.top[0], slideRide.top[1]), slideRide.top[1]); rideSlide(); return { total: +slideRide.total.toFixed(1) } }, // 検証用：すべり台に乗る
-  get _slideState() { return sliding ? { s: +sliding.s.toFixed(1), v: +sliding.v.toFixed(1), mode } : { mode } }, // 検証用：滑走状態
+  get _slideState() { return sliding ? { s: +sliding.s.toFixed(1), v: +sliding.v.toFixed(1), pov: sliding.pov, mode } : { mode } }, // 検証用：滑走状態
+  _slidePov(p) { if (sliding) sliding.pov = p }, // 検証用：滑走の視点を直接セット
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
   _windInfo() { return windGain ? { started: windStarted, gain: +windGain.gain.value.toFixed(4), freq: windLP ? Math.round(windLP.frequency.value) : 0 } : { started: windStarted } }, // 検証用：風の音ノードの状態
