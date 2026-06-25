@@ -2610,6 +2610,38 @@ function buildShishigaya() {
       pads.forEach(([x, z], i) => { const sc = 0.7 + Math.random() * 0.75; s.set(sc, 1, sc); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28); m.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.22, z), q, s); im.setMatrixAt(i, m); const t = Math.random(); col.setRGB(0.19 + t * 0.12, 0.42 + t * 0.14, 0.19 + t * 0.08); im.setColorAt(i, col) }) // 葉ごとに大きさ/向き/緑をばらつかせる
       im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.castShadow = false; scene.add(im) }
     for (const [x, z] of flowers) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshToonMaterial({ color: 0xfff2f5, gradientMap: GRAD })); fl.scale.set(1, 0.62, 1); fl.position.set(x, heightAtYato(x, z) + 0.3, z); fl.castShadow = false; scene.add(fl) } } // 白い睡蓮の花（ぽつぽつ）
+  // 水辺の柳（しだれ柳）＝二ツ池などのほとりに枝垂れる柳＝夏の池の絵・ノスタルジー（D4・2026-06-25）
+  { const wTrunk = toon(0x6a5440), wGreen = new THREE.MeshToonMaterial({ color: 0x77a24f, gradientMap: GRAD }), wDroop = new THREE.MeshToonMaterial({ color: 0xa8c96e, gradientMap: GRAD, emissive: 0x2b3a1a, side: THREE.DoubleSide }) // 柳の葉は淡い黄緑＝陰の帯でも沈まぬよう少し明るめ＋わずかに自己発光
+    const makeWillow = (wx, wz, toCx, toCz) => { const wy = heightAtYato(wx, wz), dxC = toCx - wx, dzC = toCz - wz, dl = Math.hypot(dxC, dzC) || 1, lx = dxC / dl, lz = dzC / dl, lean = 0.15 // 水の方へ傾く
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.32, 3.4, 6), wTrunk); trunk.position.set(wx + lx * 0.5, wy + 1.7, wz + lz * 0.5); trunk.rotation.z = lx * lean; trunk.rotation.x = -lz * lean; trunk.castShadow = true; scene.add(trunk)
+      const cy = wy + 3.8, cxw = wx + lx * 1.1, czw = wz + lz * 1.1
+      // 丸い葉冠：小さな塊を5つ重ねて不揃いのドームに（1メッシュにまとめる）
+      const cg = []
+      for (const [ox, oy, oz, s] of [[0, 0.25, 0, 2.05], [1.3, -0.05, 0.45, 1.35], [-1.15, 0.05, 0.8, 1.3], [0.45, -0.15, -1.25, 1.35], [-0.4, 0.18, -0.45, 1.65]]) { const g = new THREE.IcosahedronGeometry(s, 1); g.scale(1.14, 0.9, 1.14); g.translate(cxw + ox, cy + oy, czw + oz); cg.push(g) }
+      const crown = new THREE.Mesh(mergeGeometries(cg), wGreen); cg.forEach((g) => g.dispose()); crown.castShadow = true; scene.add(crown)
+      // 枝垂れる葉のカーテン：外周に沿って下へ垂れる細い葉房を密に。水側ほど長く垂らす（噴水のような輪郭）。1メッシュにまとめて軽く
+      const vg = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion()
+      for (const [rad, n, len, vr] of [[2.65, 34, 3.5, 1.4], [2.05, 25, 2.9, 1.1], [1.45, 17, 2.2, 0.9], [0.85, 9, 1.6, 0.7]]) {
+        for (let a = 0; a < n; a++) { const ang = a / n * 6.283 + rad, front = Math.max(0, Math.cos(ang) * lx + Math.sin(ang) * lz), sl = len + Math.random() * vr + front * 1.0
+          const sx = cxw + Math.cos(ang) * rad, sz = czw + Math.sin(ang) * rad, g = new THREE.CylinderGeometry(0.085, 0.012, sl, 4)
+          q.setFromEuler(new THREE.Euler((Math.random() - 0.5) * 0.18, 0, (Math.random() - 0.5) * 0.18))
+          m4.compose(new THREE.Vector3(sx, cy - 0.3 - sl * 0.46, sz), q, new THREE.Vector3(1, 1, 1)); g.applyMatrix4(m4); vg.push(g) } }
+      const veil = new THREE.Mesh(mergeGeometries(vg), wDroop); vg.forEach((g) => g.dispose()); veil.castShadow = false; scene.add(veil) }
+    let nw = 0; const wpts = []
+    const farFromWillows = (x, z) => wpts.every((p) => Math.hypot(p[0] - x, p[1] - z) > 15) // 柳どうしを離す
+    for (const pi of pondInfo.slice(0, 2)) { if (pi.area < 300) continue
+      let nwp = 0
+      for (let a = 0; a < 48 && nwp < 6 && nw < 11; a++) { const ang = a / 48 * 6.283 + 0.3, dx = Math.cos(ang), dz = Math.sin(ang)
+        // 池は円形ではないので、中心から外へ進んで「水→陸」の境目（＝汀／みぎわ）を探し、そこに立てる
+        let sawWater = false, sx = 0, sz = 0, found = false
+        for (let rr = pi.r * 0.25; rr < pi.r + 30; rr += 1.2) { const x = pi.cx + dx * rr, z = pi.cz + dz * rr
+          if (inWater(x, z)) sawWater = true
+          else if (sawWater) { sx = x; sz = z; found = true; break } }
+        if (!found || onYatoRoadCore(sx, sz)) continue
+        const slope = Math.abs(heightAtYato(sx + 4, sz) - heightAtYato(sx - 4, sz)) + Math.abs(heightAtYato(sx, sz + 4) - heightAtYato(sx, sz - 4))
+        if (slope > 5 || !farFromWillows(sx, sz) || Math.random() < 0.4) continue // 急斜面/近すぎを避け・まばらに
+        makeWillow(sx, sz, pi.cx, pi.cz); wpts.push([sx, sz]); nwp++; nw++ } }
+  }
   // 木：公園/森(多角形)＋山肌(建物の無い急斜面)＋三ツ池の桜。インスタンシングで多数を低負荷に
   const tp = [] // [x,z,sakura?]
   for (const g of SG.greens) { if (g.kind !== 'wood' && g.kind !== 'park') continue; const poly = g.p
