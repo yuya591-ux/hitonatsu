@@ -2660,8 +2660,10 @@ function buildShishigaya() {
   const tp = [] // [x,z,sakura?]
   for (const g of SG.greens) { if (g.kind !== 'wood' && g.kind !== 'park') continue; const poly = g.p
     let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of poly) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] }
-    const want = Math.min(120, Math.max(3, Math.round((mxx - mnx) * (mxz - mnz) / 110))); let got = 0, tr = 0
-    while (got < want && tr < want * 10) { tr++; const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz); if (pip(x, z, poly) && !inWater(x, z)) { tp.push([x, z, 0]); got++ } } } // 池の上には木を置かない（二ツ池公園など公園が池を含む場合）
+    const area = (mxx - mnx) * (mxz - mnz), big = mnx > 3500 && area > 50000 // 三ツ池公園など大きな山あいの公園は木をたっぷり（ユーザー要望2026-06-26）
+    const want = Math.min(big ? 460 : 130, Math.max(3, Math.round(area / (big ? 65 : 110)))); let got = 0, tr = 0
+    while (got < want && tr < want * 12) { tr++; const x = mnx + Math.random() * (mxx - mnx), z = mnz + Math.random() * (mxz - mnz), c = cellOf(x, z)
+      if (pip(x, z, poly) && !inWater(x, z) && !onYatoRoadCore(x, z) && (c < 0 || !occ[c]) && heightAtYato(x, z) > 2) { tp.push([x, z, 0]); got++ } } } // 池/道/建物の上は避ける
   let st = 0, sa = 0 // 山肌の木＝建物の無い急斜面に
   while (st < 750 && sa < 7000) { sa++; const x = SG.gx0 - SG.half + Math.random() * SG.half * 2, z = SG.gz0 - SG.half + Math.random() * SG.half * 2, c = cellOf(x, z); if (c < 0 || occ[c]) continue; const y = heightAtYato(x, z); if (y < 4) continue; const slope = Math.abs(heightAtYato(x + 6, z) - heightAtYato(x - 6, z)) + Math.abs(heightAtYato(x, z + 6) - heightAtYato(x, z - 6)); if (slope < 2.6) continue; tp.push([x, z, 0]); st++ }
   for (const rd of SG.roads) { if (rd.w < 5 || tp.length > 2300) continue; const p = rd.p // 街路樹（主要道の脇の並木）
