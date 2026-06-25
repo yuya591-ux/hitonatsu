@@ -8176,10 +8176,10 @@ function update(dt) {
     { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
     if (fpv) { const cp2 = Math.cos(camCtl.pitch), fx = -Math.sin(camCtl.yaw) * cp2, fy = -Math.sin(camCtl.pitch), fz = -Math.cos(camCtl.yaw) * cp2 // 視線方向
-      const hx = boy.position.x, hy = boy.position.y + 1.66, hz = boy.position.z, back = 1.35 // 目線を高く＋肩ごしに少し引く（ユーザー要望2026-06-26）
-      camGoal.set(hx - fx * back, hy + 0.18 - fy * back, hz - fz * back); lookGoal.set(hx + fx * 12, hy + fy * 12, hz + fz * 12)
+      const hx = boy.position.x, hy = boy.position.y + 1.66, hz = boy.position.z, back = 0.7 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける・坂でも頭が手前に巨大化しない）
+      camGoal.set(hx - fx * back, hy + 0.12 - fy * back, hz - fz * back); lookGoal.set(hx + fx * 12, hy + fy * 12, hz + fz * 12)
       camera.fov += (fpvFov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix() }
-    boy.visible = true // 引き気味の主観（肩ごし）は体を見せる＝後頭部だけ手前に映る
+    boy.visible = !fpv // 主観視点では体を隠す＝坂を見下ろした時に後頭部が手前で巨大化する不具合を解消（ユーザー指摘の主観改善2026-06-26）
   } else if (mode === 'lying') {
     // 「よいしょ」と その場に “必ず仰向け” で横になる所作（約1.05秒）。固定アングルでお腹が上を向くのを見せる
     lieT += dt
