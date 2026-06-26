@@ -8359,6 +8359,10 @@ function update(dt) {
       boy.position.set(P.x + de.x * 2.4, 0, P.z + de.z * 2.4); boy.rotation.x = 0; boy.rotation.z = 0
       boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0; boy.userData.kneeL.rotation.x = 0; boy.userData.kneeR.rotation.x = 0; boy.userData.armL.rotation.x = 0; boy.userData.armR.rotation.x = 0
       facing = boy.rotation.y; sliding = null; standUp()
+      // 着地の手ごたえ＝砂ぼこりがぽふっ＋やわらかい“とすっ”＋ひと跳ねつぶれ（あの滑り台を降りた瞬間の感じ）
+      const ly = heightAt(boy.position.x, boy.position.z)
+      for (let d = 0; d < 7; d++) spawnDust(boy.position.x + (Math.random() - 0.5) * 0.7, ly + 0.08, boy.position.z + (Math.random() - 0.5) * 0.7)
+      playLand(0.07); landSquash = 0.9
     }
   } else if (mode === 'swing') {
     // ブランコ：振り子運動。乗り手の頭の位置から前方を見る＝ブランコ視点（上下にあおられる）
