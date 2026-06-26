@@ -1676,6 +1676,7 @@ const PARKFENCE_GEO = (() => { const box = new THREE.BoxGeometry(1, 1, 1), TR = 
   for (const sx of [-1.45, 1.45]) P.push({ g: box, m: TR(sx, 0.37, 0, 0.08, 0.78, 0.08), c: pipe }) // 支柱2本
   return mergeParts(P) })()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
+const cloudShadowU = { uCloudTime: { value: 0 }, uCloudAmt: { value: 0.0 } } // 流れる雲の影（地面シェーダへ注入・updateで時刻/雲量に応じて更新）
 // ── 田舎寄せモード（むかしの“僕の夏休み”の空気へ：建物を間引き＋低層化）。0=忠実再現(既定・いつでも完全に戻せる) 1=中庸 2=大胆。
 //   生成時のみ作用＝忠実データ(SG)は一切壊さない。URL ?v=0/1/2 か localStorage で切替（設定トグル）。常に0へ戻せば元どおり（ユーザー最重要要望2026-06-24）──
 let villageLevel = 0
@@ -1691,7 +1692,22 @@ function buildShishigaya() {
   for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + gcx, wz = gp.getZ(i) + SG.gz0, y = heightAtYato(wx, wz); gp.setY(i, y); const c = cLow.clone().lerp(cGrass, THREE.MathUtils.smoothstep(y, 3, 9)); c.lerp(cDark, THREE.MathUtils.smoothstep(y, 18, 40)); gcol.push(c.r, c.g, c.b) }
   ggeo.setAttribute('color', new THREE.Float32BufferAttribute(gcol, 3)); ggeo.computeVertexNormals()
   const groundTex = yatoGroundTex.clone(); groundTex.needsUpdate = true; groundTex.repeat.set(Math.round(gw / 34), Math.round(SG.half * 2 / 34)) // タイル≒34mで地面の質感を出す（42→34＝足元の手ざわりを細かく・頂点色に掛け算＝色相は標高グラデのまま）
-  const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })); gm.position.set(gcx, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
+  const gMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })
+  // 流れる雲の影（B1・昼の“ゴルフ場のような均一な緑”を解消＋夏の空気）：ワールドXZでまばらな雲影ノイズをサンプルし地面をやわらかく陰らせる。地形に沿う（頂点のワールド位置で判定）＝丘でも谷でも自然。ゆっくり流れて景色が“呼吸”する
+  gMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uCloudTime = cloudShadowU.uCloudTime; shader.uniforms.uCloudAmt = cloudShadowU.uCloudAmt
+    shader.vertexShader = 'varying vec3 vWPos;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+    shader.fragmentShader = 'varying vec3 vWPos; uniform float uCloudTime; uniform float uCloudAmt;\n'
+      + 'float chash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n'
+      + 'float cnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);float a=chash(i),b=chash(i+vec2(1.0,0.0)),c=chash(i+vec2(0.0,1.0)),d=chash(i+vec2(1.0,1.0));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}\n'
+      + shader.fragmentShader.replace('#include <fog_fragment>',
+        'vec2 cuv = vWPos.xz * 0.0072 + vec2(uCloudTime * 0.013, uCloudTime * 0.006);\n'
+        + 'float cl = cnoise(cuv) * 0.62 + cnoise(cuv * 2.4 + 5.0) * 0.38;\n'
+        + 'float csh = smoothstep(0.60, 0.86, cl);\n' // まばらな雲＝高い所だけ影が落ちる（地面の2〜3割）・縁はやわらかく
+        + 'gl_FragColor.rgb *= 1.0 - uCloudAmt * csh;\n'
+        + '#include <fog_fragment>')
+  }
+  const gm = new THREE.Mesh(ggeo, gMat); gm.position.set(gcx, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
   // 建物：種別で描き分け。集合住宅(apartments)=陸屋根の中層棟＋バルコニー面／家(house等)=低い切妻／事務所・大箱=陸屋根。中心のサンライズ北寺尾は7階の主役マンション
   const bv = [], bc = [], bidx = [], buv = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
   // 接地AO（疑似AO・A1）：建物フットプリント直下に放射状グラデの暗い敷物を1枚に合成＝壁が地面からスパッと生える“ダンボール感”を消し、足元に陰を落として地に足を付ける。
@@ -8262,6 +8278,9 @@ function update(dt) {
   gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
   gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.3 : 0.16) // 真昼の晴天だけ・控えめ（ユーザー「強すぎ」→0.55→0.3に弱める2026-06-24）
+  // 流れる雲の影（B1）：ゆっくり流れる＋昼に最も濃く・夜と雨でうすれる（夜は影が見えない・雨は曇って影が消える）。地面の均一な緑に動きと陰影
+  cloudShadowU.uCloudTime.value = tsec
+  cloudShadowU.uCloudAmt.value = 0.13 * (1 - nightFactor(tday)) * (1 - weather * 0.85) * (0.45 + 0.55 * THREE.MathUtils.smoothstep(tday, 0.16, 0.42)) // 朝はうっすら→昼に最大・控えめ
   godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
 
   if (mode === 'walk') {
