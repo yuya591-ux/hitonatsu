@@ -614,7 +614,7 @@ function setTimeOfDay(t) {
   const { from, to, u } = pickPal(t)
   // 太陽の運行（朝=低い東 → 昼=高い → 夕=低い西）。夜は地平線下。
   const elev = Math.sin(Math.min(t, 0.9) / 0.9 * Math.PI) // 0..1..0
-  const elevAngle = elev * 1.25
+  const elevAngle = Math.pow(elev, 2.4) * 1.32 // 朝夕の太陽を低く＝斜光と長い影を作る（昼ピークは76°のまま高く保ち、肩=朝夕だけ下げる）。`elev*1.25`(夕でも53°と高すぎ＝昼が平坦の根本)をpow曲線に（アートD+クリエイティブD指摘2026-06-27）。朝0.2≈27°/夕0.66≈38°/深い夕0.78≈14°
   const az = Math.PI * (0.12 + t * 0.95)
   sunDir.set(Math.cos(az) * Math.cos(elevAngle), Math.sin(elevAngle) + 0.04, Math.sin(az) * Math.cos(elevAngle)).normalize()
   // sun.position は影カメラと一体なので frameShadow が管理（毎フレームここで動かすと影がずれる）
