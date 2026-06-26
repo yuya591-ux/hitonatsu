@@ -2947,11 +2947,18 @@ function buildShishigaya() {
   { const step = Math.max(1, Math.floor(tp.length / 22)); let dn = 0; for (let i = 0; i < tp.length && dn < 22; i += step) { const tx = tp[i][0], tz = tp[i][1]; if (heightAtYato(tx, tz) < 2) continue; addDapple(tx, tz, 2.2 + Math.random() * 0.8); dn++ } }
   if (tp.length) {
     // 樹冠＝丸い大玉に小玉を寄せた“こんもり”形（単一の20面アイコより丸く密＝低ポリ脱却・2026-06-25）。さらにyで明暗の縦グラデを焼き込み＝上が光って立体感（木漏れ日の素）
-    const canBlobs = []
-    for (const [bx, by, bz, br, det] of [[0, 0.1, 0, 1.0, 1], [0.52, 0.42, 0.18, 0.6, 0], [-0.46, 0.26, -0.3, 0.58, 0], [0.08, 0.6, -0.1, 0.52, 0]]) { const ic = new THREE.IcosahedronGeometry(br, det); ic.translate(bx, by, bz); canBlobs.push(ic) }
-    const canopyGeo = mergeGeometries(canBlobs, false); canopyGeo.computeVertexNormals()
-    { const pa = canopyGeo.attributes.position, cc = []; let mny = 1e9, mxy = -1e9; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); if (y < mny) mny = y; if (y > mxy) mxy = y }
-      for (let i = 0; i < pa.count; i++) { const t = (pa.getY(i) - mny) / (mxy - mny || 1), v = 0.72 + t * 0.34; cc.push(v, v, v) } canopyGeo.setAttribute('color', new THREE.Float32BufferAttribute(cc, 3)) } // 下=暗0.72→上=明1.06（葉の上に陽が当たる）
+    // 樹冠を4つの原型に増やして“判子のような同じ木の連続”を解消（B2・2026-06-26）。各原型を1インスタンスメッシュ＝描画は原型ぶんでも形は4種＋色/スケール/向きの個体差で自然な木立に
+    const archetypes = [
+      [[0, 0.1, 0, 1.05, 1], [0.55, 0.4, 0.2, 0.62, 1], [-0.5, 0.28, -0.32, 0.6, 0], [0.1, 0.62, -0.1, 0.56, 1], [-0.22, 0.34, 0.5, 0.5, 0]], // 0 丸くこんもり（広葉樹）
+      [[0, 0.0, 0, 0.8, 1], [0.12, 0.72, 0.05, 0.66, 1], [-0.1, 1.4, -0.06, 0.56, 0], [0.06, 1.98, 0.04, 0.44, 0]],                        // 1 縦長（けやき/ポプラ風）
+      [[0, 0.0, 0, 0.92, 0], [0.52, 0.12, 0.12, 0.58, 0], [-0.48, 0.06, -0.22, 0.54, 0], [0.06, 0.36, 0.16, 0.5, 1]],                     // 2 低い茂み（横広）
+      [[0, 0.1, 0, 0.98, 1], [0.64, 0.52, 0.26, 0.5, 0], [-0.32, 0.2, -0.52, 0.64, 1], [0.36, 0.78, -0.22, 0.42, 0]],                     // 3 不揃い（枝が偏る）
+    ]
+    const buildCanopy = (blobs) => { const bl = blobs.map(([bx, by, bz, br, det]) => { const ic = new THREE.IcosahedronGeometry(br, det); ic.translate(bx, by, bz); return ic })
+      const cg = mergeGeometries(bl, false); cg.computeVertexNormals(); bl.forEach((b) => b.dispose())
+      const pa = cg.attributes.position, cc = []; let mny = 1e9, mxy = -1e9; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); if (y < mny) mny = y; if (y > mxy) mxy = y }
+      for (let i = 0; i < pa.count; i++) { const t = (pa.getY(i) - mny) / (mxy - mny || 1), v = 0.72 + t * 0.34; cc.push(v, v, v) } cg.setAttribute('color', new THREE.Float32BufferAttribute(cc, 3)); return cg } // 下=暗0.72→上=明1.06
+    const archGeo = archetypes.map(buildCanopy), archSY = [1.12, 1.42, 0.92, 1.16] // 原型ごとの縦の伸び（縦長は高く・茂みは低く）
     const canMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }) // 樹冠＝夏の風でそよぐ（上ほど大きく揺れる・幹は揺らさず軽い違和は出さない）
     canMat.onBeforeCompile = (sh) => { sh.uniforms.uTime = { value: 0 }; sh.uniforms.uWind = { value: 0.5 }
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
@@ -2961,12 +2968,20 @@ function buildShishigaya() {
         transformed.x += sin(uTime * 0.8 + tph) * (0.018 + uWind * 0.06) * tamp;
         transformed.z += sin(uTime * 0.62 + tph + 1.1) * (0.011 + uWind * 0.035) * tamp;`)
       yatoTreeShader = sh }
-    const canI = new THREE.InstancedMesh(canopyGeo, canMat, tp.length); canI.castShadow = true
+    // 各木に原型を割り当て（種で決定＝毎回同じ・桜は丸い原型0）。原型ごとに本数を数えてインスタンスメッシュを用意
+    const archOf = (x, z, sak) => sak ? 0 : Math.abs(Math.round(x) * 7 + Math.round(z) * 13) % 4
+    const counts = [0, 0, 0, 0]; tp.forEach(([x, z, sak]) => counts[archOf(x, z, sak)]++)
+    const canIs = archGeo.map((g, a) => { const m = new THREE.InstancedMesh(g, canMat, Math.max(1, counts[a])); m.castShadow = true; m.count = counts[a]; return m })
     const trI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.26, 1.5, 6), toonMap(0x6a4e34, woodTex), tp.length) // 幹＝木目テクスチャ＋6角（角ばり解消）
-    const m4 = new THREE.Matrix4(), sc = new THREE.Vector3(), col = new THREE.Color(), gr = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a, 0x6a9445, 0x7aa24c, 0x86a44e]
-    tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), s = sak ? 2.0 : 1.7 + Math.random() * 1.3; m4.makeTranslation(x, y + 1.4 + s * 0.7, z); m4.scale(sc.set(s, s * 1.12, s)); canI.setMatrixAt(i, m4); canI.setColorAt(i, col.set(sak ? 0x5f8c42 : gr[i % gr.length])); trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.75, z))
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color()
+    const gr = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a, 0x6a9445, 0x7aa24c, 0x86a44e], idxA = [0, 0, 0, 0]
+    tp.forEach(([x, z, sak], i) => { const y = heightAtYato(x, z), a = archOf(x, z, sak), s = sak ? 2.0 : 1.7 + Math.random() * 1.3
+      q.setFromAxisAngle(up, Math.random() * 6.283) // 向きをばらす＝同じ形でも見え方が変わる
+      m4.compose(pos.set(x, y + 1.4 + s * 0.7, z), q, sc.set(s, s * archSY[a], s))
+      const ai = idxA[a]++; canIs[a].setMatrixAt(ai, m4); canIs[a].setColorAt(ai, col.set(sak ? 0x5f8c42 : gr[(i * 3 + a) % gr.length]))
+      trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.75, z))
       if (!sak && yatoTreePos.length < 60 && x > 2840 && x < 3230 && z > -600 && z < 90 && (i % 3 === 0)) yatoTreePos.push([x, z, y]) }) // 核の近くの木を控える＝虫取りのカブトムシ/セミを止める
-    canI.instanceColor.needsUpdate = true; scene.add(canI); scene.add(trI)
+    canIs.forEach((m) => { if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m) }); scene.add(trI)
   }
   // ───── 三ツ池公園の作り込み：あずまや（東屋）＋太鼓橋（朱塗りアーチ）─────
   const shorePoint = (pi) => { for (let rr = pi.r + 2; rr < pi.r + 26; rr += 3) for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, x = pi.cx + Math.cos(a) * rr, z = pi.cz + Math.sin(a) * rr; if (!inWater(x, z)) { const sl = Math.abs(heightAtYato(x + 5, z) - heightAtYato(x - 5, z)) + Math.abs(heightAtYato(x, z + 5) - heightAtYato(x, z - 5)); if (sl < 3) return [x, z] } } return [pi.cx + pi.r + 8, pi.cz] }
