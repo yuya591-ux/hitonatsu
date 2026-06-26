@@ -2477,10 +2477,10 @@ function buildShishigaya() {
       else if (type === 'rice') buildMise(x, z, name, 'rice') // 米店＝店先に米袋
       else if (type === 'eat') buildMise(x, z, name, 'eat') // 食堂＝赤提灯＋縁台＋サンプルケース
       else buildMise(x, z, name, 'dagashi') // shop（しんみせ＝駄菓子屋）＝ガチャ＋縁台＋ガラスケース
-      // 店番を立てる店先(道側)の向きを覚える＝最寄りの道の方向（座標だけ・人物はbuildShishigaya後に生成）
-      if (['green', 'flower', 'rice', 'eat', 'shop', 'liquor', 'tobacco'].includes(type)) { let dx = 0, dz = 1, found = false
-        for (let r = 3; r < 13 && !found; r += 1) for (let a = 0; a < 6.283; a += 0.35) { const px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r; if (onYatoRoad(px, pz)) { dx = Math.cos(a); dz = Math.sin(a); found = true; break } }
-        if (found) shopFronts.push({ x, z, dx, dz, kind: type }) }
+      // 店番を立てる店先(道側)の向きを覚える＝buildMiseと同じ faceRoad（店先・看板が正対する向き）。座標だけ集め、人物はbuildShishigaya後に生成
+      if (['green', 'flower', 'rice', 'eat', 'shop', 'liquor', 'tobacco'].includes(type)) {
+        const ry = (type === 'green' || type === 'flower') ? -Math.PI / 2 : faceRoad(x, z) // 八百屋/花屋は店先を西(道側)に明示＝buildMiseと同じ
+        shopFronts.push({ x, z, dx: Math.sin(ry), dz: Math.cos(ry), kind: type }) }
     }
     // ── 追加の夏祭り会場（ユーザーの記憶・飛行ピン2026-06-24）：三石原っぱ(1日目)・金井公園(2日目)。離れた会場どうしは「近い方のお囃子」で自然にたどれる ──
     { const hx = 2644, hz = 383; groundPatch(grp, hx, hz, 30, 24, 0x83a056); FEST_VENUES.push({ name: '三石原っぱ', pos: new THREE.Vector2(hx, hz), days: [1], g: buildBonOdori(hx, heightAtYato(hx, hz), hz) }) } // 三石原っぱ＝草の原っぱ（地面パッドは地形なり）
@@ -5690,7 +5690,7 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     pedestrians.push(p) }
   // 店番＝店先(道側)に立つ人（昼〜夕）。八百屋/花屋/食堂はエプロンのおばさん、酒屋/たばこ屋はおじさん、等
   for (const sf of shopFronts) { if (Math.random() < 0.42) continue // 半分強の店に店番（出払ってる店もある）
-    const px = sf.x + sf.dx * 1.9, pz = sf.z + sf.dz * 1.9 // 店先(道側)へ1.9m
+    const px = sf.x + sf.dx * 2.0, pz = sf.z + sf.dz * 2.0 // 店先(道側)へ2.0m＝庇テントのへり・道の手前に立つ（看板と同じ向き＝道の客に正対）
     if (onYatoRoadCore(px, pz) || heightAtYato(px, pz) < 2) continue // 道の上/低地には立たせない
     const woman = sf.kind === 'green' || sf.kind === 'flower' || (sf.kind === 'eat' && Math.random() < 0.6) || (sf.kind === 'rice' && Math.random() < 0.4) // 八百屋/花屋はおばさん中心
     const adult = true
@@ -5701,6 +5701,12 @@ for (const [dx, col, sp, boyP] of pedDefs) {
       build: 1.0 + Math.random() * 0.2, headW: 0.94 + Math.random() * 0.1, eyeSc: 0.9 + Math.random() * 0.2, brow: Math.random() < 0.5, browTilt: 0.6 + Math.random() * 1.1,
       shoe: rpick([0x5a4a38, 0x3a3a40, 0xcfcabd]), scale: 1.12 + Math.random() * 0.1, face: 0, info: { name: '', byPhase: { noon: [''] } } })
     p.rotation.y = Math.atan2(sf.dx, sf.dz) // 店先＝道(客)の方を向く
+    // 約3割は竹ぼうきで店先を掃除している（C14・店先の掃除）。前へかがんで腕＋ほうきを左右に動かす
+    if (Math.random() < 0.32) { const broom = new THREE.Group()
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.0, 6), toon(0x9a7a48)); pole.position.set(0.05, 0.48, 0.42); pole.rotation.x = -0.92; broom.add(pole) // 柄（手元から前の地面へ斜め）
+      const bris = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.3, 8), toon(0xc8a868)); bris.scale.set(1, 1, 0.5); bris.position.set(0.05, 0.13, 0.78); bris.rotation.x = -0.92 + Math.PI; broom.add(bris) // 穂先（竹ぼうき＝広がった藁色）
+      broom.traverse((o) => { if (o.isMesh) o.castShadow = false }); p.add(broom); p.userData.broom = broom; p.userData.sweep = true
+      p.userData.armL.rotation.x = -1.0; p.userData.armR.rotation.x = -1.05 } // 両腕を前へ＝ほうきを持つ
     shopkeepers.push(p) }
 }
 // 屋台のお客（夕方〜夜にだけ現れて、カウンターに立つ＝縁日の賑わい）
@@ -7903,14 +7909,21 @@ function update(dt) {
       p.userData.head.rotation.y *= 0.9
     }
   }
-  // 店番＝昼〜夕に店先に立つ（朝は仕込み/夜は閉店）。息づかい＋通る主人公(客)に顔を向ける
+  // 店番＝昼〜夕に店先に立つ（朝は仕込み/夜は閉店）。立つ人は息づかい＋客に顔を向け、掃除の人はほうきを左右に動かす
   { const open = tday > 0.30 && tday < 0.80
     for (const p of shopkeepers) { p.visible = open; if (!open) continue
-      p.position.y = p.userData.baseY + Math.abs(Math.sin(tsec * 1.1 + p.userData.wph)) * 0.012 // ほんのり息づかい
-      const bx = boy.position.x - p.position.x, bz = boy.position.z - p.position.z, bd = Math.hypot(bx, bz)
-      if (bd < 8) { let ha = Math.atan2(bx, bz) - p.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832
-        p.userData.head.rotation.y += (THREE.MathUtils.clamp(ha, -1.0, 1.0) - p.userData.head.rotation.y) * Math.min(1, dt * 5) } // 客(主人公)に気づいて顔を向ける
-      else p.userData.head.rotation.y *= 0.92 }
+      const u = p.userData
+      const gy = heightAt(p.position.x, p.position.z) // 接地は実行時のheightAt（baseYは生成時のもので谷戸では不正確＝沈み/浮きの原因）
+      if (u.sweep) { const sw = Math.sin(tsec * 2.6 + u.wph) // 掃く：ほうき＋腕を左右に
+        u.broom.rotation.y = sw * 0.5; u.armL.rotation.x = -1.0 + sw * 0.12; u.armR.rotation.x = -1.05 + sw * 0.12
+        p.position.y = gy + Math.abs(Math.sin(tsec * 1.5 + u.wph)) * 0.01; u.head.rotation.y = sw * 0.25 // 手元を見る
+      } else {
+        p.position.y = gy + Math.abs(Math.sin(tsec * 1.1 + u.wph)) * 0.012 // ほんのり息づかい
+        const bx = boy.position.x - p.position.x, bz = boy.position.z - p.position.z, bd = Math.hypot(bx, bz)
+        if (bd < 8) { let ha = Math.atan2(bx, bz) - p.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832
+          u.head.rotation.y += (THREE.MathUtils.clamp(ha, -1.0, 1.0) - u.head.rotation.y) * Math.min(1, dt * 5) } // 客(主人公)に気づいて顔を向ける
+        else u.head.rotation.y *= 0.92
+      } }
   }
   // 子どもたちのキャッチボール（昼間だけ・夜は帰る）C12・2026-06-26
   { const kc = kidsCatch, day = tday > 0.12 && tday < 0.78
@@ -8995,7 +9008,7 @@ window.__proto3d = {
   _slideSeek(s) { if (sliding) sliding.s = s }, // 検証用：滑走の弧長位置を直接セット（着地テスト用）
   _shoot(az) { shootTimer = 0; if (az != null) shootStar.forceAz = az }, // 検証用：次フレームで流れ星を発生（夜のみ）。azで方位を固定（実画確認用）
   _sparrows() { return sparrows.map((s) => ({ at: [+s.position.x.toFixed(0), +s.position.z.toFixed(0)], area: s.userData.area, state: s.userData.state, y: +s.position.y.toFixed(2), vis: s.visible })) }, // 検証用：スズメの状態（home areaと表示）
-  _shopkeepers() { return shopkeepers.map((p) => ({ at: [+p.position.x.toFixed(0), +p.position.z.toFixed(0)], y: +p.position.y.toFixed(1), garment: p.userData.garment })) }, // 検証用：店番の位置・服
+  _shopkeepers() { return shopkeepers.map((p) => ({ at: [+p.position.x.toFixed(0), +p.position.z.toFixed(0)], y: +p.position.y.toFixed(1), garment: p.userData.garment, sweep: !!p.userData.sweep, faceX: +Math.sin(p.rotation.y).toFixed(2), faceZ: +Math.cos(p.rotation.y).toFixed(2) })) }, // 検証用：店番の位置・服・掃除か・向き(顔の方向)
   get _shootState() { return { t: +shootStar.t.toFixed(2), op: +shootStar.mat.uniforms.uOpacity.value.toFixed(3), vis: shootStar.pts.visible } }, // 検証用：流れ星の状態
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
