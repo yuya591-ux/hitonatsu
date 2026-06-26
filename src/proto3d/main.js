@@ -7235,6 +7235,22 @@ function makeDiaryPicture() {
     return c.toDataURL('image/png')
   } catch (e) { return null }
 }
+// 絵日記の「壁化」対策（D1）：カメラで撮った写真が無い時、寝た瞬間の生画面（壁/地面/暗がりになりがち）でなく、主人公を斜め上から見下ろす“思い出の一枚”を一時レンダして撮る。まわりの景色も入って壁のドアップにならない
+function renderDiaryView() {
+  try {
+    const cam = camera, sp = cam.position.clone(), sq = cam.quaternion.clone(), sf = cam.fov, sBoy = boy.visible, sFreeze = (typeof window !== 'undefined') && window.__freezeCam
+    boy.visible = true
+    const bx = boy.position.x, bz = boy.position.z, gy = heightAt(bx, bz), ang = boy.rotation.y + 2.4 // 斜め後ろ上から
+    if (typeof window !== 'undefined') window.__freezeCam = true // updateCameraに上書きされないよう一時固定
+    cam.position.set(bx + Math.sin(ang) * 4.2, gy + 5.6, bz + Math.cos(ang) * 4.2); cam.fov = 52; cam.updateProjectionMatrix() // やや俯瞰＝壁のドアップでなく主人公＋まわりの地面/景色が入る
+    cam.lookAt(new THREE.Vector3(bx, gy + 0.5, bz)); cam.updateMatrixWorld()
+    composer.render()
+    const pic = makeDiaryPicture()
+    cam.position.copy(sp); cam.quaternion.copy(sq); cam.fov = sf; cam.updateProjectionMatrix(); boy.visible = sBoy
+    if (typeof window !== 'undefined') window.__freezeCam = sFreeze
+    return pic
+  } catch (e) { return makeDiaryPicture() }
+}
 const badgeEl = document.getElementById('badge')
 function refreshBadge() { if (badgeEl) badgeEl.textContent = `なつやすみ ${day}にちめ` }
 refreshBadge()
@@ -7273,7 +7289,7 @@ function openDiary() {
     diaryPicEl.innerHTML = ''
     let pic = null
     try { if (photoMode && photoMode.newCount > 0) { pic = photoMode.latestPhoto(); photoMode.clearNew() } } catch (e) {}
-    if (!pic) pic = makeDiaryPicture()
+    if (!pic) pic = renderDiaryView() // カメラ写真が無い日は“思い出の一枚”を撮る（壁化を防ぐ・D1）
     if (pic) { const im = new Image(); im.src = pic; diaryPicEl.appendChild(im); diaryPicEl.style.display = 'block' }
     else diaryPicEl.style.display = 'none'
   }
