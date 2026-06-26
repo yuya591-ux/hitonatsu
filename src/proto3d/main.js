@@ -7477,7 +7477,8 @@ let pinchD = 0
 let camSnap = false // 主観⇄三人称の切替時だけカメラを瞬間移動させる（体の中を通り抜けて赤くにじむ“番組みたい”表示を防ぐ・ユーザー指摘2026-06-23）
 // ── 操作しないとボタン類がそっと消えて景色に没入できる（どのモード/視点でも・触れると戻る・ユーザー要望2026-06-23）──
 let lastInteract = performance.now()
-const IDLE_MS = 4500 // この秒数 何も触らないとHUDをフェードアウト
+const IDLE_MS = 4500 // この秒数 何も触らないとHUDをフェードアウト（鑑賞のため）
+let idleMs = IDLE_MS // 実際に使うしきい値。初見だけ長くする（ガイドを読み終えた直後に操作ボタンが消えて手詰まりにならないよう・UI/UX指摘2026-06-27）
 function pokeUI() { lastInteract = performance.now(); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle') }
 // 操作ボタンは pointerdown で即発火＝タッチの click 依存をやめる（移動スティック操作中でも2本目の指で確実に押せる＝マルチタッチ／フェード復帰後/横画面下端でも不発にならない・ユーザー指摘2026-06-26）。ゴーストclickは抑制し、キーボードEnter等のclickは通す
 function tapBtn(el, fn) { if (!el) return; let t = 0
@@ -8866,7 +8867,7 @@ renderer.setAnimationLoop(() => {
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   // 操作している間（スティック/上下ホールド/見回し）はHUDを消さない。何もしない時間が続いたらそっと消す
   if (puni.active || floatUp || floatDown || lookIds.size > 0) lastInteract = performance.now()
-  if (!titleView && performance.now() - lastInteract > IDLE_MS) document.body.classList.add('ui-idle')
+  if (!titleView && performance.now() - lastInteract > idleMs) { if (!document.body.classList.contains('ui-idle')) document.body.classList.add('ui-idle'); idleMs = IDLE_MS } // 一度フェードしたら以降は通常の4.5秒（初見の長い猶予は最初の1回だけ）
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
   if (floatMode && window.__updFlightHud) window.__updFlightHud() // 風船飛行のメーター更新
@@ -8908,10 +8909,11 @@ const startBtn = document.getElementById('t-start')
 const guideEl = document.getElementById('guide')
 const guideOk = document.getElementById('guide-ok')
 let seenGuide = false; try { seenGuide = localStorage.getItem('hn3d_guide') === '1' } catch (e) {}
-if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} })
+if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} pokeUI(); idleMs = 14000 }) // ガイドを閉じた直後は14秒HUDを出したまま＝初見が操作を確かめる時間（最初の1回だけ・以降4.5秒）
 if (startBtn) startBtn.addEventListener('click', () => {
   startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
   tday = 0.18; dayAuto = true; setTimeOfDay(0.18) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
+  pokeUI(); idleMs = 14000 // 始めた直後もHUDを長めに出す（ガイドを2回目以降スキップした人にも初見の猶予）
   if (!seenGuide && guideEl) { guideEl.classList.add('on'); seenGuide = true }
 })
 
