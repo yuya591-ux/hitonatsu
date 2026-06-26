@@ -5799,6 +5799,12 @@ const shootStar = (() => {
   return { pts, pos, mat, head: new THREE.Vector3(), dir: new THREE.Vector3(), t: -1 }
 })()
 let shootTimer = 14 + Math.random() * 30 // 次の流れ星までの秒（夜だけ減る）
+// ── 一番星（宵の明星）：夕暮れに西の空へ、満天の星より先にひとつだけ ぽつんと灯る（「一番星みつけた」H2・2026-06-26）──
+const eveningStar = (() => {
+  const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); const gr = x.createRadialGradient(24, 24, 0, 24, 24, 24); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,252,238,0.8)'); gr.addColorStop(0.55, 'rgba(255,250,235,0.25)'); gr.addColorStop(1, 'rgba(255,250,235,0)'); x.fillStyle = gr; x.beginPath(); x.arc(24, 24, 24, 0, 6.283); x.fill(); return new THREE.CanvasTexture(c) })()
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xfdf4e2, transparent: true, opacity: 0, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }))
+  s.scale.set(5, 5, 1); s.layers.set(1); s.visible = false; scene.add(s); return s // layer1でインク線の法線パスから除外
+})()
 // 蛍は水辺アンカー式の新システムへ（下記）＝プレイヤー追従ではなく池/川/谷の草地に定位し、個体ごとに明滅する
 // ── 雨上がりの虹（夏の夕立が上がると、空にそっと架かる）──
 const rainbow = new THREE.Group()
@@ -7815,6 +7821,12 @@ function update(dt) {
   moon.material.opacity = nf
   moonGlow.material.opacity = nf * 0.5
   stars.material.uniforms.uOpacity.value = nf; stars.material.uniforms.uTime.value = tsec // 夜にフェードイン＋星ごとにまたたく
+  // 一番星：満天の星(nf 0.72〜)より先に、夕暮れ(0.63〜)から西の空にひとつだけ ぽつんと灯る。夜更けにはやや薄れて満天になじむ
+  { const f = THREE.MathUtils.smoothstep(tday, 0.63, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.90, 0.99) * 0.5)
+    eveningStar.visible = f > 0.02
+    if (eveningStar.visible) { const az = 4.05, el = 0.4 // 西やや南・中ぐらいの高さ（宵の明星の方角）
+      eveningStar.position.set(camera.position.x + Math.cos(az) * Math.cos(el) * 360, camera.position.y + Math.sin(el) * 360, camera.position.z + Math.sin(az) * Math.cos(el) * 360)
+      eveningStar.material.opacity = f * (0.9 + 0.1 * Math.sin(tsec * 3.2)) } } // ほのかにまたたく
   // 流れ星：深い夜にときどき、高い空をすうっと尾を引いて流れて消える（点の尾でほうき星の形＝向き計算なしで常に正しい）
   { const ss = shootStar
     if (nf > 0.5 && ss.t < 0) { shootTimer -= dt
