@@ -8405,6 +8405,7 @@ function update(dt) {
 
 // 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
 let frameAcc = 0, nrtTick = 0 // nrtTick=法線/深度RTを2フレームに1回に間引く用
+const _prevCamPos = new THREE.Vector3(), _prevCamQuat = new THREE.Quaternion() // 前フレームのカメラ姿勢＝動いている時だけ法線RTを毎フレーム更新し輪郭の残像を防ぐ（2026-06-26）
 // タイトルの“はがき”カメラ：谷の町を高めの斜めから、ゆっくり左右に流す（入道雲・サンライズの丘・二ツ池へ下る谷が一望＝どんなゲームか伝わる絵）
 function titleCam() {
   const t = performance.now() * 0.001
@@ -8453,9 +8454,11 @@ renderer.setAnimationLoop(() => {
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
   if (floatMode && window.__updFlightHud) window.__updFlightHud() // 風船飛行のメーター更新
-  // インク線/被写界深度用の法線・深度RT＝シーンをもう一度描く重い処理。発熱対策で2フレームに1回だけ更新（インク/DOFは1フレーム遅れても穏やかな散歩では気づかない・2026-06-26）
+  // インク線/被写界深度用の法線・深度RT＝シーンをもう一度描く重い処理。カメラが動いている間は毎フレーム更新＝輪郭線が1フレーム遅れて二重・残像になる不具合を解消（ユーザー指摘2026-06-26）。完全に静止している時だけ2フレームに1回に間引く（発熱対策）
   nrtTick++
-  if ((inkPass.enabled || dofPass.enabled) && (nrtTick & 1)) { // 奇数フレームだけ＝半分の頻度
+  const camMoved = camera.position.distanceToSquared(_prevCamPos) > 1e-5 || Math.abs(camera.quaternion.dot(_prevCamQuat)) < 0.999995 || mode !== 'walk' || moving
+  _prevCamPos.copy(camera.position); _prevCamQuat.copy(camera.quaternion)
+  if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick & 1))) { // 動いている時は毎フレーム、静止中だけ半分の頻度＝残像なし＋静止時は発熱を抑える
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     renderer.setRenderTarget(normalRT); renderer.clear(); renderer.render(scene, camera)
     renderer.setRenderTarget(null); scene.overrideMaterial = null; camera.layers.enable(1)
