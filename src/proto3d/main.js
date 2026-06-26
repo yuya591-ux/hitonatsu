@@ -401,7 +401,8 @@ SEAT.y = heightAt(SEAT.x, SEAT.z)
 // ── レンダラ ──
 // antialias は EffectComposer 経由だと最終ブリットにしか効かず実質無駄なので切る（軽量化）
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true }) // 絵日記に画面を取り込むため
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)) // 発熱対策でさらに控えめ
+let pixelRatioCap = 1.25 // ピクセル比の上限（発熱対策）。軽量モード(C1 v2)では1.0に下げて描画画素を減らす＝resize()もこの上限を使う
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap)) // 発熱対策でさらに控えめ
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
 renderer.toneMapping = THREE.NeutralToneMapping
@@ -6445,7 +6446,7 @@ composer.addPass(inkPass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき）
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0）
   renderer.setSize(w, h)
   composer.setSize(w, h)            // EffectComposer内部の読み書きRT（全ポストプロセス）を追従
   bloom.setSize(w / 2, h / 2)       // ブルームは半解像度を維持
@@ -8928,7 +8929,7 @@ const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
 const setInkBtn = document.getElementById('set-ink')
-const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true } // BGM(オルゴール)は既定OFF＝常時BGMなしで環境音中心。設定でONにも戻せる（縁日/雨の音は別系統で常時有効）
+const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false } // light=軽量モード（既定OFF＝フル品質。重い端末でユーザーがONにすると線/ボケ/二重描画を省いて軽くする・C1 v2 2026-06-27）。BGM(オルゴール)は既定OFF＝環境音中心
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
@@ -8946,9 +8947,15 @@ function applySens() { // 見まわす はやさ（3段階）
   if (setSensBtn) { setSensBtn.textContent = step.label; setSensBtn.classList.add('on') }
 }
 function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { setMotionBtn.textContent = settings.motion ? 'ON' : 'OFF'; setMotionBtn.classList.toggle('on', settings.motion) } }
-function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）
-  inkPass.enabled = settings.ink
+function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）。軽量モード中は強制OFF
+  inkPass.enabled = settings.ink && !settings.light
   if (setInkBtn) { setInkBtn.textContent = settings.ink ? 'ON' : 'OFF'; setInkBtn.classList.toggle('on', settings.ink) }
+}
+function applyLight() { // 軽量モード（C1 v2）：ユーザー任意ON＝重い端末の保険。インク輪郭＋被写界深度を止める→「法線/深度RTへのシーン二重描画」(line~8875)が丸ごとスキップ＝描画コストほぼ半減。さらにピクセル比を1.0へ（描画画素を減らす）。既定OFF＝見た目不変
+  dofPass.enabled = !settings.light
+  pixelRatioCap = settings.light ? 1.0 : 1.25; try { resize() } catch (e) { try { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap)) } catch (e2) {} } // resizeでピクセル比＋コンポーザ/RTサイズをまとめて追従
+  applyInk() // インクは settings.ink && !light
+  const b = document.getElementById('set-light'); if (b) { b.textContent = settings.light ? 'ON' : 'OFF'; b.classList.toggle('on', settings.light) }
 }
 window.__applySound = applySound // startAudio から呼べるように
 if (setBtn) setBtn.addEventListener('click', () => settingsEl && settingsEl.classList.add('on'))
@@ -8963,6 +8970,8 @@ if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !setti
 if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEPS.findIndex((s) => Math.abs(s.v - settings.sens) < 0.01); settings.sens = SENS_STEPS[(i + 1) % SENS_STEPS.length].v; saveSettings(); applySens() }) // ひくい→ふつう→たかい
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
+const setLightBtn = document.getElementById('set-light')
+if (setLightBtn) setLightBtn.addEventListener('click', () => { settings.light = !settings.light; saveSettings(); applyLight(); showToast(settings.light ? '軽量モード ON（線とボケを省いて軽くしたよ）' : '軽量モード OFF（いつもの絵に もどしたよ）') })
 const setFpvBtn = document.getElementById('set-fpv')
 if (setFpvBtn) setFpvBtn.addEventListener('click', () => { toggleFpv(); if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。toggleFpvが全ボタン同期＋水平視線
 // はじまりの場所＝いま立っている所を開始地点として保存（つぎに始めるときここから／トップ画面もここを映す）。標準にもどすボタンつき。ユーザー要望2026-06-24
@@ -8981,7 +8990,7 @@ const villLabels = ['忠実', '中庸', '大胆']
 if (setVillageBtn) { setVillageBtn.textContent = villLabels[villageLevel] || '忠実'; setVillageBtn.classList.toggle('on', villageLevel > 0)
   setVillageBtn.addEventListener('click', () => { const nv = (villageLevel + 1) % 3; try { localStorage.setItem('hn3d_village', nv) } catch (e) {}
     const u = new URL(location.href); u.searchParams.delete('v'); u.searchParams.set('cb', Date.now()); location.replace(u.toString()) }) } // 保存して読み直し＝建物の生成からやり直す
-applyMotion(); applySound(); applyBgm(); applySens(); applyInk()
+applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight()
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
 {
