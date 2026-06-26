@@ -8641,16 +8641,18 @@ function titleCam() {
     camera.lookAt(camera.userData._look)
     return
   }
-  const cx = 3150, cz = -120 // 見つめる中心＝東の住宅街の屋根並み（建物1棟で塞がず“夏の田舎町”が伝わる絵に）
+  const cx = 3150, cz = -120, ly = 26 // 見つめる中心＝東の住宅街の屋根並み（建物1棟で塞がず“夏の田舎町”が伝わる絵に）
   const drift = Math.sin(t * 0.05) * 24 // ゆっくり左右に流れる“はがき”
   const px = 3275 + drift, pz = 18 // 南東の高所から北西の屋根並み・丘・入道雲を望む
   const py = heightAt(px, pz) + 74
   if (scene.fog) { scene.fog.near = 220; scene.fog.far = 1500 } // 遠景まで見せる（霞で隠さない）
+  // ケンバーンズ：注視点(屋根並み)へ向かって ごくゆっくり寄り引きする＝夕暮れのはがきが息づく映画的な導入（ユーザー要望「導入の演出」2026-06-26）
+  const zf = 0.85 + 0.15 * (0.5 + 0.5 * Math.cos(t * 0.06)) // 距離係数0.85〜1.0を約1.7分でゆっくり寄り引き（数十秒の表示でもそっと動くのが分かる・寄りすぎない）
   // ★ハードセット（lerpしない）＝updateが主人公向きにfov/視点を引っ張るのと毎フレーム取り合って“ビクビク”震えるのを解消（ユーザー指摘2026-06-23）
   camera.fov = 50; camera.updateProjectionMatrix()
-  camera.position.set(px, py, pz)
+  camera.position.set(cx + (px - cx) * zf, ly + (py - ly) * zf, cz + (pz - cz) * zf) // 注視点からの距離をzfでスケール＝なめらかなドリーズーム
   camera.userData._look = camera.userData._look || new THREE.Vector3()
-  camera.userData._look.set(cx, 26, cz)
+  camera.userData._look.set(cx, ly, cz)
   camera.lookAt(camera.userData._look)
 }
 renderer.setAnimationLoop(() => {
