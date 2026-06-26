@@ -410,6 +410,13 @@ renderer.toneMapping = THREE.NeutralToneMapping
 renderer.toneMappingExposure = 1.18
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap // やわらかい影のふち＝実写寄り（固定カメラで再描画は稀なのでコスト可）
+// WebGLコンテキストロスト対策（Engineer指摘2026-06-27）：モバイルでタブ復帰/GPUメモリ逼迫時にcontextが失われると、ハンドラ無しだとcanvasが永久に黒くなる（リロードするまで復帰不能）。
+// preventDefaultでブラウザに復帰を促し、復帰時（または短い猶予後）にreloadで全GPUリソースを作り直す＝確実にもどす。10行で黒画面永久死を回避。
+let __glLost = false
+canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); if (__glLost) return; __glLost = true
+  try { showToast('画面が とまっちゃった…すぐ もどすね。') } catch (e2) {}
+  setTimeout(() => { try { location.reload() } catch (e2) {} }, 1400) }, false) // 復帰イベントが来なくても開き直して必ずもどす
+canvas.addEventListener('webglcontextrestored', () => { try { location.reload() } catch (e) {} }) // 復帰したら確実に再構築
 
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0xdfeaf0, 58, 300) // 空気遠近（霞）。高台から見渡したとき手前〜中景が白く潰れないよう霞の開始を奥へ（38→58）＋到達も奥へ（178→300）＝より多くの景色が見える。遠景の山は引き続き溶ける
