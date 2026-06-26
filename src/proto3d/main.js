@@ -7520,8 +7520,10 @@ function update(dt) {
   if (yatoRiceShader) { yatoRiceShader.uniforms.uTime.value = tsec; yatoRiceShader.uniforms.uWind.value = wind } // 谷戸田の稲も夏風でしなる
   if (yatoReedShader) { yatoReedShader.uniforms.uTime.value = tsec; yatoReedShader.uniforms.uWind.value = wind } // 水際の葦も夏風でしなる
   if (windGain) { const ctx = listener.context, gust = THREE.MathUtils.clamp((wind - 0.32) / 0.95, 0, 1) // 揺れと同じwindで風の音も増減＝草木が鳴って世界が呼吸する（G1）
-    windGain.gain.setTargetAtTime(gust * gust * AUDIO.windVol * (1 - weather * 0.7), ctx.currentTime, 0.45) // 突風ほど葉ずれ「ザー」が増す（二乗で凪は無音に近く）・雨では控える
-    if (windLP) windLP.frequency.setTargetAtTime(420 + gust * 950, ctx.currentTime, 0.5) } // 突風で明るい葉ずれへ開く
+    let wg = gust * gust * AUDIO.windVol * (1 - weather * 0.7), wf = 420 + gust * 950 // 突風ほど葉ずれ「ザー」が増す（二乗で凪は無音に近く）・雨では控える
+    if (mode === 'sliding' && sliding) { const sp = THREE.MathUtils.clamp(sliding.v / 8, 0, 1); wg = Math.max(wg, 0.08 + sp * 0.22); wf = Math.max(wf, 900 + sp * 1300) } // すべり台＝滑るほど耳もとで風が「ぴゅう」と鳴る（日記の一文・小さい頃のあの感覚／既存の風ノードを流用＝新ノード無しで録音じじじを誘発しない）
+    windGain.gain.setTargetAtTime(wg, ctx.currentTime, mode === 'sliding' ? 0.12 : 0.45)
+    if (windLP) windLP.frequency.setTargetAtTime(wf, ctx.currentTime, mode === 'sliding' ? 0.15 : 0.5) } // 滑走中は速く追従して風が立ち上がる
   waterMat.uniforms.uTime.value = tsec // 水面のさざ波・きらめき
   { // 水面を時間帯になじませる（空を映し、夕は橙、夜は紺・暗く）
     const wnf = nightFactor(tday)
