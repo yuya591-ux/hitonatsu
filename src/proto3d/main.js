@@ -5626,6 +5626,18 @@ for (const [px, pz, fc, col, boyP] of [[TOWN.x - 7.7, TOWN.z + 20.7, 2.7, 0x8a6a
   const p = makeVillager(px, pz, { shirt: col, skirt: [0x3a4a6a, 0x8a6a4a, 0x46688a][Math.floor(Math.random() * 3)], skin: [0xf0c49c, 0xe8b890, 0xeab584][Math.floor(Math.random() * 3)], hair: boyP ? 0x2a2218 : 0x4a3a2e, boy: boyP, simple: true, adult: !boyP, face: fc, info: { name: '', byPhase: { noon: [''] } } })
   p.visible = false; yataiPatrons.push(p)
 }
+// ── 子どもたちのキャッチボール（夏休みの昼間・小学校の広場で遊ぶ子どもの群れ）C12・2026-06-26 ──
+const kidsCatch = (() => {
+  const ctr = [3072, -150] // 小学校の広場の東がわ（平らな空き地・池や飛び石を避けた開けたところ）
+  const mk = (px, pz, fx, fz, sh, sk, hr) => { const g = makeVillager(px, pz, { shirt: sh, skirt: 0x3a4a6a, skin: sk, hair: hr, boy: true, simple: false, adult: false, hat: false, hairStyle: 'short', garment: 'shorts', build: 0.9 + Math.random() * 0.12, headW: 0.96 + Math.random() * 0.08, eyeSc: 0.95 + Math.random() * 0.2, scale: 0.82 + Math.random() * 0.08, shoe: 0xcfcabd, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+    g.position.set(px, heightAt(px, pz), pz); g.rotation.y = Math.atan2(fx - px, fz - pz); return g } // fx,fz の方を向く
+  const A = [ctr[0] + 0.5, ctr[1] - 3], B = [ctr[0] - 0.5, ctr[1] + 3] // 約6m離れて向かい合う投げ手2人（南北に投げ合う＝東の道から弧が横に見える）
+  const a = mk(A[0], A[1], B[0], B[1], 0xe07a4a, 0xf0c49c, 0x2a2218) // 半袖の子
+  const b = mk(B[0], B[1], A[0], A[1], 0x4f86b0, 0xeab584, 0x35291c) // 青シャツの子
+  const w = mk(ctr[0] - 4.2, ctr[1] - 0.4, ctr[0], ctr[1], 0xe8d24a, 0xe8b890, 0x46371f) // 見ている子（試合の方を向く）
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.072, 10, 8), toon(0xeae0c0)); ball.castShadow = true; addOutline(ball, 0.012); scene.add(ball) // 白っぽいゴムボール
+  return { a, b, w, ball, A: [A[0], heightAt(A[0], A[1]), A[1]], B: [B[0], heightAt(B[0], B[1]), B[1]], t: Math.random(), from: 0 }
+})()
 
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
@@ -7801,6 +7813,20 @@ function update(dt) {
       const sw = Math.sin(p.userData.wph) * (ad ? 0.4 : 0.5); p.userData.legL.rotation.x = sw; p.userData.legR.rotation.x = -sw
       p.userData.armL.rotation.x = -sw * (ad ? 0.7 : 1); p.userData.armR.rotation.x = sw * (ad ? 0.7 : 1)
       p.userData.head.rotation.y *= 0.9
+    }
+  }
+  // 子どもたちのキャッチボール（昼間だけ・夜は帰る）C12・2026-06-26
+  { const kc = kidsCatch, day = tday > 0.12 && tday < 0.78
+    kc.a.visible = kc.b.visible = kc.w.visible = kc.ball.visible = day
+    if (day) { const dur = 1.5; kc.t += dt / dur
+      if (kc.t >= 1) { kc.t -= 1; kc.from = 1 - kc.from } // ボールが届いたら投げ手と受け手が入れ替わる
+      const fr = kc.from === 0 ? kc.A : kc.B, to = kc.from === 0 ? kc.B : kc.A, t = kc.t
+      kc.ball.position.set(fr[0] + (to[0] - fr[0]) * t, fr[1] + 0.85 + (to[1] - fr[1]) * t + Math.sin(Math.PI * t) * 1.3, fr[2] + (to[2] - fr[2]) * t) // 手の高さから山なりに飛ぶ
+      const thrower = kc.from === 0 ? kc.a : kc.b, catcher = kc.from === 0 ? kc.b : kc.a
+      const thA = -1.5 * Math.max(0, 1 - t * 5), caA = -1.25 * THREE.MathUtils.smoothstep(t, 0.5, 0.96) // 投げ手＝投げた直後だけ腕を前へ／受け手＝来るほど両腕を上げて構える
+      thrower.userData.armR.rotation.x = thA; thrower.userData.armL.rotation.x = thA * 0.4
+      catcher.userData.armR.rotation.x = caA; catcher.userData.armL.rotation.x = caA
+      kc.w.position.y = kc.w.userData.baseY + Math.abs(Math.sin(tsec * 2.2)) * 0.02 // 見ている子は軽く弾む
     }
   }
   // うろつく猫（縄張りのまわりを気ままに・休む）。獅子ヶ谷に複数匹
