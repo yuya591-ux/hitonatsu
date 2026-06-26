@@ -108,8 +108,7 @@
       body.ui-idle #act, body.ui-idle #npc, body.ui-idle #go, body.ui-idle #catch, body.ui-idle #fish,
       body.ui-idle #fl-up, body.ui-idle #fl-down, body.ui-idle #fl-zin, body.ui-idle #fl-zout, body.ui-idle #fl-speed, body.ui-idle #fl-fpv {
         pointer-events: auto !important; }
-      /* 自転車に乗っている間はジャンプボタンを隠す（出ているのに効かない＝混乱の元・ユーザー指摘2026-06-26） */
-      body.riding #jump { display: none !important; }
+      /* 自転車中もジャンプできる（走りながらぴょん・ユーザー要望2026-06-26）＝ジャンプボタンは出したまま */
       /* 横向きのおすすめ（縦持ちのスマホにだけ・やさしく・閉じれる） */
       #rotate { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); display: none;
         padding: 0.5em 1.2em; font-size: clamp(13px,3vw,18px); letter-spacing: 0.06em; color: #fdf7ec;
