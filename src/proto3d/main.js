@@ -7335,6 +7335,7 @@ if (diaryCancelEl) diaryCancelEl.addEventListener('click', () => { if (diaryOpen
 // ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
 let area = spawnPt.area || 'yato' // 開始エリア＝獅子ヶ谷の谷戸（サンライズ北寺尾の入口）。町/はらっぱへは門から往来（ユーザー要望2026-06-22）。「はじまりの場所」を保存していればそのエリアから始まる
 let titleView = true // タイトル表示中＝景色のいい“はがき”構図のカメラに（始めるで解除）。目の前に建物が映ってどんなゲームか分からない問題の対応（ユーザー要望2026-06-23）
+let titleReady = false // B⑩：最初の本描画が出るまで「はじめる」を無効化（じゅんびちゅう…）＝低速端末で初期化中に押せて手詰まりに見えるのを防ぐ
 let transitioning = false
 let autoWalk = null // 往来中の自動歩行 {x,z}（門をくぐって前進）
 const goEl = document.getElementById('go')
@@ -8872,7 +8873,9 @@ function titleCam() {
 }
 renderer.setAnimationLoop(() => {
   frameAcc += Math.min(clock.getDelta(), 0.1)
-  if (frameAcc < 1 / 30) return
+  // フレーム上限：通常は30fps。タイトル(はがき)中はカメラがごくゆっくり流れるだけなので18fpsに落とす＝
+  // 高い俯瞰で全域(約316万tri/フレーム)を描く重い構図を、表示時間が長いタイトルでスマホの発熱/電池に優しく（B⑩・far絞りはtri-8%で構図も痩せるため不採用＝近景が主因）
+  if (frameAcc < (titleView ? 1 / 18 : 1 / 30)) return
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
   if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'suspended') { try { listener.context.resume() } catch (e) {} } // suspendedからのみ自動復帰（!=='running'で毎フレームresumeするとiOS録画中の割り込みと競合して“じじじ”が悪化したため元に戻す・2026-06-24）
@@ -8901,7 +8904,16 @@ renderer.setAnimationLoop(() => {
     renderer.setRenderTarget(null); scene.overrideMaterial = null; camera.layers.enable(1)
   }
   composer.render()
+  if (!titleReady) { titleReady = true; markTitleReady() } // B⑩：本物の最初のフレームが出た＝「はじめる」を押せる状態に
 })
+
+// B⑩：初期化が終わって最初の絵が出たら、タイトルの「はじめる」を有効化（じゅんびちゅう…→はじめる）。
+// 万一ループ初描画が来ない異常時の保険として、起動から十分経ったら強制的に有効化する。
+function markTitleReady() {
+  const b = document.getElementById('t-start')
+  if (b) { b.disabled = false; b.removeAttribute('aria-busy'); b.textContent = 'はじめる' }
+}
+setTimeout(() => { if (!titleReady) { titleReady = true; markTitleReady() } }, 8000) // 保険：8秒で必ず押せるように
 
 // 写真モード（平成レトロ画質）を起動。既存には触れず、上に乗せるだけ。
 const photoMode = initPhotoMode({ renderer, getDay: () => day, playShutter })

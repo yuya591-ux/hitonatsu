@@ -172,7 +172,9 @@
         text-indent: 0.3em; color: #fffaf0; text-shadow: 0 2px 14px rgba(30,30,40,0.65); }
       #t-start { appearance: none; border: none; cursor: pointer; padding: 0.7em 2.4em; font-size: clamp(16px,3vw,22px);
         font-family: inherit; color: #4a4032; background: rgba(255,250,240,0.9); border-radius: 999px;
-        box-shadow: 0 4px 16px rgba(120,100,70,0.3); }
+        box-shadow: 0 4px 16px rgba(120,100,70,0.3); transition: opacity 0.5s ease; }
+      /* B⑩：読み込み中は「じゅんびちゅう…」を淡く・押せない見た目に（準備が終わると「はじめる」へ） */
+      #t-start:disabled { cursor: default; opacity: 0.5; color: #6a6051; box-shadow: 0 2px 8px rgba(120,100,70,0.2); }
       .t-hint { margin-top: 1.5em; font-size: clamp(11px,2.4vw,15px); color: #e8dcc6; }
       /* せってい（⚙） */
       #set-btn { left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + env(safe-area-inset-top)); appearance: none; border: none; cursor: pointer; width: 44px; height: 44px;
@@ -460,7 +462,7 @@
       <div class="title-inner">
         <p class="t-sub">― 昭和の夏の、ある数日 ―</p>
         <h1 class="t-main">ひと夏の一日</h1>
-        <button id="t-start">はじめる</button>
+        <button id="t-start" disabled aria-busy="true">じゅんびちゅう…</button>
         <p class="t-hint">指でスライドして歩く ／ 横画面・音を出してお楽しみください</p>
       </div>
     </div>
