@@ -5684,6 +5684,20 @@ const stars = (() => {
   const pts = new THREE.Points(g, starMat) // 丸い星＋per-starまたたき（A8・2026-06-26）
   pts.layers.set(1); scene.add(pts); return pts // 星はインク線の法線パスから除外（昼は透明でも法線パスは不透明で描かれ、空に四角が散る不具合）
 })()
+// ── 流れ星（夏の夜に、ときどき すうっと尾を引いて流れる。点の尾で“ほうき星”の形に＝向きの計算なしでいつでも正しく見える）2026-06-26 ──
+const shootStar = (() => {
+  const TRAIL = 14, pos = new Float32Array(TRAIL * 3), aA = new Float32Array(TRAIL)
+  for (let i = 0; i < TRAIL; i++) aA[i] = i / (TRAIL - 1) // 尾(0)→頭(1)
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('aA', new THREE.BufferAttribute(aA, 1))
+  const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); const gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.beginPath(); x.arc(16, 16, 16, 0, 6.283); x.fill(); return new THREE.CanvasTexture(c) })()
+  const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+    uniforms: { uOpacity: { value: 0 }, uTex: { value: tex }, uSize: { value: 9 }, uPix: { value: Math.min(window.devicePixelRatio || 1, 1.25) } },
+    vertexShader: `attribute float aA; varying float vA; uniform float uSize, uPix; void main(){ vA = aA; gl_PointSize = uSize * uPix * (0.35 + 0.65 * aA); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `varying float vA; uniform sampler2D uTex; uniform float uOpacity; void main(){ vec4 t = texture2D(uTex, gl_PointCoord); gl_FragColor = vec4(t.rgb, t.a * vA * vA * uOpacity); }` })
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.layers.set(1); pts.visible = false; scene.add(pts)
+  return { pts, pos, mat, head: new THREE.Vector3(), dir: new THREE.Vector3(), t: -1 }
+})()
+let shootTimer = 14 + Math.random() * 30 // 次の流れ星までの秒（夜だけ減る）
 // 蛍は水辺アンカー式の新システムへ（下記）＝プレイヤー追従ではなく池/川/谷の草地に定位し、個体ごとに明滅する
 // ── 雨上がりの虹（夏の夕立が上がると、空にそっと架かる）──
 const rainbow = new THREE.Group()
@@ -7695,6 +7709,21 @@ function update(dt) {
   moon.material.opacity = nf
   moonGlow.material.opacity = nf * 0.5
   stars.material.uniforms.uOpacity.value = nf; stars.material.uniforms.uTime.value = tsec // 夜にフェードイン＋星ごとにまたたく
+  // 流れ星：深い夜にときどき、高い空をすうっと尾を引いて流れて消える（点の尾でほうき星の形＝向き計算なしで常に正しい）
+  { const ss = shootStar
+    if (nf > 0.5 && ss.t < 0) { shootTimer -= dt
+      if (shootTimer <= 0) { shootTimer = 20 + Math.random() * 55 // 次まで20〜75秒
+        const az = (ss.forceAz != null ? ss.forceAz : Math.random() * 6.283), el = 0.6 + Math.random() * 0.5; ss.forceAz = null
+        ss.head.set(camera.position.x + Math.cos(az) * Math.cos(el) * 200, camera.position.y + 60 + Math.sin(el) * 150, camera.position.z + Math.sin(az) * Math.cos(el) * 200)
+        ss.dir.set(Math.cos(az + 2.1), -0.45 - Math.random() * 0.4, Math.sin(az + 2.1)).normalize()
+        for (let i = 0; i < ss.pos.length; i += 3) { ss.pos[i] = ss.head.x; ss.pos[i + 1] = ss.head.y; ss.pos[i + 2] = ss.head.z } // 尾を頭の位置で初期化＝点から尾が伸びる
+        ss.t = 0; ss.pts.visible = true } }
+    else if (ss.t >= 0) { ss.t += dt; const dur = 1.0
+      if (ss.t >= dur) { ss.t = -1; ss.pts.visible = false; ss.mat.uniforms.uOpacity.value = 0 }
+      else { ss.head.addScaledVector(ss.dir, dt * 95) // 頭が流れる
+        const P = ss.pos, N = P.length / 3; for (let i = 0; i < N; i++) { const back = (N - 1 - i) * 3.0; P[i * 3] = ss.head.x - ss.dir.x * back; P[i * 3 + 1] = ss.head.y - ss.dir.y * back; P[i * 3 + 2] = ss.head.z - ss.dir.z * back } // 頭から一定間隔で後ろへ点を並べる＝fpsに依存しない なめらかな尾（ほうき星）
+        ss.pts.geometry.attributes.position.needsUpdate = true
+        ss.mat.uniforms.uOpacity.value = Math.sin(ss.t / dur * Math.PI) * 0.95 * nf } } } // ふっと出て消える
   // 蛍の明滅・漂いは下段（townNightLightsの後）の水辺アンカー式で更新する
   // 田舎家の窓あかり（夕方からともり、夜も灯る＝遠くの灯）
   const homeLit = THREE.MathUtils.smoothstep(tday, 0.6, 0.74)
@@ -8837,6 +8866,8 @@ window.__proto3d = {
   get _slideState() { return sliding ? { s: +sliding.s.toFixed(1), v: +sliding.v.toFixed(1), pov: sliding.pov, mode } : { mode } }, // 検証用：滑走状態
   _slidePov(p) { if (sliding) sliding.pov = p }, // 検証用：滑走の視点を直接セット
   _slideSeek(s) { if (sliding) sliding.s = s }, // 検証用：滑走の弧長位置を直接セット（着地テスト用）
+  _shoot(az) { shootTimer = 0; if (az != null) shootStar.forceAz = az }, // 検証用：次フレームで流れ星を発生（夜のみ）。azで方位を固定（実画確認用）
+  get _shootState() { return { t: +shootStar.t.toFixed(2), op: +shootStar.mat.uniforms.uOpacity.value.toFixed(3), vis: shootStar.pts.visible } }, // 検証用：流れ星の状態
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
   _windInfo() { return windGain ? { started: windStarted, gain: +windGain.gain.value.toFixed(4), freq: windLP ? Math.round(windLP.frequency.value) : 0 } : { started: windStarted } }, // 検証用：風の音ノードの状態
