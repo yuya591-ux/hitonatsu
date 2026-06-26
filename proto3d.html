@@ -52,11 +52,14 @@
         border-radius: 999px; display: none; }
       /* ── 下部中央のドック：移動/くつろぎのトグルを一列にまとめる（ねころぶ・🚲・🎈）＝散らからない ── */
       #dock { left: 50%; bottom: calc(5% + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 10px; align-items: flex-end; z-index: 6; }
+      /* ドックの各ボタンは「絵＋小さな言葉」で統一＝🚲🎈📷が何か一目で分かる（UX見直し2026-06-26） */
       #dock > button { position: static; appearance: none; border: none; cursor: pointer; font-family: inherit; color: #4a4032;
-        background: rgba(255,250,240,0.92); border-radius: 999px; box-shadow: 0 4px 14px rgba(120,100,70,0.3); }
-      #dock #lie { padding: 0.55em 1.2em; font-size: clamp(14px,2.6vw,18px); }
-      #dock #bike, #dock #float, #dock #fpvbtn { padding: 0.45em 0.85em; font-size: clamp(17px,3.2vw,22px); line-height: 1; }
-      #dock #bike:active, #dock #float:active, #dock #lie:active, #dock #fpvbtn:active { transform: scale(0.93); }
+        background: rgba(255,250,240,0.92); border-radius: 18px; box-shadow: 0 4px 14px rgba(120,100,70,0.3);
+        display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.04; padding: 0.42em 0.7em; min-width: 3.4em; }
+      #dock > button b { font-size: clamp(17px,3.2vw,21px); font-style: normal; }
+      #dock > button i { font-size: clamp(9px,1.8vw,11px); font-style: normal; color: #6a5e4a; letter-spacing: 0.02em; }
+      #dock > button:active { transform: scale(0.93); }
+      #bike.on i, #float.on i, #fpvbtn.on i { color: rgba(255,255,255,0.92); }
       #bike.on { background: rgba(122,168,106,0.95); color: #fff; }
       #float.on { background: rgba(120,150,200,0.95); color: #fff; }
       #fpvbtn.on { background: rgba(120,150,200,0.95); color: #fff; }
@@ -335,7 +338,7 @@
     <button id="zin" class="hud zbtn">＋</button>
     <button id="zout" class="hud zbtn">－</button>
     <button id="act" class="hud">すわる</button>
-    <div id="dock" class="hud"><button id="lie">ねころぶ</button><button id="bike">🚲</button><button id="float">🎈</button><button id="fpvbtn" aria-label="主観視点">📷</button></div>
+    <div id="dock" class="hud"><button id="lie"><b>🌿</b><i>ねころぶ</i></button><button id="bike" aria-label="じてんしゃ"><b>🚲</b><i>のる</i></button><button id="float" aria-label="ふわり とぶ"><b>🎈</b><i>とぶ</i></button><button id="fpvbtn" aria-label="主観視点"><b>📷</b><i>しゅかん</i></button></div>
     <button id="fl-up" class="hud">▲<br>うく</button>
     <button id="fl-down" class="hud">▼<br>おりる</button>
     <button id="fl-zin" class="hud">＋</button>
