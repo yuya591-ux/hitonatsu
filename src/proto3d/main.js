@@ -5287,6 +5287,39 @@ Object.assign(cat.userData, { tx: CAT_HOME.x, tz: CAT_HOME.z, rest: 2000, phase:
 const cats = [cat]
 for (const [hx, hz, fc, cc] of [[2758, -150, 0x8a8a80, 0xe2e0d6], [3055, -110, 0x2c2826, 0xf0ece2]]) { // サバ猫(商店街)・黒白猫(核のあたり)
   const c = makeCat(fc, cc); c.position.set(hx, heightAt(hx, hz), hz); Object.assign(c.userData, { tx: hx, tz: hz, rest: 1500 + Math.random() * 3500, phase: 0, homeX: hx, homeZ: hz }); cats.push(c) }
+// ── 番犬（犬小屋のそばで しっぽを振り、たまに吠える垂れ耳の犬）＝住宅街の生活感（鳴き声だけだったのに姿を。B4②・2026-06-26）。繋がれた番犬＝道/水に迷い込まない ──
+function makeDog(furCol, creamCol) {
+  const g = new THREE.Group()
+  const fur = toon(furCol || 0xc89b62), cream = toon(creamCol || 0xf0e6d2)
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.36, 14, 12), fur); body.scale.set(1.6, 0.92, 0.98); body.position.y = 0.5; g.add(body); g.userData.body = body
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), cream); chest.scale.set(0.8, 1, 0.85); chest.position.set(0.5, 0.42, 0); g.add(chest)
+  const head = new THREE.Group(); head.position.set(0.58, 0.74, 0); g.add(head); g.userData.head = head // 頭はグループ＝吠える時に上を向く
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 12), fur))
+  { const sn = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), cream); sn.scale.set(1.25, 0.8, 0.85); sn.position.set(0.28, -0.06, 0); head.add(sn) } // 鼻面（前へ）
+  for (const ez of [-0.2, 0.2]) { const ear = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), fur); ear.scale.set(0.5, 1.15, 0.85); ear.position.set(-0.04, 0.04, ez); ear.rotation.x = ez > 0 ? 0.2 : -0.2; head.add(ear) } // 垂れ耳
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.04, 0.52, 6), fur); tail.geometry.translate(0, 0.26, 0); tail.position.set(-0.62, 0.6, 0); tail.rotation.z = 1.0; g.add(tail); g.userData.tail = tail // 上向きのしっぽ（根元支点で振る）
+  for (const [lx, lz] of [[0.42, 0.26], [0.42, -0.26], [-0.42, 0.26], [-0.42, -0.26]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.07, 0.52, 6), fur); leg.position.set(lx, 0.26, lz); g.add(leg); const paw = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), cream); paw.position.set(lx, 0.03, lz); g.add(paw) }
+  { const col = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.045, 6, 14), toon(0xb5462f)); col.position.set(0.46, 0.56, 0); col.rotation.y = Math.PI / 2; col.scale.set(1, 0.8, 1); g.add(col) } // 赤い首輪
+  g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く犬も残像防止
+  outlineObj(g, 0.024); addContactShadow(g, 0.85)
+  // 顔（輪郭線の後・フチ無し）：目・鼻
+  for (const ez of [-0.12, 0.12]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: 0x2a2018 })); e.position.set(0.18, 0.08, ez); head.add(e); const hi = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); hi.position.set(0.214, 0.10, ez + (ez > 0 ? 0.012 : -0.012)); head.add(hi) }
+  { const nose = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), new THREE.MeshBasicMaterial({ color: 0x2a2018 })); nose.position.set(0.47, 0.0, 0); head.add(nose) }
+  scene.add(g)
+  return g
+}
+const makeKennel = (x, z, rot) => { const g = new THREE.Group(), wood = toon(0xa9885c), wood2 = toon(0x8f6f48)
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.72, 1.0), wood)).position.y = 0.36
+  { const r = new THREE.Mesh(new THREE.ConeGeometry(0.86, 0.5, 4), wood2); r.position.y = 0.97; r.rotation.y = Math.PI / 4; g.add(r) } // 寄棟っぽい屋根
+  { const h = new THREE.Mesh(new THREE.CircleGeometry(0.28, 14), toon(0x241f18)); h.position.set(0, 0.34, 0.501); g.add(h) } // 入口の穴
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); mergedOutline(g, 0.02); placeProp(g, x, z, rot, 0, 0.7) }
+const dogs = []
+// 住宅街の歩く所ぞいに番犬＋犬小屋（毛色ちがい）。各=｛犬, 犬小屋, 向き｝。位置は道/水を避けた家のそば
+for (const [dx, dz, rot, fc, cc] of [[2952, -64, 2.2, 0xc89b62, 0xf0e6d2], [3086, -150, -1.0, 0x6b5640, 0xe8ddc8]]) {
+  const d = makeDog(fc, cc); const gy = heightAt(dx, dz); d.position.set(dx, gy, dz); d.rotation.y = rot
+  makeKennel(dx - Math.cos(rot) * 1.2, dz - Math.sin(rot) * 1.2, rot + Math.PI) // 犬小屋は犬の後ろ
+  Object.assign(d.userData, { bark: 4 + Math.random() * 8, barkT: 0, ph: Math.random() * 6.28 }); dogs.push(d)
+}
 
 // ── 主人公（丸っこく立体的な少年・麦わら帽子。あどけない頭でっかちの体つき）──
 // ※特定作品のキャラ・顔の模倣はしない。素朴で可愛い普遍的なトゥーン顔。
@@ -8047,6 +8080,14 @@ function update(dt) {
     ct.position.y = heightAt(ct.position.x, ct.position.z) + (!resting ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
     if (u.body) { const br = resting ? Math.sin(tsec * 1.6 + ci) * 0.03 : 0; u.body.scale.set(1.45, 0.86 * (1 + br), 0.92 * (1 + br * 0.6)) } // 休む間はゆっくり呼吸（胴がふくらむ）＝くつろぎ
     if (u.tail) u.tail.rotation.z = -1.0 + Math.sin(tsec * (resting ? 1.4 : 2.5) + ci * 1.3) * (resting ? 0.16 : 0.28) // 休む時は尾もゆっくり・歩く時は元気に
+  }
+  // 番犬：その場でしっぽを振り、たまに頭を上げて吠える（繋がれているので動かない・道/水に迷い込まない）
+  for (const dg of dogs) { const u = dg.userData
+    u.bark -= dt; if (u.bark <= 0) { u.bark = 7 + Math.random() * 11; u.barkT = 0.7 } // 数秒おきに一吠え
+    const barking = u.barkT > 0; if (barking) u.barkT -= dt
+    const up = barking ? Math.sin((1 - u.barkT / 0.7) * Math.PI) : 0 // 0→1→0で頭を上げて戻す
+    if (u.head) u.head.rotation.z = 0.5 * up // 鼻面を上げて吠える
+    if (u.tail) u.tail.rotation.z = 1.0 + Math.sin(tsec * (barking ? 16 : 6) + u.ph) * (barking ? 0.5 : 0.35) // 吠える時はしっぽ激しく・普段もぶんぶん
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
