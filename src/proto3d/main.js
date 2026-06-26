@@ -8885,6 +8885,13 @@ if (startBtn) startBtn.addEventListener('click', () => {
 
 // ── せってい（おと・モーション軽減）。localStorage に永続化 ──
 const settingsEl = document.getElementById('settings')
+// A4：開発ツール（飛行/ばしょマップ/ビエント）を本番の設定画面から隠す＝商品の手ざわり。localhost か ?dev か localStorage の時だけ表示（body.dev-on）。ユーザーは飛行を使うので「せってい」見出しの5連打 か ?dev=1 で簡単に出せる（持続）
+;(() => { try { const q = new URLSearchParams(location.search); if (q.has('dev')) localStorage.setItem('hn3d_dev', q.get('dev') === '0' ? '0' : '1')
+  const dev = /localhost|127\.0\.0\.1/.test(location.hostname) || localStorage.getItem('hn3d_dev') === '1'
+  if (dev) document.body.classList.add('dev-on')
+  const title = settingsEl && settingsEl.querySelector('h2'); let taps = 0, tapT = 0 // 「せってい」見出しを5回タップ＝開発モードのON/OFF（URL無しでも出せる隠しジェスチャ）
+  if (title) title.addEventListener('click', () => { const now = performance.now(); if (now - tapT > 1200) taps = 0; tapT = now; if (++taps >= 5) { taps = 0; const on = document.body.classList.toggle('dev-on'); localStorage.setItem('hn3d_dev', on ? '1' : '0'); showToast(on ? '開発ツールを表示しました' : '開発ツールを隠しました') } })
+} catch (e) {} })()
 const setBtn = document.getElementById('set-btn')
 const setSoundBtn = document.getElementById('set-sound')
 const setBgmBtn = document.getElementById('set-bgm')

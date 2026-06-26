@@ -200,6 +200,8 @@
       .set-dev-h { font-size: 11px; color: #9a8f78; letter-spacing: 0.12em; margin: 0 0 0.2em; }
       .set-dev .set-row { font-size: clamp(12px,2.4vw,14px); margin: 0.35em 0; }
       .set-dev .set-toggle { min-width: 64px; padding: 0.3em 0.7em; font-size: clamp(11px,2.2vw,13px); }
+      .set-dev { display: none; } /* A4：開発ツールは本番では隠す。body.dev-on（タイトル5連打 or ?dev=1）の時だけ表示 */
+      body.dev-on .set-dev { display: block; }
       .set-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin: 0.7em 0;
         font-size: clamp(15px,3vw,19px); color: #3b3024; }
       .set-toggle { appearance: none; border: none; cursor: pointer; min-width: 84px; padding: 0.4em 1em; border-radius: 999px;
@@ -402,10 +404,10 @@
         <div class="set-row"><span>主観視点（一人称で見わたす）</span><button class="set-toggle" id="set-fpv">OFF</button></div>
         <div class="set-row"><span>はじまりの場所（いまいる所にする）</span><button class="set-toggle" id="set-spawn">ここにする</button></div>
         <div class="set-row"><span>はじまりの場所を 標準にもどす</span><button class="set-toggle" id="set-spawn-reset">もどす</button></div>
-        <!-- 開発・実験用：ふだんは目立たないよう小さく薄く下にまとめる（残すが前に出さない・ユーザー要望2026-06-24） -->
+        <div class="set-row"><span>むかしの田舎に寄せる（実験・いつでも戻せます）</span><button class="set-toggle" id="set-village">忠実</button></div>
+        <!-- 開発・実験用：本番では隠す（A4＝商品の設定画面に開発ツールを出さない）。残置はするが、表示は「せってい」の見出しを5回タップ か ?dev=1 のときだけ（body.dev-on）。ユーザーは飛行モードを使うので簡単に出せるようにする -->
         <div class="set-dev">
           <div class="set-dev-h">― 開発・実験用 ―</div>
-          <div class="set-row"><span>むかしの田舎に寄せる（実験・いつでも戻せます）</span><button class="set-toggle" id="set-village">忠実</button></div>
           <div class="set-row"><span>🗺 ばしょマップ（場所をつたえる）</span><button class="set-toggle" id="set-map">ひらく</button></div>
           <div class="set-row"><span>🏢 ビエント横濱菊名へ（確認用）</span><button class="set-toggle" id="set-biento" style="background:#c8956a">いく</button></div>
           <div class="set-row"><span>✈ 飛んでみる（開発用）</span><button class="set-toggle" id="set-fly">とぶ</button></div>
