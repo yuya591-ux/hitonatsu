@@ -834,8 +834,13 @@ const waterMat = new THREE.ShaderMaterial({
       float d = distance(vUv, vec2(0.5)) * 2.0;
       bool noUV = d > 1.2; // UVの無い多角形の池(三ツ池/二ツ池等＝vUv=0でdが1.41になる)。岸ほど淡くする d依存と岸の泡をオフ＝全面に泡が出て縞になる不具合を回避（2026-06-26）
       vec3 col = noUV ? mix(deep, shallow, 0.5) : mix(deep, shallow, smoothstep(0.4, 1.0, d)); // 多角形池は中庸の水色／円形池は岸ほど淡く
-      // 浅い角度で見た水面は、1画素が広い距離を跨いでさざ波の細部がパースで潰れ＝縞/モアレになる。視線の角度(graze)と距離(prox)でゆらぎを減衰し、浅い角度・遠くは穏やかな鏡面に（縞模様の根治・2026-06-26）
       vec3 vDir = normalize(cameraPosition - vW); // 水面→カメラの視線
+      // フレネル＝低い角度ほど空をよく映す鏡面反射（物理的に正しい）。浅い角度で“濃緑のフェルト”になっていたのを、空色の水鏡に（B⑨2026-06-27）。多角形池(noUV)にも効く
+      float fres = pow(1.0 - clamp(vDir.y, 0.0, 1.0), 3.0);
+      vec3 skyRefl = sky * (0.82 + 0.34 * fbm(vW.xz * 0.16 + vec2(uTime * 0.04, uTime * 0.03))); // 空の映り込みにゆるい揺らぎ＝鏡面が呼吸する
+      col = mix(col, skyRefl, fres * 0.72);
+      col += glint * 0.5 * smoothstep(0.72, 0.98, fbm(vW.xz * 0.42 + vec2(uTime * 0.2, -uTime * 0.16))) * fres; // 低い角度でも太陽のきらめきの筋（フレネルで効かせる＝水鏡の明るい帯）
+      // 浅い角度で見た水面は、1画素が広い距離を跨いでさざ波の細部がパースで潰れ＝縞/モアレになる。視線の角度(graze)と距離(prox)でゆらぎを減衰し、浅い角度・遠くは穏やかな鏡面に（縞模様の根治・2026-06-26）
       float graze = smoothstep(0.12, 0.45, vDir.y); // 浅い角度ほど0＝穏やかな鏡面、上から覗き込むほどさざ波が見える（パースで潰れる細部のモアレを抑える）
       float prox = (1.0 - smoothstep(14.0, 70.0, distance(vW, cameraPosition))) * graze;
       // さざ波のきらめき＝ノイズ(fbm)ベース＝周期が無く、浅い角度でパースに潰れても規則的な縞模様にならない（ユーザー指摘の水面の縞を根治・2026-06-26）
