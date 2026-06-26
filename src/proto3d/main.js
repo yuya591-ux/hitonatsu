@@ -12,6 +12,7 @@ import { loadAudioUrls } from '../data/audioAssets.js'
 import { SG } from './shishigaya-data.js' // 実データ由来の獅子ヶ谷（国土地理院DEM＋OSM）。中心(サンライズ)=game(3000,0)
 import boyImgUrl from './boy.png' // 主人公＝手描き水彩画（作者オリジナル）をビルボードで立てる
 import { initPhotoMode } from './photo.js' // 写真モード（平成レトロ画質）＝独立モジュール（足すだけ）
+import { smoothstep01, pip } from './util.js' // 純粋ユーティリティ（C3 段階的リファクタの第一歩＝回帰リスクのない関数を切り出し）
 
 const canvas = document.getElementById('c')
 const actBtn = document.getElementById('act')
@@ -66,7 +67,7 @@ function pushOutOfColliders(px, pz) {
 }
 let swingSeat = null, swingPhase = 0, swingAmp = 0.3, swingCreakN = 0 // 振り子の状態（CreakNはきしみ音の折り返し検出）
 let slideRide = null, sliding = null // ローラーすべり台：slideRide={curve,total,topXZ,botXZ,width}／sliding={u,v}=滑走中の弧長位置と速度
-const smoothstep01 = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
+// smoothstep01 は ./util.js へ切り出し（C3）
 const PLATEAU_Y = 23 // マンションの丘の上の台地の高さ（サンライズ/南の公園を平らに据える地ならし。heightAtで使用）。15→23＝坂をさらに登った分高く（ユーザー要望2026-06-19）
 const SCHOOL_DY = 2 // 小学校ぜんたい（校舎/広場/校庭/体育館/プール/盆踊り…）の底上げ量。地形パッド(sk/yk/bpk)とmakeSchool内の手書き高さ(gy/ply/y0)を一緒に持ち上げる（ユーザー要望2026-06-19）
 // ── サンライズ(マンション)の屋上＋外階段：プレイヤーが“建物の上に乗る”ための高さ。台地+基礎+7階。屋上を歩け、東面の階段で登れる ──
@@ -1642,7 +1643,7 @@ const YUKATA_PATTERNS = (() => { const mk = (draw) => { const c = document.creat
   ]
 })()
 // ───────── 新エリア『獅子ヶ谷』＝実データ生成（国土地理院DEM5A＋OpenStreetMap）。中心サンライズ北寺尾=game(3000,0)・実標高・実建物/実道/実池 ─────────
-const pip = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const xi = poly[i][0], zi = poly[i][1], xj = poly[j][0], zj = poly[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) c = !c } return c } // 点が多角形内か
+// pip（点が多角形内か）は ./util.js へ切り出し（C3）
 function fanPoly(p, vArr, iArr, yfn, off) { // 多角形を扇状に三角形分割（vArr/iArrへ追記）。yfn(cx,cz)=面の高さ
   let cx = 0, cz = 0; for (const q of p) { cx += q[0]; cz += q[1] } cx /= p.length; cz /= p.length; const y = yfn(cx, cz), base = off.n
   let area = 0; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; area += a[0] * b[1] - b[0] * a[1] } // 符号付き面積＝巻き方向。時計回り(負)だと扇の法線が下を向き、裏面カリングで池/緑が消える
