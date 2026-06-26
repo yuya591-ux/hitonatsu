@@ -5218,7 +5218,7 @@ const PROP = {
   shoulderY: 1.30, upperArm: 0.30, fore: 0.29, armR: 0.05,     // 腕：長くまっすぐ・細い
   waistY: 0.84, chestY: 1.18, torsoTopR: 0.132, torsoBotR: 0.112, // 胴：縦長・すっきり（ずんぐり解消）
   neckY: 1.37, headY: 1.575, headR: 0.145, headSX: 1.05, headSY: 1.12, headSZ: 1.03, // 頭：小さめ＝頭身を上げる
-  eyeR: 0.036, eyeX: 0.058, eyeY: 0.014, eyeZ: 0.122, irisRatio: 0.66, // 目：少し大きく・黒目もやや大きく＝表情が生きる（帽子のつばで陰になりがちな顔でも目が分かる・品質向上2026-06-26）。素朴さは保ち、アニメ目にはしない
+  eyeR: 0.0315, eyeX: 0.057, eyeY: 0.012, eyeZ: 0.12, irisRatio: 0.6, // 目：小さめで繊細・素朴（ユーザー要望2026-06-26「もっと控えめに」＝ほぼ元の小さめへ戻す。黒目を小さく＝白目とのバランスを自然に）
   hair: 0x6e4d34, hairTop: 0.37, hairExtent: 0.32, hairY: 0.0, hairTilt: -0.05, // 髪：色・帯の開始(髪の上端をつばより下に＝つばのひさしが隠す＝クラウンから突き出ない)・帯の長さ・高さ・ごく控えめな後傾
   hatBrim: 0.27, hatBrimY: 0.096, hatCap: 0.15, hatCapY: 0.096, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)。つばを少し上げ前髪の居場所を作る
 }
@@ -8706,6 +8706,7 @@ addEventListener('pointerdown', function lockOnce() {
 // タイトル画面：「はじめる」で消えて、音を立ち上げる（iOSの自動再生制限への先回り）
 const titleEl = document.getElementById('title')
 document.body.classList.add('titling') // タイトル中は遊びのHUD(ねる/バッジ/⚙/ヒント)を隠す＝はがき構図に集中
+tday = 0.72; dayAuto = false; setTimeOfDay(0.72) // タイトルは“夏の夕暮れ”のマジックアワーで見せる＝いちばん美しい時間・ノスタルジックな導入（ユーザー要望「導入の演出」2026-06-26）。はじめるで朝(0.18)へ戻す
 const startBtn = document.getElementById('t-start')
 // 初回だけ「あそびかた」を出す（操作の入口をやさしく）。2回目以降は出さない。
 const guideEl = document.getElementById('guide')
@@ -8714,6 +8715,7 @@ let seenGuide = false; try { seenGuide = localStorage.getItem('hn3d_guide') === 
 if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} })
 if (startBtn) startBtn.addEventListener('click', () => {
   startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
+  tday = 0.18; dayAuto = true; setTimeOfDay(0.18) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
   if (!seenGuide && guideEl) { guideEl.classList.add('on'); seenGuide = true }
 })
 
