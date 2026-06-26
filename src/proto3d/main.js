@@ -6196,12 +6196,12 @@ const cloudMat = new THREE.ShaderMaterial({
     float fbm(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 3; i++){ v += a * noise(p); p *= 2.02; a *= 0.5; } return v; }
     void main(){
       float up = clamp(vN.y * 0.5 + 0.5, 0.0, 1.0);
-      float bump = smoothstep(0.3, 0.72, fbm(vL * 0.16));            // 表面のもくもく（こぶ＝明、谷＝暗）
+      float bump = smoothstep(0.28, 0.78, fbm(vL * 0.13));           // 表面のもくもく（こぶ＝明、谷＝暗）。スケールを少し大きく＝こぶをひとまわり大きく（細かい粒立ちを減らす）
       vec3 col = mix(botCol, topCol, smoothstep(0.14, 0.86, up));    // 上は白く、下は青く陰る
-      col *= 0.74 + 0.36 * bump;                                     // こぶの陰影で立体感（コントラスト強め＝もくもく）
+      col *= 0.84 + 0.2 * bump;                                      // こぶの陰影をやわらげ（0.74+0.36→0.84+0.2）＝各球が「ぶどう粒」に分離して見えるのを解消（アートD指摘の“房/泡の塊”対策2026-06-27）
       col += sunCol * max(0.0, dot(vN, normalize(sunDir))) * 0.18;   // 太陽側を暖かく
-      float fres = pow(1.0 - max(0.0, dot(vView, vN)), 3.0);
-      col += vec3(0.14, 0.14, 0.13) * fres;                          // フチの銀色（雲の縁が光る）
+      float fres = pow(1.0 - max(0.0, dot(vView, vN)), 4.0);        // フレネルを薄く（3→4乗＝極端な縁だけ）
+      col += vec3(0.045, 0.045, 0.042) * fres;                       // フチの銀色を大幅に弱く（0.14→0.045）＝各球の縁が光って粒立つのを抑える
       gl_FragColor = vec4(col, opacity);
     }`,
   transparent: true, fog: false,
@@ -6289,7 +6289,7 @@ const godrayPass = new ShaderPass({
     void main(){
       vec3 col = texture2D(tDiffuse, vUv).rgb;
       if (strength > 0.001) {
-        const int N = 18;
+        const int N = 30; // ステップ数を18→30に増やしてサンプル間隔を詰める＝明るい太陽が離散コピーされて“ぶどう房/泡の塊”に見えるのを解消（アートD指摘2026-06-27）
         vec2 uv = vUv;
         vec2 delta = (uv - lightPos) * (0.5 / float(N));
         float illum = 1.0;
@@ -6297,11 +6297,11 @@ const godrayPass = new ShaderPass({
         for (int i = 0; i < N; i++) {
           uv -= delta;
           vec3 s = texture2D(tDiffuse, uv).rgb;
-          float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.82); // よりピーキー＝飛んだ巨大ハイライトを拾わない
+          float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.90); // しきい値0.82→0.90＝太陽の白熱の芯だけを拾い、暈の広い明部を拾わない（房状の塊を作らない）
           ray += s * b * illum;
-          illum *= 0.92;
+          illum *= 0.95; // 減衰をゆるめて連続したやわらかい光条に（離散ローブにならない）
         }
-        col += ray * (strength / float(N)) * 3.0; // 増幅を6→3に。光条はBloomで自然に滲ませる
+        col += ray * (strength / float(N)) * 1.8; // 増幅3.0→1.8＝控えめな光条。Bloomで自然に滲ませる
       }
       gl_FragColor = vec4(col, 1.0);
     }`,
@@ -8414,7 +8414,7 @@ function update(dt) {
   sunProj.copy(sunBall.position).project(camera)
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
-  godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.32 : 0 // 控えめ＝光条であって閃光事故にしない
+  godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.2 : 0 // 控えめ＝光条であって閃光事故にしない（0.32→0.20＝房バグ対策でさらに弱く・2026-06-27）
   gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
   gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.3 : 0.16) // 真昼の晴天だけ・控えめ（ユーザー「強すぎ」→0.55→0.3に弱める2026-06-24）
