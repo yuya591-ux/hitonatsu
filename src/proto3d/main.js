@@ -2891,7 +2891,7 @@ function buildShishigaya() {
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
   // ローラーすべり台の通り道（コリドー）は木を伐って見通しを作る＝すべり台が木に隠れない（ユーザー要望2026-06-25）。位置は makeRollerSlide と共有
   // 遊びの森は公園の西側。長いローラーすべり台は西の丘の上から東へ大きく蛇行しながら長く下る（実在は67mの蛇行ローラー・ユーザー要望2026-06-25）
-  const SLIDE_PATH = [[3682, -800], [3702, -782], [3718, -808], [3736, -790], [3756, -802], [3776, -786], [3796, -772]] // 蛇行する中心線（西の高所42m→東北の低地19mへ＝地形が単調に下る経路に引き直し＝山に食い込まない・2026-06-26）
+  const SLIDE_PATH = [[3688, -848], [3704, -836], [3716, -820], [3732, -806], [3748, -790], [3766, -772], [3784, -760]] // 蛇行する中心線（西の丘45m→北東の谷ぎわ19mへ＝単調に下り、着地(3784,-760)は建物(3785,-786)/(3792,-784)から25m以上離した開けた平地。前は着地が建物に食い込んでいた・ユーザー指摘2026-06-26）
   const POOL = [4082, -966], ATH = [3705, -842] // プール=下の池の北東(北門ぎわ)／アスレチック=遊びの森の南西(すべり台と離す)。各ビルダーと共有
   { const nearPath = (px, pz, rad) => { for (let s = 0; s < SLIDE_PATH.length - 1; s++) { const ax = SLIDE_PATH[s][0], az = SLIDE_PATH[s][1], bx = SLIDE_PATH[s + 1][0], bz = SLIDE_PATH[s + 1][1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let t = ((px - ax) * dx + (pz - az) * dz) / l2; t = Math.max(0, Math.min(1, t)); const cx = px - (ax + dx * t), cz = pz - (az + dz * t); if (cx * cx + cz * cz < rad * rad) return true } return false }
     for (let i = tp.length - 1; i >= 0; i--) {
@@ -2956,7 +2956,7 @@ function buildShishigaya() {
     const g = new THREE.Group(), N = Math.max(60, Math.round(total))
     const SP = [], ST = []; for (let i = 0; i <= N; i++) { const u = i / N; SP.push(curve.getPointAt(u)); ST.push(curve.getTangentAt(u)) }
     // ローラー床/レール/支柱/階段をジオメトリにためてmerge（1スライド数ドロー＝軽量）
-    const rollG = [], rAG = [], rBG = [], postG = [], stepG = [], handG = [], m4 = new M4(), q = new Q()
+    const rollG = [], rAG = [], rBG = [], postG = [], m4 = new M4(), q = new Q()
     for (let i = 0; i <= N; i++) { const P = SP[i], T = ST[i], horiz = new V(T.x, 0, T.z).normalize(), perp = new V(-horiz.z, 0, horiz.x), yaw = Math.atan2(horiz.x, horiz.z)
       q.setFromUnitVectors(up, perp); { const rg = new THREE.CylinderGeometry(0.07, 0.07, width, 7); m4.compose(P, q, ONE); rg.applyMatrix4(m4); rollG.push(rg) } // ローラー軸
       if (i < N) { const P2 = SP[i + 1]
@@ -2964,16 +2964,11 @@ function buildShishigaya() {
           const mid = a.clone().add(b).multiplyScalar(0.5), dir = b.clone().sub(a), len = dir.length(); q.setFromUnitVectors(new V(0, 0, 1), dir.clone().normalize())
           const bg = new THREE.BoxGeometry(0.1, 0.5, len * 1.1); m4.compose(mid, q, ONE); bg.applyMatrix4(m4); (sd > 0 ? rAG : rBG).push(bg) } } // 左右で色ちがいのレール
       if (i % 5 === 0 && i > 0 && i < N) { const gy = heightAtYato(P.x, P.z), by = P.y - 0.12, ph = by - gy; if (ph > 0.6) { const pg = new THREE.CylinderGeometry(0.1, 0.14, ph, 7); m4.compose(new V(P.x, (gy + by) / 2, P.z), new Q(), ONE); pg.applyMatrix4(m4); postG.push(pg) } } // 支柱
-      // わきの登り階段（蛇行に沿って・地面の上）＝段板＋手すり
-      const sQ = new Q().setFromAxisAngle(up, yaw), sp = P.clone().addScaledVector(perp, hw + 1.55); sp.y = heightAtYato(sp.x, sp.z) + 0.12
-      if (i % 2 === 0) { const tg = new THREE.BoxGeometry(1.1, 0.1, 0.36); m4.compose(sp, sQ, ONE); tg.applyMatrix4(m4); stepG.push(tg) } // 段板
-      if (i < N) { const P2 = SP[i + 1], sp2 = P2.clone().addScaledVector(perp, hw + 1.55); sp2.y = heightAtYato(sp2.x, sp2.z) + 0.95; sp.y += 0.83
-        const ha = sp.clone().addScaledVector(perp, 0.55), hb = sp2.clone().addScaledVector(perp, 0.55), hmid = ha.clone().add(hb).multiplyScalar(0.5), hdir = hb.clone().sub(ha), hlen = hdir.length(); q.setFromUnitVectors(new V(0, 0, 1), hdir.clone().normalize())
-        const hg = new THREE.BoxGeometry(0.06, 0.5, hlen * 1.1); m4.compose(hmid, q, ONE); hg.applyMatrix4(m4); handG.push(hg) } // 外側の手すり
+      // ※以前あった「滑走路に全長並走する登り階段＋暗い手すり」は廃止。横から見ると“黒い影のもう一本のすべり台”に見えて怖い/不自然だった（ユーザー指摘2026-06-26）。登りは塔のわきの短い階段だけにする（下の add で1か所）
     }
     const addMerged = (geos, mat, sh) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = !!sh; m.receiveShadow = true; g.add(m); geos.forEach((x) => x.dispose()) }
     // 床/レール/手すりの細い影は地面に散らかって不気味なので影を落とさない＝接地は支柱の影だけで十分（ユーザー指摘2026-06-26）
-    addMerged(rollG, slideMat, false); addMerged(rAG, railA, false); addMerged(rBG, railB, false); addMerged(postG, postMat, true); addMerged(stepG, stepMat, false); addMerged(handG, postMat, false)
+    addMerged(rollG, slideMat, false); addMerged(rAG, railA, false); addMerged(rBG, railB, false); addMerged(postG, postMat, true)
     // 出発の木のやぐら（登り台）：太い木柱4本＋上下2段の貫＋筋交い＋中段の踊り場＋デッキ＝高い出発点を木組みで自然に支える（ユーザー要望2026-06-26）
     const add = (geo, mat, p, qq) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p); if (qq) m.quaternion.copy(qq); m.castShadow = true; g.add(m); return m }
     const P0 = SP[0], h0 = new V(ST[0].x, 0, ST[0].z).normalize(), pp0 = new V(-h0.z, 0, h0.x), yaw0 = Math.atan2(h0.x, h0.z), deckQ = new Q().setFromAxisAngle(up, yaw0)
@@ -2986,7 +2981,18 @@ function buildShishigaya() {
     { const mp = new V(deckC.x, (P0.y + gmin) / 2 + 0.08, deckC.z); add(new THREE.BoxGeometry(width + 0.6, 0.14, 2.5), deckMat, mp, deckQ) } // 中段の踊り場
     add(new THREE.BoxGeometry(width + 0.8, 0.18, 2.9), deckMat, deckC, deckQ) // てっぺんのデッキ
     for (const sw of [-1, 1]) add(new THREE.BoxGeometry(0.09, 0.7, 2.9), postMat, new V(deckC.x + pp0.x * sw * tw, deckC.y + 0.44, deckC.z + pp0.z * sw * tw), deckQ) // 横の手すり
-    add(new THREE.BoxGeometry(width + 0.8, 0.7, 0.09), postMat, new V(deckC.x - h0.x * 1.4, deckC.y + 0.44, deckC.z - h0.z * 1.4), deckQ) // 後ろの手すり
+    for (const sw of [-1, 1]) add(new THREE.BoxGeometry(0.7, 0.7, 0.09), postMat, new V(deckC.x - h0.x * 1.4 + pp0.x * sw * 0.85, deckC.y + 0.44, deckC.z - h0.z * 1.4 + pp0.z * sw * 0.85), deckQ) // 後ろの手すり（中央は階段の出入口で開ける）
+    // 登り階段：地面から塔のデッキ後ろ（山がわ）へひと続きで上がる短い階段。※全長を並走する階段は廃止＝横から見て“黒い影のもう一本のすべり台”に見える不自然さを解消（ユーザー指摘2026-06-26）
+    { const topX = deckC.x - h0.x * 1.45, topZ = deckC.z - h0.z * 1.45, topY = P0.y - 0.02
+      const run = 5.2, baseX = topX - h0.x * run, baseZ = topZ - h0.z * run, baseY = heightAtYato(baseX, baseZ)
+      const stepN = Math.max(8, Math.round((topY - baseY) / 0.32))
+      for (let s = 1; s <= stepN; s++) { const f = s / stepN, fx = baseX + (topX - baseX) * f, fz = baseZ + (topZ - baseZ) * f, fy = baseY + (topY - baseY) * f
+        add(new THREE.BoxGeometry(1.5, 0.13, 0.52), stepMat, new V(fx, fy, fz), deckQ) } // 段板（蹴込みは開けた素朴な階段）
+      for (const sw of [-1, 1]) { const ax = baseX + pp0.x * sw * 0.7, az = baseZ + pp0.z * sw * 0.7, bx = topX + pp0.x * sw * 0.7, bz = topZ + pp0.z * sw * 0.7
+        const dir = new V(bx - ax, topY - baseY, bz - az), len = dir.length(), rq = new Q().setFromUnitVectors(new V(0, 0, 1), dir.clone().normalize())
+        add(new THREE.BoxGeometry(0.07, 0.07, len), postMat, new V((ax + bx) / 2, (baseY + topY) / 2 + 0.76, (az + bz) / 2), rq) // 斜めの手すり
+        add(new THREE.CylinderGeometry(0.05, 0.05, 0.86, 6), postMat, new V(ax, baseY + 0.5, az)); add(new THREE.CylinderGeometry(0.05, 0.05, 0.86, 6), postMat, new V(bx, topY + 0.5, bz)) } // 手すり支柱（下・上）
+    }
     // 着地（砂のマウンド）
     const PE = SP[N], hE = new V(ST[N].x, 0, ST[N].z).normalize(), runX = PE.x + hE.x * 1.6, runZ = PE.z + hE.z * 1.6, runY = heightAtYato(runX, runZ)
     add(new THREE.CylinderGeometry(2.2, 2.6, 0.24, 18), sandMat, new V(runX, runY + 0.06, runZ))
@@ -7217,8 +7223,13 @@ canvas.addEventListener('pointermove', (e) => {
   if (Math.abs(e.clientX - prev.sx) + Math.abs(e.clientY - prev.sy) > 12) prev.moved = true
   if (mode !== 'walk') {
     if (sitTap) {
-      seatLook.yaw -= (e.clientX - prevX) * 0.005
-      seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prevY) * 0.005, -1.4, 1.45)
+      if (mode === 'sliding' && sliding) { // 滑走中の見回し＝進行方向からの相対ずれ（離すと自動で正面へ戻る）
+        sliding.lookYaw = THREE.MathUtils.clamp(sliding.lookYaw - (e.clientX - prevX) * 0.006, -1.4, 1.4)
+        sliding.lookPitch = THREE.MathUtils.clamp(sliding.lookPitch - (e.clientY - prevY) * 0.005, -0.8, 0.95)
+      } else {
+        seatLook.yaw -= (e.clientX - prevX) * 0.005
+        seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prevY) * 0.005, -1.4, 1.45)
+      }
       if (Math.abs(e.clientX - sitTap.x) + Math.abs(e.clientY - sitTap.y) > 8) sitTap.moved = true
     }
     return
@@ -7252,7 +7263,8 @@ function onUp(e) {
   const p = pointers.get(e.pointerId)
   pointers.delete(e.pointerId)
   if (mode !== 'walk') {
-    if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else standUp() } // ブランコはタップで こぐ
+    if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else if (mode !== 'sliding') standUp() } // ブランコはタップで こぐ／滑走中はタップで降りない（見回しを邪魔せず最後まで滑る・ユーザー要望2026-06-26）
+
     sitTap = null; return
   }
   if (flying) { // 飛行中：指を動かさず軽くタップ＝その場所へ主人公をワープ（ドラッグは移動/見回す）
@@ -7424,7 +7436,7 @@ function getOffSwing() {
 function rideSlide() {
   if (!slideRide || mode !== 'walk') return
   mode = 'sliding'; endPuni(); moving = false; vel.set(0, 0, 0); todayFlags.rodeSlide = true
-  sliding = { s: 0.3, v: 4.5, pov: 'first' } // 弧長(m)と速さ(m/s)・既定は主観視点
+  sliding = { s: 0.3, v: 2.8, pov: 'first', lean: 0, lookYaw: 0, lookPitch: 0 } // 弧長(m)と速さ(m/s)・既定は主観視点・lean=カーブの傾き・look*=見回しのずれ
   boy.scale.setScalar(BOY_SCALE); landSquash = 0; airborne = false
   boy.rotation.order = 'YXZ'
   camSnap = true // 視点を滑走の後方カメラへスナップ（walkカメラから長く流れない）
@@ -8306,30 +8318,39 @@ function update(dt) {
     camGoal.copy(seatEye); lookGoal.copy(lookTo)
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   } else if (mode === 'sliding') {
-    // ローラーすべり台を滑走：弧長sを重力で加速しながら進め、主人公を曲線の上に座らせる。後方やや上から追うカメラ
+    // ローラーすべり台を滑走：弧長sを重力でゆっくり加速しながら進め、主人公を曲線の上に座らせる。小さい頃のわくわくをゆっくり味わう
     const sr = slideRide, u0 = Math.min(1, sliding.s / sr.total), T0 = sr.curve.getTangentAt(u0)
     const slope = Math.max(0.04, -T0.y) // 下り成分（接線のy<0で下る・平らな蛇行の頂でも止まらない最低勾配）
-    sliding.v = Math.min(13, Math.max(4.0, sliding.v + (34 * slope - 0.22 * sliding.v) * dt)) // 重力で加速＝ぐんぐん滑る（上限13m/s＝速すぎて酔わない）
+    sliding.v = Math.min(8.0, Math.max(2.4, sliding.v + (22 * slope - 0.30 * sliding.v) * dt)) // 重力でゆっくり加速（上限8m/s＝ユーザー要望「もう少し遅く」＝景色を味わえて酔わない）
     sliding.s += sliding.v * dt
     const u = Math.min(1, sliding.s / sr.total), P = sr.curve.getPointAt(u), Tn = sr.curve.getTangentAt(u)
     const dh = new THREE.Vector3(Tn.x, 0, Tn.z); dh.multiplyScalar(1 / (dh.length() || 1))
+    // 蛇行のカーブ（横G）を測ってキャラと視点をカーブの内側へ少し傾ける＝コースターらしい“振られる”楽しさ
+    const Tp = sr.curve.getTangentAt(Math.max(0, u - 0.02)), curl = dh.x * Tp.z - dh.z * Tp.x
+    sliding.lean += (THREE.MathUtils.clamp(curl * 9, -0.5, 0.5) - sliding.lean) * Math.min(1, dt * 4)
     boy.position.set(P.x, P.y + 0.12, P.z)
     boy.rotation.y = Math.atan2(dh.x, dh.z) // 進行方向（下り）へ正対＝後ろから見ると背中（顔がこちらを向かない・ユーザー指摘2026-06-26）
-    boy.rotation.x = -0.28 - Math.asin(Math.max(-1, Math.min(1, -Tn.y))) * 0.4; boy.rotation.z = 0 // 斜面なりに後傾
+    boy.rotation.x = -0.28 - Math.asin(Math.max(-1, Math.min(1, -Tn.y))) * 0.4; boy.rotation.z = sliding.lean // 斜面なりに後傾＋カーブで横に振られる
     boy.userData.legL.rotation.x = -1.15; boy.userData.legR.rotation.x = -1.15 // 足を前へ投げ出す
     boy.userData.kneeL.rotation.x = 0.7; boy.userData.kneeR.rotation.x = 0.7
     boy.userData.armL.rotation.x = 0.5; boy.userData.armR.rotation.x = 0.5; boy.userData.head.rotation.x = 0
+    // 滑走中の見回し：指ドラッグで視線をずらせる（離すとゆっくり正面へ戻る）＝乗りながら景色を楽しめる（ユーザー要望2026-06-26）
+    if (!sitTap) { sliding.lookYaw *= Math.pow(0.2, dt); sliding.lookPitch *= Math.pow(0.2, dt) } // 指を離している間は中央へそっと復帰
+    const bob = Math.sin(clock.elapsedTime * 13) * 0.025 * (sliding.v / 8) // ローラーの上を滑る細かなガタガタ揺れ＝手ざわり
     if (sliding.pov === 'first') { // 主観（既定）：主人公の頭から滑走方向を見る＝自分が滑っている視点。体は隠す
       boy.visible = false
-      const ex = P.x + dh.x * 0.25, ey = P.y + 1.2, ez = P.z + dh.z * 0.25
-      camGoal.set(ex, ey, ez); lookGoal.set(ex + Tn.x * 12, ey + Tn.y * 12 - 0.6, ez + Tn.z * 12)
-      camera.fov += (66 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix() // 広角で疾走感
-    } else { // 三人称：後ろやや上から主人公の背中ごしに
+      const ex = P.x + dh.x * 0.25, ey = P.y + 1.2 + bob, ez = P.z + dh.z * 0.25
+      const baseYaw = Math.atan2(Tn.x, Tn.z), basePitch = Math.asin(Math.max(-1, Math.min(1, Tn.y))) - 0.08
+      const yaw = baseYaw + sliding.lookYaw, pitch = basePitch + sliding.lookPitch, cp = Math.cos(pitch)
+      camGoal.set(ex, ey, ez); lookGoal.set(ex + Math.sin(yaw) * cp * 12, ey + Math.sin(pitch) * 12, ez + Math.cos(yaw) * cp * 12)
+      camera.fov += (64 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix() // 少し広角で疾走感（速度は控えめ）
+    } else { // 三人称：後ろやや上から主人公の背中ごしに（見回しでぐるりと回り込める）
       boy.visible = true
-      camGoal.set(P.x - dh.x * 5.5, P.y + 3.0, P.z - dh.z * 5.5); lookGoal.set(P.x + dh.x * 3, P.y + 0.5, P.z + dh.z * 3)
+      const behind = Math.atan2(dh.x, dh.z) + Math.PI + sliding.lookYaw, op = 0.32 + sliding.lookPitch, od = 5.5, ocp = Math.cos(op)
+      camGoal.set(P.x + Math.sin(behind) * ocp * od, P.y + 0.7 + Math.sin(op) * od + bob, P.z + Math.cos(behind) * ocp * od); lookGoal.set(P.x + dh.x * 3, P.y + 0.5, P.z + dh.z * 3)
       camera.fov += (60 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix()
     }
-    actBtn.textContent = sliding.pov === 'first' ? 'キャラを 見る' : '主観で 見る'; actBtn.dataset.spot = 'slideview'; actBtn.style.display = 'block' // 視点きりかえ
+    actBtn.textContent = sliding.pov === 'first' ? 'キャラ' : '主観'; actBtn.dataset.spot = 'slideview'; actBtn.style.display = 'block' // 視点きりかえ（滑走中は小さく半透明＝景色の邪魔をしない・CSS body.sliding #act）
     lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
     if (sliding.s >= sr.total) { // 着地＝立ち上がる
       const Te = sr.curve.getTangentAt(1), de = new THREE.Vector3(Te.x, 0, Te.z); de.multiplyScalar(1 / (de.length() || 1))

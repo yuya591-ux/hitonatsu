@@ -64,6 +64,11 @@
       body.pm-on #dock { display: none !important; }
       /* 滑走中は関係ないボタンを隠す＝視点きりかえ(#act)だけ残し、重なりを解消（ユーザー指摘2026-06-26） */
       body.sliding #dock, body.sliding #jump, body.sliding #zin, body.sliding #zout { display: none !important; }
+      /* 滑走中の視点きりかえ(#act)は、景色を邪魔しないよう小さく半透明にして右上の隅へ寄せる（ユーザー要望2026-06-26） */
+      body.sliding #act { left: auto; right: calc(3% + env(safe-area-inset-right)); bottom: auto; top: calc(11% + env(safe-area-inset-top));
+        transform: none; padding: 0.3em 0.85em; font-size: clamp(11px,2vw,13px); color: #fdf7ec;
+        background: rgba(74,64,50,0.42); box-shadow: none; opacity: 0.62; }
+      body.sliding #act:active { opacity: 0.96; transform: scale(0.94); }
       /* ── ふわり浮遊（風船飛行）の操作UI：🎈トグル→浮遊中だけ出る。右下に2列×3段（高度▲▼／ズーム＋−／速さ・主観）＝右親指だけで全部届く・横画面でも崩れない。左にステータスメーター（2026-06-23再設計） ── */
       #fl-up, #fl-down, #fl-zin, #fl-zout, #fl-speed, #fl-fpv {
         appearance: none; border: none; cursor: pointer; width: 66px; height: 58px; box-sizing: border-box;
