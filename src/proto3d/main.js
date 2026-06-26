@@ -2892,7 +2892,7 @@ function buildShishigaya() {
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
   // ローラーすべり台の通り道（コリドー）は木を伐って見通しを作る＝すべり台が木に隠れない（ユーザー要望2026-06-25）。位置は makeRollerSlide と共有
   // 遊びの森は公園の西側。長いローラーすべり台は西の丘の上から東へ大きく蛇行しながら長く下る（実在は67mの蛇行ローラー・ユーザー要望2026-06-25）
-  const SLIDE_PATH = [[3688, -848], [3704, -836], [3716, -820], [3732, -806], [3748, -790], [3766, -772], [3784, -760]] // 蛇行する中心線（西の丘45m→北東の谷ぎわ19mへ＝単調に下り、着地(3784,-760)は建物(3785,-786)/(3792,-784)から25m以上離した開けた平地。前は着地が建物に食い込んでいた・ユーザー指摘2026-06-26）
+  const SLIDE_PATH = [[3676, -850], [3694, -838], [3710, -822], [3728, -808], [3746, -796], [3764, -784], [3778, -762], [3796, -756], [3814, -744], [3804, -728]] // 蛇行する中心線（西の丘45m→丘をS字に下り→北東の谷で最後にもうひと曲がりして着地(3804,-728)＝より長く蛇行・ユーザー要望2026-06-26）。建物(3785,-786)/(3792,-784)/(3817,-698)から21m以上離す（食い込み回避）
   const POOL = [4082, -966], ATH = [3705, -842] // プール=下の池の北東(北門ぎわ)／アスレチック=遊びの森の南西(すべり台と離す)。各ビルダーと共有
   { const nearPath = (px, pz, rad) => { for (let s = 0; s < SLIDE_PATH.length - 1; s++) { const ax = SLIDE_PATH[s][0], az = SLIDE_PATH[s][1], bx = SLIDE_PATH[s + 1][0], bz = SLIDE_PATH[s + 1][1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let t = ((px - ax) * dx + (pz - az) * dz) / l2; t = Math.max(0, Math.min(1, t)); const cx = px - (ax + dx * t), cz = pz - (az + dz * t); if (cx * cx + cz * cz < rad * rad) return true } return false }
     for (let i = tp.length - 1; i >= 0; i--) {
@@ -7543,7 +7543,7 @@ function getOffSwing() {
 function rideSlide() {
   if (!slideRide || mode !== 'walk') return
   mode = 'sliding'; endPuni(); moving = false; vel.set(0, 0, 0); todayFlags.rodeSlide = true
-  sliding = { s: 0.3, v: 2.8, pov: 'first', lean: 0, lookYaw: 0, lookPitch: 0 } // 弧長(m)と速さ(m/s)・既定は主観視点・lean=カーブの傾き・look*=見回しのずれ
+  sliding = { s: 0.3, v: 3.9, pov: 'first', lean: 0, lookYaw: 0, lookPitch: 0 } // 弧長(m)と速さ(m/s)・既定は主観視点・lean=カーブの傾き・look*=見回しのずれ
   boy.scale.setScalar(BOY_SCALE); landSquash = 0; airborne = false
   boy.rotation.order = 'YXZ'
   camSnap = true // 視点を滑走の後方カメラへスナップ（walkカメラから長く流れない）
@@ -8460,7 +8460,7 @@ function update(dt) {
     // ローラーすべり台を滑走：弧長sを重力でゆっくり加速しながら進め、主人公を曲線の上に座らせる。小さい頃のわくわくをゆっくり味わう
     const sr = slideRide, u0 = Math.min(1, sliding.s / sr.total), T0 = sr.curve.getTangentAt(u0)
     const slope = Math.max(0.04, -T0.y) // 下り成分（接線のy<0で下る・平らな蛇行の頂でも止まらない最低勾配）
-    sliding.v = Math.min(8.0, Math.max(2.4, sliding.v + (22 * slope - 0.30 * sliding.v) * dt)) // 重力でゆっくり加速（上限8m/s＝ユーザー要望「もう少し遅く」＝景色を味わえて酔わない）
+    sliding.v = Math.min(11.0, Math.max(3.0, sliding.v + (31 * slope - 0.30 * sliding.v) * dt)) // 重力で加速（上限11m/s＝以前の8の約1.4倍・ユーザー要望2026-06-26）。平らな谷の走り出しでも止まらない最低3m/s
     sliding.s += sliding.v * dt
     const u = Math.min(1, sliding.s / sr.total), P = sr.curve.getPointAt(u), Tn = sr.curve.getTangentAt(u)
     const dh = new THREE.Vector3(Tn.x, 0, Tn.z); dh.multiplyScalar(1 / (dh.length() || 1))
