@@ -597,7 +597,7 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe9c8, li: 1.7, sky: 0x9fc8e8, mid: 0xdcebef, bot: 0xf3efe0, fog: 0xdde9f1, hi: 1.16, hsky: 0xbcdcf0, hgnd: 0x8ea27a, ball: 0xfff0cf, rim: 0xffdcb0, ri: 0.55 }, // 朝＝低照度・青白くひんやり・靄がかる。霧色を地平の空色に合わせ少し落ち着かせ（明るすぎる白い帯にしない＝家の線が浮かない・2026-06-25）
+  morn: { light: 0xffe0a6, li: 1.9, sky: 0xa6cce2, mid: 0xe9e8dc, bot: 0xf7ecd0, fog: 0xe9e6d6, hi: 1.18, hsky: 0xc4dcec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78 }, // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく
   noon: { light: 0xffeac6, li: 2.4, sky: 0x8cc0e2, mid: 0xc8e2ec, bot: 0xf1f3e4, fog: 0xdee9ee, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34 }, // 真昼＝直射を金色寄りの暖色へ。霧色を地平の空色(mid)寄りに落ち着かせ＝遠景の霞が空と地続きで、黒い輪郭線が浮かず自然に溶ける（ユーザー指摘の遠景のモヤ修正2026-06-25）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる
@@ -8425,6 +8425,7 @@ function update(dt) {
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.2 : 0 // 控えめ＝光条であって閃光事故にしない（0.32→0.20＝房バグ対策でさらに弱く・2026-06-27）
   gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）
+    + THREE.MathUtils.smoothstep(tday, 0.06, 0.18) * (1 - THREE.MathUtils.smoothstep(tday, 0.28, 0.44)) * 0.5 // 黄金の朝（B⑦）＝開始時(0.18)を温かい金色のウォッシュに。夕より柔らかく0.5倍
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
   gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.3 : 0.16) // 真昼の晴天だけ・控えめ（ユーザー「強すぎ」→0.55→0.3に弱める2026-06-24）
   // 流れる雲の影（B1）：ゆっくり流れる＋昼に最も濃く・夜と雨でうすれる（夜は影が見えない・雨は曇って影が消える）。地面の均一な緑に動きと陰影
