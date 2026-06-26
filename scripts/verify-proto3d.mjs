@@ -53,12 +53,27 @@ try {
     await page.evaluate(() => { document.getElementById('t-start').click(); window.__proto3d.setTitle(false); const g = document.getElementById('guide-ok'); if (g) g.click() })
     await new Promise((r) => setTimeout(r, 500))
     // 各エリア × 各時刻で例外が出ないこと＋描画が回ること
+    // C⑭ 性能予算ゲート：各エリアの draw call / 三角形数に上限を設け、超えたら exit 1。
+    //   目的＝モバイル生存の最重要リスク「goAreaが全エリアを足すだけで撤去しない＝draw call/tris が青天井」を
+    //   回帰として機械的に捕まえる。閾値は2026-06-27の実測ピーク(C⑮のMaterial共有後)に約25%の余裕＝
+    //   ロード毎のMath.random配置揺れ(約7%)では誤検知せず、倍増/リーク/重い新要素はちゃんと落とす。
+    //   ※ goArea は加算式なので yato 計測時は全エリアがシーンに在り、各カメラ位置の視錐台で見える分を測る。
+    const BUDGET = {
+      field: { calls: 950, tris: 450000 },
+      town: { calls: 1150, tris: 3200000 },
+      shrine: { calls: 600, tris: 3200000 },
+      yato: { calls: 3500, tris: 3600000 },
+    }
     for (const area of ['field', 'town', 'shrine', 'yato']) {
       await page.evaluate((a) => window.__proto3d.goArea(a), area)
       for (const t of [0.0, 0.3, 0.62, 0.9]) { await page.evaluate((t) => window.__proto3d.setDay(t), t); await new Promise((r) => setTimeout(r, 120)) }
       const st = await page.evaluate(() => window.__proto3d._sceneStats())
-      console.log(`  ${area}: calls=${st.calls} tris=${st.tris}`)
+      const b = BUDGET[area]
+      const overC = st && st.calls > b.calls, overT = st && st.tris > b.tris
+      console.log(`  ${area}: calls=${st.calls}/${b.calls} tris=${st.tris}/${b.tris}${overC || overT ? '  ← 予算超過' : ' ✓'}`)
       if (!st || !st.calls) errors.push(`${area}: シーン統計が取れない＝描画が回っていない`)
+      if (overC) errors.push(`${area}: draw call ${st.calls} が予算 ${b.calls} を超過（性能回帰の疑い）`)
+      if (overT) errors.push(`${area}: 三角形 ${st.tris} が予算 ${b.tris} を超過（性能回帰の疑い）`)
     }
     // 乗り物・所作の機能スモーク（例外が出ないこと）
     const moves = await page.evaluate(() => {
