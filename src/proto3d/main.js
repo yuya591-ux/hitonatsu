@@ -566,11 +566,21 @@ const skyDome = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), skyMat)
 skyDome.layers.set(1) // インク線の法線パスから除外（空に縁取りを描かない）。メイン描画はカメラがlayer0+1を映すので見える
 scene.add(skyDome)
 
-// 太陽（明るい球。ブルームでにじむ）
-const sunBall = new THREE.Mesh(
-  new THREE.SphereGeometry(8.5, 24, 24), // 夕方に地平へ沈む“夕日”として見えるよう少し大きく（ブルームでにじむ）
-  new THREE.MeshBasicMaterial({ color: 0xffeec0, fog: false }), // 純白を避けたやわらかい黄
-)
+// 太陽（くっきりした円盤＋やわらかい暈＝かさ。ブルームでにじむ）。硬い白球の“風船”感を解消（A2・品質監査2026-06-26）
+// 放射状グラデを焼いた板＝中心は白熱の円盤、外へ向かって暖色のハローが透明に溶ける。常にカメラを向くスプライト＝見る角度で歪まない
+const sunTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128
+  const x = c.getContext('2d'); const g = x.createRadialGradient(64, 64, 0, 64, 64, 64)
+  g.addColorStop(0.00, 'rgba(255,255,255,1)')      // 白熱の芯
+  g.addColorStop(0.16, 'rgba(255,254,246,0.98)')   // くっきりした円盤の縁（≒旧球の大きさ）
+  g.addColorStop(0.24, 'rgba(255,247,222,0.62)')   // 円盤からハローへ急減衰＝“円い太陽”が残る
+  g.addColorStop(0.50, 'rgba(255,238,198,0.20)')   // やわらかい暈（かさ）
+  g.addColorStop(1.00, 'rgba(255,232,188,0)')      // 空へ溶ける
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c)
+})()
+const sunBall = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, color: 0xffeec0, transparent: true, depthWrite: false, fog: false })) // 通常合成＝芯は不透明な円盤として残り(旧球同様くっきり)、暈だけ薄く空に重なる。加算だと明るい昼空でコントラストが消える
+sunBall.name = 'sunBall'
+sunBall.scale.set(46, 46, 1) // 暈まで含めた直径。芯(円盤)は約16%＝旧球(直径17)とほぼ同じくっきりさ、外側に約8°のグレアが広がる
 sunBall.position.copy(sunDir.clone().multiplyScalar(300))
 scene.add(sunBall)
 
@@ -1684,6 +1694,14 @@ function buildShishigaya() {
   const gm = new THREE.Mesh(ggeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })); gm.position.set(gcx, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
   // 建物：種別で描き分け。集合住宅(apartments)=陸屋根の中層棟＋バルコニー面／家(house等)=低い切妻／事務所・大箱=陸屋根。中心のサンライズ北寺尾は7階の主役マンション
   const bv = [], bc = [], bidx = [], buv = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
+  // 接地AO（疑似AO・A1）：建物フットプリント直下に放射状グラデの暗い敷物を1枚に合成＝壁が地面からスパッと生える“ダンボール感”を消し、足元に陰を落として地に足を付ける。
+  // OSMの家/アパートはマージ描画で個別の丸影が無く、E7の壁底グラデだけでは7階建てで足元が暗まらなかった（昼の目線で“浮く”主犯・ユーザー指摘の品質監査2026-06-26）。
+  const gsv = [], gsuv = [], gsidx = []; let gso = 0
+  const pushGroundAO = (cx, cz, w, d, ang, gy) => { const co = Math.cos(ang), si = Math.sin(ang)
+    const m = THREE.MathUtils.clamp(Math.max(w, d) * 0.28, 1.2, 4.5), hw = w / 2 + m, hd = d / 2 + m, y = gy + 0.06 // フットプリント＋余白＝壁の外へ陰がにじむ
+    const corners = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], uv = [[0, 0], [1, 0], [1, 1], [0, 1]]
+    for (let k = 0; k < 4; k++) { const lx = corners[k][0], lz = corners[k][1]; gsv.push(cx + lx * co - lz * si, y, cz + lx * si + lz * co); gsuv.push(uv[k][0], uv[k][1]) }
+    gsidx.push(gso, gso + 1, gso + 2, gso, gso + 2, gso + 3); gso += 4 }
   const kawaraTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(0,0,0,0.11)'; x.lineWidth = 1.4; for (let y = 0; y < 64; y += 9) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(64, y + 0.5); x.stroke() } x.strokeStyle = 'rgba(0,0,0,0.05)'; for (let xx = 0; xx < 64; xx += 8) { x.beginPath(); x.moveTo(xx + 0.5, 0); x.lineTo(xx + 0.5, 64); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 瓦の控えめなタイル目（白地＝頂点色で着色）
   const walls = [[0.90, 0.86, 0.76], [0.86, 0.80, 0.68], [0.82, 0.84, 0.80], [0.80, 0.76, 0.70], [0.88, 0.82, 0.72], [0.78, 0.80, 0.84], [0.84, 0.78, 0.66]]
   const roofs = [[0.40, 0.46, 0.52], [0.46, 0.34, 0.28], [0.34, 0.42, 0.36], [0.30, 0.34, 0.40], [0.52, 0.42, 0.30], [0.38, 0.32, 0.30]]
@@ -1769,7 +1787,8 @@ function buildShishigaya() {
   const glowWarm = [], glowTV = [], _gm = new THREE.Matrix4() // 夜の窓あかり：暖色の窓(glowWarm)と、ブラウン管TVの青い明滅(glowTV)に分けて各1メッシュ化（1990年代の夕暮れ＝家々の窓にTVの灯り・ユーザー要望2026-06-24）
   const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm); (((Math.round(wx) * 7 + Math.round(wz) * 13) % 100 + 100) % 100 < 26 ? glowTV : glowWarm).push(pg) } // 約26%の窓はTVの青い灯り
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
-    if (bi === sunIdx || inSkip(cx, cz)) return // サンライズ＝実輪郭で別途／ランドマーク区画＝実物に置換
+    if (bi === sunIdx) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2; let gy = 1e9; for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) gy = Math.min(gy, heightAtYato(cx + sx * co - sz * si, cz + sx * si + sz * co)); pushGroundAO(cx, cz, w, d, ang, gy); return } // サンライズ＝実輪郭で別途描くが、足元の接地AOだけはここで敷く（最大の“浮き”対策）
+    if (inSkip(cx, cz)) return // ランドマーク区画＝実物に置換
     if (inWaterAny(cx, cz) || fpCover(cx, cz, w + 6, d + 6, ang, inWaterAny) > 0.12) { nOnWater++; return } // 水面＋岸から約3mの緩衝帯に重なる建物は描かない（水に浮く/水際ギリギリの家を防ぐ＝最優先のユーザー指摘2026-06-23。フットプリントを6m膨らませて判定）
     if (fpCover(cx, cz, w, d, ang, onYatoRoadCore) > 0.1) { nOnRoad++; return } // フットプリントの10%超が“道の描画幅(1m格子)”に乗る建物は描かない＝道の上の家・角がはみ出た家も排除。路傍に面するだけ(描画幅の外)の家は残す（マスク+0.6でなく描画幅で判定・ユーザー指摘2026-06-24）
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
@@ -1786,6 +1805,7 @@ function buildShishigaya() {
     const baseXZ = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]
     const isHome = bi === sunIdx, flat = isHome || tc === 1 || tc === 2 || (tc === 0 && area > 500)
     if (villThin && !isHome && (seed % 100) < villThin) { nVillage++; return } // 田舎寄せ：一部の家を間引いて“間”と空を取り戻す（種で決定＝毎回同じ・サンライズは残す）
+    pushGroundAO(cx, cz, w, d, ang, gy) // 接地AO（A1）：この家の足元に放射状の陰を敷く＝地に足を付ける
     // 夜の窓あかり：この家の壁にぽつぽつ点る暖色の窓（約55%の家・大きい棟は四方、家は対面の2壁）。glowGeosに集めて最後にまとめて1メッシュ化
     if (seed % 100 < 55) { const big = area > 260
       for (let wi = 0; wi < 4; wi += big ? 1 : 2) { const a = baseXZ[wi], b = baseXZ[(wi + 1) % 4], mlx = (a[0] + b[0]) / 2, mlz = (a[1] + b[1]) / 2
@@ -1873,6 +1893,8 @@ function buildShishigaya() {
   if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
   if (av.length) { const ageo = new THREE.BufferGeometry(); ageo.setAttribute('position', new THREE.Float32BufferAttribute(av, 3)); ageo.setAttribute('color', new THREE.Float32BufferAttribute(ac, 3)); ageo.setAttribute('uv', new THREE.Float32BufferAttribute(auv, 2)); ageo.setIndex(aidx); ageo.computeVertexNormals(); const am = new THREE.Mesh(ageo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = true; am.receiveShadow = true; scene.add(am) }
   if (rfv.length) { const rg2 = new THREE.BufferGeometry(); rg2.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg2.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg2.setAttribute('uv', new THREE.Float32BufferAttribute(rfuv, 2)); rg2.setIndex(rfidx); rg2.computeVertexNormals(); const rm2 = new THREE.Mesh(rg2, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); rm2.castShadow = true; rm2.receiveShadow = true; scene.add(rm2) }
+  // 接地AO（A1）：町じゅうの建物フットプリント直下の陰を1メッシュに合成（放射状グラデのshadowMat＝丸影と同じ素材なので時刻で濃さが連動）。描画1回で全建物に足元の陰が乗る
+  if (gsv.length) { const gsg = new THREE.BufferGeometry(); gsg.setAttribute('position', new THREE.Float32BufferAttribute(gsv, 3)); gsg.setAttribute('uv', new THREE.Float32BufferAttribute(gsuv, 2)); gsg.setIndex(gsidx); const gsm = new THREE.Mesh(gsg, shadowMat); gsm.renderOrder = -1; gsm.name = 'yatoBldgAO'; scene.add(gsm) } // renderOrder-1＝地面の上・建物より先に描く透明影
   // ───── サンライズの屋上：実物の陸屋上＝外周パラペット＋給水タンク。外階段は廃止（真上から物差し状に見える＝実物に無い・ユーザー要望2026-06-23）。屋上へは入口の「のぼる」操作で ─────
   { const grp = new THREE.Group(); grp.name = 'sunriseRoofAccess'; scene.add(grp)
     const conc = toon(0xbab5a8), top = SUN_ROOF.top
@@ -7447,7 +7469,7 @@ tapBtn(floatEl, () => { if (mode !== 'walk') return
 const fpvBtnEl = document.getElementById('fpvbtn')
 function syncFpvBtns() { if (fpvBtnEl) fpvBtnEl.classList.toggle('on', fpv); const sb = document.getElementById('set-fpv'); if (sb) { sb.classList.toggle('on', fpv); sb.textContent = fpv ? 'ON' : 'OFF' } const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.toggle('on', fpv) }
 function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04; syncFpvBtns() } // ONで視線を水平（少しだけ下＝足元の道が見える）
-tapBtn(fpvBtnEl, () => { if (mode === 'walk') toggleFpv() }) // ねころぶ列の📷＝主観視点ワンボタン（怖い👁から差し替え・2026-06-26）
+tapBtn(fpvBtnEl, () => { if (mode === 'walk') toggleFpv() }) // ねころぶ列の🔭＝主観視点ワンボタン（📷は本物のカメラ#pm-btnに専任、視点トグルは🔭「見わたす」へ・👁は怖いと却下→🔭・2026-06-26）
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 tapBtn(zinEl, () => zoomStep(0.8))
 tapBtn(zoutEl, () => zoomStep(1.25))
@@ -8963,7 +8985,7 @@ window.__dropFlyPin = dropFlyPin; window.__clearFlyPins = clearFlyPins; window._
 
 // 自己検証用の最小ハンドル
 window.__proto3d = {
-  THREE, scene, camera, boy, get mode() { return mode }, sitDown, standUp, lieDown,
+  THREE, scene, camera, boy, sunDir, get mode() { return mode }, sitDown, standUp, lieDown,
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   startAudio,
   placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
