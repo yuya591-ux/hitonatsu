@@ -2898,7 +2898,7 @@ function buildShishigaya() {
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
   // ローラーすべり台の通り道（コリドー）は木を伐って見通しを作る＝すべり台が木に隠れない（ユーザー要望2026-06-25）。位置は makeRollerSlide と共有
   // 遊びの森は公園の西側。長いローラーすべり台は西の丘の上から東へ大きく蛇行しながら長く下る（実在は67mの蛇行ローラー・ユーザー要望2026-06-25）
-  const SLIDE_PATH = [[3676, -850], [3694, -838], [3710, -822], [3728, -808], [3746, -796], [3764, -784], [3778, -762], [3796, -756], [3814, -744], [3804, -728]] // 蛇行する中心線（西の丘45m→丘をS字に下り→北東の谷で最後にもうひと曲がりして着地(3804,-728)＝より長く蛇行・ユーザー要望2026-06-26）。建物(3785,-786)/(3792,-784)/(3817,-698)から21m以上離す（食い込み回避）
+  const SLIDE_PATH = [[3676, -850], [3694, -838], [3710, -822], [3728, -808], [3746, -796], [3764, -784], [3778, -764], [3782, -746], [3782, -726], [3770, -708]] // 西の丘45m→S字に下り→谷では中の池の西岸ぞいを北へ蛇行して、池をよけた開けた緑地(3770,-708)に着地（旧経路は着地が中の池のど真ん中だった・ユーザー即時修正2026-06-26）。建物から21m以上・水ぎわから13m以上離す
   const POOL = [4082, -966], ATH = [3705, -842] // プール=下の池の北東(北門ぎわ)／アスレチック=遊びの森の南西(すべり台と離す)。各ビルダーと共有
   { const nearPath = (px, pz, rad) => { for (let s = 0; s < SLIDE_PATH.length - 1; s++) { const ax = SLIDE_PATH[s][0], az = SLIDE_PATH[s][1], bx = SLIDE_PATH[s + 1][0], bz = SLIDE_PATH[s + 1][1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let t = ((px - ax) * dx + (pz - az) * dz) / l2; t = Math.max(0, Math.min(1, t)); const cx = px - (ax + dx * t), cz = pz - (az + dz * t); if (cx * cx + cz * cz < rad * rad) return true } return false }
     for (let i = tp.length - 1; i >= 0; i--) {
@@ -7370,7 +7370,7 @@ canvas.addEventListener('pointermove', (e) => {
     if (sitTap) {
       if (mode === 'sliding' && sliding) { // 滑走中の見回し＝進行方向からの相対ずれ（離すと自動で正面へ戻る）
         sliding.lookYaw = THREE.MathUtils.clamp(sliding.lookYaw - (e.clientX - prevX) * 0.006, -1.4, 1.4)
-        sliding.lookPitch = THREE.MathUtils.clamp(sliding.lookPitch - (e.clientY - prevY) * 0.005, -0.8, 0.95)
+        sliding.lookPitch = THREE.MathUtils.clamp(sliding.lookPitch + (e.clientY - prevY) * 0.005, -0.8, 0.95) // 通常の視点と同じ＝下に押すと上を向く（ユーザー要望2026-06-26）
       } else {
         seatLook.yaw -= (e.clientX - prevX) * 0.005
         seatLook.pitch = THREE.MathUtils.clamp(seatLook.pitch + (e.clientY - prevY) * 0.005, -1.4, 1.45)
@@ -8547,7 +8547,7 @@ function update(dt) {
       camera.fov += (64 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix() // 少し広角で疾走感（速度は控えめ）
     } else { // 三人称：後ろやや上から主人公の背中ごしに（見回しでぐるりと回り込める）
       boy.visible = true
-      const behind = Math.atan2(dh.x, dh.z) + Math.PI + sliding.lookYaw, op = 0.32 + sliding.lookPitch, od = 5.5, ocp = Math.cos(op)
+      const behind = Math.atan2(dh.x, dh.z) + Math.PI + sliding.lookYaw, op = 0.32 - sliding.lookPitch, od = 5.5, ocp = Math.cos(op) // lookPitchは「下押し=上向き」へ統一＝三人称も下押しでカメラが下がり上を向く
       camGoal.set(P.x + Math.sin(behind) * ocp * od, P.y + 0.7 + Math.sin(op) * od + bob, P.z + Math.cos(behind) * ocp * od); lookGoal.set(P.x + dh.x * 3, P.y + 0.5, P.z + dh.z * 3)
       camera.fov += (60 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix()
     }
