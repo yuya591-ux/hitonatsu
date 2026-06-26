@@ -2956,7 +2956,7 @@ function buildShishigaya() {
   if (bigPark) { const p = bigPark.p; for (let k = 0; k < p.length; k++) { const a = p[k], b = p[(k + 1) % p.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let t = 6; t < seg; t += 16) { const x = a[0] + (b[0] - a[0]) * t / seg, z = a[1] + (b[1] - a[1]) * t / seg; if (!inWater(x, z)) tp.push([x, z, 1]) } } } // 公園外周の桜並木
   // ローラーすべり台の通り道（コリドー）は木を伐って見通しを作る＝すべり台が木に隠れない（ユーザー要望2026-06-25）。位置は makeRollerSlide と共有
   // 遊びの森は公園の西側。長いローラーすべり台は西の丘の上から東へ大きく蛇行しながら長く下る（実在は67mの蛇行ローラー・ユーザー要望2026-06-25）
-  const SLIDE_PATH = [[3690, -787], [3696, -771], [3702, -787], [3708, -803], [3714, -787], [3720, -771], [3726, -787], [3732, -803], [3738, -787], [3744, -771], [3750, -787], [3755, -801], [3760, -786], [3763, -773]] // 西の丘42m→7スイッチバックでがっつり蛇行しながら降下し、中の池の西岸ぎわ(z-745の尾根は越えず南側の低帯)の開けた緑地(3763,-773)に着地（ユーザー要望「もっとうにょうにょ＋距離を伸ばす」2026-06-26）。total約221m・地形に埋まらず(隙0.6)・水/建物を避ける(着地は建物26m/水29m)。_slidedesign.mjsで埋まり0・降下滑らかを確認して選定
+  const SLIDE_PATH = [[3690, -786], [3701, -766], [3714, -786], [3727, -808], [3740, -786], [3751, -766], [3759, -784], [3763, -772]] // 西の丘42m→ゆったり2つの大きな波(北→南→北)でなめらかに蛇行して降下し、中の池の西岸ぎわ(尾根の南の低帯)の開けた緑地(3763,-772)に着地。total約160m・upruns=0(完全に単調降下＝カクつかない)・埋まり0・水/建物を避ける(着地は建物26m/水28m)。※7スイッチバックの詰めすぎ版は「カーブが角ばる＋隣のレグの暗い床下が並んで黒い滑り台が二重に見え怖い」とユーザー指摘→レグ間を42〜50m離した広い波へ作り直し(2026-06-26)。_slidedesign.mjsで選定
   const POOL = [4082, -966], ATH = [3705, -842] // プール=下の池の北東(北門ぎわ)／アスレチック=遊びの森の南西(すべり台と離す)。各ビルダーと共有
   { const nearPath = (px, pz, rad) => { for (let s = 0; s < SLIDE_PATH.length - 1; s++) { const ax = SLIDE_PATH[s][0], az = SLIDE_PATH[s][1], bx = SLIDE_PATH[s + 1][0], bz = SLIDE_PATH[s + 1][1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let t = ((px - ax) * dx + (pz - az) * dz) / l2; t = Math.max(0, Math.min(1, t)); const cx = px - (ax + dx * t), cz = pz - (az + dz * t); if (cx * cx + cz * cz < rad * rad) return true } return false }
     for (let i = tp.length - 1; i >= 0; i--) {
@@ -3036,18 +3036,20 @@ function buildShishigaya() {
     const g = new THREE.Group(), N = Math.max(60, Math.round(total))
     const SP = [], ST = []; for (let i = 0; i <= N; i++) { const u = i / N; SP.push(curve.getPointAt(u)); ST.push(curve.getTangentAt(u)) }
     // ローラー床/レール/支柱/階段をジオメトリにためてmerge（1スライド数ドロー＝軽量）
-    const rollG = [], rAG = [], rBG = [], postG = [], m4 = new M4(), q = new Q()
+    const rollG = [], rAG = [], rBG = [], postG = [], deckV = [], deckIdx = [], m4 = new M4(), q = new Q() // deck＝明るい連続の床リボン（上から見て暗い床下/隙間でなく明るい滑走面が見える＝“黒い二重”解消・2026-06-26）
     for (let i = 0; i <= N; i++) { const P = SP[i], T = ST[i], horiz = new V(T.x, 0, T.z).normalize(), perp = new V(-horiz.z, 0, horiz.x), yaw = Math.atan2(horiz.x, horiz.z)
       q.setFromUnitVectors(up, perp); { const rg = new THREE.CylinderGeometry(0.07, 0.07, width, 7); m4.compose(P, q, ONE); rg.applyMatrix4(m4); rollG.push(rg) } // ローラー軸
+      { const la = P.clone().addScaledVector(perp, hw).add(new V(0, -0.05, 0)), lb = P.clone().addScaledVector(perp, -hw).add(new V(0, -0.05, 0)); deckV.push(la.x, la.y, la.z, lb.x, lb.y, lb.z); if (i < N) { const k = i * 2; deckIdx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3) } } // 床リボン（ローラーのすぐ下に連続面）
       if (i < N) { const P2 = SP[i + 1]
-        for (const sd of [-1, 1]) { const a = P.clone().addScaledVector(perp, sd * (hw + 0.12)).add(new V(0, 0.27, 0)), b = P2.clone().addScaledVector(perp, sd * (hw + 0.12)).add(new V(0, 0.27, 0))
+        for (const sd of [-1, 1]) { const a = P.clone().addScaledVector(perp, sd * (hw + 0.1)).add(new V(0, 0.12, 0)), b = P2.clone().addScaledVector(perp, sd * (hw + 0.1)).add(new V(0, 0.12, 0))
           const mid = a.clone().add(b).multiplyScalar(0.5), dir = b.clone().sub(a), len = dir.length(); q.setFromUnitVectors(new V(0, 0, 1), dir.clone().normalize())
-          const bg = new THREE.BoxGeometry(0.1, 0.5, len * 1.1); m4.compose(mid, q, ONE); bg.applyMatrix4(m4); (sd > 0 ? rAG : rBG).push(bg) } } // 左右で色ちがいのレール
+          const bg = new THREE.BoxGeometry(0.1, 0.32, len * 1.1); m4.compose(mid, q, ONE); bg.applyMatrix4(m4); (sd > 0 ? rAG : rBG).push(bg) } } // 左右で色ちがいのレール（低く＝暗い側壁を減らす）
       if (i % 5 === 0 && i > 0 && i < N) { const gy = heightAtYato(P.x, P.z), by = P.y - 0.12, ph = by - gy; if (ph > 0.6) { const pg = new THREE.CylinderGeometry(0.1, 0.14, ph, 7); m4.compose(new V(P.x, (gy + by) / 2, P.z), new Q(), ONE); pg.applyMatrix4(m4); postG.push(pg) } } // 支柱
       // ※以前あった「滑走路に全長並走する登り階段＋暗い手すり」は廃止。横から見ると“黒い影のもう一本のすべり台”に見えて怖い/不自然だった（ユーザー指摘2026-06-26）。登りは塔のわきの短い階段だけにする（下の add で1か所）
     }
     const addMerged = (geos, mat, sh) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = !!sh; m.receiveShadow = true; g.add(m); geos.forEach((x) => x.dispose()) }
     // 床/レール/手すりの細い影は地面に散らかって不気味なので影を落とさない＝接地は支柱の影だけで十分（ユーザー指摘2026-06-26）
+    { const dg2 = new THREE.BufferGeometry(); dg2.setAttribute('position', new THREE.Float32BufferAttribute(deckV, 3)); dg2.setIndex(deckIdx); dg2.computeVertexNormals(); const dm = new THREE.Mesh(dg2, new THREE.MeshToonMaterial({ color: 0xd4d6da, gradientMap: GRAD, side: THREE.DoubleSide })); dm.receiveShadow = true; dm.castShadow = false; g.add(dm) } // 明るい滑走面の床リボン
     addMerged(rollG, slideMat, false); addMerged(rAG, railA, false); addMerged(rBG, railB, false); addMerged(postG, postMat, true)
     // 出発の木のやぐら（登り台）：太い木柱4本＋上下2段の貫＋筋交い＋中段の踊り場＋デッキ＝高い出発点を木組みで自然に支える（ユーザー要望2026-06-26）
     const add = (geo, mat, p, qq) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p); if (qq) m.quaternion.copy(qq); m.castShadow = true; g.add(m); return m }
