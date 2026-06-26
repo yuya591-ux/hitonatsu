@@ -622,6 +622,7 @@ function setTimeOfDay(t) {
   lc(sun.color, from.light, to.light, u)
   sun.intensity = ln(from.li, to.li, u)
   lc(sunBall.material.color, from.ball, to.ball, u)
+  sunBall.material.opacity = 1 - THREE.MathUtils.smoothstep(t, 0.8, 0.93) * 0.98 // 夜は太陽スプライトを消す＝地平の白塊が残って月と二重に光るのを解消（アートD指摘2026-06-27。nightFactorは後方定義なのでインライン）
   lc(skyMat.uniforms.top.value, from.sky, to.sky, u)
   lc(skyMat.uniforms.mid.value, from.mid, to.mid, u)
   lc(skyMat.uniforms.bottom.value, from.bot, to.bot, u)
@@ -8791,9 +8792,9 @@ function update(dt) {
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
   // 止め絵：座って景色をながめる間は、周辺減光と記憶の色を少し強めて“ただ味わう一枚絵”に（立つと戻る）
-  { const ct = mode === 'sit' ? 1 : 0
-    gradePass.uniforms.vig.value += ((0.16 + ct * 0.12) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
-    gradePass.uniforms.mem.value += ((0.78 + ct * 0.12) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6) }
+  { const ct = mode === 'sit' ? 1 : 0, nf = nightFactor(tday) // 夜は記憶の暖色(mem)と周辺減光(vig)を弱める＝空ドームの紺がそのまま出る（夜空が褐色のミルクに濁るのを解消・アートD指摘2026-06-27）
+    gradePass.uniforms.vig.value += (((0.16 + ct * 0.12) * (1 - nf * 0.4)) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
+    gradePass.uniforms.mem.value += (((0.78 + ct * 0.12) * (1 - nf * 0.5)) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6) }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
   if (window.__freezeCam || titleView) return // 検証用：カメラ固定／タイトル中はtitleCamが全部やるのでupdateはカメラに触れない（取り合いの揺れ防止）
