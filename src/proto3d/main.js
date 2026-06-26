@@ -7729,7 +7729,12 @@ function update(dt) {
   else if (area === 'yato') { scene.fog.near = 108 - weather * 30; scene.fog.far = 470 - weather * 170 // 地上：霞の始まりは奥（中景はくっきり）＋遠景はやわらかく霞へ溶ける（コージーな空気遠近）
     if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 80, 0, 1); scene.fog.near += altF * 250; scene.fog.far += altF * 720 } } // 高く昇るほど手前が澄んで遠くまで見渡せる＝夢で空から見た町（以前は逆に霞ませていたのを反転・ユーザー要望2026-06-26）
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
-  if (typeof window === 'undefined' || !window.__freezeCam) { const wf = Math.max(620, Math.ceil(scene.fog.far / 200) * 200 + 200); if (camera.far !== wf) { camera.far = wf; camera.updateProjectionMatrix() } } // カメラ遠方面は霞の到達に追従＝霞で隠れる範囲だけ描く（高所は遠景まで、地上は近くまで＝負荷も霞に応じて軽い）
+  if (typeof window === 'undefined' || !window.__freezeCam) {
+    // カメラ遠方面を「霞の到達＋わずかな余白」に詰める＝霧で完全に隠れる向こう側を描かない（地上far800→680でドローコール減・見た目は不変。far430と800の遠景が同一なのを実機相当で確認2026-06-26）
+    // 床680の理由：①入道雲(cloudMatはfog無し・カメラ追従・dist最大540＋半径約80＝最遠端約620m)をクリップして消さない ②空ドーム(skyDome半径400でカメラ追従・line7662)を欠けさせない。旧式 max(620,ceil(far/200)*200+200) は地上で常に800を返し、霧で隠れる680〜800を無駄に描いていた
+    const wf = Math.max(680, Math.round((scene.fog.far + 60) / 20) * 20) // 20m刻み＝霞が揺れても投影更新を頻発させない
+    if (Math.abs(camera.far - wf) > 10) { camera.far = wf; camera.updateProjectionMatrix() }
+  }
   // 光のボケ：雨×暗さ（夕暮れ〜夜）で軒の灯りがにじむ玉ボケ。ゆっくり昇って明滅
   { const nf = nightFactor(tday), vis = weather * THREE.MathUtils.clamp(nf * 1.5 + 0.14, 0, 1)
     bokeh.material.opacity = vis * 0.5
