@@ -5487,8 +5487,11 @@ const boy = makeBoy()
 const BOY_SCALE = 0.85 // 基準スケール（さらに小柄に）。ジャンプの伸び縮みはこれに掛ける
 boy.scale.setScalar(BOY_SCALE) // 体全体をもう少し小さく
 boy.rotation.order = 'YXZ' // ★向き(y)を最外＝前傾(x)は常に「進行方向へ前のめり」になる。XYZだと東西を向いた時に前傾が横倒れ＝左に傾く不具合になる
-// ゲーム開始位置＝サンライズ北寺尾の前。入口(ポーチ)が正面・前庭の小道ごしに建物が立ち上がる“家に帰ってきた”構図。後方の道が開けカメラが詰まらない位置を探索で確定（以前は建物に近すぎ壁＋隣家でカメラが詰まっていた・ユーザー要望2026-06-23）
-const DEFAULT_SPAWN = { x: 3004, z: 30, rot: Math.atan2(3003.8 - 3004, 7.5 - 30), area: 'yato' }
+// ゲーム開始位置＝サンライズ北寺尾の前。開幕は“夏の田舎の通り”を望む向きに（C⑪・Director指摘2026-06-27）。
+// 旧向き(南＝atan2(3003.8-3004,7.5-30)≈-179.5°)はサンライズ(7階建ての大マンション・南S〜SE)の壁が画面いっぱいで第一印象が“団地の壁”だった。
+// →北東(45°)へ＝村の小道が奥へ伸び、両側に小さな家々・朝日・ツバメ・バス停・猫が入る郷愁の画に（360度サーベイ_spawn360.mjsで最良角を確定）。
+// マンションは画面のS/SE＝右後方へ退く。追従カメラは南西(boyの後方)に来るが footprint北縁(z≈2)から約18mあり食い込まない。
+const DEFAULT_SPAWN = { x: 3004, z: 30, rot: Math.PI / 4, area: 'yato' }
 let spawnPt = { ...DEFAULT_SPAWN }, spawnCustom = false // 設定「はじまりの場所」で保存した開始地点（無ければ既定）。ユーザー要望2026-06-24＝開始地点を自由に設定
 try { const s = JSON.parse(localStorage.getItem('hn3d_spawn') || 'null'); if (s && isFinite(s.x) && isFinite(s.z)) { spawnPt = { x: s.x, z: s.z, rot: isFinite(s.rot) ? s.rot : DEFAULT_SPAWN.rot, area: s.area || 'yato' }; spawnCustom = true } } catch (e) {}
 boy.position.set(spawnPt.x, heightAt(spawnPt.x, spawnPt.z), spawnPt.z); boy.rotation.y = spawnPt.rot
@@ -6287,7 +6290,7 @@ bokeh.frustumCulled = false; scene.add(bokeh)
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 600)
 camera.layers.enable(1) // メイン描画では layer0(実体)＋layer1(輪郭ハル・空) の両方を映す。法線パスでは一時的にlayer1を外す
 // 視点の制御値（球面）。yaw=水平角, pitch=見下ろし角, dist=距離。
-const camCtl = { yaw: 0.02, pitch: 0.34, dist: 14, minDist: 4.5, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 } // 開始＝サンライズ前を正面に見る向き(yaw≈0)＋俯角をさらにゆるめ(0.54→0.34)＝神の視点でなく“その場に立つ子どもの目線”に近づけ建物が立ち上がって見える（没入・ユーザー要望2026-06-23）。地面めり込みは描画側のクランプで防止
+const camCtl = { yaw: 0.02, pitch: 0.34, dist: 14, minDist: 4.5, maxDist: 34, minPitch: 0.18, maxPitch: 1.25 } // yaw≈0＝カメラは主人公の真後ろ（開始は北東の村の通りを見る向き・C⑪2026-06-27）＋俯角をゆるめ(0.34)＝神の視点でなく“その場に立つ子どもの目線”で建物が立ち上がる（没入・ユーザー要望2026-06-23）。地面めり込みは描画側のクランプで防止
 let lookSens = 1 // 設定：視点を回す感度（ひくい/ふつう/たかい）
 function camOffset(out) {
   const cp = Math.cos(camCtl.pitch)
