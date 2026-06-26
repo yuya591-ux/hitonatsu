@@ -5165,10 +5165,10 @@ makeBug(9, 2.0, -21.5, 'セミ')
     makeBug(x + Math.cos(ang) * tr, y + (kind === 'セミ' ? 2.0 : 1.3) + Math.random() * 0.3, z + Math.sin(ang) * tr, kind) }) } // カブトムシは幹の低め・セミは少し上
 
 // ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
-function makeCat() {
+function makeCat(furCol, creamCol) {
   const g = new THREE.Group()
-  const fur = toon(0xdf9450), cream = toon(0xf2e4cb)
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), fur); body.scale.set(1.45, 0.86, 0.92); body.position.y = 0.4; g.add(body)
+  const fur = toon(furCol || 0xdf9450), cream = toon(creamCol || 0xf2e4cb) // 毛色＝個体差（茶トラ/サバ/黒白）
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), fur); body.scale.set(1.45, 0.86, 0.92); body.position.y = 0.4; g.add(body); g.userData.body = body
   const chest = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), cream); chest.scale.set(0.8, 1, 0.8); chest.position.set(0.42, 0.34, 0); g.add(chest) // 胸の白
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), fur); head.position.set(0.5, 0.58, 0); g.add(head)
   const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), cream); muzzle.scale.set(1, 0.72, 0.9); muzzle.position.set(0.64, 0.5, 0); g.add(muzzle) // 口元の白
@@ -5199,9 +5199,10 @@ const cat = makeCat()
 const CAT_HOME = { x: 3016, z: 34 } // 猫の縄張り＝サンライズ前(開始地点のそば)。以前は旧フィールド(-10,18)でプレイヤーが一生出会えなかった→歩く場所へ
 cat.position.set(CAT_HOME.x, heightAt(CAT_HOME.x, CAT_HOME.z), CAT_HOME.z)
 Object.assign(cat.userData, { tx: CAT_HOME.x, tz: CAT_HOME.z, rest: 2000, phase: 0, homeX: CAT_HOME.x, homeZ: CAT_HOME.z })
-// 獅子ヶ谷にもう1匹＝商店街のそばの野良猫（人や店のまわりにいる・C15・2026-06-25）。なでられるのは開始地点の猫(cat)、この子は気ままに歩くだけ
+// 獅子ヶ谷にもう2匹＝毛色ちがいの野良猫（茶トラ/サバ/黒白の3匹＝個体差・C15）。なでられるのは開始地点の猫(cat)、他は気ままに歩くだけ
 const cats = [cat]
-{ const c2 = makeCat(), hx = 2758, hz = -150; c2.position.set(hx, heightAt(hx, hz), hz); Object.assign(c2.userData, { tx: hx, tz: hz, rest: 1500 + Math.random() * 2500, phase: 0, homeX: hx, homeZ: hz }); cats.push(c2) }
+for (const [hx, hz, fc, cc] of [[2758, -150, 0x8a8a80, 0xe2e0d6], [3055, -110, 0x2c2826, 0xf0ece2]]) { // サバ猫(商店街)・黒白猫(核のあたり)
+  const c = makeCat(fc, cc); c.position.set(hx, heightAt(hx, hz), hz); Object.assign(c.userData, { tx: hx, tz: hz, rest: 1500 + Math.random() * 3500, phase: 0, homeX: hx, homeZ: hz }); cats.push(c) }
 
 // ── 主人公（丸っこく立体的な少年・麦わら帽子。あどけない頭でっかちの体つき）──
 // ※特定作品のキャラ・顔の模倣はしない。素朴で可愛い普遍的なトゥーン顔。
@@ -7897,17 +7898,18 @@ function update(dt) {
     }
   }
   // うろつく猫（縄張りのまわりを気ままに・休む）。獅子ヶ谷に複数匹
-  for (const ct of cats) {
-    const u = ct.userData
-    if (u.rest > 0) { u.rest -= dt * 1000 } else {
+  for (let ci = 0; ci < cats.length; ci++) {
+    const ct = cats[ci], u = ct.userData, resting = u.rest > 0
+    if (resting) { u.rest -= dt * 1000 } else {
       const dx = u.tx - ct.position.x, dz = u.tz - ct.position.z; const d = Math.hypot(dx, dz)
       if (d < 0.3) {
         if (Math.random() < 0.5) u.rest = 2000 + Math.random() * 4000
         else { u.tx = u.homeX + (Math.random() - 0.5) * 18; u.tz = u.homeZ + (Math.random() - 0.5) * 18 }
       } else { const s = 1.1 * dt; ct.position.x += (dx / d) * s; ct.position.z += (dz / d) * s; ct.rotation.y = Math.atan2(dx, dz); u.phase += dt * 8 }
     }
-    ct.position.y = heightAt(ct.position.x, ct.position.z) + (u.rest <= 0 ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
-    if (u.tail) u.tail.rotation.z = -1.0 + Math.sin(tsec * 2.5 + (ct === cat ? 0 : 1.3)) * 0.28 // 尻尾をゆらす
+    ct.position.y = heightAt(ct.position.x, ct.position.z) + (!resting ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
+    if (u.body) { const br = resting ? Math.sin(tsec * 1.6 + ci) * 0.03 : 0; u.body.scale.set(1.45, 0.86 * (1 + br), 0.92 * (1 + br * 0.6)) } // 休む間はゆっくり呼吸（胴がふくらむ）＝くつろぎ
+    if (u.tail) u.tail.rotation.z = -1.0 + Math.sin(tsec * (resting ? 1.4 : 2.5) + ci * 1.3) * (resting ? 0.16 : 0.28) // 休む時は尾もゆっくり・歩く時は元気に
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
