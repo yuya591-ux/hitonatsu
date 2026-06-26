@@ -3186,6 +3186,36 @@ function makeScarecrow(x, z, rot) {
     if (inW(cx, cz) || heightAtYato(cx, cz) < 2 || onYatoRoadCore(cx, cz)) continue
     if (placed.some(([px, pz]) => Math.hypot(px - cx, pz - cz) < 30)) continue // 近すぎる田には重ねない
     makeScarecrow(cx, cz, Math.random() * 6.28); placed.push([cx, cz]); sc++ } }
+// ── 路傍のお地蔵さま（辻に立つ・赤い前掛けと毛糸の帽子・お供えの花）＝時代を超えた田舎の祈り（F8・2026-06-26）──
+function makeJizo(x, z, rot) {
+  const g = new THREE.Group(), gy = heightAtYato(x, z)
+  const stone = toon(0xb8b4a8), stoneD = toon(0x9a968a), red = toon(0xbe3a34)
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.27, 0.15, 8), stoneD); base.position.y = 0.075; g.add(base) // 台石（下）
+  const base2 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.1, 8), stoneD); base2.position.y = 0.2; g.add(base2) // 台石（上）
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.155, 0.42, 12), stone); body.position.y = 0.46; g.add(body) // 胴（丸みのある石仏）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), stone); head.position.y = 0.73; g.add(head) // 丸い頭
+  const ink = new THREE.MeshBasicMaterial({ color: 0x6a6458, transparent: true, opacity: 0.6 })
+  for (const ex of [-0.042, 0.042]) { const eye = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.006, 0.01), ink); eye.position.set(ex, 0.74, 0.118); g.add(eye) } // やさしい伏し目
+  const bib = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.24, 0.04), red); bib.position.set(0, 0.5, 0.13); bib.rotation.x = 0.12; g.add(bib) // 赤い前掛け（よだれかけ）
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.138, 12, 10, 0, 6.28, 0, Math.PI * 0.52), red); cap.position.y = 0.745; g.add(cap) // 赤い毛糸の帽子
+  for (const [fx, fc] of [[-0.13, 0xe05a64], [0.13, 0xf0ece0]]) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.032, 6, 5), toon(fc)); fl.position.set(fx, 0.3, 0.22); g.add(fl); const st = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.14, 4), toon(0x4a7a3a)); st.position.set(fx, 0.23, 0.22); g.add(st) } // お供えの花（赤白）
+  for (const m of [base, body, head, cap, bib]) addOutline(m, 0.015)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, gy, z); g.rotation.y = rot || 0; g.userData = { jizo: true }; scene.add(g)
+  addContactShadow(g, 0.4)
+  return g
+}
+{ const inW = (x, z) => SG.waters.some((q) => q.p && q.p.length >= 3 && pip(x, z, q.p))
+  // 目標点の近くで「道の上ではないが道のすぐ脇」の乾いた地面を探す＝歩く道ぞいにお地蔵さまを立てる
+  const findRoadside = (tx, tz) => { for (let r = 1.5; r <= 7; r += 1) for (let a = 0; a < 6.28; a += 0.42) { const x = tx + Math.cos(a) * r, z = tz + Math.sin(a) * r
+    if (inW(x, z) || heightAtYato(x, z) < 2 || onYatoRoad(x, z) || onYatoRoadCore(x, z)) continue // 水/急斜面/道の上は不可
+    let near = false; for (let aa = 0; aa < 6.28; aa += 0.6) if (onYatoRoad(x + Math.cos(aa) * 2.6, z + Math.sin(aa) * 2.6)) { near = true; break } // 2.6m以内に道がある＝路傍
+    if (near) return [x, z] } return null }
+  const placed = []
+  for (const [tx, tz] of [[3018, -34], [3044, -150], [3030, -300], [2972, -452], [3128, -210]]) { if (placed.length >= 4) break // 核の散歩道ぞいの数か所
+    const spot = findRoadside(tx, tz); if (!spot) continue
+    if (placed.some(([qx, qz]) => Math.hypot(qx - spot[0], qz - spot[1]) < 40)) continue // 散らす
+    makeJizo(spot[0], spot[1], Math.atan2(tx - spot[0], tz - spot[1])); placed.push(spot) } } // 道(目標点)の方を向く
 {
   const T = TOWN
   // 地面：手前＝住宅街の平地、奥（+z）＝裏山へせり上がる。頂点をheightAtで持ち上げ、高さで色分け
