@@ -141,11 +141,12 @@ for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, r
 // 道の“描画幅ちょうど”のマスク（＋0.6の余裕なし・1m格子で正確に）＝建物が「道の上に乗っているか」判定用。路傍に面するだけの家(描画幅の外)は除外しない（2m格子だと小さい家を過剰除外したので1mに細かく・ユーザー指摘2026-06-24）
 const RCORE_CELL = 1, RCORE_N = Math.ceil(SG.half * 2 / RCORE_CELL) + 1
 const rcoreIdx = (x, z) => { const i = Math.floor((x - SG.gx0 + SG.half) / RCORE_CELL), j = Math.floor((z - SG.gz0 + SG.half) / RCORE_CELL); return (i < 0 || j < 0 || i >= RCORE_N || j >= RCORE_N) ? -1 : j * RCORE_N + i }
-const yatoRoadCore = new Uint8Array(RCORE_N * RCORE_N)
-for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2), p = rd.p
+const yatoRoadCore = new Uint8Array(RCORE_N * RCORE_N) // 0=道でない / 1=舗装路 / 2=土の小道（足音の路面判定にも使う・舗装が土より優先）
+for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2), p = rd.p, kv = rd.k === 'path' ? 2 : 1
   for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
-    for (let t = 0; t <= l; t += 0.6) for (let s = -hw; s <= hw; s += 0.6) { const id = rcoreIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0) yatoRoadCore[id] = 1 } } }
-const onYatoRoadCore = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 && yatoRoadCore[id] === 1 }
+    for (let t = 0; t <= l; t += 0.6) for (let s = -hw; s <= hw; s += 0.6) { const id = rcoreIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0 && yatoRoadCore[id] !== 1) yatoRoadCore[id] = kv } } } // 舗装(1)は土(2)に上書きされない＝交差点は舗装が勝つ
+const onYatoRoadCore = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 && yatoRoadCore[id] !== 0 } // 「道の上か」＝舗装/土どちらも道（建物/木/塀の除外判定は従来どおり）
+const yatoSurfKind = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 ? yatoRoadCore[id] : 0 } // 路面の種類（0=草地/1=舗装/2=土）＝足音用
 let onYato = false // 実行時に獅子ヶ谷(谷戸)エリアにいるか。trueなら heightAt/climbYAt を全域 DEM に切替＝西の師岡など x<2200 の谷戸拡張も正しく歩ける。モジュール評価中はfalse＝旧プロト(町/野原/神社)のビルドはx帯分岐のまま安全
 const WEST_EXT = 120 // 世界を西へ少しだけ拡張する量（m）。師岡町＝ビエント横濱菊名(game約1894,-160)を地続きにする（ユーザー要望2026-06-23）
 function heightAtYato(x, z) { // 実標高をバイリニア補間。zは反転サンプル(データ側を北=-zにしたため)。±SG.half外は縁の値で頭打ち
@@ -6730,15 +6731,20 @@ function updateFestival(dt) {
   out.gain.setTargetAtTime(target, ctx.currentTime, 0.4)
   if (target > 0.004) { const now = ctx.currentTime; if (festNextBar < now + 0.1) festNextBar = now + 0.1; while (festNextBar < now + 0.7) { scheduleFestBar(festNextBar); festNextBar += 2.0 } } // 聞こえる範囲のときだけ先読み
 }
-function playStep(vol, town) { // 足音：草はやわらかい低音、舗装は少し明るい擦れ
+function playStep(vol, surf) { // 足音：路面で表情を変える＝舗装"タッ"／土"とっ"／砂利"ジャッ"／草"さく"／板"こと"（G4・2026-06-26）
   if (!audioStarted) return
   try {
     const ctx = listener.context, now = ctx.currentTime
     const src = ctx.createBufferSource(); src.buffer = getNoise(); src.playbackRate.value = 0.8 + Math.random() * 0.35
-    const bp = ctx.createBiquadFilter()
-    bp.type = town ? 'bandpass' : 'lowpass'; bp.frequency.value = town ? 900 + Math.random() * 360 : 360 + Math.random() * 140; bp.Q.value = town ? 0.7 : 0.6 // 舗装の足音をやわらかい“タッ”に（耳ざわりなチクチク音を抑える）
+    // 路面ごとのフィルタ：type/中心周波数/Q/減衰/音量補正
+    const S = surf === 'pave' ? { ty: 'bandpass', f: 900 + Math.random() * 360, q: 0.7, d: 0.10, v: 1.0 } // 舗装＝やわらかい"タッ"
+      : surf === 'dirt' ? { ty: 'lowpass', f: 480 + Math.random() * 130, q: 0.6, d: 0.12, v: 1.0 } // 土＝乾いた"とっ"（草より少し締まる）
+      : surf === 'gravel' ? { ty: 'bandpass', f: 1600 + Math.random() * 700, q: 0.5, d: 0.09, v: 0.82 } // 砂利＝細かい"ジャッ"
+      : surf === 'wood' ? { ty: 'bandpass', f: 300 + Math.random() * 90, q: 2.2, d: 0.13, v: 1.1 } // 板／縁側＝中空の"こと"
+      : { ty: 'lowpass', f: 360 + Math.random() * 140, q: 0.6, d: 0.15, v: 0.95 } // 草＝やわらかい低音"さく"
+    const bp = ctx.createBiquadFilter(); bp.type = S.ty; bp.frequency.value = S.f; bp.Q.value = S.q
     const g = ctx.createGain()
-    g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + (town ? 0.10 : 0.15))
+    g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol * S.v, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + S.d)
     src.connect(bp); bp.connect(g); g.connect(getSfxOut()); src.start(now); src.stop(now + 0.25)
   } catch (e) {}
 }
@@ -8210,7 +8216,8 @@ function update(dt) {
     if (inCreek) todayFlags.wadedCreek = true
     if (moving && !riding && !floatMode && sw * lastStepS < 0 && jumpY <= 0.02 && !airborne) { // ジャンプ中(空中)/自転車/浮遊は足音を出さない
       if (inCreek) { playPlop(); spawnRipple(boy.position.x, boy.position.z); spawnRipple(boy.position.x + (Math.random() - 0.5) * 0.8, boy.position.z + (Math.random() - 0.5) * 0.8) }
-      else { playStep(0.04 + run * 0.06, area === 'town'); if (run > 0.4) spawnDust(boy.position.x, boy.position.y + 0.05, boy.position.z) }
+      else { let surf = 'grass'; if (area === 'town') surf = 'pave'; else if (onYato) { const k = yatoSurfKind(boy.position.x, boy.position.z); surf = k === 1 ? 'pave' : k === 2 ? 'dirt' : (onYatoRoad(boy.position.x, boy.position.z) ? 'pave' : 'grass') } // 路面で足音を変える（OSM道=舗装/土・手置きの核の道=舗装・それ以外=草）
+        playStep(0.04 + run * 0.06, surf); if (run > 0.4 && surf !== 'pave') spawnDust(boy.position.x, boy.position.y + 0.05, boy.position.z) } // 砂ぼこりは土/草で（舗装では出さない）
     }
     lastStepS = sw
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
@@ -8870,6 +8877,8 @@ window.__proto3d = {
   colliders, _collide(x, z) { return pushOutOfColliders(x, z) }, // 検証用：当たり判定（点を外へ押し出す）
   SG, heightAtYato(x, z) { return heightAtYato(x, z) }, // 検証用：獅子ヶ谷の道/建物/水データ＋実標高（道ふさぎの洗い出しに使う）
   _onRoad(x, z) { return onYatoRoadCore(x, z) }, // 検証用：その点が道の描画幅に乗るか（道を横切る塀/物の洗い出しに使う）
+  _surf(x, z) { return yatoSurfKind(x, z) }, // 検証用：路面の種類（0=草地/1=舗装/2=土）＝足音の判定確認
+  _footSurf(x, z) { const k = yatoSurfKind(x, z); return k === 1 ? 'pave' : k === 2 ? 'dirt' : (onYatoRoad(x, z) ? 'pave' : 'grass') }, // 検証用：実際に足音で使う路面分類
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
   _train() { startAudio(); try { listener.context.resume() } catch (e) {} playTrain(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの電車
   _dog() { startAudio(); try { listener.context.resume() } catch (e) {} playDog(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの犬
