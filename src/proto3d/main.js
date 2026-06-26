@@ -2910,9 +2910,21 @@ function buildShishigaya() {
     let ns = 0 // 室外機＝範囲340m→560m・上限20→30に拡大（建物の壁ぎわなので道に出ない）
     for (const b of SG.buildings) { if (ns >= 30) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 560) continue; const seed = Math.abs(Math.round(x) * 5 + Math.round(z) * 2); if (seed % 5 !== 0) continue
       const rot = b[4]; shitsu(x + Math.cos(rot) * (b[2] / 2 + 0.3), z + Math.sin(rot) * (b[2] / 2 + 0.3), rot + Math.PI / 2); ns++ }
+    // 鉢植え（軒先に並ぶ植木鉢＝昭和の住宅の“手入れ”の生活感・歩く目線の密度。B4・2026-06-26）。素焼き鉢＋緑＋ときどき朝顔/花
+    const hachi = (x, z, rot) => { const g = new THREE.Group(), terra = [0xb5673a, 0xa85a32, 0xc07248], leaf = [0x4f8a3e, 0x5f9a48, 0x6aa050], flower = [0x6a5acd, 0xe85a7a, 0xf0c020, 0xf4f4ee]
+      const seed = Math.abs(Math.round(x * 3 + z)), n = 2 + (seed % 3) // 2〜4鉢を横一列
+      for (let i = 0; i < n; i++) { const ox = -((n - 1) * 0.16) + i * 0.32, s = 0.82 + ((seed >> i) % 7) / 18
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * s, 0.10 * s, 0.22 * s, 8), toon(terra[i % 3])); pot.position.set(ox, 0.11 * s, 0); g.add(pot)
+        const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 * s, 0), toon(leaf[(seed + i) % 3])); lf.position.set(ox, 0.30 * s, 0); lf.scale.set(1, 0.85, 1); g.add(lf)
+        if ((seed >> (i + 2)) % 5 < 2) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.05 * s, 6, 5), toon(flower[(seed + i) % 4])); fl.position.set(ox + 0.05, 0.36 * s, 0.05); g.add(fl) } } // ときどき朝顔/花
+      placeProp(g, x, z, rot, 0.02, 0.55) }
+    let np = 0 // 鉢植え＝物干し/室外機と別の家に（別の種で抽選）・道の上と水際を避ける・560m圏
+    for (const b of SG.buildings) { if (np >= 34) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 560) continue; const seed = Math.abs(Math.round(x) * 11 + Math.round(z) * 4); if (seed % 5 !== 0) continue
+      const rot = b[4], px = x + Math.cos(rot) * (b[3] / 2 + 0.75), pz = z + Math.sin(rot) * (b[3] / 2 + 0.75); if (!inWater(px, pz) && heightAtYato(px, pz) > 3 && !onYatoRoadCore(px, pz)) { hachi(px, pz, rot + Math.PI / 2); np++ } }
     // 北門の住宅地（プール北東）に生活感＝中心から遠く既定の小物範囲外なので手置き。物干し/室外機/自販機で「人が住んでいる」気配
     hoshi(4124, -1052, 0); hoshi(4178, -1090, Math.PI / 2); hoshi(4124, -1120, 0)
     shitsu(4138, -1028, Math.PI / 2); shitsu(4164, -1104, -Math.PI / 2)
+    hachi(4131, -1050, Math.PI / 2); hachi(4172, -1088, 0); hachi(4120, -1118, Math.PI / 2) // 北門の家の軒先にも鉢植え
     makeVending(4128, -984, 0.3, 0xc23a2c) // 小道の入口の自販機（プール帰りのラムネ）
     makeVending(2900, -50, 1.0, 0xc23a2c); makeVending(3052, -118, -0.6, 0x2a7ab0); makeVending(3120, -100, 0.4, 0xe0a838) // 道角の自販機（風呂上がり/夏のラムネ）
     { const g = new THREE.Group(), red = toon(0xc0392b); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red); body.position.y = 1.05; g.add(body); const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red); top.position.y = 2.1; g.add(top); placeProp(g, 2960, -86, 0, 0.04, 0.7) } // 丸ポスト
