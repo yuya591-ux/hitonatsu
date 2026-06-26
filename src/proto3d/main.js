@@ -8822,6 +8822,7 @@ window.__proto3d = {
   _rideSlide() { if (!slideRide) return null; area = 'yato'; onYato = true; boy.position.set(slideRide.top[0], heightAt(slideRide.top[0], slideRide.top[1]), slideRide.top[1]); rideSlide(); return { total: +slideRide.total.toFixed(1) } }, // 検証用：すべり台に乗る
   get _slideState() { return sliding ? { s: +sliding.s.toFixed(1), v: +sliding.v.toFixed(1), pov: sliding.pov, mode } : { mode } }, // 検証用：滑走状態
   _slidePov(p) { if (sliding) sliding.pov = p }, // 検証用：滑走の視点を直接セット
+  _slideSeek(s) { if (sliding) sliding.s = s }, // 検証用：滑走の弧長位置を直接セット（着地テスト用）
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
   _windInfo() { return windGain ? { started: windStarted, gain: +windGain.gain.value.toFixed(4), freq: windLP ? Math.round(windLP.frequency.value) : 0 } : { started: windStarted } }, // 検証用：風の音ノードの状態
