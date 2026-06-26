@@ -5666,8 +5666,22 @@ const stars = (() => {
     p.push(Math.cos(u) * Math.cos(v) * r, Math.sin(v) * r, Math.sin(u) * Math.cos(v) * r)
   }
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
+  // 星ごとに「またたき」の位相・速さ・基準の明るさ・大きさ・ほのかな色みをばらす＝満天が生きてちらちら瞬く（A8の残り・2026-06-26）
+  const sN = p.length / 3, aPhase = new Float32Array(sN), aSpeed = new Float32Array(sN), aBase = new Float32Array(sN), aSize = new Float32Array(sN), aTint = new Float32Array(sN * 3)
+  for (let i = 0; i < sN; i++) { aPhase[i] = Math.random() * 6.283; aSpeed[i] = 0.6 + Math.random() * 2.4; aBase[i] = 0.72 + Math.random() * 0.45; aSize[i] = 0.86 + Math.random() * 0.8
+    const t = Math.random(); const c = t < 0.7 ? [1, 1, 1] : (t < 0.85 ? [0.78, 0.86, 1.0] : [1.0, 0.9, 0.78]); aTint[i * 3] = c[0]; aTint[i * 3 + 1] = c[1]; aTint[i * 3 + 2] = c[2] } // 多くは白・一部は青白/暖白
+  g.setAttribute('aPhase', new THREE.BufferAttribute(aPhase, 1)); g.setAttribute('aSpeed', new THREE.BufferAttribute(aSpeed, 1)); g.setAttribute('aBase', new THREE.BufferAttribute(aBase, 1)); g.setAttribute('aSize', new THREE.BufferAttribute(aSize, 1)); g.setAttribute('aTint', new THREE.BufferAttribute(aTint, 3))
   const dotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); const gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.beginPath(); x.arc(16, 16, 16, 0, 6.283); x.fill(); return new THREE.CanvasTexture(c) })() // 星をやわらかい丸（四角い点を脱す）
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, map: dotTex, size: 2.4, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false })) // 丸い星にして満天らしく（A8・2026-06-25）
+  const starMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, blending: THREE.NormalBlending,
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 }, uTex: { value: dotTex }, uSize: { value: 2.4 }, uPix: { value: Math.min(window.devicePixelRatio || 1, 1.25) } },
+    vertexShader: `attribute float aPhase; attribute float aSpeed; attribute float aBase; attribute float aSize; attribute vec3 aTint; varying float vB; varying vec3 vT; uniform float uTime, uSize, uPix;
+      void main(){ float tw = 0.5 + 0.5 * sin(uTime * aSpeed + aPhase); // 星ごとに位相/速さがちがう＝バラバラに瞬く
+        vB = aBase * (0.62 + 0.38 * tw); vT = aTint; // 明るさが揺れる（暗い星も消えはしない・全体は満天の明るさを保つ）
+        gl_PointSize = uSize * uPix * aSize * (0.78 + 0.32 * tw); // 瞬きで大きさもわずかに揺れる
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `varying float vB; varying vec3 vT; uniform sampler2D uTex; uniform float uOpacity;
+      void main(){ vec4 t = texture2D(uTex, gl_PointCoord); gl_FragColor = vec4(t.rgb * vT, t.a * vB * uOpacity); }` })
+  const pts = new THREE.Points(g, starMat) // 丸い星＋per-starまたたき（A8・2026-06-26）
   pts.layers.set(1); scene.add(pts); return pts // 星はインク線の法線パスから除外（昼は透明でも法線パスは不透明で描かれ、空に四角が散る不具合）
 })()
 // 蛍は水辺アンカー式の新システムへ（下記）＝プレイヤー追従ではなく池/川/谷の草地に定位し、個体ごとに明滅する
@@ -7680,7 +7694,7 @@ function update(dt) {
   shadowMat.opacity = 1 - nf * 0.62 // 接地影は直射日光の影なので、夜は薄めて地面に不自然な暗円が残らないように
   moon.material.opacity = nf
   moonGlow.material.opacity = nf * 0.5
-  stars.material.opacity = nf
+  stars.material.uniforms.uOpacity.value = nf; stars.material.uniforms.uTime.value = tsec // 夜にフェードイン＋星ごとにまたたく
   // 蛍の明滅・漂いは下段（townNightLightsの後）の水辺アンカー式で更新する
   // 田舎家の窓あかり（夕方からともり、夜も灯る＝遠くの灯）
   const homeLit = THREE.MathUtils.smoothstep(tday, 0.6, 0.74)
