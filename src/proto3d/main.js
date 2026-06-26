@@ -5002,11 +5002,14 @@ function makeSparrow(hx, hz) {
   const wl = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.12), wmat); wl.position.set(-0.11, 0.03, 0); g.add(wl)
   const wr = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.12), wmat); wr.position.set(0.11, 0.03, 0); g.add(wr)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-  g.userData = { wl, wr, hx, hz, ph: Math.random() * 6.28, state: 'ground', t: 0, vx: 0, vz: 0 }
-  g.position.set(hx + (Math.random() - 0.5) * 7, heightAt(hx, hz) + 0.12, hz + (Math.random() - 0.5) * 7)
+  const yato = hx > 2200, px = hx + (Math.random() - 0.5) * 5, pz = hz + (Math.random() - 0.5) * 5 // 谷戸(獅子ヶ谷)は heightAtYato で接地（旧フィールドは heightAt）
+  g.userData = { wl, wr, hx, hz, ph: Math.random() * 6.28, state: 'ground', t: 0, vx: 0, vz: 0, area: yato ? 'yato' : 'field' } // 自分のホーム区域だけで表示
+  g.position.set(px, (yato ? heightAtYato(px, pz) : heightAt(px, pz)) + 0.12, pz)
   scene.add(g); sparrows.push(g)
 }
-for (let i = 0; i < 6; i++) makeSparrow(12, 30)
+for (let i = 0; i < 6; i++) makeSparrow(12, 30) // 旧フィールド（区域fieldでのみ表示）
+// 獅子ヶ谷の核の散歩道ぞいにも群れ＝以前は旧フィールド(12,30)に取り残され谷戸で一切見られなかった「原点取り残し」を解消（C16/C17・2026-06-26）
+for (const [hx, hz] of [[3016, -42], [3048, -188], [3030, -322], [2980, -436], [3062, -250]]) { if (heightAtYato(hx, hz) < 1.5) continue; for (let i = 0; i < 4; i++) makeSparrow(hx, hz) }
 
 // ── ベンチ（高台の上）──
 function makeBench() {
@@ -8108,7 +8111,7 @@ function update(dt) {
   // すずめ：地面をついばみ、近づくと いっせいに飛び立つ（反応する世界）
   for (const s of sparrows) {
     const u = s.userData
-    if (area !== 'field') { s.visible = false; continue }
+    if (area !== u.area) { s.visible = false; continue } // 自分のホーム区域(field/yato)でだけ現れる
     s.visible = true
     const pd = Math.hypot(boy.position.x - s.position.x, boy.position.z - s.position.z)
     if (u.state === 'ground') {
@@ -8960,6 +8963,7 @@ window.__proto3d = {
   _slidePov(p) { if (sliding) sliding.pov = p }, // 検証用：滑走の視点を直接セット
   _slideSeek(s) { if (sliding) sliding.s = s }, // 検証用：滑走の弧長位置を直接セット（着地テスト用）
   _shoot(az) { shootTimer = 0; if (az != null) shootStar.forceAz = az }, // 検証用：次フレームで流れ星を発生（夜のみ）。azで方位を固定（実画確認用）
+  _sparrows() { return sparrows.map((s) => ({ at: [+s.position.x.toFixed(0), +s.position.z.toFixed(0)], area: s.userData.area, state: s.userData.state, y: +s.position.y.toFixed(2), vis: s.visible })) }, // 検証用：スズメの状態（home areaと表示）
   get _shootState() { return { t: +shootStar.t.toFixed(2), op: +shootStar.mat.uniforms.uOpacity.value.toFixed(3), vis: shootStar.pts.visible } }, // 検証用：流れ星の状態
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
