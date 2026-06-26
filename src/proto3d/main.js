@@ -698,6 +698,12 @@ const yatoGroundTex = (() => {
 })()
 // 土道専用テクスチャ（田舎道の主役。布/社の参道と共有しないよう独立。白初期＝画像が来るまでは無地）
 const dirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 4; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 4, 4); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t })()
+// 土グラウンド/校庭/砂の地面テクスチャ（白地＝材質の色で着色。ムラ＋小石＋うっすら掃いた跡＝のっぺりした土スラブを解消・B⑧2026-06-27）
+const groundDirtTex = (() => { const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, s, s)
+  for (let i = 0; i < 64; i++) { const px = Math.random() * s, py = Math.random() * s, r = 7 + Math.random() * 22; x.globalAlpha = 0.05 + Math.random() * 0.07; x.fillStyle = Math.random() < 0.5 ? '#c6ad84' : '#ece0c6'; for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, 6.283); x.fill() } } // 土のムラ（タイル境界をまたいで反復を目立たなく）
+  x.globalAlpha = 1; for (let i = 0; i < 150; i++) { const v = Math.random() < 0.5; x.fillStyle = v ? 'rgba(118,98,68,0.22)' : 'rgba(246,236,212,0.28)'; const sz = 1 + Math.random() * 2; x.fillRect(Math.random() * s, Math.random() * s, sz, sz) } // 小石/砂粒
+  x.globalAlpha = 0.06; x.strokeStyle = '#9a8460'; x.lineWidth = 1; for (let i = 0; i < 10; i++) { const y = Math.random() * s; x.beginPath(); x.moveTo(0, y); x.bezierCurveTo(s * 0.3, y + (Math.random() - 0.5) * 8, s * 0.6, y + (Math.random() - 0.5) * 8, s, y + (Math.random() - 0.5) * 6); x.stroke() } // うっすら掃いた跡/わだち
+  x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
 // グレーのレンガタイル（平成初期の中層マンションの外装＝小口タイル張り。馬目地・タイルごとの微妙な濃淡・目地）
 const tileTex = (() => {
   const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
@@ -2000,10 +2006,10 @@ function buildShishigaya() {
     const gmax4 = (cx, cz, w, d) => Math.max(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
     const schoolBldg = (cx, cz, w, d, floors, ry, roofCol) => { const gB = gmin4(cx, cz, w, d), slope = Math.min(10, gmax4(cx, cz, w, d) - gB), h = slope + floors * 3.3, tex = schoolTex.clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(2, Math.round(w / 4)), floors); grp.add(mk(new THREE.BoxGeometry(w, h, d), new THREE.MeshToonMaterial({ color: 0xd2cab6, gradientMap: GRAD, map: tex }), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), toon(roofCol || 0x9a4f3e), cx, gB + h + 0.3, cz, ry, true)); addBox(cx, cz, w / 2, d / 2, ry, 0.3) } // 斜面でも埋まらないよう床=最低角＋落差ぶん上に伸ばす＋当たり判定
     const ground = (cx, cz, w, d, col) => { // グラウンド/校庭＝地面に沿う面（造成スラブにしない＝斜面で四角く浮かない・段差で進路を塞がない・歩いて入れる）＋簡易フェンス
-      const nx = Math.max(2, Math.round(w / 4)), nz = Math.max(2, Math.round(d / 4)), v = [], idx = []
-      for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = cx - w / 2 + w * i / nx, z = cz - d / 2 + d * j / nz; v.push(x, heightAtYato(x, z) + 0.06, z) }
+      const nx = Math.max(2, Math.round(w / 4)), nz = Math.max(2, Math.round(d / 4)), v = [], idx = [], uv = []
+      for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = cx - w / 2 + w * i / nx, z = cz - d / 2 + d * j / nz; v.push(x, heightAtYato(x, z) + 0.06, z); uv.push(x / 6, z / 6) } // UV＝ワールドXZ/6m＝6mごとに土テクスチャをタイル（足元の手ざわり・B⑧）
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i; idx.push(a, a + nx + 1, a + 1, a + 1, a + nx + 1, a + nx + 2) }
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, toon(col)); m.receiveShadow = true; grp.add(m)
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: col, map: groundDirtTex, gradientMap: GRAD })); m.receiveShadow = true; grp.add(m) // フラットなトゥーン色→土テクスチャ付き＝のっぺり解消（B⑧2026-06-27）
       const fm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.34, side: THREE.DoubleSide })
       for (const [fx, fz, fw, ang] of [[cx, cz - d / 2, w, 0], [cx, cz + d / 2, w, 0], [cx - w / 2, cz, d, Math.PI / 2], [cx + w / 2, cz, d, Math.PI / 2]]) grp.add(mk(new THREE.PlaneGeometry(fw, 1.6), fm, fx, heightAtYato(fx, fz) + 0.85, fz, ang)) }
     // 橘学苑（私立中高一貫・1942創立・男女共学・1957鉄骨体育館・デザイン美術コース）。校門＋L字校舎＋鉄骨かまぼこ体育館＋グラウンド(トラック)＋夏の緑（Web調査2026-06-23）
