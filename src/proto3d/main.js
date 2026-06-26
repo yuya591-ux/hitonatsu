@@ -453,7 +453,18 @@ function toonGradient(steps = 4, min = 0.5) {
   return tex
 }
 const GRAD = toonGradient(CEL.bands, CEL.shadowFloor) // セル画の階調（CELで調整）
-const toon = (color) => new THREE.MeshToonMaterial({ color, gradientMap: GRAD })
+// C⑮ トゥーン素材のキャッシュ化：toon(色)は呼ばれるたびに新規Materialを作っていた（実測9000超）。
+//   同じ色は1個を共有すれば、Material数・GC・GPUステート切替が大きく減る（モバイル生存・Engineer指摘）。
+//   ※安全性＝toon()の戻り値はどこでも変異させない（不透明素材専用）。透明/opacityアニメ(とんぼ/縁日の灯り/主人公)は
+//     すべて`new MeshToonMaterial({transparent:true})`等で直接生成＝toon()を通らない（監査済2026-06-27）。
+//     色だけが違う素材を共有するので、頂点色/instanceColorで着色する使い方とも両立する。
+const _toonCache = new Map()
+const toon = (color) => {
+  const key = typeof color === 'number' ? color : new THREE.Color(color).getHex()
+  let m = _toonCache.get(key)
+  if (!m) { m = new THREE.MeshToonMaterial({ color, gradientMap: GRAD }); _toonCache.set(key, m) }
+  return m
+}
 // 肌専用トゥーン：影側の床を高く（0.78）＋わずかな自発光。3人称カメラは主人公の背を映すので主人公の顔は順光だが、
 // プレイヤーを向く村人/通行人の顔は“逆光（太陽の反対側）”でトゥーンの暗い段に落ち、顔が真っ黒に潰れていた。
 // 肌だけ陰影の最暗を持ち上げ＋肌色の淡い自発光で、どの向きでも顔がやさしく見えるようにする。
