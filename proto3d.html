@@ -34,6 +34,12 @@
         color: #5a4632; background: rgba(255,235,189,0.97); border: 1.5px solid rgba(214,170,92,0.55); border-radius: 999px;
         box-shadow: 0 5px 18px rgba(190,150,70,0.36); display: none; }
       #act:active { background: rgba(252,224,168,0.98); transform: translateX(-50%) scale(0.95); }
+      /* C⑫：中央下スロット(left:50%)を共有する文脈ボタン(すわる/はなす/つかまえる/つる/町へ)が同時に出たら、
+         translateYで上へ積んで重なりを解消（bottomは触らない＝横画面メディアクエリ/safe-areaをそのまま活かす） */
+      .ctx-up1 { transform: translateX(-50%) translateY(-58px) !important; }
+      .ctx-up2 { transform: translateX(-50%) translateY(-116px) !important; }
+      .ctx-up3 { transform: translateX(-50%) translateY(-174px) !important; }
+      .ctx-up4 { transform: translateX(-50%) translateY(-232px) !important; }
       #badge { right: calc(3% + env(safe-area-inset-right)); top: calc(3.5% + env(safe-area-inset-top)); padding: 0.3em 0.8em; font-size: clamp(11px,2vw,14px);
         color: #fdf7ec; background: rgba(74,64,50,0.55); border-radius: 999px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
       /* ジャンプ＝右下の専用ボタン（親指が届く位置）。ズーム＝右側に＋／－ */
