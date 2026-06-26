@@ -6120,7 +6120,7 @@ const dofPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null }, tDepth: { value: normalRT.depthTexture },
     texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: camera.far },
-    strength: { value: 1.0 }, maxCoc: { value: 2.4 }, focusBias: { value: 7.0 }, // strength=効きの強さ・maxCoc=最大ボケ径(px)・focusBias=ピント面の許容(大きいほど手前は鈍感)
+    strength: { value: 0.7 }, maxCoc: { value: 1.2 }, focusBias: { value: 15.0 }, // strength=効きの強さ・maxCoc=最大ボケ径(px)・focusBias=ピント面の許容(大きいほど手前は鈍感)。ユーザー「ボケで見づらい/建物の線が透けて視界を邪魔」→ごく弱く＝中景まではくっきり保ち、 いちばん遠い霞だけ僅かに柔らかく（2026-06-26）
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tDepth; uniform vec2 texel; uniform float near, far, strength, maxCoc, focusBias;
@@ -8780,6 +8780,7 @@ window.__proto3d = {
   _bell() { startAudio(); try { listener.context.resume() } catch (e) {} playTempleBell(); return { started: audioStarted, state: listener.context.state } }, // 検証用：寺の鐘
 
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
+  _dof(on) { dofPass.enabled = on }, // 検証/調整用：被写界深度(ボケ)ON/OFF
   _mem(v) { gradePass.uniforms.mem.value = v }, // 検証/調整用：記憶のトーン（褪せた写真）の強さ 0..1
   _heat(v) { gradePass.uniforms.heat.value = v }, // 検証/調整用：陽炎の強さ 0..1（時刻自動だが固定して見る用）
   _vig(v) { gradePass.uniforms.vig.value = v }, // 検証/調整用：周辺減光の強さ
