@@ -2921,6 +2921,20 @@ function buildShishigaya() {
     let np = 0 // 鉢植え＝物干し/室外機と別の家に（別の種で抽選）・道の上と水際を避ける・560m圏
     for (const b of SG.buildings) { if (np >= 34) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 560) continue; const seed = Math.abs(Math.round(x) * 11 + Math.round(z) * 4); if (seed % 5 !== 0) continue
       const rot = b[4], px = x + Math.cos(rot) * (b[3] / 2 + 0.75), pz = z + Math.sin(rot) * (b[3] / 2 + 0.75); if (!inWater(px, pz) && heightAtYato(px, pz) > 3 && !onYatoRoadCore(px, pz)) { hachi(px, pz, rot + Math.PI / 2); np++ } }
+    // 縁台（夕涼みの気配＝木のベンチ＋蚊取り線香＋ときどき団扇/ラムネ）＝家先に。B4③・2026-06-27
+    const engawa = (x, z, rot) => { const g = new THREE.Group(), seed = Math.abs(Math.round(x * 5 + z))
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.12, 0.56), toonMap(0x9a6a3a, woodTex)); seat.position.y = 0.42; g.add(seat)
+      for (const lx of [-0.7, 0.7]) for (const lz of [-0.2, 0.2]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, 0.1), toon(0x7a5230)); leg.position.set(lx, 0.21, lz); g.add(leg) }
+      { const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.07, 12), toon(0xb0c8d0)); plate.position.set(0.52, 0.5, 0); g.add(plate) // 蚊取り線香の皿
+        const coil = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 6, 16), toon(0x2a5a2a)); coil.rotation.x = Math.PI / 2; coil.position.set(0.52, 0.55, 0); g.add(coil) // 渦巻き
+        for (let i = 0; i < 4; i++) { const sm = new THREE.Mesh(new THREE.SphereGeometry(0.03 + i * 0.012, 6, 5), new THREE.MeshBasicMaterial({ color: 0xeef0ee, transparent: true, opacity: 0.22 - i * 0.045, fog: false })); sm.position.set(0.52 + Math.sin(i) * 0.04, 0.62 + i * 0.18, Math.cos(i) * 0.03); g.add(sm) } } // 細い煙
+      if (seed % 3 === 0) { const fan = new THREE.Mesh(new THREE.CircleGeometry(0.16, 14), toon([0xd84a4a, 0x4a7ad8, 0xe0c84a][seed % 3])); fan.position.set(-0.42, 0.49, 0.04); fan.rotation.x = -Math.PI / 2; g.add(fan); const hd = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 5), toon(0x8a6a3a)); hd.position.set(-0.42, 0.47, 0.22); hd.rotation.x = Math.PI / 2; g.add(hd) } // 団扇
+      else if (seed % 3 === 1) { const ra = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.16, 10), new THREE.MeshToonMaterial({ color: 0x79c6c1, gradientMap: GRAD, transparent: true, opacity: 0.84 })); ra.position.set(-0.36, 0.5, 0); g.add(ra) } // ラムネ瓶
+      g.traverse((o) => { if (o.isMesh && o.material.transparent !== true) o.castShadow = true })
+      g.position.set(x, heightAt(x, z), z); g.rotation.y = rot; mergedOutline(g, 0.02); addContactShadow(g, 1.0); scene.add(g) }
+    let ne = 0 // 縁台＝家先に少なめ（別の種・道/水を避ける）
+    for (const b of SG.buildings) { if (ne >= 7) break; const x = b[0], z = b[1]; if (b[6] !== 0 || Math.hypot(x - 3010, z + 60) > 520) continue; const seed = Math.abs(Math.round(x) * 13 + Math.round(z) * 6); if (seed % 11 !== 0) continue
+      const rot = b[4], px = x + Math.cos(rot) * (b[3] / 2 + 1.1), pz = z + Math.sin(rot) * (b[3] / 2 + 1.1); if (!inWater(px, pz) && heightAtYato(px, pz) > 3 && !onYatoRoadCore(px, pz)) { engawa(px, pz, rot + Math.PI / 2); ne++ } }
     // 北門の住宅地（プール北東）に生活感＝中心から遠く既定の小物範囲外なので手置き。物干し/室外機/自販機で「人が住んでいる」気配
     hoshi(4124, -1052, 0); hoshi(4178, -1090, Math.PI / 2); hoshi(4124, -1120, 0)
     shitsu(4138, -1028, Math.PI / 2); shitsu(4164, -1104, -Math.PI / 2)
