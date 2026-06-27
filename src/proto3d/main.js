@@ -5985,6 +5985,60 @@ const kidsCatch = (() => {
   return { a, b, w, ball, A: [A[0], heightAt(A[0], A[1]), A[1]], B: [B[0], heightAt(B[0], B[1]), B[1]], t: Math.random(), from: 0 }
 })()
 
+// ── 釣り人（二ツ池・三ツ池の岸で竿を垂れる人。夏の池の営み＝ユーザー要望2026-06-27・賑わいPhase1）──
+//   既存の YATO_PONDS（実在の池）から面積上位を選び、岸に主人公級(full)の人を立てる。竿＋糸＋赤い浮き、たまに「合わせ」。
+//   時間帯（朝〜昼下がり）＋距離でゲート＝負荷は近接時だけ・夜は居ない。
+const fishers = []
+const fisherRodMat = toon(0x7a5a3a), fisherLineMat = new THREE.MeshBasicMaterial({ color: 0x2e2c28, fog: true })
+let fishersInit = false
+function makeFisher(px, pz, cx, cz) {
+  const adultP = Math.random() < 0.72, fpick = (a) => a[Math.floor(Math.random() * a.length)]
+  const g = makeVillager(px, pz, { shirt: fpick([0x6e7a68, 0x8a8576, 0x5c6a78, 0x9a8a64]), skirt: 0x46412f, skin: fpick([0xf0c49c, 0xe8b890, 0xeab584]), hair: 0x33291e, boy: true, simple: false, adult: adultP, hat: true, hairStyle: 'short', garment: 'shorts', scale: adultP ? 1.08 : 0.85, shoe: 0x5a4a3a, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const gy = heightAtYato(px, pz)
+  g.position.set(px, gy, pz); g.rotation.y = Math.atan2(cx - px, cz - pz) // 池の中心（＝水）を向く
+  const u = g.userData
+  if (u.armL) u.armL.rotation.x = -0.95; if (u.armR) u.armR.rotation.x = -1.08 // 両手で竿を前に構える
+  if (u.elbowL) u.elbowL.rotation.x = -0.55; if (u.elbowR) u.elbowR.rotation.x = -0.55
+  const rodGrp = new THREE.Group(); rodGrp.position.set(0.12, 1.02, 0.26); g.add(rodGrp)
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.028, 3.8, 5), fisherRodMat); rod.rotation.x = 1.05; rod.position.set(0, 0.92, 1.6); rod.layers.set(1); rodGrp.add(rod) // 前方やや上へ伸びる竿
+  g.updateMatrixWorld(true)
+  const tipL = new THREE.Vector3(0.12, 2.89, 3.5) // 竿先（g-local）
+  const fxz = g.localToWorld(tipL.clone().setY(0)); const wY = heightAtYato(fxz.x, fxz.z) + 0.2 // 竿先の真下の水面の高さ
+  const flo = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), toon(0xe85a4a)); flo.position.set(fxz.x, wY, fxz.z); flo.castShadow = false; scene.add(flo) // 赤い浮き
+  const lineLen = Math.max(0.5, tipL.y - (wY - gy)), line = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, lineLen, 4), fisherLineMat); line.position.set(tipL.x, (tipL.y + (wY - gy)) / 2, tipL.z); line.layers.set(1); g.add(line) // 竿先から水面への糸
+  g.visible = false; flo.visible = false
+  return { g, u, rodGrp, flo, waterY: wY, ph: Math.random() * 6, cast: 4 + Math.random() * 8, casting: 0 }
+}
+function initFishers() {
+  if (fishersInit || !YATO_PONDS.length) return; fishersInit = true
+  const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3) // 面積上位3つ（二ツ池・三ツ池の池）
+  for (let pi = 0; pi < ponds.length; pi++) { const P = ponds[pi], nF = pi === 0 ? 2 : 1 // いちばん大きい池は2人
+    let placed = 0
+    for (let tries = 0; tries < P.p.length && placed < nF; tries++) { const v = P.p[(tries * 5 + pi * 3) % P.p.length]
+      const ox = v[0] - P.cx, oz = v[1] - P.cz, ol = Math.hypot(ox, oz) || 1
+      const lx = v[0] + ox / ol * 1.7, lz = v[1] + oz / ol * 1.7, wx = v[0] - ox / ol * 2.6, wz = v[1] - oz / ol * 2.6
+      const landY = heightAtYato(lx, lz), waterY = heightAtYato(wx, wz) + 0.2
+      if (pip(wx, wz, P.p) && landY > waterY - 0.1 && landY < waterY + 7) { fishers.push(makeFisher(lx, lz, P.cx, P.cz)); placed++ }
+    }
+  }
+}
+function updateFishers(dt) {
+  initFishers(); if (!fishers.length) return
+  const active = onYato && tday > 0.05 && tday < 0.66 // 朝〜昼下がり（夜は居ない）
+  for (const f of fishers) {
+    const vis = active && Math.hypot(boy.position.x - f.g.position.x, boy.position.z - f.g.position.z) < 150 // 近接時だけ描画（負荷）
+    if (f.g.visible !== vis) { f.g.visible = vis; f.flo.visible = vis }
+    if (!vis) continue
+    f.ph += dt
+    f.flo.position.y = f.waterY + Math.sin(f.ph * 1.8 + 1) * 0.015 // 浮きのゆらぎ
+    f.cast -= dt
+    if (f.casting > 0) { f.casting -= dt; const uu = Math.max(0, f.casting / 0.5); f.rodGrp.rotation.x = -0.5 * Math.sin((1 - uu) * Math.PI) } // 合わせ＝竿をくいっと上げて戻す
+    else { f.rodGrp.rotation.x = Math.sin(f.ph * 0.7) * 0.025; if (f.cast <= 0) { f.cast = 9 + Math.random() * 12; f.casting = 0.5 } } // ふだんは竿先がかすかに揺れる
+    if (f.u.head) { const bx = boy.position.x - f.g.position.x, bz = boy.position.z - f.g.position.z, bd = Math.hypot(bx, bz)
+      if (bd < 9) { let ha = Math.atan2(bx, bz) - f.g.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832; f.u.head.rotation.y += (THREE.MathUtils.clamp(ha, -1, 1) - f.u.head.rotation.y) * Math.min(1, dt * 4) } // 近づくと顔をこちらへ
+      else f.u.head.rotation.y *= 0.93 }
+  }
+}
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
   const N = 140
@@ -8313,6 +8367,7 @@ function update(dt) {
   for (const c of clouds) { c.position.x += dt * c.userData.sp; if (c.position.x > 150) c.position.x -= 300 }
   updateContrail(dt) // 飛行機雲（夏の空に一機）
   updateChimneys(tsec) // 夕餉の煙（夕方に家々から）
+  updateFishers(dt) // 釣り人（二ツ池・三ツ池の岸・朝〜昼下がり・近接時のみ）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
@@ -9705,6 +9760,7 @@ window.__proto3d = {
   openDiary() { openDiary() }, // 検証用
   get day() { return day },
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
+  _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
   _suppressWander() { wanderShown = true }, // 検証用：M1の散歩トーストを出さない（朝のひとことと混同しないため）
