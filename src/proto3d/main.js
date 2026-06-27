@@ -8297,7 +8297,10 @@ function renderDiaryView() {
   } catch (e) { return makeDiaryPicture() }
 }
 const badgeEl = document.getElementById('badge')
-function refreshBadge() { if (badgeEl) badgeEl.textContent = `なつやすみ ${day}にちめ` } // （撤回2026-06-27）1日目に🚲/🎈を隠す演出は「機能が消えた」と指摘されたので廃止＝常に表示
+// I5：素朴な時刻表示＝時計の数字でなく、やさしい言葉で「いま夏のどのへんか」を伝える（システム用語を出さない）
+function timeWord(t) { return t < 0.1 ? 'よあけ' : t < 0.22 ? 'あさ' : t < 0.4 ? 'ひるまえ' : t < 0.5 ? 'おひる' : t < 0.6 ? 'ひるさがり' : t < 0.72 ? 'ゆうがた' : t < 0.82 ? 'ゆうぐれ' : t < 0.92 ? 'よる' : 'よふけ' }
+let lastBadgeWord = ''
+function refreshBadge() { if (badgeEl) { lastBadgeWord = timeWord(tday); badgeEl.textContent = `なつやすみ ${day}にちめ ・ ${lastBadgeWord}` } } // 日数＋やさしい時刻の言葉。時刻が移るたびに更新（ループから）
 refreshBadge()
 // I1：絵日記の本文を組み立てる（openDiaryと「おもいで帳」ビューアで共用）。{title, body}を返す
 function buildDiaryEntry() {
@@ -8968,6 +8971,7 @@ function update(dt) {
     const sitFlow = mode === 'sit' ? 5 : 1 // B1：座っている間は時間が速く流れる＝夕焼けが少しずつ色を変えていくのを眺められる（間を味わう）
     tday = Math.min(0.97, tday + dt * sitFlow / (fwSlow ? 1000 : 740)) // 一日をさらにゆっくり(620→740)＝各時間帯を長く味わえる“夢のような時間の流れ”（ユーザー「時間もう少しゆっくり」2026-06-24）
     setTimeOfDay(tday)
+    if (timeWord(tday) !== lastBadgeWord) refreshBadge() // I5：時刻の言葉が移ったらバッジを更新（あさ→ひるまえ→…）
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     // D3：朝のひとことを日替りに＝一日ごとに“手ざわり”が違う（初日のときめき→2日目のおまつり予感→最終日の名残）。ラジオ体操は共通の日課
     if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast(day === 1 ? 'なつやすみ 初日。ラジオ体操の じかんだ。' : day >= TOTAL_DAYS ? 'なつやすみ さいごの 朝。…一日を、ゆっくり あるこう。' : 'あたらしい 朝。きょうも どこかで おまつりが あるらしい。') }
