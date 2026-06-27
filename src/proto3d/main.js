@@ -7143,10 +7143,11 @@ function maybeThunder(dt) {
 // おとOFF(ctx.suspend)で自動的に止まる。蝉やヒグラシの“すきま”にそっと置く＝出しゃばらない癒し。
 let bgmGain = null
 let bgmEnabled = true // 設定でオルゴールBGMだけON/OFF（環境音は残せる）
+const BGM_BASE = 0.6 // オルゴールBGMの基準音量。ダッキング(G1)はこの値から下げる
 function getBgmOut() {
   const ctx = listener.context
   if (bgmGain && bgmGain.context === ctx) return bgmGain
-  bgmGain = ctx.createGain(); bgmGain.gain.value = 0.6 // オルゴールBGMは控えめに＝環境音と主役を譲る（ユーザー要望「BGMもう少し小さく」2026-06-27。0.9→0.6）
+  bgmGain = ctx.createGain(); bgmGain.gain.value = BGM_BASE // オルゴールBGMは控えめに＝環境音と主役を譲る（ユーザー要望「BGMもう少し小さく」2026-06-27。0.9→0.6）
   bgmGain.connect(getMaster())
   return bgmGain
 }
@@ -7185,6 +7186,16 @@ function updateMusicBox(dt) {
   if (!audioStarted || !bgmEnabled) return
   const ctx = listener.context
   if (ctx.state !== 'running') return
+  // G1：ダッキング。お囃子/雨BGM/ラジオ体操が主役級に鳴っている時は、オルゴールBGMを譲って下げる
+  //   （旋律が二重に重なって濁るのを防ぐ＝音の整理）。誰も主役級でなければ基準音量へ戻る。
+  {
+    const bg = getBgmOut() // バスを確保（楽句がまだ鳴っていなくても常にダッキングが効くように）
+    const fest = festGain ? festGain.gain.value : 0
+    const rbg = rainBgmGain ? rainBgmGain.gain.value : 0
+    const tai = taisoGain ? taisoGain.gain.value : 0
+    const lead = Math.min(1, Math.max(fest / 0.40, rbg / Math.max(0.02, AUDIO.rainBgmVol || 0.2), tai / 0.30))
+    bg.gain.setTargetAtTime(BGM_BASE * (1 - 0.7 * lead), ctx.currentTime, 0.5) // 主役級が鳴るほど最大-70%まで控えめに
+  }
   bgmWait -= dt
   if (bgmWait > 0) return
   // 時間帯で表情：昼は明るめ(メジャー)、夜はしみじみ(マイナー・低音域)。夕立では一段やわらかく。
@@ -10100,6 +10111,8 @@ window.__proto3d = {
   get area() { return area },
   _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
+  _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
+  _bgmEnable(on) { settings.bgm = !!on; applyBgm() }, // 検証用：オルゴールBGMのON/OFF（既定OFF＝環境音中心。ダッキング確認用）
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
   get catchTarget() { return catchTarget ? catchTarget.kind : null }, // 検証用：いま捕まえられる虫
