@@ -6781,10 +6781,10 @@ composer.addPass(bloom)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, mist: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform float mist; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -6825,6 +6825,15 @@ const gradePass = new ShaderPass({
         c += golden * vec3(0.12, 0.05, -0.06) * (0.12 + lum);              // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
         c += golden * vec3(0.06, 0.005, 0.03) * smoothstep(0.5, 1.0, vUv.y);  // 上空は茜色がかる（紫みを残し奥行き）
         c += golden * vec3(0.12, 0.038, -0.03) * smoothstep(0.62, 0.16, vUv.y); // 地平ちかくは燃える夕陽色（下ほど強い橙＝マジックアワー）
+      }
+      // ★A1：朝もや/夕もや。画面の下〜中ほど（地面・谷）を、もやで少し白っぽく・低彩度に・ほのかに発光させ、立ちこめる空気の層を出す。
+      //   朝は単独で冷たいもや／夕は上のgoldenが温かさを足して“あたたかい夕もや”に。地平へ向かうほど濃い。
+      if (mist > 0.001) {
+        float band = smoothstep(0.66, 0.12, vUv.y);                 // 下ほど強い（地表に近いほど もやが濃い）
+        float lm = L(c);
+        vec3 hazeCol = mix(vec3(lm), vec3(0.82, 0.85, 0.89), 0.55);  // もやの色＝淡い青白へ寄せ低彩度に
+        c = mix(c, hazeCol, mist * band * 0.45);                    // もやが景色をやわらかく溶かす
+        c += mist * band * vec3(0.030, 0.034, 0.042);               // ほのかに発光（光を含んだ空気）
       }
       // ── 記憶のトーン（褪せた夏の写真／古いアルバム）：全体に弱い暖色＋もう一段の退色＋黒を少し持ち上げた“ミルキー”感。
       //   ノスタルジーの正体の半分は色のトーン。鮮やかな低ポリ絵を「思い出の中の風景」に寄せる（ユーザー要望2026-06-23）──
@@ -8670,11 +8679,17 @@ function update(dt) {
   // 雨＝紫がかった霞が立ちこめ奥行きが詰まる（全時間帯で「遠景が空気に溶ける」統一感を持たせ、雨で最大に）
   scene.fog.color.copy(_todFog).lerp(_rainFog, weather * 0.5)
   const onRoofHi = area === 'yato' && boy.userData._high // サンライズの屋上にいる（地面より十分高い）
+  // ★A1：朝もや/夕もや。夜明けと夕暮れに谷へ立ちこめる空気の層。fogを少し寄せて厚みを出し、gradePassで地表を白くやわらげる。
+  const mistF = Math.max(
+    THREE.MathUtils.smoothstep(tday, 0.10, 0.17) * (1 - THREE.MathUtils.smoothstep(tday, 0.21, 0.32)), // 朝もや（夜明け）
+    THREE.MathUtils.smoothstep(tday, 0.55, 0.63) * (1 - THREE.MathUtils.smoothstep(tday, 0.70, 0.78))  // 夕もや（黄昏）
+  ) * (1 - weather * 0.7) // 雨のときは雨の紫霞に譲る
+  gradePass.uniforms.mist.value = mistF * (onRoofHi || flying ? 0.25 : 1.0) // 高所からは薄く（谷に立ちこめる空気が主役）
   if (typeof window !== 'undefined' && window.__fogFar) { scene.fog.near = 9000; scene.fog.far = 12000 } // 検証用：俯瞰を見通す（本番では未設定）
   // 霞の方針：地上は近〜中景に霞をかけてノスタルジー（コージーな空気遠近）。高い所（屋上/飛行/高く浮く）は手前を澄ませて町・池・遠くの山まで“きれい”に見渡せ、いちばん遠い地平/世界の縁だけやわらかく霞に溶かして隠す＝バランス（ユーザー要望2026-06-26）
   else if (flying) { scene.fog.near = 400; scene.fog.far = 1250 } // 飛行：空から町全体を見渡す（遠い地平だけ霞む・世界の縁は霞に隠れる）
   else if (onRoofHi) { scene.fog.near = 380 - weather * 80; scene.fog.far = 1200 - weather * 320 } // 屋上：手前を澄ませて町/二ツ池/遠くの山まで広く見渡す＋縁は霞へ溶ける
-  else if (area === 'yato') { scene.fog.near = 108 - weather * 30; scene.fog.far = 470 - weather * 170 // 地上：霞の始まりは奥（中景はくっきり）＋遠景はやわらかく霞へ溶ける（コージーな空気遠近）
+  else if (area === 'yato') { scene.fog.near = 108 - weather * 30 - mistF * 42; scene.fog.far = 470 - weather * 170 - mistF * 80 // 地上：霞の始まりは奥（中景はくっきり）＋遠景はやわらかく霞へ溶ける（コージーな空気遠近）。A1：朝夕は もや で手前まで霞む
     if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 80, 0, 1); scene.fog.near += altF * 250; scene.fog.far += altF * 720 } } // 高く昇るほど手前が澄んで遠くまで見渡せる＝夢で空から見た町（以前は逆に霞ませていたのを反転・ユーザー要望2026-06-26）
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
   if (typeof window === 'undefined' || !window.__freezeCam) {
@@ -10152,6 +10167,7 @@ window.__proto3d = {
     if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
   },
   get area() { return area },
+  _pose(x, z, rot, a) { if (a) { area = a; onYato = a === 'yato' } boy.position.set(x, heightAt(x, z), z); facing = (rot != null ? rot : facing); boy.rotation.y = facing; boy.userData._cy = null; camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z) }, // 検証用：好きな位置・向きにカメラを置く（景色の確認・3視点QA用）
   _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
   _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
