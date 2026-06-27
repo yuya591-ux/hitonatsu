@@ -2981,6 +2981,24 @@ function buildShishigaya() {
     makeVending(4128, -984, 0.3, 0xc23a2c) // 小道の入口の自販機（プール帰りのラムネ）
     makeVending(2900, -50, 1.0, 0xc23a2c); makeVending(3052, -118, -0.6, 0x2a7ab0); makeVending(3120, -100, 0.4, 0xe0a838) // 道角の自販機（風呂上がり/夏のラムネ）
     { const g = new THREE.Group(), red = toon(0xc0392b); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red); body.position.y = 1.05; g.add(body); const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red); top.position.y = 2.1; g.add(top); placeProp(g, 2960, -86, 0, 0.04, 0.7) } // 丸ポスト
+    // ── P3（2026-06-27）：開始地点の生活感を厚く＋サンライズ(マンション)の壁を植栽で和らげる。
+    //    “人がいた痕跡”＝止め置き自転車・軒先の鉢、東面の壁ぎわに街路樹/生垣/電柱で壁を背景へ。道幅と建物は避け手置き。
+    const parkedBike = (x, z, rot, col = 0x2f4a8a) => { const g = new THREE.Group(), bg = new THREE.Group() // 少し傾けて立てかけた自転車
+      for (const wz of [-0.5, 0.5]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 12), toon(0x202020)); w.position.set(0, 0.32, wz); w.rotation.y = Math.PI / 2; bg.add(w) }
+      const fr = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 1.0), toon(col)); fr.position.set(0, 0.52, 0); bg.add(fr)
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.3), toon(0x202020)); seat.position.set(0, 0.7, -0.42); bg.add(seat)
+      const hb = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.42, 5), toon(0x3a3a3a)); hb.rotation.z = Math.PI / 2; hb.position.set(0, 0.72, 0.46); bg.add(hb)
+      const bk = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.36), toon(0x6a5a3a)); bk.position.set(0, 0.62, -0.5); bg.add(bk) // 荷台のカゴ
+      bg.rotation.z = 0.13; g.add(bg); placeProp(g, x, z, rot, 0.025, 0.5) } // スタンドで少し傾けて駐輪
+    // 止め置き自転車（開始の通り/バス停/マンション前/第三公園への抜け道に点々）
+    parkedBike(3022, 27.5, Math.PI / 2, 0x9a2f2f); parkedBike(2998.5, 26.5, 0.2, 0x2f6a3a); parkedBike(3056, 13, -Math.PI / 2, 0x2f4a8a); parkedBike(3033, 47, Math.PI / 4 + Math.PI, 0xb0902a)
+    // 軒先の鉢を開始地点の家に追加（既存の自動配置に、最も長く見る開始の通りだけ手で厚みを足す）
+    hachi(3009, 33, Math.PI / 4); hachi(3027, 31, -Math.PI / 2); hachi(3038, 44, Math.PI)
+    hoshi(3035, 52, Math.PI / 6) // 開始の通りの2階の干し物
+    // サンライズの東面の壁ぎわ＝街路樹＋生垣＋電柱で“団地の壁”を背景へ退かせる（第三公園への抜け道沿い・C⑪のNE開始と合わせて壁を正面から外す）
+    for (const [tx, tz, ts] of [[3057, 6, 1.05], [3059, -5, 0.95], [3045, 26, 1.0], [2987, 27, 1.0]]) makeTree(tx, tz, ts)
+    makeHedge(3057, 0, 3057, 11) // 東面の壁ぎわの生垣
+    makePole(3030, 28); makePole(3052, 17) // 路傍の電柱（電線の気配）
     // ── 1990年代の街角の生活ディテール：公衆電話ボックス（夜ぼんやり灯る）・町内会の掲示板・追加の自販機/丸ポスト（忠実な密集はそのまま“あの頃の手触り”を足す・ユーザー要望2026-06-24）──
     const PM = (g, geo, mat, px, py, pz) => { const mm = new THREE.Mesh(geo, mat); mm.position.set(px, py, pz); g.add(mm); return mm }
     const makePhoneBox = (x, z, rot) => { const g = new THREE.Group(), frame = toon(0xc6ccc4), glass = new THREE.MeshToonMaterial({ color: 0xbcd8de, gradientMap: GRAD, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
