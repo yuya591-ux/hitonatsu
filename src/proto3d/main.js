@@ -5604,6 +5604,35 @@ function makeBoy() {
   g.userData = { legL, legR, kneeL, kneeR, ankleL, ankleR, armL, armR, elbowL, elbowR, head, net, bike, balloons, swing: 0, char: true } // char:true＝細棒除外の対象外（手足は細いがインク線を残す）
   return g
 }
+// ── J1：エリア・カリング（性能・完全可逆）─────────────────────────────────
+// 旧プロト(町/野原/神社・原点付近 x≈0)と谷戸(獅子ヶ谷・x≈2000〜3000)は座標が遠く離れ、
+// 行き来はテレポート（ビエントのボタン）だけ＝同時に視界へ入らない。いる側だけ描画し、
+// もう片方は visible=false にして、フラスタムカリングの判定コストと“霧の奥の無駄描画”を省く。
+// ここ（boy/月/星などの共有・動的オブジェクトが追加される前）で静的ワールドだけを座標で仕分ける。
+const yatoStatics = [], oldStatics = []
+;(() => {
+  const box = new THREE.Box3()
+  for (const o of scene.children) {
+    if (o.isLight) continue                              // ライトは常時（除外）
+    if (o === skyDome || o === sunBall) continue          // 空・太陽は共有（除外）
+    if (!o.visible) continue                              // 自前で表示制御（イベント会場/さざ波/人影）は触らない
+    if (!(o.isMesh || o.isPoints || o.isGroup)) continue  // ライトのtarget等は対象外
+    box.makeEmpty(); box.setFromObject(o)
+    if (box.isEmpty()) continue
+    const cx = (box.min.x + box.max.x) / 2
+    if (!isFinite(cx)) continue
+    if (cx > 1000) yatoStatics.push(o); else oldStatics.push(o)
+  }
+})()
+let __culledArea = null
+function cullAreas(force) { // 谷戸にいる時は旧プロトを、旧プロトにいる時は谷戸を隠す（area変化時だけ実行）
+  const inY = (area === 'yato' || onYato), key = inY ? 'y' : 'o'
+  if (!force && key === __culledArea) return
+  __culledArea = key
+  for (const o of yatoStatics) o.visible = inY
+  for (const o of oldStatics) o.visible = !inY
+}
+// ──────────────────────────────────────────────────────────────────────────
 const boy = makeBoy()
 const BOY_SCALE = 0.85 // 基準スケール（さらに小柄に）。ジャンプの伸び縮みはこれに掛ける
 boy.scale.setScalar(BOY_SCALE) // 体全体をもう少し小さく
@@ -9630,6 +9659,7 @@ renderer.setAnimationLoop(() => {
     // F1（ユーザー要望2026-06-27）：夕方の入相の鐘は“怖い”ので鳴らさない（夕/夜のBGMは良いのでそのまま）。トリガーを停止＝playTempleBellは呼ばない（テスト用 _bell フックは残す）。
   }
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
+  cullAreas() // J1：エリアが切り替わった時だけ、いない側の静的ワールドを描画から外す（変化なしなら即return）
   // 操作している間（スティックで歩く/飛行の上下ホールド）はHUDを消さない。何もしない時間が続いたらそっと消す。
   // ※見回し(lookIds)は除外＝指を動かしている間は pointermove が pokeUI を呼ぶので消えない。指を止めて景色を眺める/離した指の取りこぼし（pointerup欠落でlookIdsが残る不具合）では“止まっている”扱いにして、ちゃんとフェードさせる（ユーザー要望2026-06-27：景色を大画面で楽しみたい）
   if (puni.active || floatUp || floatDown || flyUp || flyDown) lastInteract = performance.now() // 移動スティック/浮遊の上下/飛行の上下＝操作中はHUDを消さない（飛行fly-up/downの抜けを修正・2026-06-27）
@@ -10051,6 +10081,7 @@ window.__proto3d = {
     if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
   },
   get area() { return area },
+  _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
   get catchTarget() { return catchTarget ? catchTarget.kind : null }, // 検証用：いま捕まえられる虫
