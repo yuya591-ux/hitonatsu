@@ -9026,17 +9026,24 @@ function update(dt) {
     pts.material.opacity = Math.max(0, 1 - u.age / life)
     if (u.age > life) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
   }
+  // C2：時刻で人出が変わる。朝の登校/出勤と夕の家路はにぎやか・昼はほどほど・朝晩は静か（時刻全体に対し1度だけ算出）
+  const rushM = THREE.MathUtils.smoothstep(tday, 0.10, 0.15) * (1 - THREE.MathUtils.smoothstep(tday, 0.20, 0.28))
+  const rushE = THREE.MathUtils.smoothstep(tday, 0.55, 0.62) * (1 - THREE.MathUtils.smoothstep(tday, 0.70, 0.78))
+  const midday = THREE.MathUtils.smoothstep(tday, 0.24, 0.32) * (1 - THREE.MathUtils.smoothstep(tday, 0.50, 0.58)) * 0.62
+  const crowd = Math.max(rushM, rushE, midday, (tday > 0.15 && tday < 0.74) ? 0.24 : 0) // 0..1 いまの人出
+  const commute = rushM > 0.3 ? 1 : rushE > 0.3 ? -1 : 0 // ラッシュ時はみな同じ向き＝登校(朝)/家路(夕)
   // 商店街の通行人：一様に行進せず、立ち止まったり向きを変えたり＝右往左往して自然に
   for (const p of pedestrians) {
     const u = p.userData.ped
-    const out = tday > 0.08 && tday < 0.80 + (u.ph / 6) * 0.13 // 朝に出て、夕〜宵に家へ帰る（遅くまで居る人も）＝夜は窓あかりだけの静かな通り（C11・2026-06-25）
+    const thresh = (u.ph / 6.2832) * 0.85 // この人が“出てくる”人出のしきい値（人ごとに固定・小さい人ほどいつも居る）
+    const out = tday > 0.08 && tday < 0.80 + (u.ph / 6) * 0.13 && crowd >= thresh // 朝に出て夕〜宵に帰る＋人出が少ない時刻はまばらに
     p.visible = out; if (!out) continue
     u.timer -= dt
     if (u.timer <= 0) {
       if (u.state === 'pause') { u.state = 'walk'; u.timer = 3 + Math.random() * 7 } // 歩き出す
       else { const r = Math.random()
-        if (r < 0.42) { u.state = 'pause'; u.timer = 1.5 + Math.random() * 4.5 } // ふと立ち止まる
-        else { if (r < 0.62) u.dir *= -1; u.timer = 3 + Math.random() * 7 } // 気まぐれに引き返す
+        if (r < (commute ? 0.28 : 0.42)) { u.state = 'pause'; u.timer = 1.5 + Math.random() * 4.5 } // ふと立ち止まる（ラッシュ時は止まりにくい）
+        else { if (commute && Math.random() < 0.72) u.dir = commute; else if (r < 0.62) u.dir *= -1; u.timer = 3 + Math.random() * 7 } // ラッシュ時はみな同じ向き（登校/家路）・ふだんは気まぐれに引き返す
       }
     }
     const ang = Math.atan2(u.bx - u.ax, u.bz - u.az) // 進行方向（区間A→Bに沿う）
