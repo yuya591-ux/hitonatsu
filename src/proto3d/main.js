@@ -6312,11 +6312,19 @@ function buildCumulonimbus() {
   for (const [dx, dy, sr] of [[0, 0.96, 4.6], [-3.5, 0.84, 3.6], [3.4, 0.86, 3.4], [0.5, 1.04, 3.2]]) push(dx, H * dy, (Math.random() - 0.5) * 2, sr, sr)
   const merged = mergeGeometries(geos); geos.forEach((g) => g.dispose()); return merged
 }
-for (let i = 0; i < 7; i++) {
+// N4（2026-06-27）：入道雲を2段に＝近景の大きな主雲(7基)＋遠景の小さめの積雲(4基)で空気遠近の奥行きを作り、
+//   “主雲が地平にぽつんで空が寂しい”を解消。1基は開始の通りの抜け(北東 az≈π/4)に寄せて歩行中も視界に入る。
+//   ※遠端はカメラfar床680内に収める（近dist≤500/遠dist≤580＝クリップで消さない）。
+const NEAR_N = 7, FAR_N = 4
+for (let i = 0; i < NEAR_N + FAR_N; i++) {
+  const far = i >= NEAR_N
   const mesh = new THREE.Mesh(buildCumulonimbus(), cloudMat)
-  mesh.scale.setScalar(3.4 + Math.random() * 2.6) // さらに巨大に（夏空にどっしり）
+  mesh.scale.setScalar(far ? (1.9 + Math.random() * 0.9) : (3.4 + Math.random() * 2.6)) // 遠景は小さめ＝奥に見える
   mesh.layers.set(1) // 入道雲もインク線の法線パスから除外（やわらかい雲）
-  mesh.userData = { az: (i / 7) * Math.PI * 2 + Math.random() * 0.6, dist: 360 + Math.random() * 180, baseY: 2 - Math.random() * 16, drift: 0.0018 + Math.random() * 0.003 }
+  const az = i === 0 ? (Math.PI / 4 + (Math.random() - 0.5) * 0.35) // 0番＝北東(開始の通りの抜け)に主雲
+    : far ? ((i - NEAR_N) / FAR_N * Math.PI * 2 + 0.8 + Math.random() * 0.5) // 遠景は近景の隙間を埋めるよう位相をずらす
+    : ((i / NEAR_N) * Math.PI * 2 + Math.random() * 0.5)
+  mesh.userData = { az, dist: far ? (520 + Math.random() * 60) : (340 + Math.random() * 160), baseY: far ? (7 - Math.random() * 8) : (2 - Math.random() * 16), drift: 0.0014 + Math.random() * 0.0028 }
   scene.add(mesh); thunderheads.push(mesh)
 }
 
