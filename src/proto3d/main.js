@@ -154,6 +154,7 @@ for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, r
     for (let t = 0; t <= l; t += 0.6) for (let s = -hw; s <= hw; s += 0.6) { const id = rcoreIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0 && yatoRoadCore[id] !== 1) yatoRoadCore[id] = kv } } } // 舗装(1)は土(2)に上書きされない＝交差点は舗装が勝つ
 const onYatoRoadCore = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 && yatoRoadCore[id] !== 0 } // 「道の上か」＝舗装/土どちらも道（建物/木/塀の除外判定は従来どおり）
 const yatoSurfKind = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 ? yatoRoadCore[id] : 0 } // 路面の種類（0=草地/1=舗装/2=土）＝足音用
+let wind = 0.5 // 風の突風値(0.05-1.25)。毎フレーム更新関数で算出＝草木の揺れ/風の音/綿毛が同期。別関数からも参照するためモジュールレベル（B3）
 let onYato = false // 実行時に獅子ヶ谷(谷戸)エリアにいるか。trueなら heightAt/climbYAt を全域 DEM に切替＝西の師岡など x<2200 の谷戸拡張も正しく歩ける。モジュール評価中はfalse＝旧プロト(町/野原/神社)のビルドはx帯分岐のまま安全
 const WEST_EXT = 120 // 世界を西へ少しだけ拡張する量（m）。師岡町＝ビエント横濱菊名(game約1894,-160)を地続きにする（ユーザー要望2026-06-23）
 function heightAtYato(x, z) { // 実標高をバイリニア補間。zは反転サンプル(データ側を北=-zにしたため)。±SG.half外は縁の値で頭打ち
@@ -6226,6 +6227,32 @@ function updateFishShadows(dt) {
     f.m.rotation.y = f.a + (f.sp > 0 ? Math.PI / 2 : -Math.PI / 2) // 進む向きへ長軸を向ける
   }
 }
+// ── B3：風の可視化＝風に流れる綿毛（タンポポの綿毛）。風(wind)に乗って漂い、突風で速く流れる＝風が見える。プレイヤーの周りに常駐し、外れたら風上へ回収。──
+const windFluff = (() => {
+  const N = 16, g = new THREE.BufferGeometry(), pos = new Float32Array(N * 3)
+  for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 60; pos[i * 3 + 1] = 1.2; pos[i * 3 + 2] = (Math.random() - 0.5) * 60 }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); const gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.4, 'rgba(255,255,250,0.5)'); gr.addColorStop(1, 'rgba(255,255,250,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); const t = new THREE.CanvasTexture(c); return t })() // ふわっとした綿毛
+  const mat = new THREE.PointsMaterial({ map: tex, size: 0.55, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true, color: 0xfffdf2 })
+  const pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = 3; scene.add(pts)
+  return { pts, pos, N, geo: g }
+})()
+function updateWindFluff(dt) {
+  const day = tday > 0.12 && tday < 0.72, op = day ? 0.62 * (1 - weather) : 0 // 日中・晴れのときだけ漂う（雨では消える）
+  const mat = windFluff.pts.material; mat.opacity += (op - mat.opacity) * Math.min(1, dt * 1.2)
+  if (mat.opacity < 0.01) { windFluff.pts.visible = false; return }
+  windFluff.pts.visible = true
+  const spd = 0.5 + wind * 1.7, wdx = 0.82, wdz = 0.28, t = performance.now() * 0.001 // 卓越風の向き（ゆるやかに一定）＋突風windで速く
+  const P = windFluff.pos, bx = boy.position.x, bz = boy.position.z
+  for (let i = 0; i < windFluff.N; i++) {
+    P[i * 3] += wdx * spd * dt; P[i * 3 + 2] += wdz * spd * dt
+    const rx = P[i * 3] - bx, rz = P[i * 3 + 2] - bz
+    if (rx > 35) { P[i * 3] -= 70 } else if (rx < -35) { P[i * 3] += 70 }
+    if (rz > 35) { P[i * 3 + 2] -= 70 } else if (rz < -35) { P[i * 3 + 2] += 70 }
+    P[i * 3 + 1] = heightAt(P[i * 3], P[i * 3 + 2]) + 1.1 + Math.sin(t * 1.4 + i * 1.7) * 0.5 + Math.sin(t * 0.6 + i) * 0.3 // 地面+1m前後をふわふわ上下
+  }
+  windFluff.geo.attributes.position.needsUpdate = true
+}
 function initFishers() {
   if (fishersInit || !YATO_PONDS.length) return; fishersInit = true
   const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3) // 面積上位3つ（二ツ池・三ツ池の池）
@@ -8820,7 +8847,7 @@ function update(dt) {
   // 風で草木をゆらす・光の粒を漂わせる（生気）
   const tsec = clock.elapsedTime
   // 統一された「風」：ゆるやかなそよ風＋時おりの突風。これで草・木・風鈴・のぼりが一斉に揺れて世界が呼吸する
-  const wind = THREE.MathUtils.clamp(0.42 + 0.3 * Math.sin(tsec * 0.21) + 0.22 * Math.sin(tsec * 0.55 + 1.4) + 0.12 * Math.sin(tsec * 1.27 + 0.4), 0.05, 1.25)
+  wind = THREE.MathUtils.clamp(0.42 + 0.3 * Math.sin(tsec * 0.21) + 0.22 * Math.sin(tsec * 0.55 + 1.4) + 0.12 * Math.sin(tsec * 1.27 + 0.4), 0.05, 1.25) // モジュールレベルwind＝updateWindFluff等の別関数からも参照できる（B3）
   for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp * (0.5 + wind)
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
@@ -8858,6 +8885,7 @@ function update(dt) {
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
   updateFishShadows(dt) // C6：魚影（谷戸の池の水面下をゆっくり回遊・日中・近接時のみ）
+  updateWindFluff(dt) // B3：風に流れる綿毛（風の可視化・日中の晴れ・windに同期）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
