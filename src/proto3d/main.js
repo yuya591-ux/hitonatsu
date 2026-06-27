@@ -7953,11 +7953,12 @@ tapBtn(zinEl, () => zoomStep(0.8))
 tapBtn(zoutEl, () => zoomStep(1.25))
 // ── 風船飛行のUI：ズーム＋−／速さ3段／主観視点トグル（飛行中だけ出る） ──
 { const flZin = document.getElementById('fl-zin'), flZout = document.getElementById('fl-zout'), flSpeed = document.getElementById('fl-speed'), flFpv = document.getElementById('fl-fpv')
-  if (flZin) flZin.addEventListener('click', () => zoomStep(0.82))
-  if (flZout) flZout.addEventListener('click', () => zoomStep(1 / 0.82))
+  // ★tapBtn(pointerdown)で配線＝左指でスティックを握ったまま右指でこれらを押せる（clickだとマルチタッチ中に発火しない不具合・ユーザー要望「移動しながら主観切替/速度変更」2026-06-27）
+  tapBtn(flZin, () => zoomStep(0.82))
+  tapBtn(flZout, () => zoomStep(1 / 0.82))
   const updFlSpeed = () => { if (flSpeed) flSpeed.innerHTML = 'はやさ<br>' + FLOAT_SPEEDS[floatSpeedI].lbl }
-  if (flSpeed) flSpeed.addEventListener('click', () => { floatSpeedI = (floatSpeedI + 1) % FLOAT_SPEEDS.length; updFlSpeed() }); updFlSpeed()
-  if (flFpv) flFpv.addEventListener('click', () => { toggleFpv() }) // 飛行中の主観視点トグル（全ボタン同期＝toggleFpv）
+  tapBtn(flSpeed, () => { floatSpeedI = (floatSpeedI + 1) % FLOAT_SPEEDS.length; updFlSpeed() }); updFlSpeed()
+  tapBtn(flFpv, () => { toggleFpv() }) // 飛行中の主観視点トグル（全ボタン同期＝toggleFpv）
   window.__updFlightHud = () => { // 毎フレーム：高度/速さ/ズームのメーターを更新
     const alt = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / floatMaxH, 0, 1)
     const zoomN = fpv ? (78 - fpvFov) / 52 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
