@@ -154,6 +154,7 @@ for (const rd of SG.roads) { const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, r
     for (let t = 0; t <= l; t += 0.6) for (let s = -hw; s <= hw; s += 0.6) { const id = rcoreIdx(x0 + ux * t + nx * s, z0 + uz * t + nz * s); if (id >= 0 && yatoRoadCore[id] !== 1) yatoRoadCore[id] = kv } } } // 舗装(1)は土(2)に上書きされない＝交差点は舗装が勝つ
 const onYatoRoadCore = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 && yatoRoadCore[id] !== 0 } // 「道の上か」＝舗装/土どちらも道（建物/木/塀の除外判定は従来どおり）
 const yatoSurfKind = (x, z) => { const id = rcoreIdx(x, z); return id >= 0 ? yatoRoadCore[id] : 0 } // 路面の種類（0=草地/1=舗装/2=土）＝足音用
+let playerSpeed = 0 // 主人公の移動速度（B2の移動ビネット等が別スコープから参照）
 let wind = 0.5 // 風の突風値(0.05-1.25)。毎フレーム更新関数で算出＝草木の揺れ/風の音/綿毛が同期。別関数からも参照するためモジュールレベル（B3）
 let onYato = false // 実行時に獅子ヶ谷(谷戸)エリアにいるか。trueなら heightAt/climbYAt を全域 DEM に切替＝西の師岡など x<2200 の谷戸拡張も正しく歩ける。モジュール評価中はfalse＝旧プロト(町/野原/神社)のビルドはx帯分岐のまま安全
 const WEST_EXT = 120 // 世界を西へ少しだけ拡張する量（m）。師岡町＝ビエント横濱菊名(game約1894,-160)を地続きにする（ユーザー要望2026-06-23）
@@ -9689,6 +9690,7 @@ function update(dt) {
     vel.x += (tx - vel.x) * Math.min(1, dt * k)
     vel.z += (tz - vel.z) * Math.min(1, dt * k)
     const speedNow = Math.hypot(vel.x, vel.z)
+    playerSpeed = speedNow // B2：移動ビネット等で参照（vigブロックは別スコープなのでモジュールレベルに保持）
     moving = speedNow > 0.25
     boy.position.x += vel.x * dt
     boy.position.z += vel.z * dt
@@ -9822,7 +9824,7 @@ function update(dt) {
     const targetRoll = moving ? Math.sin(phase) * (0.08 + run * 0.05) : Math.sin(tsec * 0.5) * 0.02 * idleLook // 歩くと左右にとことこ揺れる（幼児のよちよち）
     boy.rotation.z += (targetRoll - boy.rotation.z) * Math.min(1, dt * 9)
     boy.userData.head.rotation.z = -boy.rotation.z * 0.55 // 頭は体ほど傾けず視線を水平に保つ（自然）
-    if (!floatMode) boy.position.y += riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) : Math.sin(tsec * 1.4) * 0.012) // 歩き=ぴょこ跳ね/立ち=呼吸。自転車は跳ねず僅かな揺れ＝砂利道感を解消。浮遊中は別処理（足さない）
+    if (!floatMode) { const bobK = reduceMotion ? 0.4 : 1; boy.position.y += riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) * bobK : Math.sin(tsec * 1.4) * 0.012) } // 歩き=ぴょこ跳ね/立ち=呼吸。B2：酔い対策ONで歩きの上下を抑える（bobK）。浮遊中は別処理
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
       jumpV -= 22 * dt; jumpY += jumpV * dt
@@ -10034,7 +10036,8 @@ function update(dt) {
   layoutCtxButtons() // C⑫：中央下の文脈ボタンが重なったら表示中のものを縦に積んで衝突を解消（毎フレーム＝モード切替でも自己修復）
   // 止め絵：座って景色をながめる間は、周辺減光と記憶の色を少し強めて“ただ味わう一枚絵”に（立つと戻る）
   { const ct = mode === 'sit' ? 1 : 0, nf = nightFactor(tday) // 夜は記憶の暖色(mem)と周辺減光(vig)を弱める＝空ドームの紺がそのまま出る（夜空が褐色のミルクに濁るのを解消・アートD指摘2026-06-27）
-    gradePass.uniforms.vig.value += (((0.16 + ct * 0.12) * (1 - nf * 0.4)) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
+    const moveVig = THREE.MathUtils.clamp(playerSpeed / 9, 0, 1) * (reduceMotion ? 0.16 : 0.05) // B2：動くほど周辺を少し暗く＝視界のふちの流れを抑える酔い対策（「画面のゆれをへらす」ONで強め）
+    gradePass.uniforms.vig.value += (((0.16 + ct * 0.12) * (1 - nf * 0.4) + moveVig) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
     gradePass.uniforms.mem.value += (((0.78 + ct * 0.12) * (1 - nf * 0.5)) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6)
     const stillF = (mode === 'sit' || mode === 'lie' || titleView) ? 1 : 0 // A4：止め絵の瞬間（座る/寝ころぶ/タイトルはがき）だけ“額装した絵”の仕上げをそっと効かせる
     gradePass.uniforms.frame.value += (stillF - gradePass.uniforms.frame.value) * Math.min(1, dt * 1.6) }
