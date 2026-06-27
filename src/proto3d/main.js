@@ -9953,6 +9953,23 @@ window.__proto3d = {
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
+  _roadDefects() { const out = []
+    const proc = (x0, z0, x1, z1, w) => { if (x0 < 2200 && x1 < 2200) return; const L = Math.hypot(x1 - x0, z1 - z0); if (L < 2) return
+      const dx = (x1 - x0) / L, dz = (z1 - z0) / L, px = -dz, pz = dx, lift = 0.13, nseg = Math.max(2, Math.round(L / 1.6))
+      for (let i = 0; i < nseg; i++) { const d0 = i * L / nseg, d1 = (i + 1) * L / nseg, dm = (d0 + d1) / 2
+        const v0 = heightAtYato(x0 + dx * d0, z0 + dz * d0), v1 = heightAtYato(x0 + dx * d1, z0 + dz * d1), roadMid = (v0 + v1) / 2 + lift
+        { const tg = heightAtYato(x0 + dx * dm, z0 + dz * dm); if (tg > roadMid + 0.08) out.push({ t: 'poke', x: Math.round(x0 + dx * dm), z: Math.round(z0 + dz * dm), by: +(tg - roadMid).toFixed(2) }) } // 進行方向の頂点間で地面が路面を突き抜ける（草混ざり）＝中心線のみ（坂の路肩の誤検出を除く）
+        const offA = heightAtYato(x0 + dx * dm + px * (w / 2 + 2.5), z0 + dz * dm + pz * (w / 2 + 2.5)), offB = heightAtYato(x0 + dx * dm - px * (w / 2 + 2.5), z0 + dz * dm - pz * (w / 2 + 2.5))
+        if (Math.max(v0, v1) + lift - Math.min(offA, offB) > 1.3) out.push({ t: 'float', x: Math.round(x0 + dx * dm), z: Math.round(z0 + dz * dm), by: +(Math.max(v0, v1) + lift - Math.min(offA, offB)).toFixed(2) }) } } // 路面が脇の地面よりかなり高い（浮き）
+    // ※OSM道(SG.roads)は3Dリボンでなく地形に塗られた路面(yatoSurfKind)＝浮き/突き抜けは起きない。実際にリボンメッシュで描かれる手描き道(roadSegs)だけを検査する
+    for (const s of roadSegs) proc(s[0], s[1], s[2], s[3], s[4] || 3.5)
+    const dedup = []; for (const o of out) if (!dedup.some((q) => q.t === o.t && Math.hypot(q.x - o.x, q.z - o.z) < 16)) dedup.push(o)
+    return dedup.sort((a, b) => b.by - a.by) }, // 検証用：道路の草突き抜け(poke)/浮き(float)を幾何学的に検出（近接はまとめる・大きい順）
+  _roadCenters(spacing) { const sp = spacing || 45, out = []
+    const add = (x0, z0, x1, z1) => { if (x0 < 2200 && x1 < 2200) return; const L = Math.hypot(x1 - x0, z1 - z0); if (L < 2) return; const dx = (x1 - x0) / L, dz = (z1 - z0) / L; for (let d = sp * 0.5; d < L; d += sp) { const x = x0 + dx * d, z = z0 + dz * d; if (heightAtYato(x, z) < 0.5) continue; out.push({ x: +x.toFixed(0), z: +z.toFixed(0), dx: +dx.toFixed(3), dz: +dz.toFixed(3) }) } }
+    if (SG && SG.roads) for (const r of SG.roads) { const p = r.p; for (let i = 0; i < p.length - 1; i++) add(p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]) }
+    for (const s of roadSegs) add(s[0], s[1], s[2], s[3])
+    return out }, // 検証用：全ヤト道路の中心線サンプル点(x,z,進行方向dx,dz)＝目線歩行点検用
   _roadGaps() { const out = []
     for (const [x0, z0, x1, z1] of roadSegs) { const L = Math.hypot(x1 - x0, z1 - z0) || 1, dx = (x1 - x0) / L, dz = (z1 - z0) / L
       for (const [ex, ez, ddx, ddz] of [[x0, z0, -dx, -dz], [x1, z1, dx, dz]]) {
