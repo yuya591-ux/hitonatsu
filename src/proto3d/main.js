@@ -5943,8 +5943,25 @@ const farmer = makeVillager(63, 13, {
     },
   },
 })
+// H3：縁側のおばあちゃん（昭和の田舎家の縁側に腰かけて夏の昼下がりをすごす）。話しかけると駄菓子やラムネをくれる小さな交流
+const grandma = makeVillager(HOUSE.x + Math.sin(0.35) * 3.2, HOUSE.z + Math.cos(0.35) * 3.2, {
+  shirt: 0xb8b0a4, skirt: 0x6a6258, skin: 0xe8d0b4, hair: 0xcfcabd, boy: false, adult: true, hairStyle: 'bun', garment: 'dress', scale: 0.98, brow: true,
+  info: { name: 'おばあちゃん', byPhase: {
+    morning: ['おはよう。よく ねむれたかい。', 'すずしい うちに、あそんで おいで。'],
+    noon: ['暑いねえ。…ほら、ラムネ。よく ひやしてあるよ。', 'えんがわで すこし やすんで いきな。', 'むかしは ここらも、田んぼ ばっかりでねえ。'],
+    evening: ['もう ひぐらしが ないとるね。…一日は、はやいねえ。', 'ごはんが できるよ。おなか、すいたろう。'],
+    night: ['もう こんな じかんかい。早く おやすみ。', '夜ふかしは いけないよ。…でも、星が きれいだねえ。'],
+  } },
+})
+{ const ggx = HOUSE.x + Math.sin(0.35) * 3.2, ggz = HOUSE.z + Math.cos(0.35) * 3.2, gy = heightAt(ggx, ggz)
+  grandma.position.set(ggx, gy + 0.42, ggz); grandma.rotation.y = 0.35 // 庭(外)を向いて縁側に腰かける
+  const u = grandma.userData
+  if (u.legL) u.legL.rotation.x = -1.3; if (u.legR) u.legR.rotation.x = -1.3 // 太ももを前へ（座る）
+  if (u.kneeL) u.kneeL.rotation.x = 1.3; if (u.kneeR) u.kneeR.rotation.x = 1.3 // すねを下へ
+  if (u.armL) u.armL.rotation.x = -0.18; if (u.armR) u.armR.rotation.x = -0.18 // 手をひざに
+}
 // 会話できる人たち（いちばん近い人に話しかける）
-const npcs = [villager, townLady, townKid, farmer]
+const npcs = [villager, townLady, townKid, farmer, grandma]
 
 // NPC共通：腕は基本だらんと下げ、近づくと たまに手を振る。
 function npcArms(n, near, dt, tsec) {
@@ -8131,6 +8148,7 @@ function startDialogue() {
   if (who === villager && day >= TOTAL_DAYS) { gotOmamori = true; try { localStorage.setItem('hn3d_omamori', '1') } catch (e) {} } // 最終日に会えたら おまもりを受け取る
   if (who === townLady) todayFlags.metShop = true
   if (who === townLady && tday > 0.6 && tday < 0.86 && !todayFlags.gotOmake) { todayFlags.gotOmake = true; showToast('おばさんが トマトを ひとつ おまけして くれた。') } // 夕方の「おまけ」を実際にもらえる
+  if (who === grandma && tday > 0.3 && tday < 0.62 && !todayFlags.lamune) { todayFlags.lamune = true; showToast('おばあちゃんが ラムネを くれた。よく ひえていた。') } // H3：昼間に縁側のおばあちゃんが冷えたラムネをくれる（絵日記のlamuneに連動）
   who.rotation.y = Math.atan2(boy.position.x - who.position.x, boy.position.z - who.position.z) // こちらを向く
 }
 
