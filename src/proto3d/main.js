@@ -44,6 +44,7 @@ const YATO = {
   v_w: [[2900, 60, 9], [2820, 108, 5], [2760, 150, 3.5]]                      // 西の枝谷
 }
 const SWING = { x: TOWN.x - 16, z: TOWN.z + 37, py: 3.0, L: 2.2 } // 裏山ふもとのブランコ（乗ると街を見おろすブランコ視点）
+const SWING_Y = { x: 3059, z: -14, py: 2.8, L: 2.0 } // P2：スポーンエリア(yato)の獅子ヶ谷第三公園のブランコ＝最初のエリアでも こげる（開けた園内・実測で空き）
 // 当たり判定（建物・木などをすり抜けない）：円＋矩形(箱)のリスト。移動時に外へ押し戻す
 const colliders = []
 // 衝突は空間グリッドで近傍だけ判定（獅子ヶ谷の数千棟でもスマホで軽い）。各コライダーは自分のbboxが重なる全セルに登録
@@ -65,7 +66,8 @@ function pushOutOfColliders(px, pz) {
     } }
   return { x: px, z: pz, hit }
 }
-let swingSeat = null, swingPhase = 0, swingAmp = 0.3, swingCreakN = 0 // 振り子の状態（CreakNはきしみ音の折り返し検出）
+let swingSeat = null, swingSeatY = null, swingPhase = 0, swingAmp = 0.3, swingCreakN = 0 // 振り子の状態（CreakNはきしみ音の折り返し検出）。swingSeatY=yatoのブランコ座面
+let actSwing = SWING // P2：いま乗っているブランコの設定（town=SWING/yato=SWING_Y）。乗り換え式で1系統を使い回す
 let slideRide = null, sliding = null // ローラーすべり台：slideRide={curve,total,topXZ,botXZ,width}／sliding={u,v}=滑走中の弧長位置と速度
 // smoothstep01 は ./util.js へ切り出し（C3）
 const PLATEAU_Y = 23 // マンションの丘の上の台地の高さ（サンライズ/南の公園を平らに据える地ならし。heightAtで使用）。15→23＝坂をさらに登った分高く（ユーザー要望2026-06-19）
@@ -4576,21 +4578,9 @@ function makeJizo(x, z, rot) {
   makeRoadRibbon(T.x - 172, T.z + 127, T.x - 175, T.z + 125, 4, false, true)  // (828,127)→(825,125) 地点1（前の道の続き）
   makeRoadRibbon(T.x - 175, T.z + 125, T.x - 198, T.z + 125, 4, false, true)  // (825,125)→(802,125) 地点2
   makeRoadRibbon(T.x - 198, T.z + 125, T.x - 214, T.z + 148, 4, false, true)  // (802,125)→(786,148) 地点3（西の原っぱで行き止まり）
-  // ── ブランコ（乗ってブランコ視点であそぶ）──
-  {
-    const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
-    for (const sx of [-1.5, 1.5]) for (const dz of [-0.8, 0.8]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 3.35, 6), frame)
-      leg.position.set(sx + (dz > 0 ? 0.0 : 0.0), SWING.py / 2, dz * 0.9); leg.rotation.x = dz > 0 ? 0.22 : -0.22; g.add(leg)
-    }
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8), frameDark); top.rotation.z = Math.PI / 2; top.position.y = SWING.py; g.add(top)
-    // 座面＝振り子。swingSeat を吊り元(top)に置き、x軸で回す
-    swingSeat = new THREE.Group(); swingSeat.position.y = SWING.py; g.add(swingSeat)
-    for (const rx of [-0.42, 0.42]) { const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, SWING.L, 4), frameDark); rope.position.set(rx, -SWING.L / 2, 0); swingSeat.add(rope) }
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.1, 0.42), toon(0x8a5a32)); seat.position.y = -SWING.L; swingSeat.add(seat)
-    g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-    g.position.set(SWING.x, heightAt(SWING.x, SWING.z), SWING.z); outlineObj(g, 0.03); addContactShadow(g, 2.2); scene.add(g)
-  }
+  // ── ブランコ（乗ってブランコ視点であそぶ）。同じ作りを town と yato の2か所に建てる（P2） ──
+  swingSeat = makeSwingFrame(SWING, heightAt(SWING.x, SWING.z))
+  swingSeatY = makeSwingFrame(SWING_Y, heightAtYato(SWING_Y.x, SWING_Y.z)) // スポーンエリアの公園のブランコ
   // 街かどの生活痕：丸ポスト・当時の自販機
   {
     const pg = new THREE.Group(); const red = toon(0xc0392b)
@@ -7718,7 +7708,7 @@ if (hintEl) { setTimeout(() => hintEl.classList.add('gone'), 6500); canvas.addEv
 
 tapBtn(actBtn, () => {
   const spot = actBtn.dataset.spot
-  if (mode === 'walk') { if (spot === 'swing') rideSwing(); else if (spot === 'slide') rideSlide(); else if (spot === 'sunup') sunGoRoof(); else if (spot === 'sundown') sunLeaveRoof(); else sitDown(spot || 'bench') }
+  if (mode === 'walk') { if (spot === 'swing') rideSwing(SWING); else if (spot === 'swingY') rideSwing(SWING_Y); else if (spot === 'slide') rideSlide(); else if (spot === 'sunup') sunGoRoof(); else if (spot === 'sundown') sunLeaveRoof(); else sitDown(spot || 'bench') }
   else if (mode === 'swing' && spot === 'offswing') getOffSwing()
   else if (mode === 'sliding' && spot === 'slideview' && sliding) { sliding.pov = sliding.pov === 'first' ? 'third' : 'first'; camSnap = true } // すべり台の視点きりかえ（主観⇄背中ごし）
 })
@@ -7759,6 +7749,23 @@ MOUNT_SEAT.y = heightAt(MOUNT_SEAT.x, MOUNT_SEAT.z)
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.copy(MOUNT_SEAT); mergedOutline(g, 0.03); addContactShadow(g, 1.5); scene.add(g)
 }
+// P2（2026-06-27）：スポーンエリア(yato)で「座って見回す」＝本作の核を体験できるように座れる場所を用意。
+// 従来この所作は field/town 限定で、最初に降り立つ yato では1つも発火しなかった（QA指摘）。
+const YATO_SEATS = [
+  { x: 3018, z: 24, yaw: -Math.PI / 2, pitch: -0.02, label: 'バス停で すわる' },   // バス停のベンチ＝開始のすぐそば。西へ伸びるバス通りを眺めてバスを待つ（北東はマンションの壁で抜けないため西向きに）
+  { x: 3008, z: -489, yaw: Math.PI, pitch: -0.07, label: '池を ながめる' },         // 二ツ池の北岸＝南へ水面(B⑨の水鏡)を見渡す止め絵
+]
+let activeYatoSeat = null // いま近い yato のベンチ（actBtn→sitDown('yatoseat')で使う）
+// 二ツ池の北岸に木のベンチを1脚（座って水面を眺める“ひと夏の止め絵”のために）。バス停側は既存のベンチを使う
+{
+  const s = YATO_SEATS[1], g = new THREE.Group(), w = toon(0x9a6a3a)
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.13, 0.66), w); top.position.y = 0.5; g.add(top)
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.46, 0.11), w); back.position.set(0, 0.78, -0.28); g.add(back) // 背もたれは座る人の後ろ(北)
+  for (const lx of [-0.92, 0.92]) for (const lz of [-0.24, 0.24]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), toon(0x7a5230)); leg.position.set(lx, 0.25, lz); g.add(leg) }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(s.x, heightAtYato(s.x, s.z), s.z); g.rotation.y = s.yaw // 座面が南(池)を向く
+  mergedOutline(g, 0.03); addContactShadow(g, 1.4); scene.add(g)
+}
 const curSitEye = new THREE.Vector3()
 function sitDown(which) {
   mode = 'sit'
@@ -7771,6 +7778,12 @@ function sitDown(which) {
     // 目線は縁側の少し前・上（支柱に遮られず庭を見渡す）
     eye = curSitEye.set(ENGAWA.x + Math.sin(0.35) * 1.7, ENGAWA.y + 1.55, ENGAWA.z + Math.cos(0.35) * 1.7)
     yaw = 0.35 // 庭と空の方（外）を向く
+  } else if (which === 'yatoseat') {
+    if (!activeYatoSeat) { mode = 'walk'; return } // 念のため：近いベンチが無い時は何もしない（fieldのベンチへ飛ばさない）
+    const s = activeYatoSeat, gy = heightAtYato(s.x, s.z)
+    boy.position.set(s.x, gy + 0.55, s.z); boy.rotation.y = s.yaw
+    eye = curSitEye.set(s.x + Math.sin(s.yaw) * 0.9, gy + 1.5, s.z + Math.cos(s.yaw) * 0.9) // 目線は座面の少し前・上
+    yaw = s.yaw; pitch = s.pitch
   } else if (which === 'mtview') {
     todayFlags.sawView = true
     boy.position.copy(MOUNT_SEAT); boy.position.y = MOUNT_SEAT.y + 0.55
@@ -7812,7 +7825,23 @@ function standUp() {
   idleTime = 0
   lookHint.style.display = 'none'
 }
-function rideSwing() {
+// P2：ブランコの架台＋座面(振り子)を1基つくる。座面Groupを返す（loopがrotation.xで振る）。townとyatoで使い回し
+function makeSwingFrame(cfg, gy) {
+  const g = new THREE.Group(); const frame = toon(0x7a8a96), frameDark = toon(0x52646f)
+  for (const sx of [-1.5, 1.5]) for (const dz of [-0.8, 0.8]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 3.35, 6), frame)
+    leg.position.set(sx, cfg.py / 2, dz * 0.9); leg.rotation.x = dz > 0 ? 0.22 : -0.22; g.add(leg)
+  }
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8), frameDark); top.rotation.z = Math.PI / 2; top.position.y = cfg.py; g.add(top)
+  const seatG = new THREE.Group(); seatG.position.y = cfg.py; g.add(seatG) // 座面＝吊り元に置きx軸で振る
+  for (const rx of [-0.42, 0.42]) { const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, cfg.L, 4), frameDark); rope.position.set(rx, -cfg.L / 2, 0); seatG.add(rope) }
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.1, 0.42), toon(0x8a5a32)); seat.position.y = -cfg.L; seatG.add(seat)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(cfg.x, gy, cfg.z); outlineObj(g, 0.03); addContactShadow(g, 2.2); scene.add(g)
+  return seatG
+}
+function rideSwing(cfg) {
+  actSwing = cfg || SWING // P2：乗ったブランコをアクティブに（town/yato）
   mode = 'swing'; endPuni(); moving = false; todayFlags.rodeSwing = true
   swingPhase = 0; swingAmp = 0.35
   boy.visible = false // ブランコ視点：自分の頭の中が映らないよう本体は隠す
@@ -7820,7 +7849,7 @@ function rideSwing() {
 }
 function getOffSwing() {
   // ブランコの手前（南側）に降りる
-  boy.position.set(SWING.x, 0, SWING.z - 2.4); boy.rotation.y = Math.PI
+  boy.position.set(actSwing.x, 0, actSwing.z - 2.4); boy.rotation.y = Math.PI
   standUp()
 }
 // ローラーすべり台に乗って滑る（西の丘の蛇行すべり台を上から下まで）
@@ -8682,9 +8711,12 @@ function update(dt) {
     const nearEngawa = area === 'field' && Math.hypot(boy.position.x - ENGAWA.x, boy.position.z - ENGAWA.z) < 3.0
     const nearMtSeat = area === 'town' && Math.hypot(boy.position.x - MOUNT_SEAT.x, boy.position.z - MOUNT_SEAT.z) < 3.4
     const nearSwing = area === 'town' && Math.hypot(boy.position.x - SWING.x, boy.position.z - (SWING.z - 2.4)) < 2.8
+    const nearSwingY = area === 'yato' && Math.hypot(boy.position.x - SWING_Y.x, boy.position.z - (SWING_Y.z - 2.4)) < 2.8 // P2：yatoの公園のブランコ
     const onSunRoof = area === 'yato' && climbYAt(boy.position.x, boy.position.z, boy.position.y) != null // サンライズ屋上/外階段にいる
     const nearSunDoor = area === 'yato' && !onSunRoof && Math.hypot(boy.position.x - 3012, boy.position.z - 25) < 6 // 入口の前（坂上=南側）
     const nearSlideTop = area === 'yato' && slideRide && Math.hypot(boy.position.x - slideRide.top[0], boy.position.z - slideRide.top[1]) < 5.5 // ローラーすべり台のてっぺん（塔の足元）
+    activeYatoSeat = null // P2：yatoの座れる場所（バス停ベンチ/二ツ池の畔）に近いか＝最寄りを採用
+    if (area === 'yato') { let bd = 3.0; for (const s of YATO_SEATS) { const d = Math.hypot(boy.position.x - s.x, boy.position.z - s.z); if (d < bd) { bd = d; activeYatoSeat = s } } }
     // いちばん近い人を話し相手に
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
@@ -8701,6 +8733,8 @@ function update(dt) {
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearMtSeat) { actBtn.textContent = '街を ながめる'; actBtn.dataset.spot = 'mtview'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearSwing) { actBtn.textContent = 'ブランコに のる'; actBtn.dataset.spot = 'swing'; actBtn.style.display = 'block' }
+    else if (!nearNpc && !dialogue && nearSwingY) { actBtn.textContent = 'ブランコに のる'; actBtn.dataset.spot = 'swingY'; actBtn.style.display = 'block' }
+    else if (!nearNpc && !dialogue && activeYatoSeat) { actBtn.textContent = activeYatoSeat.label; actBtn.dataset.spot = 'yatoseat'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearSlideTop) { actBtn.textContent = 'すべりだいで すべる'; actBtn.dataset.spot = 'slide'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && onSunRoof) { actBtn.textContent = 'おりる'; actBtn.dataset.spot = 'sundown'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearSunDoor) { actBtn.textContent = '屋上へ のぼる'; actBtn.dataset.spot = 'sunup'; actBtn.style.display = 'block' }
@@ -8834,15 +8868,16 @@ function update(dt) {
     swingPhase += dt * 2.05
     swingAmp = Math.max(0.18, swingAmp - dt * 0.045) // 自然に小さくなる（タップでこぐと大きくなる）
     const th = swingAmp * Math.sin(swingPhase)
-    if (swingSeat) swingSeat.rotation.x = th
+    const ss = actSwing === SWING_Y ? swingSeatY : swingSeat // P2：乗っているブランコの座面を振る
+    if (ss) ss.rotation.x = th
     const half = Math.round(swingPhase / Math.PI) // 両端で折り返すたびに きしみ音
     if (half !== swingCreakN) { swingCreakN = half; playCreak(0.022 + swingAmp * 0.03) }
-    const gy = heightAt(SWING.x, SWING.z), L = SWING.L
-    const seatY = gy + SWING.py - Math.cos(th) * L, seatZ = SWING.z - Math.sin(th) * L
+    const gy = heightAt(actSwing.x, actSwing.z), L = actSwing.L
+    const seatY = gy + actSwing.py - Math.cos(th) * L, seatZ = actSwing.z - Math.sin(th) * L
     const eyeY = seatY + Math.cos(th) * 1.05, eyeZ = seatZ + Math.sin(th) * 1.05 // 座面から吊り元方向へ＝頭
     const fY = Math.sin(th), fZ = -Math.cos(th) // 進行接線（θ=0で-z水平、上下にあおられる）
-    camGoal.set(SWING.x, eyeY, eyeZ)
-    lookGoal.set(SWING.x, eyeY + fY * 4, eyeZ + fZ * 4)
+    camGoal.set(actSwing.x, eyeY, eyeZ)
+    lookGoal.set(actSwing.x, eyeY + fY * 4, eyeZ + fZ * 4)
     camera.fov += (54 - camera.fov) * Math.min(1, dt * 2); camera.updateProjectionMatrix() // 少し広角で疾走感
     actBtn.textContent = 'おりる'; actBtn.dataset.spot = 'offswing'; actBtn.style.display = 'block'
     lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
