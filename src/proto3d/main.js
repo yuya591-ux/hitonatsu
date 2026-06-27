@@ -5985,6 +5985,21 @@ const kidsCatch = (() => {
   return { a, b, w, ball, A: [A[0], heightAt(A[0], A[1]), A[1]], B: [B[0], heightAt(B[0], B[1]), B[1]], t: Math.random(), from: 0 }
 })()
 
+// ── NPC配置の安全検証（水域/建物に立たせない＝ユーザー指摘2026-06-27「それ池の中だよ」）──
+//   配置前に必ず「水域でない・障害物(建物)でない・開けた地面か」を判定し、ダメなら近くの安全な地面へ逃がす。
+const npcInWater = (x, z) => !!(SG && SG.waters && SG.waters.some((w) => w.p && w.p.length >= 3 && pip(x, z, w.p)))
+function npcInCollider(x, z) { for (const c of colliders) { if (c.box) { const dx = x - c.x, dz = z - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) return true } else if ((x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true } return false }
+function npcSpotOk(x, z, clearR) { clearR = clearR || 0
+  const ng = (px, pz) => npcInWater(px, pz) || npcInCollider(px, pz) || onYatoRoadCore(px, pz) // 水/建物/道路の舗装のどれかなら不可
+  if (ng(x, z)) return false // 中心が水/建物/道のど真ん中はNG
+  for (const rad of [clearR * 0.55, clearR]) { if (rad < 0.3) continue; for (let a = 0; a < 6.2832; a += 0.78) { if (ng(x + Math.cos(a) * rad, z + Math.sin(a) * rad)) return false } } // 二人の足元〜輪の縁まで全周が地面（道/水/建物に出ない）
+  return true
+}
+function placeNPCOnLand(x, z, clearR, maxR) { maxR = maxR || 40
+  if (npcSpotOk(x, z, clearR)) return { x, z }
+  for (let rr = 3; rr <= maxR; rr += 3) for (let a = 0; a < 6.2832; a += 0.42) { const ex = x + Math.cos(a) * rr, ez = z + Math.sin(a) * rr; if (npcSpotOk(ex, ez, clearR)) return { x: ex, z: ez } } // 近くから螺旋状に開けた地面を探す
+  return null
+}
 // ── 釣り人（二ツ池・三ツ池の岸で竿を垂れる人。夏の池の営み＝ユーザー要望2026-06-27・賑わいPhase1）──
 //   既存の YATO_PONDS（実在の池）から面積上位を選び、岸に主人公級(full)の人を立てる。竿＋糸＋赤い浮き、たまに「合わせ」。
 //   時間帯（朝〜昼下がり）＋距離でゲート＝負荷は近接時だけ・夜は居ない。
@@ -6018,7 +6033,7 @@ function initFishers() {
       const ox = v[0] - P.cx, oz = v[1] - P.cz, ol = Math.hypot(ox, oz) || 1
       const lx = v[0] + ox / ol * 1.7, lz = v[1] + oz / ol * 1.7, wx = v[0] - ox / ol * 2.6, wz = v[1] - oz / ol * 2.6
       const landY = heightAtYato(lx, lz), waterY = heightAtYato(wx, wz) + 0.2
-      if (pip(wx, wz, P.p) && landY > waterY - 0.1 && landY < waterY + 7) { fishers.push(makeFisher(lx, lz, P.cx, P.cz)); placed++ }
+      if (pip(wx, wz, P.p) && !npcInWater(lx, lz) && !npcInCollider(lx, lz) && landY > waterY - 0.1 && landY < waterY + 7) { fishers.push(makeFisher(lx, lz, P.cx, P.cz)); placed++ } // 陸点が水/建物でない岸だけに立たせる
     }
   }
 }
@@ -6046,7 +6061,11 @@ function makePlayKid(x, z, hue, sk, hr) {
   const g = makeVillager(x, z, { shirt: hue, skirt: 0x3a4a6a, skin: sk, hair: hr, boy: true, simple: false, adult: false, hat: Math.random() < 0.4, hairStyle: 'short', garment: 'shorts', build: 0.9 + Math.random() * 0.1, scale: 0.8 + Math.random() * 0.08, shoe: 0xcfcabd, face: 0, info: { name: '', byPhase: { noon: [''] } } })
   g.rotation.order = 'YXZ'; g.visible = false; return g // YXZ＝yaw後にpitch(前傾)を正しくかける
 }
-function addRunGroup(cx, cz, r) { runGroups.push({ a: makePlayKid(cx, cz, 0xe07a4a, 0xf0c49c, 0x2a2218), b: makePlayKid(cx, cz, 0x4f86b0, 0xeab584, 0x35291c), cx, cz, r, ph: Math.random() * 6 }) }
+function addRunGroup(cx, cz, r) {
+  const p = placeNPCOnLand(cx, cz, r + 1.2, 55); if (!p) { console.warn('runGroup配置不可(水/建物)', cx, cz); return } // 輪ごと開けた地面に乗る所へ
+  cx = p.x; cz = p.z
+  runGroups.push({ a: makePlayKid(cx, cz, 0xe07a4a, 0xf0c49c, 0x2a2218), b: makePlayKid(cx, cz, 0x4f86b0, 0xeab584, 0x35291c), cx, cz, r, ph: Math.random() * 6 })
+}
 function updateRunKids(dt) {
   const active = onYato && tday > 0.12 && tday < 0.6 // 昼に駆け回る
   for (const G of runGroups) {
@@ -6065,6 +6084,8 @@ function updateRunKids(dt) {
   }
 }
 function addChatPair(x, z, ang) {
+  const p = placeNPCOnLand(x, z, 1.6, 40); if (!p) { console.warn('chatPair配置不可(水/建物)', x, z); return } // 二人ぶんの足元が開けた地面に
+  x = p.x; z = p.z
   const off = 0.82, adultPair = Math.random() < 0.7
   const cpick = (a) => a[Math.floor(Math.random() * a.length)]
   const mk = (px, pz, fx, fz) => { const g = makeVillager(px, pz, { shirt: cpick([0x6a7a8a, 0x8a6a5a, 0x7a8a6a, 0xb0a898]), skirt: 0x4a4438, skin: cpick([0xf0c49c, 0xe8b890]), hair: 0x3a2e22, boy: Math.random() < 0.5, simple: false, adult: adultPair, hat: adultPair && Math.random() < 0.35, hairStyle: 'short', garment: adultPair ? 'pants' : 'shorts', scale: adultPair ? 1.05 : 0.84, shoe: 0x5a4a3a, face: 0, info: { name: '', byPhase: { noon: [''] } } })
@@ -9888,6 +9909,12 @@ window.__proto3d = {
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
+  _npcAudit() { initFishers(); const desc = (x, z) => npcInWater(x, z) ? '水中!' : onYatoRoadCore(x, z) ? '道路上!' : npcInCollider(x, z) ? '建物内!' : '地面OK'
+    const out = []
+    for (const f of fishers) out.push({ t: 'fisher', x: +f.g.position.x.toFixed(0), z: +f.g.position.z.toFixed(0), body: desc(f.g.position.x, f.g.position.z), float: desc(f.flo.position.x, f.flo.position.z) })
+    for (const G of runGroups) out.push({ t: 'run', x: +G.cx.toFixed(0), z: +G.cz.toFixed(0), at: desc(G.cx, G.cz) })
+    for (const C of chatPairs) out.push({ t: 'chat', x: +C.cx.toFixed(0), z: +C.cz.toFixed(0), a: desc(C.a.position.x, C.a.position.z), b: desc(C.b.position.x, C.b.position.z) })
+    return out }, // 検証用：全NPCの足元が 水中/道路上/建物内/地面OK のどれか（漏れ把握）
   _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
