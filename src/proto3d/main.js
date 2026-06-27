@@ -8199,16 +8199,19 @@ function update(dt) {
   windchime.rotation.z = Math.sin(tsec * 1.7) * 0.05
   // 主人公の接地影は地面に沿わせる（跳ぶと小さくなって浮遊感を出す）
   // 接地影：太陽の反対側へ伸ばし、夕方ほど長く・薄く（朝夕の長い影で空気が出る）
+  const shNf = nightFactor(tday) // 夜の度合い（K3で接地影の最低濃度/丸さに使う）
   const elev = Math.max(0.16, sunDir.y) // 太陽高度（低いほど影が長い）
-  const slen = THREE.MathUtils.clamp(1 / elev, 1, 2.2) // 伸ばしすぎない（核が薄れて浮くのを防ぐ）
+  let slen = THREE.MathUtils.clamp(1 / elev, 1, 2.2) // 伸ばしすぎない（核が薄れて浮くのを防ぐ）
+  slen = THREE.MathUtils.lerp(slen, 1.05, shNf * 0.7) // K3：夜は強い直射が無い＝伸びた影でなく足元の丸い接地ブロブに
   const jShrink = Math.min(0.5, jumpY * 0.42) // 跳ぶと影が小さく
   const sgy = heightAt(boy.position.x, boy.position.z) + 0.03
   boyShadow.position.set(boy.position.x - sunDir.x * 0.16 * slen, sgy, boy.position.z - sunDir.z * 0.16 * slen) // 足元から離しすぎない
   boyShadow.rotation.set(-Math.PI / 2, 0, Math.atan2(-sunDir.x, -sunDir.z)) // 影が伸びる向き
   boyShadow.scale.set(0.92 * (1 - jShrink), 0.92 * slen * (1 - jShrink), 1)
-  boyShadowMat.opacity = THREE.MathUtils.clamp(0.18 + 0.42 * sunDir.y, 0.07, 0.6) * (1 - jShrink * 0.6)
+  // K3（QA指摘2026-06-27）：夜は地面が沈んで足元の接地感が弱い→夜だけ接地ブロブの最低濃度を上げて“地に足が付く”感を保つ（昼の長い影は不変）
+  boyShadowMat.opacity = Math.max(THREE.MathUtils.clamp(0.18 + 0.42 * sunDir.y, 0.07, 0.6), shNf * 0.28) * (1 - jShrink * 0.6)
   // 影の色みを時間帯に寄せる（明度は保ったまま色相だけ：夕=暖, 夜=青）
-  const shNf = nightFactor(tday), shDusk = THREE.MathUtils.smoothstep(tday, 0.58, 0.72) * (1 - shNf)
+  const shDusk = THREE.MathUtils.smoothstep(tday, 0.58, 0.72) * (1 - shNf)
   boyShadowMat.color.setRGB(1, 1, 1).lerp(boyShadowWarm, shDusk * 0.7).lerp(boyShadowCool, shNf * 0.7)
   boyShadow.visible = boy.visible
   // 虫取り網を振る（採取時）
