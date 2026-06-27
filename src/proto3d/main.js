@@ -1658,8 +1658,10 @@ const FEST_VENUES = []
 const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
 const festDancerJobs = [] // 踊り手の生成予約（buildBonOdoriは会場だけ建て、makeVillager定義後にpopulateFestDancersで主人公級の浴衣すがたを作る＝PROPのTDZ回避）
 const stallKeeperJobs = [] // 屋台の店番の生成予約（同上＝makeVillager定義後にpopulateStallKeepersで主人公級の店番を建てる）
+const toroWatcherJobs = [] // 灯籠流しを岸辺で見送る人の生成予約（岸の点はbuildShishigaya中に算出して保存）
 const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(toroNagashi) // 灯籠流し（夏の夕暮れ〜夜、二ツ池をゆっくり流れる灯籠＝お盆の静かな風物詩）。updateToroで動かす
 const toroList = [] // 各灯籠＝｛g, glow, x, z, y, vx, vz, ph, cx, cz, rad｝
+const toroWatchers = [] // 岸辺で灯籠を見送る人＝｛g, baseY, ph, child｝。updateToroで静かに揺らす（合掌したまま佇む）
 const radioTaiso = new THREE.Group(); radioTaiso.visible = false; scene.add(radioTaiso) // ラジオ体操（夏休みの早朝、公園で体操＝夏のいちばんの定番）。updateTaisoで動かす
 const taisoFigs = [] // 体操する人＝｛g, armL, armR, baseY, ph, lead｝
 const taisoJobs = [], suikaJobs = [] // ラジオ体操/すいか割りの人も主人公級(makeVillager)に。PROPのTDZ回避のため予約→makeVillager定義後にpopulateで建てる
@@ -2634,7 +2636,18 @@ function buildShishigaya() {
           const glow = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffb060, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); glow.position.set(lx, wy + 0.4, lz); toroNagashi.add(glow)
           townNightLights.push({ m: glow, base: 1.0, ph: Math.random() * 6 }) // 夜に灯る
           const ang = Math.random() * 6.283, sp = 0.06 + Math.random() * 0.09
-          toroList.push({ g, glow, x: lx, z: lz, y: wy + 0.12, vx: Math.cos(ang) * sp, vz: Math.sin(ang) * sp, ph: Math.random() * 6, cx: cx0, cz: cz0, rad: 24 }) } } }
+          toroList.push({ g, glow, x: lx, z: lz, y: wy + 0.12, vx: Math.cos(ang) * sp, vz: Math.sin(ang) * sp, ph: Math.random() * 6, cx: cx0, cz: cz0, rad: 24 }) }
+        // 岸辺で灯籠を見送る人の立ち位置（水際の少し陸側）を、inWaterAnyが使えるここで算出してジョブへ。人物はmakeVillager定義後に建てる
+        const watchPts = []
+        for (const a of [0, 0.785, 1.571, 2.356, 3.142, 3.927, 4.712, 5.498]) { let px = cx0, pz = cz0, found = false // 8方向。二ツ池は大きいので広めに水際を探す
+          for (let r = 4; r < 90; r += 1.0) { px = cx0 + Math.cos(a) * r; pz = cz0 + Math.sin(a) * r; if (!inWaterAny(px, pz)) { found = true; break } }
+          if (!found) continue // その方向はずっと水（長軸）＝立てない
+          let ox = px + Math.cos(a) * 0.9, oz = pz + Math.sin(a) * 0.9 // 水際の少し陸側
+          if (onYatoRoadCore(ox, oz)) { ox += Math.cos(a) * 1.8; oz += Math.sin(a) * 1.8 } // 道の上なら更に陸へ退く
+          if (onYatoRoadCore(ox, oz) || inWaterAny(ox, oz)) continue
+          watchPts.push({ x: ox, z: oz, rot: Math.atan2(cx0 - ox, cz0 - oz) }) // 水(中心)を向く
+          if (watchPts.length >= 6) break } // 予算＝最大6人
+        if (watchPts.length) toroWatcherJobs.push({ pts: watchPts }) } }
     // ── ラジオ体操＝夏休みの早朝、小学校の校庭(3124,-186・広く平ら)で体操（夏休みのいちばんの定番・updateTaisoで号令に合わせて動く。盆踊りと同じ校庭だが朝/夜で出る時間がちがい干渉しない）──
     { const px = 3124, pz = -186
       const ldx = px, ldz = pz - 5, ly = heightAtYato(ldx, ldz) // 前の号令台＋リーダー
@@ -5952,6 +5965,27 @@ function populateStallKeepers() {
   stallKeeperJobs.length = 0
 }
 populateStallKeepers()
+// 灯籠流しを岸辺で見送る人＝合掌して水面を静かに見つめる人々（お盆の風物詩・大人と子どもを混ぜる）。toroNagashiグループに入れ、夕暮れ〜夜だけ見える
+function populateToroWatchers() {
+  if (!toroWatcherJobs.length) return
+  const skins = [0xf0d6b4, 0xe8c8a0, 0xeab584, 0xf2d4b0], hairs = [0x241e1a, 0x2e2620, 0x3a2e22, 0x46371f, 0x8c8c86]
+  const yukata = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0x4a7a96], rpick = (a) => a[Math.floor(Math.random() * a.length)]
+  for (const job of toroWatcherJobs) { let i = 0
+    for (const pt of job.pts) { const gy = heightAtYato(pt.x, pt.z), child = (i % 3 === 2), col = rpick(yukata)
+      const v = makeVillager(pt.x, pt.z, { simple: true, garment: (i % 2) ? 'dress' : 'jinbei', robe: !(i % 2), bodyMap: (i % 2) ? YUKATA_PATTERNS[i % YUKATA_PATTERNS.length] : null,
+        boy: !(i % 2), shirt: col, skirt: col, jinTrim: 0xeae3d2, skin: rpick(skins), hair: rpick(hairs), adult: !child, hairStyle: rpick(['short', 'pony', 'bob', 'buzz']), scale: child ? 0.72 : (0.96 + Math.random() * 0.06), info: { name: '', byPhase: { noon: [''] } } })
+      v.position.set(pt.x, gy, pt.z); v.rotation.y = pt.rot
+      if ((i % 2)) { const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.09, 10), charToon(rpick([0xcc9a3a, 0xb5462f, 0x3a5a8a]))); obi.position.y = PROP.waistY + 0.04; v.add(obi) } // 浴衣の帯
+      // 静かに見送るしぐさ＝両手を体の前で軽く合わせる（簡易figureは腕が真っ直ぐなので、前下方へ少し寄せて“手を前で組む”形に。i%4で自然に立つ人も混ぜる）
+      if ((i % 4) !== 3 && v.userData.armL && v.userData.armR) {
+        v.userData.armL.rotation.x = -0.34; v.userData.armL.rotation.z = 0.66
+        v.userData.armR.rotation.x = -0.34; v.userData.armR.rotation.z = -0.66 }
+      toroNagashi.add(v) // sceneから灯籠流しグループへ付け替え（夕暮れ〜夜だけ見える）
+      toroWatchers.push({ g: v, baseY: gy, ph: i * 0.8 + Math.random() * 2, child }); i++ }
+  }
+  toroWatcherJobs.length = 0
+}
+populateToroWatchers()
 const villager = makeVillager(13, 9, {
   shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, // 麦わら帽子（ピンクのリボン）
   info: {
@@ -7860,6 +7894,8 @@ function updateToro(dt) { // 灯籠流し＝二ツ池の灯籠を夕暮れ〜夜
     L.g.position.set(L.x, by, L.z); L.g.rotation.y = t * 0.12 + L.ph
     L.glow.position.set(L.x, by + 0.28, L.z)
   }
+  for (const W of toroWatchers) { const s = W.child ? 0.012 : 0.008 // 岸辺の人＝合掌したまま静かに呼吸のように佇む
+    W.g.position.y = W.baseY + Math.abs(Math.sin(t * 0.6 + W.ph)) * s }
 }
 function festCrowd(t0) { // 縁日のざわめき＝やわらかいノイズの2秒のうねり。getFestOut経由なので距離/時刻でお囃子と一緒に増減＝近い祭りほど賑やか
   if (!audioStarted) return
@@ -10747,6 +10783,7 @@ window.__proto3d = {
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
+  _toro() { return { on: toroNagashi.visible, lanterns: toroList.length, watchers: toroWatchers.map((w) => ({ x: +w.g.position.x.toFixed(1), y: +w.g.position.y.toFixed(2), z: +w.g.position.z.toFixed(1), rot: +w.g.rotation.y.toFixed(2), child: w.child })) } }, // 検証用：灯籠流しの灯籠数＋岸辺で見送る人の位置
   _chores() { initChores(); return chores.map((c) => ({ x: +c.cx.toFixed(1), z: +c.cz.toFixed(1), kind: c.kind })) }, // 検証用：C3 静かなしぐさの位置と種類
   _chatMouths() { const out = []; for (const C of chatPairs) for (const g of [C.a, C.b]) { const m = g.userData.mouth; if (m) out.push({ vis: g.visible, sy: +m.scale.y.toFixed(3), by: +m.userData.by.toFixed(3) }) } return out }, // 検証用：C1 会話ペアの口の開き（sy>byなら口パク中）
   _roadDefects() { const out = []
