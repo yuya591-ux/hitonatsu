@@ -4409,6 +4409,10 @@ function makeJizo(x, z, rot) {
   const putLily = (px, pz, R) => { const wy = heightAt(px, pz) + 0.12; for (let i = 0; i < Math.round(R * 1.6); i++) { const a = Math.random() * 6.28, rr = Math.random() * R, x = px + Math.cos(a) * rr, z = pz + Math.sin(a) * rr; const pad = new THREE.Mesh(new THREE.CircleGeometry(0.3 + Math.random() * 0.2, 8), toon(0x4f7e46)); pad.rotation.x = -Math.PI / 2; pad.position.set(x, wy, z); scene.add(pad); if (Math.random() < 0.3) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), toon(0xe6a6c4)); fl.position.set(x, wy + 0.1, z); scene.add(fl) } } } // 睡蓮
   putLily(2997, 54, 4.2); putLily(3040, -70, 2.8); putLily(3026, -26, 2.8)
   makeAsagao(2980, 47, 0.5); makeAsagao(3016, 30, -0.6) // あさがお（農家の縁側のそば）
+  // ── N2（2026-06-27）：開始の通りの“間”＝路傍の地蔵（峠道/辻の祠）と玄関先の夏の花を足す＝立ち止まる理由＋夏の記号 ──
+  makeJizo(2994, 41, Math.atan2(3004 - 2994, 30 - 41)); makeJizo(3041, 19, Math.atan2(3018 - 3041, 24 - 19)) // 通りの辻の小さなお地蔵さま（道の方を向く）
+  for (const [sx, sz] of [[3028, 33], [3041, 47], [2986, 36]]) makeSunflower(sx, sz) // 開始の通りの家の軒先のひまわり
+  makeAsagao(3026, 49, 0.4); makeAsagao(3038, 41, -1.0) // 通りの家のかきねの朝顔
   { let gp = 0, gt = 0; while (gp < 80 && gt < 1200) { gt++; const x = 2900 + Math.random() * 200, z = -20 + Math.random() * 160, y = heightAt(x, z); if (y < 1.6 || y > 8) continue; const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 5), toon(0x6f9a3e)); tuft.position.set(x, y + 0.19, z); scene.add(tuft); gp++ } } // 地際の下草（接地をやわらかく）
   for (const [cx, cz] of [[3040, -70], [3026, -26], [3000, 128]]) { const g = new THREE.Group(); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 1.0, 5), toon(0x4a7ab2)); body.rotation.z = Math.PI / 2; g.add(body); const w = []; for (const [sx, sz] of [[0.1, 0.26], [0.1, -0.26], [-0.1, 0.26], [-0.1, -0.26]]) { const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.16), new THREE.MeshToonMaterial({ color: 0xeaf2f6, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide })); wing.position.set(sx, 0.02, sz); wing.rotation.x = -Math.PI / 2; g.add(wing); w.push(wing) } g.position.set(cx, heightAt(cx, cz) + 1.4, cz); scene.add(g); yatoBugs.push({ obj: g, cx, cz, sp: 0.5 + Math.random() * 0.4, ph: Math.random() * 6.28, r: 2 + Math.random() * 2, kind: 'tombo', w, h: 1.4 }) } // 池・土手の青いとんぼ
   } // ← 旧archetypeランドマークの無効化ここまで
@@ -7786,18 +7790,20 @@ MOUNT_SEAT.y = heightAt(MOUNT_SEAT.x, MOUNT_SEAT.z)
 // 従来この所作は field/town 限定で、最初に降り立つ yato では1つも発火しなかった（QA指摘）。
 const YATO_SEATS = [
   { x: 3018, z: 24, yaw: -Math.PI / 2, pitch: -0.02, label: 'バス停で すわる' },   // バス停のベンチ＝開始のすぐそば。西へ伸びるバス通りを眺めてバスを待つ（北東はマンションの壁で抜けないため西向きに）
-  { x: 3008, z: -489, yaw: Math.PI, pitch: -0.07, label: '池を ながめる' },         // 二ツ池の北岸＝南へ水面(B⑨の水鏡)を見渡す止め絵
+  { x: 3008, z: -489, yaw: Math.PI, pitch: -0.07, label: '池を ながめる', bench: true },  // 二ツ池の北岸＝南へ水面(B⑨の水鏡)を見渡す止め絵
+  { x: 3034, z: 56, yaw: 0.32, pitch: -0.02, label: '木かげで すずむ', bench: true, shade: true }, // N2：開始の通りぞいの木かげのベンチ＝“間”の滞留ポイント。夏の日かげで村の通りを眺める
 ]
 let activeYatoSeat = null // いま近い yato のベンチ（actBtn→sitDown('yatoseat')で使う）
-// 二ツ池の北岸に木のベンチを1脚（座って水面を眺める“ひと夏の止め絵”のために）。バス停側は既存のベンチを使う
-{
-  const s = YATO_SEATS[1], g = new THREE.Group(), w = toon(0x9a6a3a)
+// ベンチが要る座り場所に木のベンチを建てる（二ツ池の畔／通りの木かげ）。バス停側は既存のベンチを使う
+for (const s of YATO_SEATS) { if (!s.bench) continue
+  const g = new THREE.Group(), w = toon(0x9a6a3a)
   const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.13, 0.66), w); top.position.y = 0.5; g.add(top)
-  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.46, 0.11), w); back.position.set(0, 0.78, -0.28); g.add(back) // 背もたれは座る人の後ろ(北)
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.46, 0.11), w); back.position.set(0, 0.78, -0.28); g.add(back) // 背もたれは座る人の後ろ
   for (const lx of [-0.92, 0.92]) for (const lz of [-0.24, 0.24]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), toon(0x7a5230)); leg.position.set(lx, 0.25, lz); g.add(leg) }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
-  g.position.set(s.x, heightAtYato(s.x, s.z), s.z); g.rotation.y = s.yaw // 座面が南(池)を向く
+  g.position.set(s.x, heightAtYato(s.x, s.z), s.z); g.rotation.y = s.yaw // 座面が見たい方を向く
   mergedOutline(g, 0.03); addContactShadow(g, 1.4); scene.add(g)
+  if (s.shade) makeTree(s.x - Math.sin(s.yaw) * 2.4, s.z - Math.cos(s.yaw) * 2.4, 1.15) // 木かげ＝ベンチの後ろに大きめの木（座ると枝葉が陽をさえぎる）
 }
 const curSitEye = new THREE.Vector3()
 function sitDown(which) {
