@@ -751,13 +751,14 @@ function makeRoadRibbon(x0, z0, x1, z1, width, centerline = true, concrete = fal
     const mat = new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: mapTex || null, emissive: new THREE.Color(em || 0), side: THREE.DoubleSide }) // 両面＝斜面で面が裏返っても路面が消えない。emissive＝日陰でも真っ黒に潰れない下駄
     const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; scene.add(m); return m
   }
+  const regWet = (m) => { if (x0 > 2200 || x1 > 2200) roadWetMats.push({ mat: m.material, base: m.material.color.clone() }); return m } // ヤトの路面を雨上がりの濡れ対象に登録
   if (concrete) { // しっかりしたコンクリート舗装。中央頂点で地形に沿わせ緑がのぞかない。路肩も路面も“同じグレー”で統一＝普通の道路（ユーザー要望）
-    mk(width + 1.0, 0.13, 0x8f9088, null, false, 0x303134)   // 路肩のすそ（路面と同色グレー＝縁の緑のぞきを隠すだけ。濃い縁石はやめて色を統一）
-    mk(width, 0.19, 0x8f9088, null, false, 0x303134)          // コンクリート舗装（中明度グレー＋emissive下駄＝坂/影でも黒く潰れない）
+    regWet(mk(width + 1.0, 0.13, 0x8f9088, null, false, 0x303134))   // 路肩のすそ（路面と同色グレー＝縁の緑のぞきを隠すだけ。濃い縁石はやめて色を統一）
+    regWet(mk(width, 0.19, 0x8f9088, null, false, 0x303134))          // コンクリート舗装（中明度グレー＋emissive下駄＝坂/影でも黒く潰れない）
     if (centerline) mk(0.42, 0.25, 0xf2efe4, null, true, 0x3a3a34) // 白の破線センターライン（太め）
   } else { // 田舎の土道。コンクリ道と同様に路肩スカート＋持ち上げを付与＝起伏のある地面で草(原っぱ)が路面を突き抜ける「混ざって中途半端」を解消（ユーザー指摘2026-06-27）
-    mk(width + 0.8, 0.07, 0xa89c80, dirtTex, false, 0x2e2618)  // 路肩のすそ（少し広く低く＝路面の縁で草がのぞくのを隠す。土色のやや暗め）
-    mk(width, 0.13, 0xb0a488, dirtTex, false, 0x2e2618)        // 田舎道（持ち上げ0.06→0.13＝でこぼこでも草が路面を突き抜けない・emissive下駄）
+    regWet(mk(width + 0.8, 0.07, 0xa89c80, dirtTex, false, 0x2e2618))  // 路肩のすそ（少し広く低く＝路面の縁で草がのぞくのを隠す。土色のやや暗め）
+    regWet(mk(width, 0.13, 0xb0a488, dirtTex, false, 0x2e2618))        // 田舎道（持ち上げ0.06→0.13＝でこぼこでも草が路面を突き抜けない・emissive下駄）
     if (centerline) mk(0.3, 0.16, 0xcfc9bb, dirtTex, false, 0x2e2618)
   }
   // 手描きリボンも獅子ヶ谷の道マスクに塗る＝この道に沿って必ず歩ける（SG.roadsに無い手置きの道の取りこぼし対策）。範囲外(旧エリア/町)はrmaskIdx=-1で自動的に無視
@@ -1725,7 +1726,8 @@ const PARKFENCE_GEO = (() => { const box = new THREE.BoxGeometry(1, 1, 1), TR = 
   for (const sx of [-1.45, 1.45]) P.push({ g: box, m: TR(sx, 0.37, 0, 0.08, 0.78, 0.08), c: pipe }) // 支柱2本
   return mergeParts(P) })()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
-const cloudShadowU = { uCloudTime: { value: 0 }, uCloudAmt: { value: 0.0 } } // 流れる雲の影（地面シェーダへ注入・updateで時刻/雲量に応じて更新）
+const cloudShadowU = { uCloudTime: { value: 0 }, uCloudAmt: { value: 0.0 }, uWet: { value: 0.0 } } // 流れる雲の影＋雨上がりの濡れ（地面シェーダへ注入・updateで更新）
+const roadWetMats = [] // 道路の路面マテリアル（雨上がりに暗く＋照り返す。{mat,base色}）
 // ── 田舎寄せモード（むかしの“僕の夏休み”の空気へ：建物を間引き＋低層化）。0=忠実再現(既定・いつでも完全に戻せる) 1=中庸 2=大胆。
 //   生成時のみ作用＝忠実データ(SG)は一切壊さない。URL ?v=0/1/2 か localStorage で切替（設定トグル）。常に0へ戻せば元どおり（ユーザー最重要要望2026-06-24）──
 let villageLevel = 0
@@ -1744,9 +1746,9 @@ function buildShishigaya() {
   const gMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: groundTex })
   // 流れる雲の影（B1・昼の“ゴルフ場のような均一な緑”を解消＋夏の空気）：ワールドXZでまばらな雲影ノイズをサンプルし地面をやわらかく陰らせる。地形に沿う（頂点のワールド位置で判定）＝丘でも谷でも自然。ゆっくり流れて景色が“呼吸”する
   gMat.onBeforeCompile = (shader) => {
-    shader.uniforms.uCloudTime = cloudShadowU.uCloudTime; shader.uniforms.uCloudAmt = cloudShadowU.uCloudAmt
+    shader.uniforms.uCloudTime = cloudShadowU.uCloudTime; shader.uniforms.uCloudAmt = cloudShadowU.uCloudAmt; shader.uniforms.uWet = cloudShadowU.uWet
     shader.vertexShader = 'varying vec3 vWPos;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
-    shader.fragmentShader = 'varying vec3 vWPos; uniform float uCloudTime; uniform float uCloudAmt;\n'
+    shader.fragmentShader = 'varying vec3 vWPos; uniform float uCloudTime; uniform float uCloudAmt; uniform float uWet;\n'
       + 'float chash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n'
       + 'float cnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);float a=chash(i),b=chash(i+vec2(1.0,0.0)),c=chash(i+vec2(0.0,1.0)),d=chash(i+vec2(1.0,1.0));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}\n'
       + shader.fragmentShader.replace('#include <fog_fragment>',
@@ -1754,6 +1756,8 @@ function buildShishigaya() {
         + 'float cl = cnoise(cuv) * 0.62 + cnoise(cuv * 2.4 + 5.0) * 0.38;\n'
         + 'float csh = smoothstep(0.60, 0.86, cl);\n' // まばらな雲＝高い所だけ影が落ちる（地面の2〜3割）・縁はやわらかく
         + 'gl_FragColor.rgb *= 1.0 - uCloudAmt * csh;\n'
+        + 'gl_FragColor.rgb *= 1.0 - uWet * 0.24;\n'           // ★A6：雨上がりは地面が濡れて暗く沈む
+        + 'gl_FragColor.rgb += uWet * vec3(0.03, 0.042, 0.056);\n' // ひんやりした照り返し（空のうつり込みの気配）＝しっとり
         + '#include <fog_fragment>')
   }
   const gm = new THREE.Mesh(ggeo, gMat); gm.position.set(gcx, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
@@ -8644,8 +8648,13 @@ function update(dt) {
   if (dripQueue > 0) { dripTimer -= dt; if (dripTimer <= 0) { dripTimer = 0.35 + Math.random() * 1.0; playDrip(); dripQueue-- } }
   // 雨上がりの水たまり：雨でしっとり濡れ→上がっても しばらく残る（ゆっくり乾く＝雨上がりの余韻）。空の色を映す
   { const wetTarget = THREE.MathUtils.smoothstep(weather, 0.22, 0.7)
+    const prevWet = wetness
     wetness += (wetTarget - wetness) * Math.min(1, dt * (wetTarget > wetness ? 0.5 : 0.05)) // 濡れは早く・乾きは遅い
-    if (puddleMesh) { puddleMesh.material.opacity = wetness * 0.7; puddleMesh.material.color.copy(skyMat.uniforms.mid.value).lerp(_a.set(0xffffff), 0.18) } } // 路面に空が映る（夕立後の夕方なら橙の水たまり）
+    if (puddleMesh) { puddleMesh.material.opacity = wetness * 0.7; puddleMesh.material.color.copy(skyMat.uniforms.mid.value).lerp(_a.set(0xffffff), 0.18) } // 路面に空が映る（夕立後の夕方なら橙の水たまり）
+    cloudShadowU.uWet.value = wetness // ★A6：地面が濡れて暗く＋ひんやり照り返す（地面シェーダ）
+    if (Math.abs(wetness - prevWet) > 0.002 || (wetness > 0.002 && Math.abs(wetness - (roadWetMats._last || -1)) > 0.01)) { // 値が動いた時だけ道路材を更新（毎フレームの全材走査を避ける）
+      roadWetMats._last = wetness
+      for (const r of roadWetMats) r.mat.color.setRGB(r.base.r * (1 - wetness * 0.30) + wetness * 0.024, r.base.g * (1 - wetness * 0.30) + wetness * 0.032, r.base.b * (1 - wetness * 0.30) + wetness * 0.044) } } // 道が濡れて暗く沈み、空のひんやりを少し照り返す
   // アドバルーンが風でゆれる／床屋のサインポールが回る
   for (const b of adballoons) { b.position.y = b.userData.baseY + Math.sin(tsec * 0.7 + b.userData.ph) * 0.7; b.rotation.y = Math.sin(tsec * 0.4 + b.userData.ph) * 0.18 }
   for (const tex of barberPoles) { tex.offset.y -= dt * 0.4 }
@@ -10073,6 +10082,7 @@ window.__proto3d = {
   _vig(v) { gradePass.uniforms.vig.value = v }, // 検証/調整用：周辺減光の強さ
   _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
   get _passState() { return { ink: inkPass.enabled, dof: dofPass.enabled, aerial: floatMode || flying } }, // 検証用：ポストパスの状態（空中で二重描画を止めているか）
+  _rain(v) { weather = v; weatherTarget = v }, get _wetness() { return wetness }, // 検証用：雨を強制（濡れの確認）
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
