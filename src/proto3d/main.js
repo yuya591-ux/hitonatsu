@@ -1969,6 +1969,9 @@ function buildShishigaya() {
     const RM = (geo, mat, x, y, z, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; grp.add(m); return m }
     for (let k = 0; k < SUN_POLY.length; k++) { const a = SUN_POLY[k], b = SUN_POLY[(k + 1) % SUN_POLY.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 1) continue
       RM(new THREE.BoxGeometry(len, 1.15, 0.26), conc, (a[0] + b[0]) / 2, top + 0.57, (a[1] + b[1]) / 2, Math.atan2(-(b[1] - a[1]), b[0] - a[0])) } // 外周パラペット（陸屋上の縁の立ち上がり・1枚壁）。回転は箱の長辺(+x)を辺方向に合わせる＝atan2(-dz,dx)。dzの符号を誤ると屋上を横切る物差しになる
+    // N3（2026-06-27）：マンションを“入れない実体”に＝footprint(SUN_POLY)の内側を重なる円コライダーで埋める。QA指摘＝北面から歩いて建物内に入れた（雁行の凹角を円の壁では抜けられる）ので内部塗りつぶしで根治。道マスク(onYatoRoad)が前庭/坂を歩かせ、屋上は「のぼる」操作で行くので入口/階段の通行は維持。
+    { let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const [x, z] of SUN_POLY) { mnx = Math.min(mnx, x); mxx = Math.max(mxx, x); mnz = Math.min(mnz, z); mxz = Math.max(mxz, z) }
+      for (let x = mnx; x <= mxx; x += 3.4) for (let z = mnz; z <= mxz; z += 3.4) if (pointInSunPoly(x, z)) addCollider(x, z, 2.6) } // 間隔3.4<半径2.6×2＝確実に重なり隙間なし
     { const tx = 3014, tz = -3, tankM = toon(0x8f9aa0); RM(new THREE.BoxGeometry(5, 2.6, 3.6), tankM, tx, top + 2.6, tz); for (const dx of [-2, 2]) for (const dz of [-1.4, 1.4]) RM(new THREE.CylinderGeometry(0.12, 0.12, 1.3, 6), conc, tx + dx, top + 0.65, tz + dz) } // 給水タンク（脚つき）＝昭和の屋上の定番
     // 屋上への外階段（下端B→上端=屋上。歩いて登れる＝sunStairYの歩行面と一致。下を歩いてもワープしない・ユーザー座標2026-06-22）
     { const S = SUN_STAIR, dx = S.tx - S.bx, dz = S.tz - S.bz, L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ang = Math.atan2(dx, dz), yB = heightAtYato(S.bx, S.bz), N = 18, stepCol = toon(0xcac4b8)
