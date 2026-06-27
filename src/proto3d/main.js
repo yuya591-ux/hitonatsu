@@ -1599,7 +1599,7 @@ function buildBonOdori(ox, oy, oz, grp) {
   const flight = new THREE.PointLight(0xffc674, 0, 32, 1.0); flight.position.set(ox, oy + 3.0, oz); flight.castShadow = false; bonOdori.add(flight); festLights.push({ light: flight, base: 28 }) // 少し高く＋明るく＝踊り手/浴衣まで暖色が届く（賑わいを上げる・2026-06-26）
   // 屋台（縁日）＝会場のまわりに並ぶ。[名前,屋根色,lx,lz,種類]。種類で店先の縁日小物を出し分け（金魚すくい/ヨーヨー/射的/お面）
   const stalls = [
-    ['わたあめ', 0xd86a8a, -10, -6, 0], ['かきごおり', 0x4a8ac0, -10, 0, 0], ['やきそば', 0xc0552e, -10, 6, 0], ['たこやき', 0xe0902e, -10, 11, 0], // 西の列＝食べ物
+    ['わたあめ', 0xd86a8a, -10, -6, 'wata'], ['かきごおり', 0x4a8ac0, -10, 0, 'kakigori'], ['やきそば', 0xc0552e, -10, 6, 'yakisoba'], ['たこやき', 0xe0902e, -10, 11, 'takoyaki'], // 西の列＝食べ物
     ['きんぎょすくい', 0x3a8ac0, 10, -6, 'kingyo'], ['りんごあめ', 0xd0354a, 10, 0, 'ringo'], ['しゃてき', 0x9a6a3a, 10, 6, 'shateki'], ['おめん', 0x6a4a9a, 10, 11, 'omen'], // 東の列＝遊び/甘味
   ]
   for (const [label, col, lx, lz, kind] of stalls) {
@@ -1613,9 +1613,20 @@ function buildBonOdori(ox, oy, oz, grp) {
     else if (kind === 'omen') { const omenC = [0xe03a3a, 0xf0c020, 0x3a6ad0, 0xf0f0f0]; for (let q = 0; q < 5; q++) { const m = new THREE.Mesh(new THREE.CircleGeometry(0.18, 12), new THREE.MeshBasicMaterial({ color: omenC[q % 4], side: THREE.DoubleSide })); m.position.set(-0.9 + q * 0.45, 1.5, 0.42); st.add(m) } } // 吊り下げたお面（ヒーロー/きつね/おかめ風の色）
     else if (kind === 'shateki') { for (let q = 0; q < 6; q++) { const pr = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.18), toon([0xd03a4a, 0x3a8ad0, 0xf0c030][q % 3])); pr.position.set(-0.8 + (q % 3) * 0.8, 1.0 + Math.floor(q / 3) * 0.45, 0.2); st.add(pr) } } // 射的の景品の段
     else if (kind === 'ringo') { for (let q = 0; q < 6; q++) { const ap = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 7), new THREE.MeshToonMaterial({ color: 0xd0203a, gradientMap: GRAD })); ap.position.set(-0.85 + (q % 3) * 0.85, 1.0, 0.42 - Math.floor(q / 3) * 0.18); st.add(ap) } } // りんご飴の並び
+    else if (kind === 'wata') { for (let q = 0; q < 4; q++) { const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 5), toon(0xcdb48a)); stick.position.set(-0.7 + q * 0.46, 1.4, 0.4); st.add(stick); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.16, 9, 7), toon([0xf2c0d6, 0xf6e8a6, 0xc8e4f2, 0xf2c0d6][q])); fl.scale.set(1, 0.92, 1); fl.position.set(-0.7 + q * 0.46, 1.66, 0.4); st.add(fl) } } // わたあめ＝棒にふわふわ4本
+    else if (kind === 'kakigori') { const ice = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.4), new THREE.MeshToonMaterial({ color: 0xeaf4fa, gradientMap: GRAD, transparent: true, opacity: 0.92 })); ice.position.set(-0.7, 1.28, 0.34); st.add(ice) // 氷の塊
+      for (let q = 0; q < 3; q++) { const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.06, 0.13, 8), new THREE.MeshToonMaterial({ color: 0xf6f6f0, gradientMap: GRAD })); cup.position.set(-0.1 + q * 0.36, 1.18, 0.42); st.add(cup); const mound = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6, 0, 6.28, 0, Math.PI / 2), toon([0xe8506a, 0x46b0d6, 0xf0d040][q])); mound.position.set(-0.1 + q * 0.36, 1.25, 0.42); st.add(mound) } // 色シロップのかき氷3杯
+      const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.2), new THREE.MeshBasicMaterial({ map: textTex('氷', '#ffffff', '#d03030', false), transparent: true, side: THREE.DoubleSide })); flag.position.set(0.7, 1.6, 0.42); st.add(flag) } // 氷の旗
+    else if (kind === 'yakisoba') { const grid = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.6), toon(0x33302c)); grid.position.set(0, 1.16, 0.36); st.add(grid) // 鉄板
+      const noodles = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 7, 0, 6.28, 0, Math.PI / 2.4), toon(0x9a6a32)); noodles.scale.set(1.4, 0.5, 0.9); noodles.position.set(-0.2, 1.22, 0.36); st.add(noodles) // 焼きそばの山
+      const cab = new THREE.Mesh(new THREE.SphereGeometry(0.06, 7, 6), toon(0x8ab04a)); cab.position.set(0.3, 1.24, 0.34); st.add(cab) } // キャベツ
+    else if (kind === 'takoyaki') { const grid = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 0.55), toon(0x2a2824)); grid.position.set(0, 1.16, 0.36); st.add(grid) // たこ焼き器
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) { const ball = new THREE.Mesh(new THREE.SphereGeometry(0.045, 7, 6), toon(0xb5773a)); ball.position.set(-0.28 + c * 0.14, 1.21, 0.22 + r * 0.14); st.add(ball) } } // たこ焼きの粒
     const lan = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffa84e, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); lan.scale.y = 1.3; lan.position.set(-1.0, 1.85, 0.62); st.add(lan)
     st.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(st, 0.03); bonOdori.add(st)
     townNightLights.push({ m: lan, base: 1.5, ph: Math.random() * 6 })
+    // 店番の人（主人公級・makeVillager定義後にpopulateStallKeepersで建てる）＝カウンターの裏に立ち、客（櫓側）を向く
+    const R = st.rotation.y; stallKeeperJobs.push({ group: bonOdori, x: sx - Math.sin(R) * 0.62, z: sz - Math.cos(R) * 0.62, rot: R, kind })
   }
   // ── 会場の外周をぐるりと囲むぼんぼり（角型の紙提灯のポール）＝盆踊り会場の境界の灯り。夜に灯る ──
   { const NB = 10, RB = Math.min(13, RR + 3)
@@ -1646,6 +1657,7 @@ function buildBonOdori(ox, oy, oz, grp) {
 const FEST_VENUES = []
 const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
 const festDancerJobs = [] // 踊り手の生成予約（buildBonOdoriは会場だけ建て、makeVillager定義後にpopulateFestDancersで主人公級の浴衣すがたを作る＝PROPのTDZ回避）
+const stallKeeperJobs = [] // 屋台の店番の生成予約（同上＝makeVillager定義後にpopulateStallKeepersで主人公級の店番を建てる）
 const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(toroNagashi) // 灯籠流し（夏の夕暮れ〜夜、二ツ池をゆっくり流れる灯籠＝お盆の静かな風物詩）。updateToroで動かす
 const toroList = [] // 各灯籠＝｛g, glow, x, z, y, vx, vz, ph, cx, cz, rad｝
 const radioTaiso = new THREE.Group(); radioTaiso.visible = false; scene.add(radioTaiso) // ラジオ体操（夏休みの早朝、公園で体操＝夏のいちばんの定番）。updateTaisoで動かす
@@ -5924,6 +5936,22 @@ function populateSuikaFigs() {
   suikaJobs.length = 0
 }
 populateSuikaFigs()
+// 屋台の店番＝甚平＋鉢巻すがたの大人。カウンターの裏に立ち、客（櫓側）を向く。動かない（静的）＝賑わいの軸
+function populateStallKeepers() {
+  if (!stallKeeperJobs.length) return
+  const skins = [0xf0d6b4, 0xe8c8a0, 0xeab584], hairs = [0x2a221c, 0x3a2e22, 0x46371f], jinCols = [0x36568a, 0x2e6b3a, 0x8a4a2e, 0x4a4a52, 0x6a4a78], rpick = (a) => a[Math.floor(Math.random() * a.length)]
+  for (const j of stallKeeperJobs) {
+    const gy = heightAt(j.x, j.z)
+    const v = makeVillager(j.x, j.z, { simple: true, garment: 'jinbei', boy: true, shirt: rpick(jinCols), skirt: rpick(jinCols), jinTrim: 0xeae3d2, skin: rpick(skins), hair: rpick(hairs), adult: true, hairStyle: rpick(['short', 'buzz']), scale: 1.04, info: { name: '', byPhase: { noon: [''] } } })
+    v.position.set(j.x, gy, j.z); v.rotation.y = j.rot
+    const hy = v.userData.head ? v.userData.head.position.y : 1.05
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.045, 14), toon(0xd03030)); band.position.y = hy - 0.03; v.add(band) // 鉢巻
+    if (v.userData.armL) v.userData.armL.rotation.x = -0.5; if (v.userData.armR) v.userData.armR.rotation.x = -0.55 // 腕を前へ（商売中）
+    j.group.add(v) // sceneから会場グループへ付け替え
+  }
+  stallKeeperJobs.length = 0
+}
+populateStallKeepers()
 const villager = makeVillager(13, 9, {
   shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, // 麦わら帽子（ピンクのリボン）
   info: {
