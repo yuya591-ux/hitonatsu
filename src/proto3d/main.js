@@ -6392,22 +6392,27 @@ const cloudMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: true, fog: false,
 })
 const cloudQuad = new THREE.PlaneGeometry(2, 2) // position.xy∈[-1,1]＝iSizeが半径
-function buildCloudPuffs(scaleF, maxPuffs) {
+function buildCloudPuffs(scaleF, maxPuffs, opts) {
   // ★もくもく改善（協議2026-06-27・アートディレクター第1推奨＋密度の作り直し）：縦に高い塔を保ちつつ「コブの階層」で造形。
   //   縦のスパイン上に数個の親コブ（大ローブ）を積み、各コブに“予算配分した枚数”の子パフを密に群がらせる＝密な塔＋ボコボコ輪郭。
+  //   ★形のバリエーション（2026-06-27・等間隔/同型の不自然さ解消）：opts.H/opts.Wで縦横比を変え、縦長の入道雲〜横長のもくもく綿雲〜小さな遠景まで作り分ける。
+  opts = opts || {}
   const budget = Math.min(maxPuffs || 72, 72)
-  const H = 45, baseW = 10.5 // 縦に高い塔だが胴はふっくら（H/幅≈2＝入道雲らしい量感）
-  const lean = (Math.random() - 0.5) * 0.16 // 片側へわずかに傾く＝生きた雲の非対称
-  // ① 親コブ（大ローブ）＝縦のスパインに少数・大きく積む（各コブを際立たせる＝もくもくの粒が読める）。幅は下〜中ほど太く上すぼまる丸い塔
-  const nLobe = 4 + (Math.random() * 2 | 0) // 4〜5個（少なく大きく）
+  const H = opts.H || 45, baseW = opts.W || 10.5 // 高さ/幅。H/W≈2で入道雲、≈0.8で横長のもくもく綿雲
+  const lean = (Math.random() - 0.5) * (opts.lean != null ? opts.lean : 0.16) // 片側へわずかに傾く＝生きた雲の非対称
+  // ① 親コブ（大ローブ）＝スパインに少数・大きく積む（各コブを際立たせる＝もくもくの粒が読める）。
+  //   vSpread＝ローブ中心が縦に広がる割合（塔は0.84）、hSpread＝横へ散らす割合（横長の綿雲は大きく）。
+  const vSpread = opts.vSpread != null ? opts.vSpread : 0.84
+  const hSpread = opts.hSpread != null ? opts.hSpread : 0.36
+  const nLobe = (opts.nLobe || 4) + (Math.random() * 2 | 0)
   const lobes = []; let sumW = 0
   for (let i = 0; i < nLobe; i++) {
-    const ty = 0.1 + (i / (nLobe - 1)) * 0.84
+    const ty = 0.1 + (i / (nLobe - 1)) * vSpread
     const prof = 0.4 + 0.6 * Math.sin(Math.min(1, ty * 0.7 + 0.28) * Math.PI) // 中〜下太く・上細い
     let r = baseW * (0.55 + 0.5 * prof)
     if (i === 0) r *= 1.12 // 底のコブは広め＝平らな底
-    const jx = (Math.random() - 0.5) * baseW * 0.36 + lean * ty * H // 横ジグザグは控えめ（塔を崩さない）＋ローブを少し互い違いに
-    const jz = (Math.random() - 0.5) * baseW * 0.36
+    const jx = (Math.random() - 0.5) * baseW * hSpread + lean * ty * H // 横の散らし（綿雲は大きく＝横にもくもく／塔は控えめ）＋ローブを互い違いに
+    const jz = (Math.random() - 0.5) * baseW * hSpread * 0.8
     const w = r * r // 体積比でパフを配分
     lobes.push({ x: jx, y: ty * H, z: jz, r, ty, flat: i === 0 }); sumW += w
   }
@@ -6442,26 +6447,33 @@ function buildCloudPuffs(scaleF, maxPuffs) {
   geo.instanceCount = N
   return geo
 }
-// 入道雲：自然なばらつきで散らす（“等間隔・同サイズ”を避ける＝ユーザー要望2026-06-27）。
-//   方位はランダム＝かたまり/隙間が自然にできる。大きさ/距離/高さも階級をばらつかせ（大きな入道雲〜遠くの小さな積雲）空気遠近の奥行きを出す。
-//   1基だけは開始の通りの抜け(北東 az≈π/4)に大きな主雲を固定（スポーンのアイコニックな絵）。全基とも同じ造形/質感（buildCloudPuffs＋cloudMat）で揃える。
-const CLOUD_N = 12
+// 入道雲＋綿雲：自然なばらつきで散らす（“等間隔・同型・同サイズ”の作り物っぽさを解消＝ユーザー要望2026-06-27）。
+//   ・形を作り分ける：縦長の入道雲（タワー）／横長のもくもく綿雲（晴れの日の積雲）／小さな遠景（空気遠近でかすむ）。
+//   ・方位はランダム＝自然なかたまり/隙間。大きさ・高さ・距離も大きくばらつかせ、近くは大きく低く・遠くは小さく高く＝奥行き（パース）。
+//   ・1基だけ開始の通りの抜け(北東)に大きな主雲を固定（スポーンのアイコニックな絵）。全基とも同じ造形/質感（buildCloudPuffs＋cloudMat）。
+const CLOUD_N = 13
 for (let i = 0; i < CLOUD_N; i++) {
-  let scaleF, budget, dist, baseY
-  if (i === 0) { scaleF = 5.4 + Math.random() * 1.9; budget = 72; dist = 430 + Math.random() * 70; baseY = 98 + Math.random() * 16 } // 主雲（開始の抜け）
-  else {
-    const r = Math.random()
-    if (r < 0.26) { scaleF = 4.0 + Math.random() * 1.9; budget = 72; dist = 340 + Math.random() * 170; baseY = 96 + Math.random() * 42 }       // 大きな入道雲
-    else if (r < 0.64) { scaleF = 2.3 + Math.random() * 1.5; budget = 54; dist = 360 + Math.random() * 200; baseY = 104 + Math.random() * 58 } // 中くらい
-    else { scaleF = 1.3 + Math.random() * 1.0; budget = 36; dist = 470 + Math.random() * 140; baseY = 120 + Math.random() * 72 }               // 小さな遠景の積雲（空気遠近）
+  let scaleF, budget, dist, baseY, opts
+  if (i === 0) { // 主雲＝大きな入道雲（開始の抜け）
+    scaleF = 5.2 + Math.random() * 1.8; budget = 72; dist = 420 + Math.random() * 80; baseY = 96 + Math.random() * 16
+    opts = { H: 46 + Math.random() * 6, W: 10 + Math.random() * 1.6, vSpread: 0.84, hSpread: 0.34, nLobe: 4 }
+  } else if (i <= 2) { // 大きな入道雲（縦長タワー）
+    scaleF = 3.2 + Math.random() * 2.1; budget = 72; dist = 320 + Math.random() * 180; baseY = 90 + Math.random() * 48
+    opts = { H: 44 + Math.random() * 10, W: 9 + Math.random() * 2.6, vSpread: 0.82, hSpread: 0.34, nLobe: 4 }
+  } else if (i <= 6) { // 横長のもくもく綿雲（晴れの日の積雲＝塔の単調さを崩す主役）
+    scaleF = 2.3 + Math.random() * 1.7; budget = 56; dist = 300 + Math.random() * 250; baseY = 108 + Math.random() * 74
+    opts = { H: 17 + Math.random() * 12, W: 15 + Math.random() * 7, vSpread: 0.42, hSpread: 0.92, nLobe: 3, lean: 0.05 }
+  } else { // 小さな遠景の雲（空気遠近・高めにかすむ）
+    scaleF = 1.2 + Math.random() * 1.3; budget = 36; dist = 470 + Math.random() * 200; baseY = 120 + Math.random() * 84
+    opts = { H: 15 + Math.random() * 12, W: 12 + Math.random() * 8, vSpread: 0.5, hSpread: 0.85, nLobe: 3, lean: 0.06 }
   }
-  const mesh = new THREE.Mesh(buildCloudPuffs(scaleF, budget), cloudMat)
+  const mesh = new THREE.Mesh(buildCloudPuffs(scaleF, budget, opts), cloudMat)
   mesh.frustumCulled = false // ビルボード（バウンディングが効かない）＝常に描く。数が少ないので安い
   mesh.layers.set(1) // インク線の法線パスから除外（やわらかい雲）
   mesh.renderOrder = -2 // 空の背景＝他の半透明より先に描く
   // 方位＝主雲は北東。他はランダム（等間隔にしない＝自然なかたまり/隙間）。baseYは建物(最大約90m)/丘より十分上＝食い込まない・飛行(上限約200m)でも空として読める
   const az = i === 0 ? (Math.PI / 4 + (Math.random() - 0.5) * 0.3) : Math.random() * Math.PI * 2
-  mesh.userData = { az, dist, baseY, drift: 0.0010 + Math.random() * 0.0032 }
+  mesh.userData = { az, dist, baseY, drift: 0.0008 + Math.random() * 0.0032 }
   scene.add(mesh); thunderheads.push(mesh)
 }
 
@@ -6521,21 +6533,22 @@ const godrayPass = new ShaderPass({
     void main(){
       vec3 col = texture2D(tDiffuse, vUv).rgb;
       if (strength > 0.001) {
-        const int N = 30; // ステップ数を18→30に増やしてサンプル間隔を詰める＝明るい太陽が離散コピーされて“ぶどう房/泡の塊”に見えるのを解消（アートD指摘2026-06-27）
+        const int N = 36; // ステップ数を増やしてサンプル間隔を詰める＝太陽の白熱が離散コピーされて“ぶどう房/泡の塊”に見えるのを解消
         vec2 uv = vUv;
         vec2 delta = (uv - lightPos) * (0.5 / float(N));
-        float jit = fract(sin(dot(vUv, vec2(127.1, 311.7))) * 43758.5453); // 各画素でサンプル開始を1歩ぶんランダムにずらす＝太陽の芯の離散コピー(点々/ぶどう房)を細かなノイズに溶かす（Bloomがさらに均す）
-        uv -= delta * jit;
+        // ★点々の正体＝以前入れた per-pixel ジッター(fract(sin(...)))がモバイルの低精度で破綻し、太陽上に細かいノイズを生んでいた→撤去。
+        //   さらに太陽の芯の近くでは光条を効かせない（芯は滑らかなスプライト＋Bloomに任せる）＝太陽の上に粒模様を乗せない。
+        float coreFade = smoothstep(0.02, 0.20, distance(vUv, lightPos)); // 太陽の芯(中心付近)では0＝光条で太陽をザラつかせない。外側だけ放射状の光条
         float illum = 1.0;
         vec3 ray = vec3(0.0);
         for (int i = 0; i < N; i++) {
           uv -= delta;
           vec3 s = texture2D(tDiffuse, uv).rgb;
-          float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.90); // しきい値0.82→0.90＝太陽の白熱の芯だけを拾い、暈の広い明部を拾わない（房状の塊を作らない）
+          float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.90); // 太陽の白熱の芯だけを拾い、暈の広い明部を拾わない（房状の塊を作らない）
           ray += s * b * illum;
           illum *= 0.95; // 減衰をゆるめて連続したやわらかい光条に（離散ローブにならない）
         }
-        col += ray * (strength / float(N)) * 1.8; // 増幅3.0→1.8＝控えめな光条。Bloomで自然に滲ませる
+        col += ray * (strength / float(N)) * 1.8 * coreFade; // 控えめな光条。芯はフェードで除外＝太陽そのものに粒を乗せない。Bloomで自然に滲ませる
       }
       gl_FragColor = vec4(col, 1.0);
     }`,
@@ -6605,10 +6618,10 @@ const gradePass = new ShaderPass({
       // 水彩紙の地合い：低周波のむら＋紙の繊維(高周波)を全画面に重ね、写実テクスチャを一枚の水彩画に馴染ませる
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.40 + vnoise(vUv * vec2(38.0, 36.0)) * 0.34 + vnoise(vUv * vec2(540.0, 480.0)) * 0.26;
       float hiLum = L(c);
-      float paperAmt = wc * (1.0 - smoothstep(0.72, 0.97, hiLum)); // 太陽/雲などの明るい平らな部分では紙の粒を出さない＝ハイライトに浮く“点々/ブツブツ”を解消（中間調の手描き感は維持）
+      float paperAmt = wc * (1.0 - smoothstep(0.60, 0.88, hiLum)); // 太陽/雲などの明るい部分(暈も含め低めの輝度から)では紙の粒を出さない＝ハイライトに浮く“点々/ブツブツ”を解消（中間調の手描き感は維持）
       c *= 1.0 - paperAmt * (0.06 - paper * 0.17); // 紙の地合いで手描き感を全体に（背景もキャラも一枚の絵に馴染ませる）
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
-      c += (grain - 0.5) * 0.018 * (1.0 - smoothstep(0.78, 0.99, hiLum)); // フィルム粒もハイライトでは弱める（太陽の白熱をザラつかせない）
+      c += (grain - 0.5) * 0.018 * (1.0 - smoothstep(0.60, 0.85, hiLum)); // フィルム粒も明るい部分では弱める（太陽の白熱/暈をザラつかせない）
       float d = distance(vUv, vec2(0.5));
       c *= 1.0 - vig * smoothstep(0.62, 0.98, d);                              // 周辺減光（ごく控えめ・四隅だけ）
       gl_FragColor = vec4(c, 1.0);
@@ -9319,7 +9332,7 @@ renderer.setAnimationLoop(() => {
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   // 操作している間（スティックで歩く/飛行の上下ホールド）はHUDを消さない。何もしない時間が続いたらそっと消す。
   // ※見回し(lookIds)は除外＝指を動かしている間は pointermove が pokeUI を呼ぶので消えない。指を止めて景色を眺める/離した指の取りこぼし（pointerup欠落でlookIdsが残る不具合）では“止まっている”扱いにして、ちゃんとフェードさせる（ユーザー要望2026-06-27：景色を大画面で楽しみたい）
-  if (puni.active || floatUp || floatDown) lastInteract = performance.now()
+  if (puni.active || floatUp || floatDown || flyUp || flyDown) lastInteract = performance.now() // 移動スティック/浮遊の上下/飛行の上下＝操作中はHUDを消さない（飛行fly-up/downの抜けを修正・2026-06-27）
   if (!titleView && performance.now() - lastInteract > idleMs) { if (!document.body.classList.contains('ui-idle')) document.body.classList.add('ui-idle'); idleMs = IDLE_MS } // 一度フェードしたら以降は通常の4.5秒（初見の長い猶予は最初の1回だけ）
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
@@ -9378,11 +9391,11 @@ const startBtn = document.getElementById('t-start')
 const guideEl = document.getElementById('guide')
 const guideOk = document.getElementById('guide-ok')
 let seenGuide = false; try { seenGuide = localStorage.getItem('hn3d_guide') === '1' } catch (e) {}
-if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} pokeUI(); idleMs = 14000; setTimeout(showWanderOnce, 1500) }) // ガイドを閉じた直後は14秒HUDを出したまま＝初見が操作を確かめる時間（最初の1回だけ・以降4.5秒）＋少し置いてM1の散歩の一言
+if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} pokeUI(); idleMs = 8000; setTimeout(showWanderOnce, 1500) }) // ガイドを閉じた直後は8秒HUDを出したまま＝初見が操作を確かめる時間（最初の1回だけ・以降4.5秒）＋少し置いてM1の散歩の一言
 if (startBtn) startBtn.addEventListener('click', () => {
   startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
   tday = 0.18; dayAuto = true; setTimeOfDay(0.18) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
-  pokeUI(); idleMs = 14000 // 始めた直後もHUDを長めに出す（ガイドを2回目以降スキップした人にも初見の猶予）
+  pokeUI(); idleMs = 8000 // 始めた直後もHUDを長めに出す（ガイドを2回目以降スキップした人にも初見の猶予・以降4.5秒）
   const willShowGuide = !seenGuide && guideEl
   if (willShowGuide) { guideEl.classList.add('on'); seenGuide = true } // ガイドを出す回はガイドを閉じてから散歩の一言（guideOkで発火）
   else setTimeout(showWanderOnce, 3800) // ガイドを出さない回は開始から少し置いて散歩の一言
