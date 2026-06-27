@@ -8756,6 +8756,14 @@ function sitDown(which) {
   camera.userData._look.set(eye.x + Math.sin(yaw) * cp, eye.y + Math.sin(seatLook.pitch), eye.z + Math.cos(yaw) * cp)
   actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   lookHint.style.display = 'block'
+  // B1：座ると、その時間の景色をしみじみ味わう一言（夕暮れは夕焼けの移ろいへ誘う＝座っている間は時間が速く流れる）
+  const nf0 = nightFactor(tday), dusk = tday > 0.5 && tday < 0.76
+  setTimeout(() => { if (mode !== 'sit') return // 立ち上がっていたら出さない
+    const lines = dusk ? ['夕やけが、すこしずつ 色を かえていく。', 'ひぐらしの声に、夏の おわりが まじっていた。', '空が あかね色から、藍に とけていく。じっと 見ていた。']
+      : nf0 > 0.5 ? ['星が ひとつ、またひとつ。夜は しずかに ふけていく。', '虫の声が、夜の そこから きこえてくる。']
+      : tday < 0.35 ? ['朝の 風が、ほおを なでて いった。', '一日が、ゆっくり はじまっていく。']
+      : ['風が 草を なでて いった。時間が、ゆっくり 流れる。', '入道雲が、もくもくと 立ちのぼっていた。']
+    showToast(lines[Math.floor(Math.random() * lines.length)]) }, 1100)
 }
 function standUp() {
   mode = 'walk'
@@ -8851,7 +8859,8 @@ function update(dt) {
     const prev = tday
     // 花火大会の間は時間をゆっくり進める＝夏のクライマックスを長く味わう
     const fwSlow = FIREWORK.days.indexOf(festDay()) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
-    tday = Math.min(0.97, tday + dt / (fwSlow ? 1000 : 740)) // 一日をさらにゆっくり(620→740)＝各時間帯を長く味わえる“夢のような時間の流れ”（ユーザー「時間もう少しゆっくり」2026-06-24）
+    const sitFlow = mode === 'sit' ? 5 : 1 // B1：座っている間は時間が速く流れる＝夕焼けが少しずつ色を変えていくのを眺められる（間を味わう）
+    tday = Math.min(0.97, tday + dt * sitFlow / (fwSlow ? 1000 : 740)) // 一日をさらにゆっくり(620→740)＝各時間帯を長く味わえる“夢のような時間の流れ”（ユーザー「時間もう少しゆっくり」2026-06-24）
     setTimeOfDay(tday)
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     // D3：朝のひとことを日替りに＝一日ごとに“手ざわり”が違う（初日のときめき→2日目のおまつり予感→最終日の名残）。ラジオ体操は共通の日課
