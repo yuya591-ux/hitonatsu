@@ -6781,10 +6781,10 @@ composer.addPass(bloom)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, mist: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, mist: { value: 0.0 }, frame: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform float mist; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform float mist; uniform float frame; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -6853,6 +6853,12 @@ const gradePass = new ShaderPass({
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
       c += (grain - 0.5) * 0.018 * (1.0 - smoothstep(0.60, 0.85, hiLum)); // フィルム粒も明るい部分では弱める（太陽の白熱/暈をザラつかせない）
       c += nightCool * vec3(-0.038, -0.008, 0.055) * (1.0 - smoothstep(0.16, 0.60, hiLum)); // ★A8：夜は月明かりの青を暗部に乗せる（赤を抜いて紫→青の月夜へ）＝暖色の窓あかりが際立つ（明るい窓は影響少→対比が増す）
+      // ★A4：止め絵プリセット。座る/寝ころぶ/タイトルはがきの“額装した一枚絵”の瞬間だけ、彩度をほんの少し豊かに＋ゆるいSカーブで締める（歩行中は無効＝普段は素朴なまま）。
+      if (frame > 0.001) {
+        float lf = L(c);
+        c = mix(vec3(lf), c, 1.0 + 0.10 * frame);          // 彩度をわずかに持ち上げ
+        c = mix(c, c * c * (3.0 - 2.0 * c), 0.12 * frame); // ゆるいSカーブ＝中間の締まり（黒つぶれ/白飛びはしない範囲）
+      }
       float d = distance(vUv, vec2(0.5));
       c *= 1.0 - vig * smoothstep(0.62, 0.98, d);                              // 周辺減光（ごく控えめ・四隅だけ）
       gl_FragColor = vec4(c, 1.0);
@@ -9654,7 +9660,9 @@ function update(dt) {
   // 止め絵：座って景色をながめる間は、周辺減光と記憶の色を少し強めて“ただ味わう一枚絵”に（立つと戻る）
   { const ct = mode === 'sit' ? 1 : 0, nf = nightFactor(tday) // 夜は記憶の暖色(mem)と周辺減光(vig)を弱める＝空ドームの紺がそのまま出る（夜空が褐色のミルクに濁るのを解消・アートD指摘2026-06-27）
     gradePass.uniforms.vig.value += (((0.16 + ct * 0.12) * (1 - nf * 0.4)) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
-    gradePass.uniforms.mem.value += (((0.78 + ct * 0.12) * (1 - nf * 0.5)) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6) }
+    gradePass.uniforms.mem.value += (((0.78 + ct * 0.12) * (1 - nf * 0.5)) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6)
+    const stillF = (mode === 'sit' || mode === 'lie' || titleView) ? 1 : 0 // A4：止め絵の瞬間（座る/寝ころぶ/タイトルはがき）だけ“額装した絵”の仕上げをそっと効かせる
+    gradePass.uniforms.frame.value += (stillF - gradePass.uniforms.frame.value) * Math.min(1, dt * 1.6) }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
   if (window.__freezeCam || titleView) return // 検証用：カメラ固定／タイトル中はtitleCamが全部やるのでupdateはカメラに触れない（取り合いの揺れ防止）
