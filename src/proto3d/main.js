@@ -6277,13 +6277,31 @@ const clouds = []
   }
 }
 // ── 飛行機雲（夏の空に一機だけ・ゆっくり横切り、白い尾を引いてやがて溶ける）＝昭和の夏の空のノスタルジー。2026-06-26 ──
+//   ★改善（2026-06-27 ユーザー指摘「不自然」）：1枚の平らな長方形（均一な棒）をやめ、やわらかい粒を機体側は細く濃く密に・古い尾ほど太く薄く広がって溶けるように＝本物の飛行機雲。
+// 飛行機雲の形を焼いたテクスチャ：機体側(u=1)は細く濃く・尾端(u=0)ほど広く薄く溶ける＋横方向はやわらかいガウス縁
+const contrailTex = (() => {
+  const W = 256, Hh = 48, c = document.createElement('canvas'); c.width = W; c.height = Hh; const x = c.getContext('2d')
+  const img = x.createImageData(W, Hh), d = img.data
+  for (let py = 0; py < Hh; py++) for (let px = 0; px < W; px++) {
+    const u = px / (W - 1)                                  // 0=尾端(古・広・薄)  1=機体側(新・細・濃)
+    const halfW = Hh * 0.5 * (0.94 - 0.70 * u)              // 尾端は広く・機体側は細い
+    const dy = py - Hh / 2
+    const edge = Math.exp(-(dy * dy) / (2 * Math.max(1, halfW * 0.55) ** 2)) // 横方向のやわらかいガウス縁
+    let opac = Math.pow(u, 0.85)                            // 機体側ほど濃く・尾端へフェード
+    opac *= Math.min(1, u / 0.05)                           // 尾端(u≈0)はふっと0へ
+    opac *= 1 - Math.max(0, (u - 0.93) / 0.07) * 0.35       // 機体直後は生成途中で少し薄く
+    const a = Math.max(0, Math.min(1, edge * opac))
+    const idx = (py * W + px) * 4; d[idx] = 255; d[idx + 1] = 255; d[idx + 2] = 255; d[idx + 3] = (a * 255) | 0
+  }
+  x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; return t
+})()
 const contrail = (() => {
   const grp = new THREE.Group(); grp.visible = false
-  const trail = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.4), new THREE.MeshBasicMaterial({ color: 0xfbfdff, fog: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }))
-  trail.rotation.x = -Math.PI / 2; trail.layers.set(1); grp.add(trail) // 水平に寝かせ＝見上げると空をよぎる一本の線
-  const plane = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.8, 6), new THREE.MeshBasicMaterial({ color: 0x4a4a52, fog: false })); plane.layers.set(1); grp.add(plane)
+  const trail = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: contrailTex, color: 0xfdfeff, fog: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }))
+  trail.rotation.x = -Math.PI / 2; trail.layers.set(1); grp.add(trail) // 水平に寝かせ＝見上げると空をよぎる一本の筋
+  const plane = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.2, 6), new THREE.MeshBasicMaterial({ color: 0x55555c, fog: false })); plane.layers.set(1); grp.add(plane) // 機体＝遠くの小さな点
   scene.add(grp)
-  return { grp, trail, plane, t: 0, dur: 52, nextAt: 18 + Math.random() * 25, len: 240, y: 150, dir: 1, zoff: 0 }
+  return { grp, trail, plane, t: 0, dur: 56, nextAt: 18 + Math.random() * 25, len: 300, y: 152, dir: 1, zoff: 0 }
 })()
 // ── 夕餉の煙：夕方、家々の幾つかから細い煙が立ちのぼる（夕飯どきの郷愁）。獅子ヶ谷の家を数軒えらぶ。2026-06-26 ──
 const chimneys = []
@@ -6308,15 +6326,19 @@ function updateChimneys(t) {
 }
 function updateContrail(dt) {
   const c = contrail
-  if (!c.grp.visible) { c.nextAt -= dt; if (c.nextAt <= 0 && tday > 0.16 && tday < 0.64) { c.grp.visible = true; c.t = 0; c.dir = Math.random() < 0.5 ? 1 : -1; c.zoff = (Math.random() - 0.5) * 90; c.y = 138 + Math.random() * 36 } return }
+  if (!c.grp.visible) { c.nextAt -= dt; if (c.nextAt <= 0 && tday > 0.16 && tday < 0.64) { c.grp.visible = true; c.t = 0; c.dir = Math.random() < 0.5 ? 1 : -1; c.zoff = (Math.random() - 0.5) * 90; c.y = 150 + Math.random() * 40 } return }
   c.t += dt; const p = c.t / c.dur
   if (p >= 1) { c.grp.visible = false; c.nextAt = 150 + Math.random() * 210; return }
   const cx = camera.position.x, cz = camera.position.z + c.zoff
-  const planeX = cx - c.dir * c.len * 0.5 + c.dir * c.len * p
-  c.plane.position.set(planeX, c.y, cz); c.plane.rotation.z = c.dir > 0 ? -Math.PI / 2 : Math.PI / 2 // 機首を進行方向へ
-  const tailLen = Math.min(c.len * 0.72, c.len * p), midX = planeX - c.dir * tailLen * 0.5
-  c.trail.position.set(midX, c.y - 0.4, cz); c.trail.scale.set(tailLen, 1, 1)
-  c.trail.material.opacity = 0.7 * Math.min(1, p * 4) * Math.min(1, (1 - p) * 3.2) // 白い尾＝出と消えはうっすら溶ける
+  const planeX = cx - c.dir * c.len * 0.5 + c.dir * c.len * p // 機体が画面端から端へ
+  c.plane.position.set(planeX, c.y, cz); c.plane.rotation.z = c.dir > 0 ? -Math.PI / 2 : Math.PI / 2
+  const globalFade = Math.min(1, p * 5) * Math.min(1, (1 - p) * 3.0) // 全体の出/消え
+  const tail = Math.min(c.len * 0.8, c.len * p) // 尾の長さ（進むほど伸び、上限で頭打ち）
+  const maxW = 9 // 尾端の最大幅（テクスチャ側で機体側は細くなる）
+  const midX = planeX - c.dir * tail * 0.5
+  c.trail.position.set(midX, c.y - 0.5, cz)
+  c.trail.scale.set(tail * c.dir, maxW, 1) // x=長さ(dir<0は反転＝機体側u=1を機体側へ)・y(→z回転後)=幅
+  c.trail.material.opacity = 0.72 * globalFade // 長さ方向の濃淡はテクスチャが担当
 }
 // ── 入道雲（夏の空のシンボル）──
 // ★様式更新（ユーザー許可で低ポリ脱却2026-06-27）：球の塊だと上から見て「ぶどう粒」に割れるため、
@@ -6454,17 +6476,18 @@ function buildCloudPuffs(scaleF, maxPuffs, opts) {
 const CLOUD_N = 13
 for (let i = 0; i < CLOUD_N; i++) {
   let scaleF, budget, dist, baseY, opts
+  // baseY＝雲の“底”の高さ。町並み(遠景は地平に見える)へ被らないよう十分高く（地上のfar面680m以内に収まる範囲で上げた・2026-06-27）。distは地上radial<680を守る上限。
   if (i === 0) { // 主雲＝大きな入道雲（開始の抜け）
-    scaleF = 5.2 + Math.random() * 1.8; budget = 72; dist = 420 + Math.random() * 80; baseY = 96 + Math.random() * 16
+    scaleF = 5.0 + Math.random() * 1.6; budget = 72; dist = 410 + Math.random() * 70; baseY = 138 + Math.random() * 22
     opts = { H: 46 + Math.random() * 6, W: 10 + Math.random() * 1.6, vSpread: 0.84, hSpread: 0.34, nLobe: 4 }
   } else if (i <= 2) { // 大きな入道雲（縦長タワー）
-    scaleF = 3.2 + Math.random() * 2.1; budget = 72; dist = 320 + Math.random() * 180; baseY = 90 + Math.random() * 48
-    opts = { H: 44 + Math.random() * 10, W: 9 + Math.random() * 2.6, vSpread: 0.82, hSpread: 0.34, nLobe: 4 }
+    scaleF = 3.2 + Math.random() * 2.0; budget = 72; dist = 320 + Math.random() * 150; baseY = 128 + Math.random() * 52
+    opts = { H: 44 + Math.random() * 9, W: 9 + Math.random() * 2.6, vSpread: 0.82, hSpread: 0.34, nLobe: 4 }
   } else if (i <= 6) { // 横長のもくもく綿雲（晴れの日の積雲＝塔の単調さを崩す主役）
-    scaleF = 2.3 + Math.random() * 1.7; budget = 56; dist = 300 + Math.random() * 250; baseY = 108 + Math.random() * 74
+    scaleF = 2.3 + Math.random() * 1.6; budget = 56; dist = 300 + Math.random() * 240; baseY = 140 + Math.random() * 70
     opts = { H: 17 + Math.random() * 12, W: 15 + Math.random() * 7, vSpread: 0.42, hSpread: 0.92, nLobe: 3, lean: 0.05 }
   } else { // 小さな遠景の雲（空気遠近・高めにかすむ）
-    scaleF = 1.2 + Math.random() * 1.3; budget = 36; dist = 470 + Math.random() * 200; baseY = 120 + Math.random() * 84
+    scaleF = 1.2 + Math.random() * 1.3; budget = 36; dist = 460 + Math.random() * 120; baseY = 160 + Math.random() * 92
     opts = { H: 15 + Math.random() * 12, W: 12 + Math.random() * 8, vSpread: 0.5, hSpread: 0.85, nLobe: 3, lean: 0.06 }
   }
   const mesh = new THREE.Mesh(buildCloudPuffs(scaleF, budget, opts), cloudMat)
@@ -8295,9 +8318,16 @@ function update(dt) {
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
   camera.getWorldQuaternion(_cloudCamQ).invert()
   cloudMat.uniforms.sunDirView.value.copy(sunDir).applyQuaternion(_cloudCamQ).normalize()
+  // 雲の追従＝“部分追従（パララックス）”。カメラへ即スナップせず、ゆっくり寄せる＝速く動くとラグが出て視差が生まれ「雲のそばを通り過ぎる/世界の中を移動している」感に（完全追従の貼り付き違和感を解消・ユーザー指摘2026-06-27）。
+  //   ・止まると数秒でゆるく定位置（方位×距離）へ戻る＝雲が永遠に置き去りにならない（無限に流れる空）。
+  //   ・エリア移動などの大ジャンプは即スナップ＝ワールドを横切る不自然な移動を防ぐ。
+  const followK = 1 - Math.pow(0.5, dt / 3.2) // 約3.2秒で半分追従＝歩行/飛行でしっかり視差、止まればゆるやかに復帰
   for (const t of thunderheads) {
     const u = t.userData; u.az += dt * u.drift
-    t.position.set(camera.position.x + Math.cos(u.az) * u.dist, u.baseY, camera.position.z + Math.sin(u.az) * u.dist)
+    const ix = camera.position.x + Math.cos(u.az) * u.dist, iz = camera.position.z + Math.sin(u.az) * u.dist
+    if (!u._init || Math.abs(ix - t.position.x) > 650 || Math.abs(iz - t.position.z) > 650) { t.position.x = ix; t.position.z = iz; u._init = true } // 初期化/大ジャンプ＝即スナップ
+    else { t.position.x += (ix - t.position.x) * followK; t.position.z += (iz - t.position.z) * followK }
+    t.position.y = u.baseY
   }
   // 夕立：時おり通り雨。空が陰り→雨→すぐ晴れる
   weatherTimer -= dt
@@ -9674,6 +9704,7 @@ window.__proto3d = {
   talk() { startDialogue() }, // 検証用
   openDiary() { openDiary() }, // 検証用
   get day() { return day },
+  _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
   _suppressWander() { wanderShown = true }, // 検証用：M1の散歩トーストを出さない（朝のひとことと混同しないため）
@@ -9728,7 +9759,7 @@ window.__proto3d = {
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
-  _contrail() { contrail.grp.visible = true; contrail.t = 8; contrail.dir = 1; contrail.zoff = 0; contrail.y = 150 }, // 検証用：飛行機雲を今すぐ出す（中ほどまで進んだ状態）
+  _contrail() { contrail.grp.visible = true; contrail.t = contrail.dur * 0.45; contrail.dir = 1; contrail.zoff = 0; contrail.y = 152; return { planeX: camera.position.x - 0.5 * contrail.len + 0.45 * contrail.len, y: 152, z: camera.position.z } }, // 検証用：飛行機雲を尾が伸びた状態で出す＋機体位置を返す
   _chimneys() { initChimneys(); return chimneys.map((c) => ({ x: +c.g.position.x.toFixed(0), y: +c.g.position.y.toFixed(0), z: +c.g.position.z.toFixed(0) })) }, // 検証用：夕餉の煙の位置
   get _jumpState() { return { airborne, jumpV: +jumpV.toFixed(1), riding, mode } }, // 検証用：ジャンプ状態
   _slideTop() { return slideRide ? slideRide.top : null }, // 検証用：すべり台のてっぺん座標
