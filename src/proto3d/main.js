@@ -551,6 +551,16 @@ function addContactShadow(parent, radius, y = 0.05) {
 
 // ── ライト ──
 const sunDir = new THREE.Vector3(-0.5, 0.82, -0.32).normalize()
+// ── A6/D2：葉の透過光（疑似SSS）。太陽を背にした葉＝葉裏が暖かい黄緑に透けて光る（夏の陽射しに葉が光る）。──
+//   ビュー空間の法線vNormalと、ビュー空間の太陽方向uSunDirVを使う＝インスタンス樹/個別樹のどちらの材質でも効く。共有uniformで毎フレームuLeafGlowを昼に強く。
+const foliageGlowU = { uSunDirV: { value: new THREE.Vector3(0, 0, -1) }, uLeafGlow: { value: 0.0 } }
+function injectLeafGlow(sh) { // 樹冠の材質のonBeforeCompileの最後に呼ぶ
+  sh.uniforms.uSunDirV = foliageGlowU.uSunDirV; sh.uniforms.uLeafGlow = foliageGlowU.uLeafGlow
+  sh.fragmentShader = 'uniform vec3 uSunDirV; uniform float uLeafGlow;\n' + sh.fragmentShader.replace('#include <dithering_fragment>',
+    'float _bl = smoothstep(0.0, 0.85, -dot(normalize(vNormal), uSunDirV));\n' + // 太陽と反対を向く面＝葉裏（透ける）
+    '  gl_FragColor.rgb += uLeafGlow * _bl * vec3(0.17, 0.23, 0.06);\n' +        // 暖かい黄緑の透過光
+    '  #include <dithering_fragment>')
+}
 const sun = new THREE.DirectionalLight(0xfff2d8, 2.1)
 sun.position.copy(sunDir.clone().multiplyScalar(120))
 sun.castShadow = true
@@ -991,7 +1001,8 @@ function makeTree(x, z, s = 1) {
   for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 2); ge.translate(bx * s, by * s, bz * s); geos.push(ge) } // detail2＝丸い葉のかたまり（脱・低ポリ・モバイル性能とのバランス）
   const canopyGeo = mergeGeometries(geos); canopyGeo.computeVertexNormals() // 重なりをなめらかな面に
   const tg = [[0x6f9a47, 0x9ec06c], [0x63903f, 0x96bb60], [0x7aa24c, 0xaecb7b], [0x5d8a3a, 0x8ab257], [0x86a44e, 0xb6cc83]][Math.floor(Math.random() * 5)] // 夏の緑に個体差＝同じ木が並ばない（自然さ）
-  const canopy = new THREE.Mesh(canopyGeo, toon(tg[0])); canopy.castShadow = true; g.add(canopy)
+  const canopyMat = toon(tg[0]); canopyMat.onBeforeCompile = injectLeafGlow // A6：葉の透過光
+  const canopy = new THREE.Mesh(canopyGeo, canopyMat); canopy.castShadow = true; g.add(canopy)
   geos.forEach((ge) => ge.dispose())
   // 陽の当たる上の明るい房（立体感・木漏れ日の素）
   for (const [r, bx, by, bz] of [[1.15, 0.35, 4.8, 0.25], [0.98, -0.35, 5.05, -0.1], [1.05, 1.0, 4.5, 0.5], [0.9, -0.8, 4.7, -0.55]]) {
@@ -3097,6 +3108,7 @@ function buildShishigaya() {
         float tamp = (position.y + 1.2);
         transformed.x += sin(uTime * 0.8 + tph) * (0.018 + uWind * 0.06) * tamp;
         transformed.z += sin(uTime * 0.62 + tph + 1.1) * (0.011 + uWind * 0.035) * tamp;`)
+      injectLeafGlow(sh) // A6：谷戸の樹冠にも葉の透過光
       yatoTreeShader = sh }
     // 各木に原型を割り当て（種で決定＝毎回同じ・桜は丸い原型0）。原型ごとに本数を数えてインスタンスメッシュを用意
     const archOf = (x, z, sak) => sak ? 0 : Math.abs(Math.round(x) * 7 + Math.round(z) * 13) % 4
@@ -8732,6 +8744,9 @@ function update(dt) {
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
   if (yatoTreeShader) { yatoTreeShader.uniforms.uTime.value = tsec; yatoTreeShader.uniforms.uWind.value = wind } // 樹冠も夏の風でそよぐ
+  // A6：葉の透過光。太陽方向をビュー空間へ変換＋昼に強く（夜は消える）。逆光のとき葉裏が黄緑に光る
+  foliageGlowU.uSunDirV.value.copy(sunDir).transformDirection(camera.matrixWorldInverse)
+  foliageGlowU.uLeafGlow.value = (1 - nightFactor(tday)) * 0.85 * (1 - weather * 0.5)
   if (yatoRiceShader) { yatoRiceShader.uniforms.uTime.value = tsec; yatoRiceShader.uniforms.uWind.value = wind } // 谷戸田の稲も夏風でしなる
   if (yatoReedShader) { yatoReedShader.uniforms.uTime.value = tsec; yatoReedShader.uniforms.uWind.value = wind } // 水際の葦も夏風でしなる
   if (windGain) { const ctx = listener.context, gust = THREE.MathUtils.clamp((wind - 0.32) / 0.95, 0, 1) // 揺れと同じwindで風の音も増減＝草木が鳴って世界が呼吸する（G1）
