@@ -1898,11 +1898,22 @@ function buildShishigaya() {
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 3.5)), vt = Math.max(1, Math.round(h / HOUSE_FH)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=窓の間口, v=階＝壁に窓が並ぶ（P1：階高に追従）
         ;[p0, p1, p2, p3].forEach((p, qi) => { bv.push(p[0], p[1], p[2]); const cf = qi < 2 ? 0.72 : 1; bc.push(wc[0] * cf, wc[1] * cf, wc[2] * cf); buv.push(uvq[qi][0], uvq[qi][1]) }); bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 } // 壁の底を暗く＝足元の接地の陰（E7・2026-06-25）
-      const rh = Math.min(2.8, Math.min(w, d) * 0.42 + 0.8), rg = h + rh, eo = Math.min(0.5, Math.min(w, d) * 0.12), eh = h - 0.04 // 軒の出（屋根が壁より外へ張り出す＝本物らしい庇＋軒下の影）。P1：屋根の高さも上限4→2.8に下げ“低い田舎家”の比率に
+      // N1（2026-06-27）：屋根に変化＝勾配/軒の出を種で散らし、約36%を寄棟(4面)に＝同型反復(金太郎飴)を崩し“通りのリズム”を作る。幅奥行(OSM実寸)は不変
+      const pitchVar = 0.82 + (seed % 7) * 0.07 // 0.82..1.24：屋根勾配のばらつき（似た大きさの家でも棟の高さが揃わない）
+      const rh = Math.min(3.0, (Math.min(w, d) * 0.42 + 0.8) * pitchVar), rg = h + rh
+      const eo = Math.min(0.6, Math.min(w, d) * 0.12 * (0.72 + (seed % 4) * 0.16)), eh = h - 0.04 // 軒の出も種で散らす
+      const hipped = (seed % 100) < 36 // 寄棟（4面）の比率＝切妻(妻壁三角)と混在させて並びの単調さを崩す
       const e0 = L(-hw, h, -hd), e1 = L(hw, h, -hd), e2 = L(hw, h, hd), e3 = L(-hw, h, hd) // 妻壁の頂点（壁の位置）
       const x0 = -(hw + eo), x1 = hw + eo, z0 = -(hd + eo), z1 = hd + eo, a0 = L(x0, eh, z0), a1 = L(x1, eh, z0), a2 = L(x1, eh, z1), a3 = L(x0, eh, z1) // 軒先（外へ張り出す）
       const rcD = [rc[0] * 0.72, rc[1] * 0.72, rc[2] * 0.72], krw = 0.16, kch = 0.13, kry = rg + 0.02 // 棟瓦＝屋根の頂上に濃い帯（三角屋根に本物らしさ・低ポリ脱却2026-06-25）
-      if (w >= d) { const r0 = L(x0, rg, 0), r1 = L(x1, rg, 0)
+      if (hipped) { // ── 寄棟（4面の屋根。箱の上に四方へ流れ、妻壁三角は無し＝昭和の住宅の定番変種） ──
+        if (w >= d) { const rl = Math.max(0, hw - hd), rL = L(-rl, rg, 0), rR = L(rl, rg, 0)
+          pushTri(rc, a3, a2, rR); pushTri(rc, a3, rR, rL); pushTri(rc, a1, a0, rL); pushTri(rc, a1, rL, rR) // 長辺2面（台形）
+          pushTri(rc, a2, a1, rR); pushTri(rc, a0, a3, rL) } // 両端のヒップ（三角）
+        else { const rl = Math.max(0, hd - hw), rL = L(0, rg, -rl), rR = L(0, rg, rl)
+          pushTri(rc, a1, a2, rR); pushTri(rc, a1, rR, rL); pushTri(rc, a3, a0, rL); pushTri(rc, a3, rL, rR) // 長辺2面
+          pushTri(rc, a2, a3, rR); pushTri(rc, a0, a1, rL) } // 両端のヒップ
+      } else if (w >= d) { const r0 = L(x0, rg, 0), r1 = L(x1, rg, 0)
         pushTri(rc, a3, a2, r1); pushTri(rc, a3, r1, r0); pushTri(rc, a1, a0, r0); pushTri(rc, a1, r0, r1) // 2枚の屋根面（軒が外へ張り出す）
         pushTri(wc, e0, e3, L(-hw, rg, 0)); pushTri(wc, e2, e1, L(hw, rg, 0)) // 妻壁の三角（壁の位置）
         const k0 = L(x0, kry, -krw), k1 = L(x1, kry, -krw), k2 = L(x0, kry, krw), k3 = L(x1, kry, krw), kp0 = L(x0, kry + kch, 0), kp1 = L(x1, kry + kch, 0)
