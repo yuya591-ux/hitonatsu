@@ -6346,7 +6346,7 @@ const puffTex = (() => {
 })()
 // インスタンス・ビルボード（各パフが常にカメラを向く板）。上=白／下=青灰のグラデ＋太陽側を暖色に
 const cloudMat = new THREE.ShaderMaterial({
-  uniforms: { map: { value: puffTex }, opacity: { value: 0.96 }, topCol: { value: new THREE.Color(0xfffdf8) }, botCol: { value: new THREE.Color(0xb4bfd4) }, sunCol: { value: new THREE.Color(0xfff1d8) }, sunDir: { value: sunDir } },
+  uniforms: { map: { value: puffTex }, opacity: { value: 0.96 }, topCol: { value: new THREE.Color(0xfffdf8) }, botCol: { value: new THREE.Color(0xdadfe9) }, sunCol: { value: new THREE.Color(0xfff3de) }, sunDir: { value: sunDir } },
   vertexShader: `attribute vec3 iPos; attribute float iSize; attribute float iY; attribute float iSeed;
     uniform vec3 sunDir; varying vec2 vUv; varying float vY; varying float vLit;
     void main(){
@@ -6364,11 +6364,14 @@ const cloudMat = new THREE.ShaderMaterial({
     void main(){
       float a = texture2D(map, vUv).a * opacity;
       if (a < 0.004) discard;
-      vec3 base = mix(botCol, topCol, smoothstep(-0.03, 0.42, vY));        // 底だけ灰、大部分は白
-      vec3 shade = vec3(0.66, 0.73, 0.88);                                  // 陰＝寒色でやや暗く（入道雲の影）
-      vec3 col = base * mix(shade, vec3(1.0), smoothstep(0.18, 0.84, vLit));// 太陽側=明るい白／反対側=青灰の陰＝塔の立体
-      col += sunCol * smoothstep(0.5, 1.0, vLit) * 0.15;                    // 受光側のフチを暖かく
-      col *= 0.72 + 0.34 * vUv.y;                                           // パフ内の上明・下陰＝もくもくの粒の丸み
+      vec3 base = mix(botCol, topCol, smoothstep(-0.08, 0.46, vY));        // 底も明るめの灰白＝暗い底にしない（怖くない）
+      // セル(トゥーン)シェード＝数段の平らなトーンでもくもくを定義（実物の入道雲＝白い受光＋やわらかい青灰の陰でカリフラワーの粒が立体に・暗い影にしない＝怖くない）
+      float light = smoothstep(0.06, 0.7, vLit) * 0.54 + vUv.y * 0.46;      // 太陽の向き＋パフ内の上下＝もくもくの陰影
+      vec3 col;
+      if (light < 0.40) col = base * vec3(0.74, 0.79, 0.89);               // 陰＝やわらかい青灰（しっかり読めるが暗くない）
+      else if (light < 0.72) col = base * vec3(0.90, 0.93, 0.97);          // 中間
+      else col = base;                                                      // 受光＝明るい白
+      col += sunCol * smoothstep(0.62, 1.0, vLit) * 0.1;                    // 受光側のフチをほんのり暖かく
       gl_FragColor = vec4(col, a);
     }`,
   transparent: true, depthWrite: false, fog: false,
