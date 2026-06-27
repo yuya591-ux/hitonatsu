@@ -1853,8 +1853,10 @@ function buildShishigaya() {
   const regPlaced = (cx, cz, hw, hd, co, si) => { const b = { cx, cz, hw, hd, co, si }; placedB.push(b); const cells = new Set(); for (const [lx, lz] of [[0, 0], [-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cells.add(Math.floor((cx + lx * co - lz * si) / BCELL) + ',' + Math.floor((cz + lx * si + lz * co) / BCELL)); for (const k of cells) { let arr = bgrid.get(k); if (!arr) { arr = []; bgrid.set(k, arr) } arr.push(b) } }
   let nOnRoad = 0, nOnWater = 0, nOverlap = 0, nVillage = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）＋田舎寄せで間引いた数
   const villThin = villageLevel >= 2 ? 55 : villageLevel >= 1 ? 35 : 0 // 田舎寄せ：間引く割合(%)。0=間引かない(忠実)
-  const glowWarm = [], glowTV = [], _gm = new THREE.Matrix4() // 夜の窓あかり：暖色の窓(glowWarm)と、ブラウン管TVの青い明滅(glowTV)に分けて各1メッシュ化（1990年代の夕暮れ＝家々の窓にTVの灯り・ユーザー要望2026-06-24）
-  const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm); (((Math.round(wx) * 7 + Math.round(wz) * 13) % 100 + 100) % 100 < 26 ? glowTV : glowWarm).push(pg) } // 約26%の窓はTVの青い灯り
+  const glowWarm = [[], [], []], glowTV = [], _gm = new THREE.Matrix4() // 夜の窓あかり：暖色の窓(glowWarm・C7で点灯時刻別に3群)と、ブラウン管TVの青い明滅(glowTV)。1990年代の夕暮れ＝家々の窓にTVの灯り
+  const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm)
+    if ((((Math.round(wx) * 7 + Math.round(wz) * 13) % 100 + 100) % 100) < 26) glowTV.push(pg) // 約26%の窓はTVの青い灯り
+    else glowWarm[((Math.round(wx) * 5 + Math.round(wz) * 3) % 3 + 3) % 3].push(pg) } // 残りは暖色＝家ごとに3群へ分けて段階点灯（C7）
   // P1（建物スケール低減・2026-06-27）：実在が確認できない“仮の一般民家”だけ、主人公(描画高2.8m)に対し大きすぎた背丈を下げる。
   // 実在建物（サンライズ＝sunIdxで別途実輪郭／小学校・商店・名前付きアパート＝inSkipで実物置換）は一切触らない＝実寸忠実を維持。
   // 階高3.0m→2.6mに圧縮（窓の段数round(h/HOUSE_FH)・夜窓あかりY・屋根も追従）。幅奥行(OSM実寸)とseedの個体差は不変＝毎ロード同じ並びのまま全体を低く。1行戻せば従来高。
@@ -1971,9 +1973,11 @@ function buildShishigaya() {
       sunTri(conc, [a[0], base, a[1]], [b[0], base, b[1]], [b[0], gb, b[1]]); sunTri(conc, [a[0], base, a[1]], [b[0], gb, b[1]], [a[0], ga, a[1]]) }
     if (srv.length) { const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(srv, 3)); sg.setAttribute('color', new THREE.Float32BufferAttribute(src, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(sruv, 2)); sg.setIndex(srvidx); sg.computeVertexNormals(); const sm = new THREE.Mesh(sg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); sm.castShadow = true; sm.receiveShadow = true; scene.add(sm) } } // サンライズの屋根/塔屋/基礎＝専用メッシュ。layer0のまま＝屋上が下の家々のインク線を遮蔽(屋上から下の建物が透けない)。平らな陸屋上の三角分割は同一平面なのでインク線は出ない
   // 夜の窓あかり：集めた発光板を1メッシュにマージ＝描画1回で町じゅうの窓が一斉に灯る（チラつきは抑えめfa。夜=夏の家々の灯・2026-06-23）
-  if (glowWarm.length) { const gg = mergeGeometries(glowWarm, false); glowWarm.forEach((g) => g.dispose())
-    const glowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0xffc87c, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); glowMesh.name = 'yatoNightWindows'; glowMesh.castShadow = false; scene.add(glowMesh) // A8：窓を少し暖かく＝青い夜に暖色が映える
-    townNightLights.push({ m: glowMesh, base: 0.92, ph: 0, fa: 0.05 }) }
+  { const warmOff = [0.0, 0.045, 0.09] // C7：3群の点灯時刻オフセット＝夕暮れに窓が一斉でなく少しずつともる
+    for (let gi = 0; gi < glowWarm.length; gi++) { const gw = glowWarm[gi]; if (!gw.length) continue
+      const gg = mergeGeometries(gw, false); gw.forEach((g) => g.dispose())
+      const glowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0xffc87c, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); glowMesh.name = 'yatoNightWindows' + gi; glowMesh.castShadow = false; scene.add(glowMesh) // A8：窓を少し暖かく＝青い夜に暖色が映える
+      townNightLights.push({ m: glowMesh, base: 0.92, ph: gi * 1.7, fa: 0.05, litOff: warmOff[gi] }) } }
   if (glowTV.length) { const gg = mergeGeometries(glowTV, false); glowTV.forEach((g) => g.dispose())
     tvGlowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0x82a6dc, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); tvGlowMesh.name = 'yatoTVWindows'; tvGlowMesh.castShadow = false; scene.add(tvGlowMesh) } // ブラウン管TVの青い灯り＝ループで明滅
   if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
@@ -8995,7 +8999,8 @@ function update(dt) {
   // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
   // J2（2026-06-27）：夕暮れに灯りがともり始める“家路”の温かさ＝nf(夜0.72-0.99)でなく winLit(夕0.60から点り0.82で満ちる)で点灯。夕の黄金比を締める（ぼくなつD案）
   const winLit = THREE.MathUtils.smoothstep(tday, 0.60, 0.82)
-  for (const L of townNightLights) { const fa = L.fa ?? 0.1; L.m.material.opacity = winLit * L.base * (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph)) } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
+  // C7：段階点灯。litOff を持つ窓は点灯時刻を少し遅らせ、夕暮れに家々の灯りが一斉でなく“少しずつ”ともる（家路の温かさ）
+  for (const L of townNightLights) { const fa = L.fa ?? 0.1, off = L.litOff || 0, wl = off ? THREE.MathUtils.smoothstep(tday, 0.60 + off, 0.82 + off) : winLit; L.m.material.opacity = wl * L.base * (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph)) } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
   // 蛍：夕暮れ(0.55)〜夜に灯り、低くふわふわ漂う。明るい時間は更新を止めて軽くする
   if (fireflies) { const fg = THREE.MathUtils.smoothstep(tday, 0.55, 0.70); fireflies.mat.uniforms.uGlow.value = fg; fireflies.mat.uniforms.uTime.value = tsec
     if (fg > 0.02) { const P = fireflies.pos, A = fireflies.anchor, S = fireflies.seed, n = fireflies.count
