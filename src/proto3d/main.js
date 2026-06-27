@@ -6162,10 +6162,26 @@ function getDistantOut() {
   g.connect(lp); lp.connect(getMaster()); lp.connect(dl); dl.connect(wet); wet.connect(getMaster())
   distBus = g; return distBus
 }
+// M4（2026-06-27）：遠音を「方向のある音」に＝音源の世界方向を主人公の向きに対し左右へパン（getDistantOutの手前にStereoPanner）。
+//   サウンドD＝電車/犬が中央定位で“どこから”の郷愁を半分取りこぼす。電車は線路想定の固定方位、犬は最寄りの民家方向から。
+function distantPannedOut(worldDx, worldDz) {
+  const ctx = listener.context, base = getDistantOut()
+  try { const pan = ctx.createStereoPanner()
+    const rx = Math.cos(facing), rz = -Math.sin(facing) // 主人公の“右”ベクトル（前方=(sin,cos)を-90°）
+    const L = Math.hypot(worldDx, worldDz) || 1
+    pan.pan.value = Math.max(-0.85, Math.min(0.85, (worldDx / L) * rx + (worldDz / L) * rz)) // 音源方向の右成分＝パン（右+1/左-1）。主人公が向きを変えると追従
+    pan.connect(base); return pan
+  } catch (e) { return base }
+}
+function nearestHouseDir() { // 最寄りの建物(箱コライダー)の方向＝犬の鳴き声の出どころ。無ければ適当な向き
+  let bdx = Math.random() - 0.5, bdz = Math.random() - 0.5, bd = 1e9
+  for (const c of colliders) { if (!c.box) continue; const dx = c.x - boy.position.x, dz = c.z - boy.position.z, d = Math.hypot(dx, dz); if (d > 4 && d < 70 && d < bd) { bd = d; bdx = dx; bdz = dz } }
+  return [bdx, bdz]
+}
 function playTrain() { // 遠くの電車（近づく→過ぎる→遠ざかる低い轟音＋線路の継ぎ目のタタン＋二音の警笛）
   if (!audioStarted) return
   try {
-    const ctx = listener.context, t0 = ctx.currentTime + 0.1, out = getDistantOut(), dur = 7 + Math.random() * 3
+    const ctx = listener.context, t0 = ctx.currentTime + 0.1, out = distantPannedOut(0, 1), dur = 7 + Math.random() * 3 // 線路は谷の北端(鶴見川の土手)想定＝北(+z)から
     const n = ctx.createBufferSource(); n.buffer = getNoise(); n.loop = true; n.playbackRate.value = 0.6
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 110; bp.Q.value = 0.7
     const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.1, t0 + dur * 0.45); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
@@ -6179,7 +6195,7 @@ function playTrain() { // 遠くの電車（近づく→過ぎる→遠ざかる
 function playDog() { // 遠くの犬（わん…わん。短い下降トーン＋噛みのバンドパス）
   if (!audioStarted) return
   try {
-    const ctx = listener.context, t0 = ctx.currentTime + 0.05, out = getDistantOut(), barks = 2 + Math.floor(Math.random() * 2)
+    const dir = nearestHouseDir(), ctx = listener.context, t0 = ctx.currentTime + 0.05, out = distantPannedOut(dir[0], dir[1]), barks = 2 + Math.floor(Math.random() * 2) // M4：犬は最寄りの民家の方向から
     for (let b = 0; b < barks; b++) { const bt = t0 + b * (0.45 + Math.random() * 0.35)
       const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(360 + Math.random() * 70, bt); o.frequency.exponentialRampToValueAtTime(175, bt + 0.18)
       const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, bt); g.gain.exponentialRampToValueAtTime(0.055, bt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, bt + 0.22)
