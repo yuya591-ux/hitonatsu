@@ -6333,9 +6333,11 @@ const puffTex = (() => {
     const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf); return a * (1 - u) * (1 - v) + b * u * (1 - v) + cc * (1 - u) * v + dd * u * v }
   for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
     const dx = (i - S / 2) / (S / 2), dy = (j - S / 2) / (S / 2), r = Math.hypot(dx, dy)
-    let a = Math.pow(Math.max(0, 1 - r), 1.55)                       // やわらかい放射状の薄れ
-    const n = vn(i / S * 4.5 + 1.3, j / S * 4.5 + 2.1) * 0.55 + vn(i / S * 10.0, j / S * 10.0) * 0.25 // 縁をふわっと不規則に
-    a *= 0.5 + 0.85 * n
+    let a = Math.min(1, Math.max(0, 1 - r) / 0.5)                    // 芯は密（r<0.5でほぼ不透明）＝入道雲のソリッドな塊
+    a = Math.pow(a, 1.15)
+    const edge = Math.max(0, Math.min(1, (r - 0.34) / 0.62))         // 0=芯 1=外縁
+    const n = vn(i / S * 4.5 + 1.3, j / S * 4.5 + 2.1) * 0.6 + vn(i / S * 10.0, j / S * 10.0) * 0.28
+    a *= 1.0 - edge * (1.0 - (0.32 + 0.82 * n))                      // 外縁だけをノイズでふわっと溶かす（芯は密のまま）
     a = Math.max(0, Math.min(1, a))
     const idx = (j * S + i) * 4; d[idx] = 255; d[idx + 1] = 255; d[idx + 2] = 255; d[idx + 3] = (a * 255) | 0
   }
@@ -6344,44 +6346,54 @@ const puffTex = (() => {
 })()
 // インスタンス・ビルボード（各パフが常にカメラを向く板）。上=白／下=青灰のグラデ＋太陽側を暖色に
 const cloudMat = new THREE.ShaderMaterial({
-  uniforms: { map: { value: puffTex }, opacity: { value: 0.92 }, topCol: { value: new THREE.Color(0xfffefb) }, botCol: { value: new THREE.Color(0xc4ccda) }, sunCol: { value: new THREE.Color(0xfff0d6) }, sunDir: { value: sunDir } },
+  uniforms: { map: { value: puffTex }, opacity: { value: 0.96 }, topCol: { value: new THREE.Color(0xfffdf8) }, botCol: { value: new THREE.Color(0xb4bfd4) }, sunCol: { value: new THREE.Color(0xfff1d8) }, sunDir: { value: sunDir } },
   vertexShader: `attribute vec3 iPos; attribute float iSize; attribute float iY; attribute float iSeed;
-    uniform vec3 sunDir; varying vec2 vUv; varying float vY; varying float vWarm;
+    uniform vec3 sunDir; varying vec2 vUv; varying float vY; varying float vLit;
     void main(){
       vUv = uv; vY = iY;
-      vWarm = clamp(dot(normalize(iPos + vec3(0.0, 0.6, 0.0)), normalize(sunDir)) * 0.5 + 0.3, 0.0, 1.0); // 太陽の向きのパフを暖かく
+      vLit = clamp(dot(normalize(iPos + vec3(0.0, 3.0, 0.0)), normalize(sunDir)) * 0.5 + 0.5, 0.0, 1.0); // 雲スケールの受光/陰＝太陽側のパフは明・反対側は暗（立体感）
       vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
       float c = cos(iSeed), s = sin(iSeed);                          // 板ごとに少し回す＝同じ絵の繰り返しを隠す
       vec2 q = vec2(position.x * c - position.y * s, position.x * s + position.y * c);
       mv.xy += q * iSize;
       gl_Position = projectionMatrix * mv;
     }`,
+  // 入道雲のボリューム＝①底だけ灰・大部分は白の縦グラデ ②太陽側=白／反対側=寒色の陰（雲全体の立体）③パフ内の上明・下陰（もくもくの粒の丸み）
   fragmentShader: `uniform sampler2D map; uniform float opacity; uniform vec3 topCol; uniform vec3 botCol; uniform vec3 sunCol;
-    varying vec2 vUv; varying float vY; varying float vWarm;
+    varying vec2 vUv; varying float vY; varying float vLit;
     void main(){
       float a = texture2D(map, vUv).a * opacity;
       if (a < 0.004) discard;
-      vec3 col = mix(botCol, topCol, smoothstep(-0.05, 0.62, vY));   // 下のすこしだけ灰色、大部分は白＝夏の入道雲（暗い底にしない）
-      col *= 0.9 + 0.12 * vUv.y;                                     // パフ内の上を少し明るく＝丸み
-      col += sunCol * vWarm * 0.14;                                  // 太陽側を暖かく
+      vec3 base = mix(botCol, topCol, smoothstep(-0.03, 0.42, vY));        // 底だけ灰、大部分は白
+      vec3 shade = vec3(0.66, 0.73, 0.88);                                  // 陰＝寒色でやや暗く（入道雲の影）
+      vec3 col = base * mix(shade, vec3(1.0), smoothstep(0.18, 0.84, vLit));// 太陽側=明るい白／反対側=青灰の陰＝塔の立体
+      col += sunCol * smoothstep(0.5, 1.0, vLit) * 0.15;                    // 受光側のフチを暖かく
+      col *= 0.72 + 0.34 * vUv.y;                                           // パフ内の上明・下陰＝もくもくの粒の丸み
       gl_FragColor = vec4(col, a);
     }`,
   transparent: true, depthWrite: false, fog: false,
 })
 const cloudQuad = new THREE.PlaneGeometry(2, 2) // position.xy∈[-1,1]＝iSizeが半径
 function buildCloudPuffs(scaleF) {
-  const N = 42 + (Math.random() * 12 | 0)
+  // 入道雲＝縦に高い塔（横より縦が大きい）＋平らな底＋上でもくもく膨らむ頭。横長の綿玉にしない。
+  const N = 54 + (Math.random() * 18 | 0)
   const geo = new THREE.InstancedBufferGeometry()
   geo.setIndex(cloudQuad.index); geo.setAttribute('position', cloudQuad.attributes.position); geo.setAttribute('uv', cloudQuad.attributes.uv)
   const iPos = new Float32Array(N * 3), iSize = new Float32Array(N), iY = new Float32Array(N), iSeed = new Float32Array(N)
-  const H = 26, baseW = 13
+  const H = 46, baseW = 11 // H/baseW≈4＝縦に高い塔
+  const lean = (Math.random() - 0.5) * 0.18 // ほんの少し傾ける（自然な非対称）
   for (let k = 0; k < N; k++) {
-    const t = Math.pow(Math.random(), 0.78), y = t * H                // 下に偏らせる（下がもくもく）
-    const prof = Math.sin(Math.min(1, t * 1.06 + 0.14) * Math.PI)     // 下〜中ふくらみ、上すぼまり（縦に伸びる入道雲）
-    const maxr = baseW * (0.46 + 0.56 * prof)
-    const a = Math.random() * 6.2832, rr = Math.pow(Math.random(), 0.58) * maxr // 中心寄りに密
-    iPos[k * 3] = Math.cos(a) * rr * scaleF; iPos[k * 3 + 1] = y * scaleF; iPos[k * 3 + 2] = Math.sin(a) * rr * 0.8 * scaleF
-    iSize[k] = ((1 - t * 0.4) * 3.0 + 2.7 + Math.random() * 1.7) * scaleF // やわらかいパフ＝大きめに重ねて霧状に
+    let t
+    const rk = Math.random()
+    if (rk < 0.16) t = Math.random() * 0.1                           // ① 平らな底の層
+    else t = 0.07 + Math.pow(Math.random(), 0.92) * 0.93             // ② 塔＋頭（上にやや偏らせる＝頭がもくもく）
+    const y = t * H
+    // プロファイル：底はそこそこ広い→上の頭でいちばん太く→てっぺん丸くすぼまる（積乱雲の塔）
+    let maxr = baseW * (0.26 + 0.82 * Math.pow(Math.sin(Math.min(1, t * 0.82 + 0.24) * Math.PI), 0.78))
+    if (t < 0.12) maxr = baseW * (0.5 + (t / 0.12) * 0.22)           // 平らな底はそこそこ広く（広がりすぎない）
+    const a = Math.random() * 6.2832, rr = Math.pow(Math.random(), 0.5) * maxr // 中心寄りに密
+    iPos[k * 3] = (Math.cos(a) * rr + lean * y) * scaleF; iPos[k * 3 + 1] = y * scaleF; iPos[k * 3 + 2] = Math.sin(a) * rr * 0.86 * scaleF // z方向もほぼ同じ太さ＝丸い塔
+    iSize[k] = ((1 - t * 0.26) * 2.4 + 2.3 + Math.random() * 1.5) * scaleF // やわらかいパフ＝重ねて霧状に。底ほど少し大きく
     iY[k] = t; iSeed[k] = Math.random() * 6.2832
   }
   geo.setAttribute('iPos', new THREE.InstancedBufferAttribute(iPos, 3))
@@ -6395,7 +6407,7 @@ function buildCloudPuffs(scaleF) {
 const NEAR_N = 7, FAR_N = 4
 for (let i = 0; i < NEAR_N + FAR_N; i++) {
   const far = i >= NEAR_N
-  const scaleF = far ? (1.9 + Math.random() * 0.9) : (3.4 + Math.random() * 2.6)
+  const scaleF = i === 0 ? (5.6 + Math.random() * 1.8) : far ? (1.9 + Math.random() * 0.9) : (2.8 + Math.random() * 2.0) // 0番＝開始の抜けの主役＝大きく高い入道雲
   const mesh = new THREE.Mesh(buildCloudPuffs(scaleF), cloudMat)
   mesh.frustumCulled = false // ビルボード（バウンディングが効かない）＝常に描く。数が少ないので安い
   mesh.layers.set(1) // インク線の法線パスから除外（やわらかい雲）
@@ -6404,7 +6416,7 @@ for (let i = 0; i < NEAR_N + FAR_N; i++) {
     : far ? ((i - NEAR_N) / FAR_N * Math.PI * 2 + 0.8 + Math.random() * 0.5)
     : ((i / NEAR_N) * Math.PI * 2 + Math.random() * 0.5)
   // baseY＝雲の“底”の高さ。建物(最大約90m)/丘より十分上＝食い込まない・飛行(上限約200m)でも空として読める
-  mesh.userData = { az, dist: far ? (520 + Math.random() * 60) : (340 + Math.random() * 160), baseY: far ? (130 + Math.random() * 50) : (108 + Math.random() * 46), drift: 0.0014 + Math.random() * 0.0028 }
+  mesh.userData = { az, dist: i === 0 ? (430 + Math.random() * 70) : far ? (520 + Math.random() * 60) : (340 + Math.random() * 160), baseY: i === 0 ? (98 + Math.random() * 18) : far ? (130 + Math.random() * 50) : (108 + Math.random() * 46), drift: 0.0014 + Math.random() * 0.0028 }
   scene.add(mesh); thunderheads.push(mesh)
 }
 
