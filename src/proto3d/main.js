@@ -7459,10 +7459,11 @@ refreshBadge()
 function openDiary() {
   diaryOpen = true; dayAuto = false
   const body = []
+  const dpick = (arr) => arr[(day - 1 + arr.length) % arr.length] // D1：日替わりで言い回しを変える＝3日が同じ行動でも違う言葉に＝えにっきが“生きている”
   if (caught.count) body.push(`むしを ${caught.count}ひき つかまえた（${Object.keys(caught.kinds).join('・')}）。`)
   if (fish.count) body.push(`池で さかなを ${fish.count}ひき つった（${Object.keys(fish.kinds).join('・')}）。`)
   if (todayFlags.metGirl) body.push('はらっぱで 女の子と はなした。名前、聞きそびれちゃった。')
-  if (todayFlags.petCat) body.push('ねこを なでた。ひなたの においが した。')
+  if (todayFlags.petCat) body.push(dpick(['ねこを なでた。ひなたの においが した。', 'ねこが ごろんと なった。おなかが あたたかかった。', 'ねこは、なでると しっぽを ゆっくり ふった。']))
   if (todayFlags.wentTown) body.push('商店街まで あるいた。アスファルトが ゆらゆら して見えた。')
   if (todayFlags.metShop) body.push('商店街の おばさんと はなした。')
   if (todayFlags.gotOmake) body.push('おばさんが トマトを おまけして くれた。手のひらが あたたかかった。')
@@ -7476,12 +7477,15 @@ function openDiary() {
   else if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
   if (todayFlags.sawFrog) body.push('カエルを 見つけた。じっと こっちを 見ていた。')
   if (todayFlags.watered) body.push('畑に 水を やった。土の においが 立った。あした 大きく なってるかな。')
-  if (todayFlags.satHill) body.push('高台で ぼーっと した。風が 草を なでて いく音が した。')
-  if (todayFlags.layDown) body.push('草の上で ねころんだ。雲が ゆっくり ながれて いった。')
+  if (todayFlags.satHill) body.push(dpick(['ベンチで ぼーっと した。風が 草を なでて いく音が した。', 'すこし すわって やすんだ。とおくで 入道雲が もくもく していた。', 'ベンチに こしかけた。あつい 一日が、ゆっくり 過ぎていった。']))
+  if (todayFlags.layDown) body.push(dpick(['草の上で ねころんだ。雲が ゆっくり ながれて いった。', '草の上に ねころんだ。空が やけに 高くて、すいこまれそうだった。', 'ねころんで 空を 見た。雲の かたちが、すこしずつ 変わっていった。']))
+  if (todayFlags.jumped) body.push(dpick(['なんとなく ぴょんと はねた。とくに 理由は なかった。', 'みずたまりを ジャンプで こえた。…ちょっと とどかなかった。']))
   if (todayFlags.climbedRoof) body.push('屋上に のぼった。せかいぜんぶが 見える きが した。')
-  if (!body.length) body.push('きょうは のんびり あるいた。なんでもない 一日。')
+  if (!body.length) body.push(dpick(['きょうは のんびり あるいた。なんでもない 一日。', 'とくに なにも しなかった。でも、わるくない 一日だった。', 'ただ あるいた。せみの声を 聞きながら、ずっと あるいた。']))
   if (day >= 3) {
     diaryTitleEl.textContent = 'ひと夏が おわった'
+    body.push('ゆうがた、ひぐらしが ないていた。カナカナカナ…って、夕やけに とけて いった。') // D1：最終日の喪失感＝ヒグラシ＝夏の終わりの音
+    body.push('せみの ぬけがらが、木に ひとつ のこっていた。なつが、すこし とおく なった。') // D1：抜け殻＝過ぎ去る夏の象徴（J1の蝉の抜け殻と呼応）
     if (gotOmamori) { body.push('女の子に おまもりを もらった。'); body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('この夏のこと、ぜったい わすれない。…また 来年、あの はらっぱで。') }
     else { body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('なんでもない 毎日が、いちばん たからものだった きがする。…また 来年。') }
   } else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? 'まだ 夏は はじまった ばかり。あした なにを しようかな。' : 'もうすぐ おまつり。…夏は、あっという間だなあ。') }
