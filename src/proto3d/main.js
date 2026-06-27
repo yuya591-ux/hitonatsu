@@ -7783,9 +7783,9 @@ function maybeLifeSounds(dt) {
   lifeDogCd -= dt; if (lifeDogCd <= 0) { lifeDogCd = 90 + Math.random() * 120; if (has('dog')) dogBark(at, Math.random() < 0.45) }
   lifeBellCd -= dt; if (lifeBellCd <= 0) { lifeBellCd = 70 + Math.random() * 120; if (has('bell')) bikeBell(at) }
 }
-function activeVenue() { let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(day) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ（同じ日に複数会場でも、近い方のお囃子/花火が効く＝近い祭りへたどれる）
+function activeVenue() { const fd = festDay(); let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(fd) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ。H1：festDay()で3日周期にローテ＝ひと夏のあいだ会場をめぐってお祭りが続く
 function updateFestival(dt) {
-  for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(day) >= 0 && tday > 0.45 // 各会場は開催日の午後〜夜だけ姿を見せる（昼に設営、朝は無し＝朝のラジオ体操と同じ校庭でも干渉しない）
+  { const fd = festDay(); for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(fd) >= 0 && tday > 0.45 } // 各会場は開催日(festDayで3日周期にローテ)の午後〜夜だけ姿を見せる（昼に設営、朝は無し）
   // 盆踊りの輪を動かす（櫓のまわりをゆっくり回り、腕を交互に振る／櫓上の太鼓打ちは速く打つ）。見えない会場ぶんも計算するが軽い
   if (festFigs.length) { const ft = performance.now() * 0.001
     for (const d of festFigs) {
@@ -8120,7 +8120,7 @@ function startDialogue() {
   const who = talkTarget || villager
   const info = who.userData.info
   // その日の関係の台詞（あれば）→ なければ時間帯の台詞
-  const lines = (info.arcByDay && info.arcByDay[day]) || info.byPhase[phaseOf(tday)] || info.byPhase.noon
+  const lines = (info.arcByDay && info.arcByDay[arcStage()]) || info.byPhase[phaseOf(tday)] || info.byPhase.noon // H1：関係は段階(初対面/打ちとけ/別れ)で進む＝ひと夏(7日)に対応
   dialogue = { lines, idx: 0 }
   dlgNameEl.textContent = info.name
   dlgTextEl.textContent = lines[0]
@@ -8128,20 +8128,23 @@ function startDialogue() {
   npcEl.style.display = 'none'
   endPuni()
   if (who === villager) todayFlags.metGirl = true
-  if (who === villager && day >= 3) { gotOmamori = true; try { localStorage.setItem('hn3d_omamori', '1') } catch (e) {} } // 最終日に会えたら おまもりを受け取る
+  if (who === villager && day >= TOTAL_DAYS) { gotOmamori = true; try { localStorage.setItem('hn3d_omamori', '1') } catch (e) {} } // 最終日に会えたら おまもりを受け取る
   if (who === townLady) todayFlags.metShop = true
   if (who === townLady && tday > 0.6 && tday < 0.86 && !todayFlags.gotOmake) { todayFlags.gotOmake = true; showToast('おばさんが トマトを ひとつ おまけして くれた。') } // 夕方の「おまけ」を実際にもらえる
   who.rotation.y = Math.atan2(boy.position.x - who.position.x, boy.position.z - who.position.z) // こちらを向く
 }
 
-// ── 「3日だけの夏」＋絵日記（その日やったこと→翌日への予告／夏の終わり）──
+// ── 「ひと夏（数日）」＋絵日記（その日やったこと→翌日への予告／夏の終わり）。H1：3日→7日へ拡張 ──
+const TOTAL_DAYS = 7 // ひと夏の日数。最終日に「夏の終わり」。お囃子/花火はfestDay()で3日周期にローテ＝どの日もどこかでお祭り
+const festDay = () => ((day - 1) % 3) + 1 // 祭り会場の開催日(1..3)＝ひと夏のあいだ会場をめぐってお祭りが続く
+const arcStage = () => day === 1 ? 1 : day >= TOTAL_DAYS ? 3 : 2 // 女の子との関係：初対面(1)→打ちとけ(2..)→夏の終わりの別れ(最終日)
 let day = 1
 let gotOmamori = false // 夏の終わりに女の子から おまもりを もらった（日をまたいで残る＝関係の証）
 try { gotOmamori = localStorage.getItem('hn3d_omamori') === '1' } catch (e) {}
 const dayEvents = { radio: false, dinner: false, fest: false } // 昭和の日課（1日1回）。fest＝その日のおまつりのお囃子に気づくひとこと（D3）
 let diaryOpen = false
 const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false, petCat: false, lamune: false, metShop: false, gotOmake: false, wadedCreek: false, sawMedaka: false, sawFrog: false, sawView: false, rodeSwing: false, wentShrine: false, jumped: false, watered: false, climbedRoof: false }
-try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= 3) day = s } catch (e) {}
+try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= TOTAL_DAYS) day = s } catch (e) {}
 const sleepEl = document.getElementById('sleep')
 const diaryEl = document.getElementById('diary')
 const diaryTitleEl = document.getElementById('diary-title')
@@ -8221,13 +8224,18 @@ function buildDiaryEntry() {
   if (todayFlags.climbedRoof) body.push('屋上に のぼった。せかいぜんぶが 見える きが した。')
   if (!body.length) body.push(dpick(['きょうは のんびり あるいた。なんでもない 一日。', 'とくに なにも しなかった。でも、わるくない 一日だった。', 'ただ あるいた。せみの声を 聞きながら、ずっと あるいた。']))
   let title
-  if (day >= 3) {
+  if (day >= TOTAL_DAYS) {
     title = 'ひと夏が おわった'
     body.push('ゆうがた、ひぐらしが ないていた。カナカナカナ…って、夕やけに とけて いった。') // D1：最終日の喪失感＝ヒグラシ＝夏の終わりの音
     body.push('せみの ぬけがらが、木に ひとつ のこっていた。なつが、すこし とおく なった。') // D1：抜け殻＝過ぎ去る夏の象徴（J1の蝉の抜け殻と呼応）
     if (gotOmamori) { body.push('女の子に おまもりを もらった。'); body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('この夏のこと、ぜったい わすれない。…また 来年、あの はらっぱで。') }
     else { body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('なんでもない 毎日が、いちばん たからものだった きがする。…また 来年。') }
-  } else { title = `${day}にちめ ― えにっき`; body.push(day === 1 ? 'まだ 夏は はじまった ばかり。あした なにを しようかな。' : 'もうすぐ おまつり。…夏は、あっという間だなあ。') }
+  } else { title = `${day}にちめ ― えにっき`
+    const left = TOTAL_DAYS - day // 夏の残り日数で予告の言葉を変える＝ひと夏が進む実感（H1）
+    body.push(day === 1 ? 'まだ 夏は はじまった ばかり。あした なにを しようかな。'
+      : left <= 1 ? 'あした で、ながい 夏休みも おわり。…なんだか さびしいな。'
+      : left <= 3 ? 'もうすぐ おまつり。…夏は、あっという間だなあ。'
+      : 'まだまだ 夏は つづく。あした は どこへ いこうかな。') }
   return { title, body }
 }
 function openDiary() {
@@ -8248,7 +8256,7 @@ function openDiary() {
 }
 function nextDay() {
   diaryEl.style.display = 'none'; diaryOpen = false
-  day = day >= 3 ? 1 : day + 1 // プロトなので3日のあとは1日目へ
+  day = day >= TOTAL_DAYS ? 1 : day + 1 // ひと夏(7日)のあとは1日目へ（また来年の夏）
   for (const k in todayFlags) todayFlags[k] = false
   tday = 0.18; dayAuto = true; setTimeOfDay(tday)
   dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false
@@ -8842,12 +8850,12 @@ function update(dt) {
   if (dayAuto) {
     const prev = tday
     // 花火大会の間は時間をゆっくり進める＝夏のクライマックスを長く味わう
-    const fwSlow = FIREWORK.days.indexOf(day) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
+    const fwSlow = FIREWORK.days.indexOf(festDay()) >= 0 && tday >= FIREWORK.from && tday <= FIREWORK.to
     tday = Math.min(0.97, tday + dt / (fwSlow ? 1000 : 740)) // 一日をさらにゆっくり(620→740)＝各時間帯を長く味わえる“夢のような時間の流れ”（ユーザー「時間もう少しゆっくり」2026-06-24）
     setTimeOfDay(tday)
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     // D3：朝のひとことを日替りに＝一日ごとに“手ざわり”が違う（初日のときめき→2日目のおまつり予感→最終日の名残）。ラジオ体操は共通の日課
-    if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast(day === 1 ? 'なつやすみ 初日。ラジオ体操の じかんだ。' : day === 2 ? '2日目の 朝。きょうは どこかで おまつりが あるらしい。' : 'なつやすみ さいごの 朝。…一日を、ゆっくり あるこう。') }
+    if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast(day === 1 ? 'なつやすみ 初日。ラジオ体操の じかんだ。' : day >= TOTAL_DAYS ? 'なつやすみ さいごの 朝。…一日を、ゆっくり あるこう。' : 'あたらしい 朝。きょうも どこかで おまつりが あるらしい。') }
     if (!dayEvents.dinner && prev < 0.7 && tday >= 0.7) { dayEvents.dinner = true; showToast('「ごはんよー」と よばれた。') }
     // D3：おまつりのある日(1・2日目)は夕方にお囃子に気づくひとこと＝音をたどって盆踊りへ。最終日(3日目)は会場が無く、静かな宵が“最後の日”の手ざわりになる
     if (!dayEvents.fest && tday > 0.5 && typeof activeVenue === 'function' && activeVenue()) { dayEvents.fest = true; showToast('どこかで おまつりの おはやしが きこえる。') }
@@ -9166,7 +9174,7 @@ function update(dt) {
   if (tvGlowMesh) { const flick = THREE.MathUtils.clamp(0.62 + 0.42 * Math.sin(tsec * 6.8) * Math.sin(tsec * 11.4 + 0.6), 0.22, 1) // ブラウン管TVの不規則な明滅（速い2波の積＝チラチラ）
     tvGlowMesh.material.opacity = nf * 0.7 * flick } // 夜の家々の窓にTVの青い灯りがちらつく（1990年代の夕暮れ）
   // 花火（縁日の夜の“決まった時間だけ”＝花火大会。一晩中は上げない。FIREWORK.days/from/toで調整）
-  const fwOn = (typeof activeVenue === 'function' ? !!activeVenue() : FIREWORK.days.indexOf(day) >= 0) && tday >= FIREWORK.from && tday <= FIREWORK.to // 花火は今夜どこかで開催していれば（会場ごとに別の日）
+  const fwOn = (typeof activeVenue === 'function' ? !!activeVenue() : FIREWORK.days.indexOf(festDay()) >= 0) && tday >= FIREWORK.from && tday <= FIREWORK.to // 花火は今夜どこかで開催していれば（会場ごとにfestDayでローテ）
   if (fwOn) {
     fwTimer -= dt
     if (fwTimer <= 0) { fwTimer = 1.2 + Math.random() * 1.8; spawnFirework() } // 連発を増やす＝にぎやかな花火大会
@@ -10532,6 +10540,8 @@ window.__proto3d = {
   _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); else if (k === 'call') farCall(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
+  _dayInfo() { return { day, total: TOTAL_DAYS, festDay: festDay(), arc: arcStage(), venuesToday: FEST_VENUES.filter((v) => v.days.indexOf(festDay()) >= 0).map((v) => v.name) } }, // 検証用：H1 ひと夏の日数・祭り会場
+  _setDayNum(n) { day = Math.max(1, Math.min(TOTAL_DAYS, n | 0)); refreshBadge() }, // 検証用：日数を設定
   _suppressWander() { wanderShown = true }, // 検証用：M1の散歩トーストを出さない（朝のひとことと混同しないため）
   get _toast() { return toastEl ? toastEl.textContent : '' }, // 検証用：いま出ているひとこと
   get _omamori() { return gotOmamori }, // 検証用：おまもりを受け取ったか
