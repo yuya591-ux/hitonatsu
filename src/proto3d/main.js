@@ -6619,6 +6619,68 @@ function spawnFirework() {
     disc.rotation.x = -Math.PI / 2; disc.position.set(bw[0], wy + 0.13, bw[1]); disc.userData = { water: true, age: 0 }; fireworksGroup.add(disc) } // 水面の映り込み（平たい加算ディスク・ゆっくり消える）
   playFireworkBoom() // 遠くの「ドーン」＋火花のパチパチ（夏のクライマックスに音を）
 }
+// ── H4：線香花火（手持ち花火）。夜に カメラの前で ぱちぱちと 火花を散らし、やがて 玉が ぽとりと 落ちる＝夏の終わりの象徴。──
+const senko = (() => {
+  const N = 60, geo = new THREE.BufferGeometry(), pos = new Float32Array(N * 3), col = new Float32Array(N * 3)
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+  const glowTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 32; const x = cv.getContext('2d'); const g = x.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,220,150,0.9)'); g.addColorStop(1, 'rgba(255,180,80,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(cv) })()
+  const mat = new THREE.PointsMaterial({ size: 0.09, map: glowTex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.visible = false; scene.add(pts)
+  const ball = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffc86a, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
+  ball.scale.set(0.16, 0.16, 1); ball.visible = false; scene.add(ball)
+  return { pts, pos, col, ball, N, life: new Float32Array(N), vel: new Float32Array(N * 3), tip: new THREE.Vector3(), active: false, t: 0, dur: 15, crackleCd: 0, dropped: false }
+})()
+function startSenko() {
+  if (senko.active) return
+  const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd)
+  senko.tip.copy(camera.position).addScaledVector(fwd, 1.15); senko.tip.y -= 0.32 // カメラの少し前・下に手持ち花火の玉
+  senko.active = true; senko.t = 0; senko.crackleCd = 0; senko.dropped = false
+  senko.pts.visible = true; senko.ball.visible = true; senko.ball.position.copy(senko.tip)
+  for (let i = 0; i < senko.N; i++) senko.life[i] = 0 // すべて休眠から
+}
+function updateSenko(dt) {
+  if (!senko.active) return
+  senko.t += dt
+  const el = senko.t, p = senko.pos, c = senko.col, L = senko.life, V = senko.vel
+  // 4つの位相：つぼみ(0-1.5)→牡丹/松葉のぱちぱち最盛(1.5-9)→散り菊の衰え(9-13)→玉が落ちる(13-15)
+  const peak = THREE.MathUtils.clamp((el - 0.8) / 1.2, 0, 1) * (1 - THREE.MathUtils.smoothstep(el, 9, 13)) // 盛り上がり0..1
+  const spawnRate = peak * 42 // 1秒あたりの火花数
+  senko.ball.material.opacity = (0.5 + 0.5 * Math.sin(el * 22)) * (0.5 + 0.5 * peak) * (1 - THREE.MathUtils.smoothstep(el, 13.5, 15)) // 玉のゆらめき
+  const drop = el > 13 // 玉が落ちる段
+  if (drop && !senko.dropped) { senko.dropped = true }
+  if (senko.dropped) { senko.ball.position.y -= dt * (0.5 + (el - 13) * 0.9); senko.ball.scale.setScalar(0.12 * (1 - THREE.MathUtils.smoothstep(el, 13, 15))) }
+  // 火花のスポーン（確率的）
+  let toSpawn = spawnRate * dt
+  for (let i = 0; i < senko.N && toSpawn > 0; i++) { if (L[i] > 0) continue
+    if (Math.random() < 0.6) continue
+    toSpawn--; L[i] = 0.5 + Math.random() * 0.7
+    p[i * 3] = senko.tip.x; p[i * 3 + 1] = senko.tip.y; p[i * 3 + 2] = senko.tip.z
+    const a = Math.random() * 6.283, up = Math.random() * 0.5 + 0.1, sp = 0.5 + Math.random() * 1.6
+    V[i * 3] = Math.cos(a) * sp; V[i * 3 + 1] = up * sp; V[i * 3 + 2] = Math.sin(a) * sp
+    const w = 0.7 + Math.random() * 0.3; c[i * 3] = 1.0 * w; c[i * 3 + 1] = 0.66 * w; c[i * 3 + 2] = 0.2 * w // 金〜橙
+  }
+  // 火花の更新（重力＋短命＝松葉が枝分かれして落ちる気配）
+  for (let i = 0; i < senko.N; i++) { if (L[i] <= 0) { c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = 0; continue }
+    L[i] -= dt; V[i * 3 + 1] -= dt * 2.6 // 重力
+    p[i * 3] += V[i * 3] * dt; p[i * 3 + 1] += V[i * 3 + 1] * dt; p[i * 3 + 2] += V[i * 3 + 2] * dt
+    const f = Math.max(0, L[i]); c[i * 3] = f * 1.4; c[i * 3 + 1] = f * 0.9; c[i * 3 + 2] = f * 0.3
+  }
+  senko.pts.geometry.attributes.position.needsUpdate = true; senko.pts.geometry.attributes.color.needsUpdate = true
+  senko.pts.material.opacity = THREE.MathUtils.clamp(peak + (drop ? 0.2 : 0), 0, 1)
+  // ぱちぱち音（最盛期ほど密に）
+  senko.crackleCd -= dt
+  if (senko.crackleCd <= 0 && peak > 0.1) { senko.crackleCd = 0.04 + Math.random() * 0.12 / Math.max(0.2, peak); senkoCrackle() }
+  if (el >= senko.dur) { senko.active = false; senko.pts.visible = false; senko.ball.visible = false
+    showToast(['線香花火が、ぽとりと 落ちた。…夏が、おわる。', '玉が おちて、あたりが 急に しずかに なった。', 'さいごの 火花が きえた。…いい 夏だったな。'][Math.floor(Math.random() * 3)]) }
+}
+function senkoCrackle() {
+  if (!audioStarted) return
+  try { const ctx = listener.context, t0 = ctx.currentTime
+    const n = ctx.createBufferSource(); n.buffer = getNoise(); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600 + Math.random() * 2200; bp.Q.value = 1.4
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.02 + Math.random() * 0.02, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.04 + Math.random() * 0.04)
+    n.connect(bp); bp.connect(g); g.connect(getSfxOut()); n.start(t0); n.stop(t0 + 0.12)
+  } catch (e) {}
+}
 // 花火の音＝自前合成。遠い夜空の「ドーン」＝深い低音の胴＋破裂の空気＋丘にこだまする余韻（電車のしゅぽっぽにならないよう低音を効かせ響かせる）。getSfxOut経由でクリップ防止。
 function playFireworkBoom() {
   if (!audioStarted) return
@@ -8169,6 +8231,11 @@ const diaryTitleEl = document.getElementById('diary-title')
 const diaryBodyEl = document.getElementById('diary-body')
 const diaryCloseEl = document.getElementById('diary-close')
 const diaryPicEl = document.getElementById('diary-pic')
+// H4：最終日の“葉書”＝消印風スタンプのスタイル（1回だけ注入）
+;(function () { const s = document.createElement('style'); s.textContent = `#diary-pic{position:relative;}
+  .diary-stamp{position:absolute;right:7%;bottom:9%;width:76px;height:76px;border-radius:50%;border:3px double #b5462f;color:#b5462f;
+    display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:700;line-height:1.3;
+    transform:rotate(-13deg);opacity:0.8;background:rgba(255,250,240,0.1);letter-spacing:0.02em;font-family:inherit;pointer-events:none;}`; document.head.appendChild(s) })()
 // 紙の質感タイル（絵日記の絵に重ねる）
 const paperPat = (() => {
   const s = 80, c = document.createElement('canvas'); c.width = c.height = s
@@ -8267,8 +8334,9 @@ function openDiary() {
     let pic = null
     try { if (photoMode && photoMode.newCount > 0) { pic = photoMode.latestPhoto(); photoMode.clearNew() } } catch (e) {}
     if (!pic) pic = renderDiaryView() // カメラ写真が無い日は“思い出の一枚”を撮る（壁化を防ぐ・D1）
-    if (pic) { const im = new Image(); im.src = pic; diaryPicEl.appendChild(im); diaryPicEl.style.display = 'block' }
-    else diaryPicEl.style.display = 'none'
+    if (pic) { const im = new Image(); im.src = pic; diaryPicEl.appendChild(im); diaryPicEl.style.display = 'block'
+      if (day >= TOTAL_DAYS) { const st = document.createElement('div'); st.className = 'diary-stamp'; st.innerHTML = `なつの<br>おもいで<br>8月${14 + TOTAL_DAYS}日`; diaryPicEl.appendChild(st) } // H4：最終日は“葉書”の消印スタンプ
+    } else diaryPicEl.style.display = 'none'
   }
   diaryEl.style.display = 'flex'
 }
@@ -8949,6 +9017,7 @@ function update(dt) {
   updateFishShadows(dt) // C6：魚影（谷戸の池の水面下をゆっくり回遊・日中・近接時のみ）
   updateWindFluff(dt) // B3：風に流れる綿毛（風の可視化・日中の晴れ・windに同期）
   updateGroundSteam(dt) // A2：雨上がりの蒸気（夕立のあと暖かい地面から湯気・wetnessで繋ぐ）
+  updateSenko(dt) // H4：線香花火（手持ち花火が ぱちぱち→玉が落ちる）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
@@ -9783,6 +9852,7 @@ function update(dt) {
     // いちばん近い人を話し相手に
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
+    if (window.__senkoBtn) window.__senkoBtn.style.display = (!dialogue && (tday > 0.8 || tday < 0.06) && !senko.active) ? 'block' : 'none' // H4：夜だけ線香花火ボタンを出す
     const nearCat = area === 'yato' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2 // 猫は獅子ヶ谷(サンライズ前)に居る＝撫でられる
     const nearVending = area === 'town' && Math.hypot(boy.position.x - VENDING.x, boy.position.z - VENDING.z) < 2.8
     const nearGarden = area === 'field' && Math.hypot(boy.position.x - GARDEN.x, boy.position.z - GARDEN.z) < 3.6
@@ -10197,6 +10267,17 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
   modal.addEventListener('click', (e) => { if (e.target === modal) close() })
   for (const t of tabs) t.addEventListener('click', () => { cur = t.dataset.t; tabs.forEach((x) => x.classList.toggle('on', x === t)); render() })
   window.__memoryBook = { open, close, render } // 検証用
+})()
+// H4：線香花火ボタン（夜だけ出る手持ち花火）
+;(function buildSenkoBtn() {
+  const style = document.createElement('style')
+  style.textContent = `#senko-btn{position:fixed;right:calc(4% + env(safe-area-inset-right));bottom:calc(22% + env(safe-area-inset-bottom));z-index:37;appearance:none;border:none;cursor:pointer;display:none;
+    width:50px;height:50px;border-radius:50%;font-size:23px;background:rgba(58,48,78,0.74);box-shadow:0 3px 10px rgba(20,24,40,0.4);}
+    body.titling #senko-btn,body.pm-on #senko-btn{display:none !important;}`
+  document.head.appendChild(style)
+  const b = document.createElement('button'); b.id = 'senko-btn'; b.textContent = '🎆'; b.title = '線香花火'; document.body.appendChild(b)
+  b.addEventListener('click', () => { startSenko(); b.style.display = 'none' })
+  window.__senkoBtn = b
 })()
 
 // 横画面のおすすめ（縦持ちのスマホにだけ、やさしく一度。閉じれる/数秒で消える）
