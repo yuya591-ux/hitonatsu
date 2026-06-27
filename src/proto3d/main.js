@@ -1972,8 +1972,8 @@ function buildShishigaya() {
     if (srv.length) { const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(srv, 3)); sg.setAttribute('color', new THREE.Float32BufferAttribute(src, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(sruv, 2)); sg.setIndex(srvidx); sg.computeVertexNormals(); const sm = new THREE.Mesh(sg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, side: THREE.DoubleSide })); sm.castShadow = true; sm.receiveShadow = true; scene.add(sm) } } // サンライズの屋根/塔屋/基礎＝専用メッシュ。layer0のまま＝屋上が下の家々のインク線を遮蔽(屋上から下の建物が透けない)。平らな陸屋上の三角分割は同一平面なのでインク線は出ない
   // 夜の窓あかり：集めた発光板を1メッシュにマージ＝描画1回で町じゅうの窓が一斉に灯る（チラつきは抑えめfa。夜=夏の家々の灯・2026-06-23）
   if (glowWarm.length) { const gg = mergeGeometries(glowWarm, false); glowWarm.forEach((g) => g.dispose())
-    const glowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0xffce86, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); glowMesh.name = 'yatoNightWindows'; glowMesh.castShadow = false; scene.add(glowMesh)
-    townNightLights.push({ m: glowMesh, base: 0.85, ph: 0, fa: 0.05 }) }
+    const glowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0xffc87c, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); glowMesh.name = 'yatoNightWindows'; glowMesh.castShadow = false; scene.add(glowMesh) // A8：窓を少し暖かく＝青い夜に暖色が映える
+    townNightLights.push({ m: glowMesh, base: 0.92, ph: 0, fa: 0.05 }) }
   if (glowTV.length) { const gg = mergeGeometries(glowTV, false); glowTV.forEach((g) => g.dispose())
     tvGlowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0x82a6dc, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); tvGlowMesh.name = 'yatoTVWindows'; tvGlowMesh.castShadow = false; scene.add(tvGlowMesh) } // ブラウン管TVの青い灯り＝ループで明滅
   if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
@@ -6752,10 +6752,10 @@ composer.addPass(bloom)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -6814,6 +6814,7 @@ const gradePass = new ShaderPass({
       c *= 1.0 - paperAmt * (0.06 - paper * 0.17); // 紙の地合いで手描き感を全体に（背景もキャラも一枚の絵に馴染ませる）
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
       c += (grain - 0.5) * 0.018 * (1.0 - smoothstep(0.60, 0.85, hiLum)); // フィルム粒も明るい部分では弱める（太陽の白熱/暈をザラつかせない）
+      c += nightCool * vec3(-0.038, -0.008, 0.055) * (1.0 - smoothstep(0.16, 0.60, hiLum)); // ★A8：夜は月明かりの青を暗部に乗せる（赤を抜いて紫→青の月夜へ）＝暖色の窓あかりが際立つ（明るい窓は影響少→対比が増す）
       float d = distance(vUv, vec2(0.5));
       c *= 1.0 - vig * smoothstep(0.62, 0.98, d);                              // 周辺減光（ごく控えめ・四隅だけ）
       gl_FragColor = vec4(c, 1.0);
@@ -9169,6 +9170,7 @@ function update(dt) {
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.2 : 0 // 控えめ＝光条であって閃光事故にしない（0.32→0.20＝房バグ対策でさらに弱く・2026-06-27）
   gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）
+  gradePass.uniforms.nightCool.value = nightFactor(tday) * 0.9 // ★A8：夜は月明かりの青を暗部に＝暖色の窓あかりとの対比を強め、夏の夜のしんとした安らぎ
     + THREE.MathUtils.smoothstep(tday, 0.06, 0.18) * (1 - THREE.MathUtils.smoothstep(tday, 0.28, 0.44)) * 0.5 // 黄金の朝（B⑦）＝開始時(0.18)を温かい金色のウォッシュに。夕より柔らかく0.5倍
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
   gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.3 : 0.16) // 真昼の晴天だけ・控えめ（ユーザー「強すぎ」→0.55→0.3に弱める2026-06-24）
