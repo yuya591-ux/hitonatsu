@@ -7236,12 +7236,25 @@ function playTsukutsuku() { // ツクツクホウシ「ツクツクツク…(だ
     o2.connect(bp2); bp2.connect(g2); g2.connect(out); o2.start(bt); o2.stop(bt + 0.6)
   } catch (e) {}
 }
-function maybeDayCicadas(dt) { // 昼だけ、ミンミン/ツクツクをまばらに（アブラゼミの基底に重ねて“いろんな蝉”に）
+function playNiinii() { // ニイニイゼミ「チー…ジー…」＝細く高い持続音(約4.5kHz)に細かなチリつき。控えめ・長め＝薄い層（J3・ユーザー要望2026-06-27）
+  try { const ctx = listener.context, out = getSfxOut(), t0 = ctx.currentTime + 0.05, dur = 3.4 + Math.random() * 2.6, base = 4350 + Math.random() * 420
+    const master = ctx.createGain(), trem = ctx.createGain(); trem.gain.value = 0.74
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 21 + Math.random() * 7 // 細かなチリチリ
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0.26; lfo.connect(lfoG); lfoG.connect(trem.gain)
+    const n = ctx.createBufferSource(); n.buffer = getNoise(); n.loop = true // 細い帯域ノイズ＝チーの芯
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = base; bp.Q.value = 12
+    const bp2 = ctx.createBiquadFilter(); bp2.type = 'bandpass'; bp2.frequency.value = base * 1.5; bp2.Q.value = 14
+    n.connect(bp); bp.connect(trem); n.connect(bp2); bp2.connect(trem); trem.connect(master); master.connect(out)
+    master.gain.setValueAtTime(0.0001, t0); master.gain.exponentialRampToValueAtTime(0.02, t0 + 0.6); master.gain.setValueAtTime(0.02, t0 + dur - 0.8); master.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+    n.start(t0); n.stop(t0 + dur + 0.1); lfo.start(t0); lfo.stop(t0 + dur + 0.1)
+  } catch (e) {}
+}
+function maybeDayCicadas(dt) { // 昼だけ、ミンミン/ツクツク/ニイニイをまばらに（アブラゼミの基底に重ねて“いろんな蝉”に）
   if (!audioStarted) return
   if (nightFactor(tday) > 0.4 || tday < 0.1 || tday > 0.66 || weather > 0.5) return // 夜/早朝前/雨は出さない
   dayCicadaCd -= dt; if (dayCicadaCd > 0) return
   dayCicadaCd = 6 + Math.random() * 11 // 数秒〜十数秒に1回
-  if (Math.random() < 0.56) playMinmin(); else playTsukutsuku() // ミンミン多め・ツクツク少し
+  const r = Math.random(); if (r < 0.42) playMinmin(); else if (r < 0.72) playTsukutsuku(); else playNiinii() // ミンミン42%/ツクツク30%/ニイニイ28%
 }
 // 雨上がりのしずく「ぽちゃん」＝軒や葉から落ちる水滴（自前合成）
 function playDrip() {
