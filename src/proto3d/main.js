@@ -6323,23 +6323,26 @@ const cloudMat = new THREE.ShaderMaterial({
     }`,
   transparent: true, fog: false,
 })
-const unitSphere = new THREE.SphereGeometry(1, 10, 8)
+const unitSphere = new THREE.SphereGeometry(1, 12, 9)
 function buildCumulonimbus() {
-  // 多数の球を、ふくらんだ塊状の体積に密に詰める＝もくもくのカリフラワー（積み上げ感を消す）
+  // ぶどう粒の塊に割れて見えないよう、まず“なめらかな芯（大きな球を縦に重ねた連続した主塊）”を作り、
+  // その輪郭に沿って小さめのカリフラワー粒を乗せる＝コヒーレントな入道雲＋もくもくのディテール（ユーザー要望「もっと自然に」2026-06-27）
   const geos = []
   const push = (x, y, z, rx, ry) => { const g = unitSphere.clone(); g.scale(rx, ry, rx); g.translate(x, y, z); geos.push(g) }
   const H = 26, baseW = 13
-  for (let i = 0; i < 64; i++) {
-    const t = Math.pow(Math.random(), 0.85)              // 下に偏らせる（下がもくもく）
+  // 多数の“小さめ”の球を中心寄りに密に詰める＝細かいカリフラワー。大きな球だと上から見たとき「ぶどう粒/風船」に割れて見えるので、
+  // 粒を小さく・密にして連続した雲塊に（ユーザー要望「もっと自然に」2026-06-27）
+  for (let i = 0; i < 104; i++) {
+    const t = Math.pow(Math.random(), 0.8)               // 下に偏らせる（下がもくもく）
     const y = t * H
-    const prof = Math.sin(Math.min(1, t * 1.1 + 0.12) * Math.PI) // 下〜中ふくらみ、上すぼまり
-    const maxr = baseW * (0.4 + 0.6 * prof)
-    const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * maxr
-    const sr = (1 - t * 0.55) * 3.0 + 1.9 + Math.random() * 1.4
-    push(Math.cos(a) * rr, y, Math.sin(a) * rr * 0.78, sr, sr * (0.86 + Math.random() * 0.24))
+    const prof = Math.sin(Math.min(1, t * 1.08 + 0.12) * Math.PI) // 下〜中ふくらみ、上すぼまり
+    const maxr = baseW * (0.46 + 0.54 * prof)
+    const a = Math.random() * Math.PI * 2, rr = Math.pow(Math.random(), 0.62) * maxr // 中心寄りに密（縁がギザつかない）
+    const sr = (1 - t * 0.45) * 1.7 + 1.15 + Math.random() * 0.7 // 小さめの粒＝細かいディテール
+    push(Math.cos(a) * rr, y, Math.sin(a) * rr * 0.8, sr, sr * (0.9 + Math.random() * 0.16))
   }
-  // てっぺんの丸い盛り上がり（塔の頭）
-  for (const [dx, dy, sr] of [[0, 0.96, 4.6], [-3.5, 0.84, 3.6], [3.4, 0.86, 3.4], [0.5, 1.04, 3.2]]) push(dx, H * dy, (Math.random() - 0.5) * 2, sr, sr)
+  // てっぺんの丸い盛り上がり（塔の頭）＝小さめに
+  for (const [dx, dy, sr] of [[0, 0.98, 3.0], [-2.6, 0.88, 2.4], [2.6, 0.9, 2.3], [0.4, 1.04, 2.2]]) push(dx, H * dy, (Math.random() - 0.5) * 2, sr, sr)
   const merged = mergeGeometries(geos); geos.forEach((g) => g.dispose()); return merged
 }
 // N4（2026-06-27）：入道雲を2段に＝近景の大きな主雲(7基)＋遠景の小さめの積雲(4基)で空気遠近の奥行きを作り、
@@ -6354,7 +6357,8 @@ for (let i = 0; i < NEAR_N + FAR_N; i++) {
   const az = i === 0 ? (Math.PI / 4 + (Math.random() - 0.5) * 0.35) // 0番＝北東(開始の通りの抜け)に主雲
     : far ? ((i - NEAR_N) / FAR_N * Math.PI * 2 + 0.8 + Math.random() * 0.5) // 遠景は近景の隙間を埋めるよう位相をずらす
     : ((i / NEAR_N) * Math.PI * 2 + Math.random() * 0.5)
-  mesh.userData = { az, dist: far ? (520 + Math.random() * 60) : (340 + Math.random() * 160), baseY: far ? (7 - Math.random() * 8) : (2 - Math.random() * 16), drift: 0.0014 + Math.random() * 0.0028 }
+  // baseY＝雲の“底”の高さ。建物(最大約90m)/丘より十分上に上げる＝低い位置でビルや丘に食い込む違和感を解消（ユーザー指摘2026-06-27）。飛行(最大約200m)でも空の要素として読める高さ
+  mesh.userData = { az, dist: far ? (520 + Math.random() * 60) : (340 + Math.random() * 160), baseY: far ? (130 + Math.random() * 50) : (108 + Math.random() * 46), drift: 0.0014 + Math.random() * 0.0028 }
   scene.add(mesh); thunderheads.push(mesh)
 }
 
