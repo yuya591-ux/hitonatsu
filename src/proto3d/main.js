@@ -6781,10 +6781,10 @@ composer.addPass(bloom)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, mist: { value: 0.0 }, frame: { value: 0.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, mist: { value: 0.0 }, frame: { value: 0.0 }, exposure: { value: 1.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform float mist; uniform float frame; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform float mist; uniform float frame; uniform float exposure; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -6801,6 +6801,7 @@ const gradePass = new ShaderPass({
         uv.x += hz * heat * hazeBand * 0.0022; uv.y += hz * heat * hazeBand * 0.0011;
       }
       vec3 c = texture2D(tDiffuse, uv).rgb;
+      c *= exposure; // ★A3：眼の順応（露出のなめらかな移行）。明暗が急に変わっても一旦保ってからゆっくり追従＝夕暮れの移ろいが映画的に（定常は1.0で中立）
       float lum = L(c);
       // 顔料だまり：周囲との明度差（エッジ）でフチを暗く＝水彩の縁取り（控えめ＝シマシマ防止）
       float e = abs(L(texture2D(tDiffuse, uv + vec2(texel.x, 0.0)).rgb) - lum)
@@ -9283,6 +9284,12 @@ function update(dt) {
     + THREE.MathUtils.smoothstep(tday, 0.06, 0.18) * (1 - THREE.MathUtils.smoothstep(tday, 0.28, 0.44)) * 0.5 // 黄金の朝（B⑦）＝開始時(0.18)を温かい金色のウォッシュに。夕より柔らかく0.5倍
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
   gradePass.uniforms.heat.value = THREE.MathUtils.smoothstep(tday, 0.30, 0.45) * (1 - THREE.MathUtils.smoothstep(tday, 0.56, 0.72)) * (1 - weather) * (mode === 'walk' ? 0.3 : 0.16) // 真昼の晴天だけ・控えめ（ユーザー「強すぎ」→0.55→0.3に弱める2026-06-24）
+  // ★A3：自動露出順応。場面の明るさを解析的に推し（昼夜・天気で）、目標へ遅れて追従させて“露出の移り変わり”をなめらかに。
+  //   定常状態はexposure=1.0（夜は夜のまま・明るさを書き換えない）。急な明暗変化のときだけ±最大12%の過渡で「目が慣れる」気配を出す。
+  { const instLum = THREE.MathUtils.clamp(0.16 + (1 - nf) * 0.84 - weather * 0.22 + (onRoofHi ? 0.10 : 0), 0.06, 1.10)
+    if (adaptLum < 0) adaptLum = instLum
+    adaptLum += (instLum - adaptLum) * Math.min(1, dt / 1.6) // 目の慣れ＝約1.6秒の時定数で遅れて追従
+    gradePass.uniforms.exposure.value = THREE.MathUtils.clamp(Math.pow(adaptLum / instLum, 0.55), 0.90, 1.12) }
   // 流れる雲の影（B1）：ゆっくり流れる＋昼に最も濃く・夜と雨でうすれる（夜は影が見えない・雨は曇って影が消える）。地面の均一な緑に動きと陰影
   cloudShadowU.uCloudTime.value = tsec
   cloudShadowU.uCloudAmt.value = 0.13 * (1 - nightFactor(tday)) * (1 - weather * 0.85) * (0.45 + 0.55 * THREE.MathUtils.smoothstep(tday, 0.16, 0.42)) // 朝はうっすら→昼に最大・控えめ
@@ -9729,6 +9736,7 @@ function titleCam() {
 // ── J3：エラー耐性。万一どこかで例外が出ても、画面が固まったまま/真っ白にならないように受け止める。──
 // Three.jsの setAnimationLoop はコールバックが例外を投げると再スケジュールされず永久に止まる。
 // 1フレームの一時的な不具合（たまたまのNaN等）でゲーム全体が固まらないよう、ループ本体を try で包む。
+let adaptLum = -1 // A3：自動露出順応で“いま目が慣れている明るさ”。-1は未初期化（最初のフレームで現在値に合わせる）
 const __errLog = [] // 直近のエラーを少しだけ覚えておく（検証フック _errors で確認）
 function recordErr(where, e) {
   const msg = (e && (e.stack || e.message)) ? String(e.stack || e.message) : String(e)
@@ -10178,6 +10186,7 @@ window.__proto3d = {
   _pose(x, z, rot, a) { if (a) { area = a; onYato = a === 'yato' } boy.position.set(x, heightAt(x, z), z); facing = (rot != null ? rot : facing); boy.rotation.y = facing; boy.userData._cy = null; camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z) }, // 検証用：好きな位置・向きにカメラを置く（景色の確認・3視点QA用）
   _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
+  _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
   _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
   _bgmEnable(on) { settings.bgm = !!on; applyBgm() }, // 検証用：オルゴールBGMのON/OFF（既定OFF＝環境音中心。ダッキング確認用）
   doCatch() { doCatch() }, // 検証用
