@@ -10330,9 +10330,16 @@ const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
 const setInkBtn = document.getElementById('set-ink')
-const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1 } // light=軽量モード（既定OFF＝フル品質）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)
+const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1, bigText: false } // light=軽量モード（既定OFF＝フル品質）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
+const hadSavedSettings = (() => { try { return !!localStorage.getItem('hn3d_settings') } catch (e) { return false } })()
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
+// I3：初回はOSのアクセシビリティ設定を尊重（保存済みの好みは上書きしない）。視差効果を減らす→ゆれ低減ON、コントラスト高→文字を大きく
+if (!hadSavedSettings) { try {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) settings.motion = true
+  if (matchMedia('(prefers-contrast: more)').matches) settings.bigText = true
+} catch (e) {} }
+try { matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (e) => { settings.motion = e.matches; saveSettings(); applyMotion() }) } catch (e) {} // OS設定の変更にも追従
 const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
 function applySound() {
   if (setSoundBtn) { setSoundBtn.textContent = settings.sound ? 'ON' : 'OFF'; setSoundBtn.classList.toggle('on', settings.sound) }
@@ -10348,6 +10355,9 @@ function applySens() { // 見まわす はやさ（3段階）
   if (setSensBtn) { setSensBtn.textContent = step.label; setSensBtn.classList.add('on') }
 }
 function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { setMotionBtn.textContent = settings.motion ? 'ON' : 'OFF'; setMotionBtn.classList.toggle('on', settings.motion) } }
+// I3：文字を大きく（読みやすさ）。本文系（会話/絵日記/トースト/おもいで/あそびかた）のフォントを少し大きく
+;(function () { const s = document.createElement('style'); s.textContent = `body.big-text #dlg-text,body.big-text #diary-body .line,body.big-text #toast,body.big-text #mb-body .line,body.big-text #mb-body h4,body.big-text .mb-cre .ds,body.big-text .mb-cre .nm,body.big-text #guide-body,body.big-text #dialogue{font-size:1.2em !important;line-height:1.75 !important;}`; document.head.appendChild(s) })()
+function applyBigText() { document.body.classList.toggle('big-text', !!settings.bigText) }
 function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）。軽量モード中は強制OFF
   inkPass.enabled = settings.ink && !settings.light
   if (setInkBtn) { setInkBtn.textContent = settings.ink ? 'ON' : 'OFF'; setInkBtn.classList.toggle('on', settings.ink) }
@@ -10380,6 +10390,13 @@ if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !setti
     sl.addEventListener('input', () => { settings[key] = +sl.value / 100; saveSettings() })
     row.appendChild(lab); row.appendChild(sl); wrap.appendChild(row)
   }
+  // I3：文字を大きく トグル（読みやすさ）
+  const trow = document.createElement('div'); trow.className = 'set-vol-row'; trow.style.marginTop = '0.7em'
+  const tlab = document.createElement('span'); tlab.className = 'set-vol-lab'; tlab.style.width = 'auto'; tlab.textContent = 'もじ 大きめ'
+  const tbtn = document.createElement('button'); tbtn.type = 'button'; tbtn.style.cssText = 'margin-left:auto;appearance:none;border:none;cursor:pointer;border-radius:999px;padding:0.3em 1.1em;font-size:13px;font-family:inherit;'
+  const paint = () => { tbtn.textContent = settings.bigText ? 'ON' : 'OFF'; tbtn.style.background = settings.bigText ? '#8aa86a' : '#b6aa92'; tbtn.style.color = '#fff' }
+  paint(); tbtn.addEventListener('click', () => { settings.bigText = !settings.bigText; saveSettings(); applyBigText(); paint() })
+  trow.appendChild(tlab); trow.appendChild(tbtn); wrap.appendChild(trow)
   const anchor = setBgmBtn && setBgmBtn.closest('.set-row, li, .row, div')
   if (anchor && anchor.parentNode && anchor.parentNode !== document.body) anchor.parentNode.insertBefore(wrap, anchor.nextSibling); else settingsEl.appendChild(wrap)
   const s = document.createElement('style'); s.textContent = `#set-vols{margin:0.7em 0;padding:0.6em 0;border-top:1px solid rgba(120,108,86,0.22);}
@@ -10412,7 +10429,7 @@ const villLabels = ['忠実', '中庸', '大胆']
 if (setVillageBtn) { setVillageBtn.textContent = villLabels[villageLevel] || '忠実'; setVillageBtn.classList.toggle('on', villageLevel > 0)
   setVillageBtn.addEventListener('click', () => { const nv = (villageLevel + 1) % 3; try { localStorage.setItem('hn3d_village', nv) } catch (e) {}
     const u = new URL(location.href); u.searchParams.delete('v'); u.searchParams.set('cb', Date.now()); location.replace(u.toString()) }) } // 保存して読み直し＝建物の生成からやり直す
-applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight()
+applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); applyBigText()
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
 {
