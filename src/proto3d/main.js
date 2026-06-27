@@ -6986,9 +6986,12 @@ function getMaster() {
   if (masterChain && masterChain.context === ctx) return masterChain.input
   const lim = ctx.createDynamicsCompressor()
   lim.threshold.value = -2.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12 // ブリックウォール（歪み防止）
+  // G4：マスター整音EQ（リミッター後・いずれもレベルを下げる方向＝リミッターを脅かさない）。商品級の耳当たりへ控えめに。
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 82; hp.Q.value = 0.7 // 可聴下のゴロつき/低周波ノイズを除く（スマホ/イヤホンで濁らない・温かみは残す控えめ設定）
+  const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 3200; pres.Q.value = 1.1; pres.gain.value = -2.0 // 耳に刺さりやすい2〜4kHzをほんの少し下げて聴き疲れを抑える
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 11000; lp.Q.value = 0.3 // 耳に刺さる超高域を少しだけ丸める
   const mg = ctx.createGain(); mg.gain.value = 0.82 // 全体を少し下げてヘッドルーム確保
-  lim.connect(lp); lp.connect(mg); mg.connect(ctx.destination)
+  lim.connect(hp); hp.connect(pres); pres.connect(lp); lp.connect(mg); mg.connect(ctx.destination)
   try { listener.gain.disconnect() } catch (e) {} // 環境音の出力をマスターへ通し直す（既定の直結を解除）
   listener.gain.connect(lim)
   masterChain = { input: lim, context: ctx }
