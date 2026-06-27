@@ -716,7 +716,7 @@ const groundDirtTex = (() => { const s = 128, c = document.createElement('canvas
   for (let i = 0; i < 64; i++) { const px = Math.random() * s, py = Math.random() * s, r = 7 + Math.random() * 22; x.globalAlpha = 0.05 + Math.random() * 0.07; x.fillStyle = Math.random() < 0.5 ? '#c6ad84' : '#ece0c6'; for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, 6.283); x.fill() } } // 土のムラ（タイル境界をまたいで反復を目立たなく）
   x.globalAlpha = 1; for (let i = 0; i < 150; i++) { const v = Math.random() < 0.5; x.fillStyle = v ? 'rgba(118,98,68,0.22)' : 'rgba(246,236,212,0.28)'; const sz = 1 + Math.random() * 2; x.fillRect(Math.random() * s, Math.random() * s, sz, sz) } // 小石/砂粒
   x.globalAlpha = 0.06; x.strokeStyle = '#9a8460'; x.lineWidth = 1; for (let i = 0; i < 10; i++) { const y = Math.random() * s; x.beginPath(); x.moveTo(0, y); x.bezierCurveTo(s * 0.3, y + (Math.random() - 0.5) * 8, s * 0.6, y + (Math.random() - 0.5) * 8, s, y + (Math.random() - 0.5) * 6); x.stroke() } // うっすら掃いた跡/わだち
-  x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
+  x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })()
 // グレーのレンガタイル（平成初期の中層マンションの外装＝小口タイル張り。馬目地・タイルごとの微妙な濃淡・目地）
 const tileTex = (() => {
   const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
@@ -1754,7 +1754,7 @@ function buildShishigaya() {
     const corners = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], uv = [[0, 0], [1, 0], [1, 1], [0, 1]]
     for (let k = 0; k < 4; k++) { const lx = corners[k][0], lz = corners[k][1]; gsv.push(cx + lx * co - lz * si, y, cz + lx * si + lz * co); gsuv.push(uv[k][0], uv[k][1]) }
     gsidx.push(gso, gso + 1, gso + 2, gso, gso + 2, gso + 3); gso += 4 }
-  const kawaraTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(0,0,0,0.11)'; x.lineWidth = 1.4; for (let y = 0; y < 64; y += 9) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(64, y + 0.5); x.stroke() } x.strokeStyle = 'rgba(0,0,0,0.05)'; for (let xx = 0; xx < 64; xx += 8) { x.beginPath(); x.moveTo(xx + 0.5, 0); x.lineTo(xx + 0.5, 64); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 瓦の控えめなタイル目（白地＝頂点色で着色）
+  const kawaraTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(0,0,0,0.11)'; x.lineWidth = 1.4; for (let y = 0; y < 64; y += 9) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(64, y + 0.5); x.stroke() } x.strokeStyle = 'rgba(0,0,0,0.05)'; for (let xx = 0; xx < 64; xx += 8) { x.beginPath(); x.moveTo(xx + 0.5, 0); x.lineTo(xx + 0.5, 64); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // 瓦の控えめなタイル目（白地＝頂点色で着色）
   const walls = [[0.90, 0.86, 0.76], [0.86, 0.80, 0.68], [0.82, 0.84, 0.80], [0.80, 0.76, 0.70], [0.88, 0.82, 0.72], [0.78, 0.80, 0.84], [0.84, 0.78, 0.66]]
   const roofs = [[0.40, 0.46, 0.52], [0.46, 0.34, 0.28], [0.34, 0.42, 0.36], [0.30, 0.34, 0.40], [0.52, 0.42, 0.30], [0.38, 0.32, 0.30]]
   const aptWalls = [[0.86, 0.84, 0.80], [0.82, 0.80, 0.75], [0.80, 0.82, 0.84], [0.88, 0.85, 0.78], [0.79, 0.80, 0.82]], flatTop = [0.34, 0.36, 0.38], rtBox = [0.30, 0.31, 0.33]
@@ -1772,7 +1772,7 @@ function buildShishigaya() {
     x.fillStyle = '#c7c2b4'; x.fillRect(0, 80, 128, 5)  // 笠木（手すり上端）
     x.fillStyle = '#b3ad9e'; for (let i = 10; i < 122; i += 12) x.fillRect(i, 88, 2, 30) // 手すりの縦格子（スリット）
     x.fillStyle = 'rgba(120,114,100,0.5)'; x.fillRect(0, 0, 4, 128); x.fillRect(124, 0, 4, 128) // 戸境の柱の陰＝隣の戸との継ぎめがはっきり（単調な反復を割る）
-    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })()
   const houseTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d') // 一軒家の壁1区画＝下見板＋窓（昭和の家。テクスチャで模倣＝形は箱のまま低ポリ。白基調で壁の頂点色に掛け算）
     x.fillStyle = '#ffffff'; x.fillRect(0, 0, 128, 128)
     x.strokeStyle = 'rgba(150,142,124,0.26)'; x.lineWidth = 1; for (let y = 8; y < 128; y += 11) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(128, y + 0.5); x.stroke() } // 下見板（横の段）
@@ -1782,7 +1782,7 @@ function buildShishigaya() {
     x.strokeStyle = '#c9c4b7'; x.lineWidth = 2; x.beginPath(); x.moveTo(64, wy0); x.lineTo(64, wy1); x.moveTo(wx0, 55); x.lineTo(wx1, 55); x.stroke() // 十字桟（引き違い窓）
     x.fillStyle = '#d8d2c4'; x.fillRect(wx0 - 3, wy1, wx1 - wx0 + 6, 4) // 窓台（水切り）
     x.fillStyle = 'rgba(120,112,96,0.16)'; x.fillRect(0, 0, 3, 128); x.fillRect(125, 0, 3, 128) // 区画の継ぎめ（柱／角）
-    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })()
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })()
   const pushTri = (col, p0, p1, p2) => { rfv.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]); rfuv.push(p0[0] / 2.4, p0[2] / 2.4, p1[0] / 2.4, p1[2] / 2.4, p2[0] / 2.4, p2[2] / 2.4); for (let q = 0; q < 3; q++) rfc.push(col[0], col[1], col[2]); rfidx.push(oRef.o, oRef.o + 1, oRef.o + 2); oRef.o += 3 } // UVは真上からの平面投影＝瓦目が世界グリッドに揃う
   let sunIdx = -1, sunD = 1e9; SG.buildings.forEach((b, i) => { if (b[6] === 1) { const dd = Math.hypot(b[0] - 3008, b[1] + 8.5); if (dd < sunD) { sunD = dd; sunIdx = i } } }) // サンライズ北寺尾＝原点最寄りの集合住宅（z反転後なので+8.5）
   // サンライズ鶴見北寺尾I＝実輪郭(OSM Bing trace・雁行型21頂点)。7階RC85戸1995竣工。汎用の箱では出ない“特殊な構造”をこの形で再現
@@ -2039,7 +2039,7 @@ function buildShishigaya() {
   { const grp = new THREE.Group(); grp.name = 'landmarks2'; scene.add(grp)
     const mk = (geo, mat, x, y, z, ry, sh) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; if (sh) { m.castShadow = true; m.receiveShadow = true } return m }
     const gmin4 = (cx, cz, w, d) => Math.min(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
-    const schoolTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#e9e4d6'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#586774'; for (let yy = 8; yy < 60; yy += 16) for (let xx = 7; xx < 60; xx += 14) x.fillRect(xx, yy, 9, 10); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 校舎の窓列
+    const schoolTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#e9e4d6'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#586774'; for (let yy = 8; yy < 60; yy += 16) for (let xx = 7; xx < 60; xx += 14) x.fillRect(xx, yy, 9, 10); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // 校舎の窓列
     const gmax4 = (cx, cz, w, d) => Math.max(heightAtYato(cx - w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz - d / 2), heightAtYato(cx + w / 2, cz + d / 2), heightAtYato(cx - w / 2, cz + d / 2))
     const schoolBldg = (cx, cz, w, d, floors, ry, roofCol) => { const gB = gmin4(cx, cz, w, d), slope = Math.min(10, gmax4(cx, cz, w, d) - gB), h = slope + floors * 3.3, tex = schoolTex.clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(2, Math.round(w / 4)), floors); grp.add(mk(new THREE.BoxGeometry(w, h, d), new THREE.MeshToonMaterial({ color: 0xd2cab6, gradientMap: GRAD, map: tex }), cx, gB + h / 2, cz, ry, true)); grp.add(mk(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), toon(roofCol || 0x9a4f3e), cx, gB + h + 0.3, cz, ry, true)); addBox(cx, cz, w / 2, d / 2, ry, 0.3) } // 斜面でも埋まらないよう床=最低角＋落差ぶん上に伸ばす＋当たり判定
     const ground = (cx, cz, w, d, col) => { // グラウンド/校庭＝地面に沿う面（造成スラブにしない＝斜面で四角く浮かない・段差で進路を塞がない・歩いて入れる）＋簡易フェンス
@@ -2513,7 +2513,7 @@ function buildShishigaya() {
         for (const wx of [12, 70]) { const gg = x.createLinearGradient(0, 24, 0, 92); gg.addColorStop(0, '#9fb0bf'); gg.addColorStop(0.5, '#7a8d9b'); gg.addColorStop(1, '#566571'); x.fillStyle = gg; x.fillRect(wx, 24, 46, 68); x.strokeStyle = '#f4f0e6'; x.lineWidth = 3.5; x.strokeRect(wx + 1.75, 25.75, 42.5, 64.5); x.strokeStyle = '#b9b3a4'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(wx + 23, 24); x.lineTo(wx + 23, 92); x.moveTo(wx, 56); x.lineTo(wx + 46, 56); x.stroke() } // 濃いめのガラス＋白サッシ＋十字桟
         x.fillStyle = '#9298a0'; x.fillRect(4, 95, 120, 4); x.fillStyle = 'rgba(96,104,114,0.95)'; for (let bx2 = 8; bx2 < 122; bx2 += 6) x.fillRect(bx2, 99, 2, 20); x.fillStyle = '#8f959c'; x.fillRect(4, 117, 120, 3) // バルコニーの金属手すり（濃いめ＝はっきり）
         x.fillStyle = '#dcd8cc'; x.fillRect(100, 99, 18, 15); x.strokeStyle = '#b3aea0'; x.lineWidth = 1; x.strokeRect(100, 99, 18, 15); x.fillStyle = 'rgba(120,112,98,0.28)'; x.fillRect(0, 18, 2, 108)
-        const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // ★RepeatWrapping必須（UVが0..戸数/階数で繰り返す。無いとクランプで面が無地になる）
+        const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // ★RepeatWrapping必須（UVが0..戸数/階数で繰り返す。無いとクランプで面が無地になる）
       const base = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], vv = [], uvv = [], ix = []; let o = 0, L = (lx, ly, lz) => [B.cx + lx, gB + ly, B.cz + lz]
       for (let k = 0; k < 4; k++) { const a = base[k], b = base[(k + 1) % 4], wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 4.5)), vt = B.floors, q = [L(a[0], 0, a[1]), L(b[0], 0, b[1]), L(b[0], h, b[1]), L(a[0], h, a[1])], uq = [[0, 0], [u, 0], [u, vt], [0, vt]]
         q.forEach((p, qi) => { vv.push(p[0], p[1], p[2]); uvv.push(uq[qi][0], uq[qi][1]) }); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); o += 4 }
@@ -2645,14 +2645,14 @@ function buildShishigaya() {
   const asphaltTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); x.fillStyle = '#80848b'; x.fillRect(0, 0, 96, 96)
     for (let i = 0; i < 16; i++) { const g = 116 + Math.random() * 28 | 0; x.globalAlpha = 0.05 + Math.random() * 0.06; x.fillStyle = 'rgb(' + g + ',' + g + ',' + (g + 3) + ')'; const r = 12 + Math.random() * 24, px = Math.random() * 96, py = Math.random() * 96; for (const ox of [-96, 0, 96]) for (const oy of [-96, 0, 96]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, 6.283); x.fill() } } // 古い舗装の柔らかいムラ/補修の継ぎ（継ぎ目をまたいで描く＝タイル境界で途切れない・低コントラストで反復も目立たない）
     x.globalAlpha = 1; for (let i = 0; i < 900; i++) { const g = 110 + Math.random() * 60 | 0; x.fillStyle = 'rgba(' + g + ',' + g + ',' + (g + 4) + ',' + (0.06 + Math.random() * 0.13).toFixed(2) + ')'; const s = 1 + Math.random() * 2; x.fillRect(Math.random() * 96, Math.random() * 96, s, s) } // 細かい粒
-    x.strokeStyle = 'rgba(60,62,68,0.26)'; x.lineWidth = 2; x.strokeRect(1, 1, 94, 94); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // アスファルト＝灰＋粒＋柔らかいムラ（のっぺり解消・F1継続2026-06-25）
+    x.strokeStyle = 'rgba(60,62,68,0.26)'; x.lineWidth = 2; x.strokeRect(1, 1, 94, 94); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // アスファルト＝灰＋粒＋柔らかいムラ（のっぺり解消・F1継続2026-06-25）
   const yatoDirtTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#c39a55'; x.fillRect(0, 0, 64, 64)
     // 轍（わだち）：荷車/自転車が踏み固めた2本の濃い帯が道に沿って走る（Uは幅方向＝固定位置で長さ方向に連続＝田舎道の主役・B3 2026-06-26）
     for (const rcx of [19, 45]) { const g = x.createLinearGradient(rcx - 9, 0, rcx + 9, 0); g.addColorStop(0, 'rgba(118,90,50,0)'); g.addColorStop(0.5, 'rgba(118,90,50,0.36)'); g.addColorStop(1, 'rgba(118,90,50,0)'); x.fillStyle = g; x.fillRect(rcx - 9, 0, 18, 64) }
     { const g = x.createLinearGradient(26, 0, 38, 0); g.addColorStop(0, 'rgba(172,152,98,0)'); g.addColorStop(0.5, 'rgba(172,152,98,0.22)'); g.addColorStop(1, 'rgba(172,152,98,0)'); x.fillStyle = g; x.fillRect(26, 0, 12, 64) } // 轍の間の少し草/土が高い帯（うっすら明るい）
     for (let i = 0; i < 520; i++) { const r = 150 + Math.random() * 55 | 0; x.fillStyle = 'rgba(' + r + ',' + (r - 30) + ',' + (r - 78) + ',' + (0.07 + Math.random() * 0.15).toFixed(2) + ')'; const s = 1 + Math.random() * 2.5; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } // 細かい土の粒
     x.lineCap = 'round'; for (let i = 0; i < 64; i++) { const px = Math.random() * 64, py = Math.random() * 64, s = 1.3 + Math.random() * 2.0, dark = Math.random() < 0.5; x.globalAlpha = 0.38 + Math.random() * 0.30; x.fillStyle = dark ? '#7a623c' : '#e0cd9e'; x.beginPath(); x.ellipse(px, py, s, s * 0.68, Math.random() * 3.1, 0, 6.283); x.fill() } // 小石（明暗の小粒＝足元の手ざわり）
-    x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t })() // 土の道＝黄土＋轍＋小石（のっぺり解消・目線の手ざわり）
+    x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // 土の道＝黄土＋轍＋小石（のっぺり解消・目線の手ざわり）
   const buildRoads = (kind, tex, lift, edgeCol) => { const rv = [], ruv = [], ridx = [], ev = [], eidx = [], clv = [], clidx = []; let ro = 0, eo = 0, clo = 0 // clv=中央の白破線（幅広の主要道だけ・F1）
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = Math.max(kind === 'path' ? 1.25 : 2.0, rd.w / 2) // 細い道も見える/歩ける最低幅を確保
       for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, n = Math.max(2, Math.ceil(l / 4)) // 4m刻み＋中央頂点で地形に沿わせる（埋もれ防止・三角数を抑える）
