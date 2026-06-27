@@ -9277,6 +9277,13 @@ renderer.setAnimationLoop(() => {
   if (floatMode && window.__updFlightHud) window.__updFlightHud() // 風船飛行のメーター更新
   // インク線/被写界深度用の法線・深度RT＝シーンをもう一度描く重い処理。カメラが動いている間は毎フレーム更新＝輪郭線が1フレーム遅れて二重・残像になる不具合を解消（ユーザー指摘2026-06-26）。完全に静止している時だけ2フレームに1回に間引く（発熱対策）
   nrtTick++
+  // 空中(風船浮遊/開発飛行)＝広い俯瞰でシーン全体が視界に入り、しかもカメラが常に動くので、インク/被写界深度のための
+  // “法線・深度RTへのシーン二重描画”が毎フレーム走って重く＝密な場所の上空で激しくカクつく（ユーザー指摘2026-06-27）。
+  // 空中ではインク輪郭/DOFを止めて二重描画を丸ごとスキップ＝描画コストほぼ半減で滑らかに（地上に降りたら設定どおり復帰）。
+  // 俯瞰では細い輪郭線も足元のボケも不要なので見た目の損失はほぼ無い。
+  const aerial = floatMode || flying
+  inkPass.enabled = !aerial && !!(settings && settings.ink) && !(settings && settings.light)
+  dofPass.enabled = !aerial && !(settings && settings.light)
   const camMoved = camera.position.distanceToSquared(_prevCamPos) > 1e-5 || Math.abs(camera.quaternion.dot(_prevCamQuat)) < 0.999995 || mode !== 'walk' || moving
   _prevCamPos.copy(camera.position); _prevCamQuat.copy(camera.quaternion)
   if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick & 1))) { // 動いている時は毎フレーム、静止中だけ半分の頻度＝残像なし＋静止時は発熱を抑える
@@ -9655,6 +9662,7 @@ window.__proto3d = {
   _heat(v) { gradePass.uniforms.heat.value = v }, // 検証/調整用：陽炎の強さ 0..1（時刻自動だが固定して見る用）
   _vig(v) { gradePass.uniforms.vig.value = v }, // 検証/調整用：周辺減光の強さ
   _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
+  get _passState() { return { ink: inkPass.enabled, dof: dofPass.enabled, aerial: floatMode || flying } }, // 検証用：ポストパスの状態（空中で二重描画を止めているか）
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
   _jump() { doJump() }, // 検証用
