@@ -534,7 +534,7 @@ const SHADOW_TEX = (() => {
   const x = c.getContext('2d')
   const g = x.createRadialGradient(32, 32, 2, 32, 32, 30)
   // 中心を濃く＝伸ばしても接地点直下に密度が残り“浮き”を防ぐ
-  g.addColorStop(0, 'rgba(18,22,14,0.72)'); g.addColorStop(0.4, 'rgba(18,22,14,0.4)'); g.addColorStop(1, 'rgba(18,22,14,0)') // 接地影を少し濃く締める＝物が地面に乗る立体感（実写寄り）
+  g.addColorStop(0, 'rgba(18,22,14,0.78)'); g.addColorStop(0.4, 'rgba(18,22,14,0.46)'); g.addColorStop(1, 'rgba(18,22,14,0)') // 接地影を少し濃く締める＝物が地面に乗る立体感（実写寄り）。P4：明るい昼の地面でも接地AOが効くよう中心0.72→0.78/中0.4→0.46に底上げ
   x.fillStyle = g; x.fillRect(0, 0, 64, 64)
   return new THREE.CanvasTexture(c)
 })()
@@ -627,7 +627,7 @@ function setTimeOfDay(t) {
   const { from, to, u } = pickPal(t)
   // 太陽の運行（朝=低い東 → 昼=高い → 夕=低い西）。夜は地平線下。
   const elev = Math.sin(Math.min(t, 0.9) / 0.9 * Math.PI) // 0..1..0
-  const elevAngle = Math.pow(elev, 2.4) * 1.32 // 朝夕の太陽を低く＝斜光と長い影を作る（昼ピークは76°のまま高く保ち、肩=朝夕だけ下げる）。`elev*1.25`(夕でも53°と高すぎ＝昼が平坦の根本)をpow曲線に（アートD+クリエイティブD指摘2026-06-27）。朝0.2≈27°/夕0.66≈38°/深い夕0.78≈14°
+  const elevAngle = Math.pow(elev, 2.4) * 1.12 // P4：昼ピークも76°→約64°に下げ“常に方向性の付く斜光”で昼ののっぺりを解消（アートD/ぼくなつD第3回指摘＝真上太陽で影が消え立体が死ぬ）。朝0.2≈22°/昼≈64°/夕0.66≈31°/深い夕0.78≈12°。pow曲線で朝夕はより低く保ったまま昼だけ下げる（×1.32→1.12）
   const az = Math.PI * (0.12 + t * 0.95)
   sunDir.set(Math.cos(az) * Math.cos(elevAngle), Math.sin(elevAngle) + 0.04, Math.sin(az) * Math.cos(elevAngle)).normalize()
   // sun.position は影カメラと一体なので frameShadow が管理（毎フレームここで動かすと影がずれる）
