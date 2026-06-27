@@ -6253,6 +6253,26 @@ function updateWindFluff(dt) {
   }
   windFluff.geo.attributes.position.needsUpdate = true
 }
+// ── A2：雨上がりの蒸気。夕立のあと、暖かい濡れた地面からゆっくり湯気が立ちのぼる＝天候の余韻（晴れ→夕立→蒸気をwetnessで繋ぐ）。──
+const groundSteam = (() => {
+  const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); const gr = x.createRadialGradient(24, 24, 0, 24, 24, 24); gr.addColorStop(0, 'rgba(255,255,255,0.5)'); gr.addColorStop(0.5, 'rgba(245,250,245,0.22)'); gr.addColorStop(1, 'rgba(245,250,245,0)'); x.fillStyle = gr; x.fillRect(0, 0, 48, 48); return new THREE.CanvasTexture(c) })()
+  const arr = []
+  for (let i = 0; i < 10; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, fog: true, color: 0xeaf2ea })); s.scale.set(2, 2, 1); s.visible = false; s.renderOrder = 2; scene.add(s); if (typeof yatoStatics === 'undefined') {} arr.push({ s, life: Math.random(), x: 0, y: 0, z: 0 }) }
+  return arr
+})()
+function updateGroundSteam(dt) {
+  const day = tday > 0.16 && tday < 0.62 // 暑い昼〜昼下がりだけ（夕方以降は冷えて湯気は立たない）
+  const amt = THREE.MathUtils.clamp((wetness - 0.25) / 0.5, 0, 1) * (1 - weather) * (day ? 1 : 0) // 濡れていて・雨が上がって・暑い時
+  for (const st of groundSteam) {
+    if (amt < 0.05) { if (st.s.visible) st.s.visible = false; continue }
+    if (st.life >= 1 || !st.s.visible) { st.life = 0; st.x = boy.position.x + (Math.random() - 0.5) * 42; st.z = boy.position.z + (Math.random() - 0.5) * 42; st.y = heightAt(st.x, st.z); st.s.visible = true }
+    st.life += dt * 0.2; st.y += dt * (0.55 + 0.5 * wind); st.x += wind * 0.35 * dt // ゆっくり立ちのぼり風に流れる
+    const f = st.life
+    st.s.position.set(st.x, st.y + f * 1.4, st.z)
+    const sc = 1.4 + f * 2.8; st.s.scale.set(sc, sc, 1) // 上るほど広がって薄れる
+    st.s.material.opacity = amt * 0.42 * Math.sin(Math.min(1, f) * Math.PI) // 立ちのぼって消える（中間がいちばん濃い）
+  }
+}
 function initFishers() {
   if (fishersInit || !YATO_PONDS.length) return; fishersInit = true
   const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3) // 面積上位3つ（二ツ池・三ツ池の池）
@@ -8886,6 +8906,7 @@ function update(dt) {
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
   updateFishShadows(dt) // C6：魚影（谷戸の池の水面下をゆっくり回遊・日中・近接時のみ）
   updateWindFluff(dt) // B3：風に流れる綿毛（風の可視化・日中の晴れ・windに同期）
+  updateGroundSteam(dt) // A2：雨上がりの蒸気（夕立のあと暖かい地面から湯気・wetnessで繋ぐ）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
@@ -10429,6 +10450,7 @@ window.__proto3d = {
   _sunflowers() { return yatoSunflowerSpots.slice() }, // 検証用：D1 ヒマワリの位置一覧
   _nests() { return yatoNestSpots.slice() }, // 検証用：C6 ツバメの巣の位置一覧
   _fishShadows() { return fishShadows.map((f) => ({ cx: +f.cx.toFixed(0), cz: +f.cz.toFixed(0), vis: f.m.visible })) }, // 検証用：C6 魚影
+  _steam() { return { vis: groundSteam.filter((s) => s.s.visible).length, wetness: +wetness.toFixed(2), weather: +weather.toFixed(2) } }, // 検証用：A2 雨上がりの蒸気
   _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
   _bgmEnable(on) { settings.bgm = !!on; applyBgm() }, // 検証用：オルゴールBGMのON/OFF（既定OFF＝環境音中心。ダッキング確認用）
   doCatch() { doCatch() }, // 検証用
