@@ -8095,10 +8095,12 @@ function layoutCtxButtons() {
 }
 // ── 途中状態の保存/復帰：中断して戻っても その日の発見や釣果が消えないように ──
 // flags は同じ日のときだけ復帰（日が変わればリセット）。むし/さかなの累計は常に復帰。
-function saveState() { try { localStorage.setItem('hn3d_state', JSON.stringify({ day, flags: todayFlags, caught, fish })) } catch (e) {} }
+const SAVE_VER = 1 // J3：セーブの形式版。将来 形を変えたら上げる＝未知の版は無視して初期値で安全に始める
+function saveState() { try { localStorage.setItem('hn3d_state', JSON.stringify({ v: SAVE_VER, day, flags: todayFlags, caught, fish })) } catch (e) {} }
 try {
   const st = JSON.parse(localStorage.getItem('hn3d_state') || 'null')
-  if (st) {
+  if (st && (st.v == null || st.v === SAVE_VER)) { // 旧データ(v無し)は従来通り。版が違えば読まない（壊れた形を当てはめない）
+
     if (st.caught && typeof st.caught.count === 'number') { caught.count = st.caught.count; caught.kinds = st.caught.kinds || {} }
     if (st.fish && typeof st.fish.count === 'number') { fish.count = st.fish.count; fish.kinds = st.fish.kinds || {} }
     if (st.day === day && st.flags) Object.assign(todayFlags, st.flags) // 同じ日だけ「見たこと」を引き継ぐ
@@ -9644,7 +9646,19 @@ function titleCam() {
   camera.userData._look.set(cx, ly, cz)
   camera.lookAt(camera.userData._look)
 }
-renderer.setAnimationLoop(() => {
+// ── J3：エラー耐性。万一どこかで例外が出ても、画面が固まったまま/真っ白にならないように受け止める。──
+// Three.jsの setAnimationLoop はコールバックが例外を投げると再スケジュールされず永久に止まる。
+// 1フレームの一時的な不具合（たまたまのNaN等）でゲーム全体が固まらないよう、ループ本体を try で包む。
+const __errLog = [] // 直近のエラーを少しだけ覚えておく（検証フック _errors で確認）
+function recordErr(where, e) {
+  const msg = (e && (e.stack || e.message)) ? String(e.stack || e.message) : String(e)
+  __errLog.push({ where, msg: msg.slice(0, 300), t: Date.now() }); if (__errLog.length > 20) __errLog.shift()
+  try { console.error('[hitonatsu]', where, e) } catch (_) {}
+}
+let __frameErrN = 0
+function onFrameError(e) { __frameErrN++; if (__frameErrN <= 3 || __frameErrN % 300 === 0) recordErr('frame#' + __frameErrN, e) } // 毎フレーム同じ例外でログが溢れないよう間引く
+try { addEventListener('error', (ev) => recordErr('window', ev.error || ev.message)); addEventListener('unhandledrejection', (ev) => recordErr('promise', ev.reason)) } catch (_) {}
+renderer.setAnimationLoop(() => { try {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   // フレーム上限：通常は30fps。タイトル(はがき)中はカメラがごくゆっくり流れるだけなので18fpsに落とす＝
   // 高い俯瞰で全域(約316万tri/フレーム)を描く重い構図を、表示時間が長いタイトルでスマホの発熱/電池に優しく（B⑩・far絞りはtri-8%で構図も痩せるため不採用＝近景が主因）
@@ -9685,7 +9699,7 @@ renderer.setAnimationLoop(() => {
   }
   composer.render()
   if (!titleReady) { titleReady = true; markTitleReady() } // B⑩：本物の最初のフレームが出た＝「はじめる」を押せる状態に
-})
+  } catch (e) { onFrameError(e) } }) // J3：このフレームで例外が出ても次フレームへ（ループは止めない）
 
 // B⑩：初期化が終わって最初の絵が出たら、タイトルの「はじめる」を有効化（じゅんびちゅう…→はじめる）。
 // 万一ループ初描画が来ない異常時の保険として、起動から十分経ったら強制的に有効化する。
@@ -10082,6 +10096,7 @@ window.__proto3d = {
   },
   get area() { return area },
   _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
+  _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
   get catchTarget() { return catchTarget ? catchTarget.kind : null }, // 検証用：いま捕まえられる虫
