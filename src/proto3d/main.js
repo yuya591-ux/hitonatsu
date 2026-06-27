@@ -1836,6 +1836,10 @@ function buildShishigaya() {
   const villThin = villageLevel >= 2 ? 55 : villageLevel >= 1 ? 35 : 0 // 田舎寄せ：間引く割合(%)。0=間引かない(忠実)
   const glowWarm = [], glowTV = [], _gm = new THREE.Matrix4() // 夜の窓あかり：暖色の窓(glowWarm)と、ブラウン管TVの青い明滅(glowTV)に分けて各1メッシュ化（1990年代の夕暮れ＝家々の窓にTVの灯り・ユーザー要望2026-06-24）
   const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm); (((Math.round(wx) * 7 + Math.round(wz) * 13) % 100 + 100) % 100 < 26 ? glowTV : glowWarm).push(pg) } // 約26%の窓はTVの青い灯り
+  // P1（建物スケール低減・2026-06-27）：実在が確認できない“仮の一般民家”だけ、主人公(描画高2.8m)に対し大きすぎた背丈を下げる。
+  // 実在建物（サンライズ＝sunIdxで別途実輪郭／小学校・商店・名前付きアパート＝inSkipで実物置換）は一切触らない＝実寸忠実を維持。
+  // 階高3.0m→2.6mに圧縮（窓の段数round(h/HOUSE_FH)・夜窓あかりY・屋根も追従）。幅奥行(OSM実寸)とseedの個体差は不変＝毎ロード同じ並びのまま全体を低く。1行戻せば従来高。
+  const HOUSE_FH = 2.6 // 仮民家の1階あたり高さ（旧3.0）。これを上げ下げするだけで仮民家の背丈を一括調整できる
   SG.buildings.forEach(([cx, cz, w, d, ang, lv, tc], bi) => {
     if (bi === sunIdx) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2; let gy = 1e9; for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) gy = Math.min(gy, heightAtYato(cx + sx * co - sz * si, cz + sx * si + sz * co)); pushGroundAO(cx, cz, w, d, ang, gy); return } // サンライズ＝実輪郭で別途描くが、足元の接地AOだけはここで敷く（最大の“浮き”対策）
     if (inSkip(cx, cz)) return // ランドマーク区画＝実物に置換
@@ -1861,12 +1865,13 @@ function buildShishigaya() {
       for (let wi = 0; wi < 4; wi += big ? 1 : 2) { const a = baseXZ[wi], b = baseXZ[(wi + 1) % 4], mlx = (a[0] + b[0]) / 2, mlz = (a[1] + b[1]) / 2
         const wnx = mlx * co - mlz * si, wnz = mlx * si + mlz * co, nl = Math.hypot(wnx, wnz) || 1
         const fl = (seed >> wi) % (flat ? 3 : 2)
-        pushGlow(cx + mlx * co - mlz * si + wnx / nl * 0.07, gy + 1.6 + fl * 3, cz + mlx * si + mlz * co + wnz / nl * 0.07, Math.atan2(wnx, wnz)) } }
+        pushGlow(cx + mlx * co - mlz * si + wnx / nl * 0.07, gy + 1.6 + fl * HOUSE_FH, cz + mlx * si + mlz * co + wnz / nl * 0.07, Math.atan2(wnx, wnz)) } }
     if (flat) { // ── 陸屋根（当時=1990年代半ば。サンライズ以外に高い集合住宅はほぼ無かった→低い2〜3階のアパート/事務所に抑える。OSMは2014年で新しい棟を含むため）──
       let floors = THREE.MathUtils.clamp(2 + Math.round(Math.sqrt(area) / 40), 2, 3)
       if (isHome) floors = 7
       else if (villageLevel) floors = Math.min(floors, 2) // 田舎寄せ：高い陸屋根(団地/事務所)を2階までに抑える（サンライズ以外）
-      const h = slope + floors * 3, vt = Math.max(2, Math.round(h / 3)), wc = isHome ? [0.93, 0.88, 0.80] : aptWalls[seed % aptWalls.length]
+      else if (area < 1100) floors = 2 // P1：当時の郊外の陸屋根アパートは2階主体。3階は本当に大きい棟だけに（背の高い壁の連なり＝団地感を解消）
+      const h = slope + floors * HOUSE_FH, vt = Math.max(2, Math.round(h / HOUSE_FH)), wc = isHome ? [0.93, 0.88, 0.80] : aptWalls[seed % aptWalls.length]
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
         const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 5)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=戸数, v=階数(斜面の基礎ぶん含む)でバルコニーをタイル
         ;[p0, p1, p2, p3].forEach((p, qi) => { av.push(p[0], p[1], p[2]); const cf = qi < 2 ? 0.72 : 1; ac.push(wc[0] * cf, wc[1] * cf, wc[2] * cf); auv.push(uvq[qi][0], uvq[qi][1]) }); aidx.push(ao, ao + 1, ao + 2, ao, ao + 2, ao + 3); ao += 4 } // 壁の底の頂点を暗く＝足元の接地の陰(AO)で“地に足がついた”感（追加ジオメトリ無し・E7・2026-06-25）
@@ -1885,13 +1890,13 @@ function buildShishigaya() {
         for (let k = 0; k < 4; k++) { const a = c4[k], b = c4[(k + 1) % 4]; pushTri(rtBox, L(a[0], t0, a[1]), L(b[0], t0, b[1]), L(b[0], t1, b[1])); pushTri(rtBox, L(a[0], t0, a[1]), L(b[0], t1, b[1]), L(a[0], t1, a[1])) } // 側面
         pushTri(rtBox, L(c4[0][0], t1, c4[0][1]), L(c4[1][0], t1, c4[1][1]), L(c4[2][0], t1, c4[2][1])); pushTri(rtBox, L(c4[0][0], t1, c4[0][1]), L(c4[2][0], t1, c4[2][1]), L(c4[3][0], t1, c4[3][1])) } // 天面
     } else { // ── 低い切妻の家 ──
-      let stories = tc === 4 ? 1 : (area < 65 ? 1 : (area > 230 ? 3 : 2)); if (stories === 2 && seed % 4 === 0) stories = 1; if (stories === 1 && seed % 6 === 0 && tc !== 4) stories = 2
+      let stories = tc === 4 ? 1 : (area < 95 ? 1 : (area > 330 ? 3 : 2)); if (stories === 2 && seed % 3 === 0) stories = 1; if (stories === 1 && seed % 7 === 0 && tc !== 4) stories = 2 // P1：平屋の判定面積を広げ(65→95)＋2→1の頻度を上げ(4→3)＋3階は大きい棟だけ(230→330)＝平屋比率を上げ“田舎の低い家並み”へ
       if (villageLevel) stories = Math.min(stories, 2) // 田舎寄せ：3階の大きな家を2階までに（低い田舎家へ）
-      const h = slope + stories * 3, wc = walls[seed % walls.length], rc = roofs[(seed >> 2) % roofs.length]
+      const h = slope + stories * HOUSE_FH, wc = walls[seed % walls.length], rc = roofs[(seed >> 2) % roofs.length] // P1：階高3.0→HOUSE_FH(2.6)
       for (let k = 0; k < 4; k++) { const a = baseXZ[k], b = baseXZ[(k + 1) % 4], p0 = L(a[0], 0, a[1]), p1 = L(b[0], 0, b[1]), p2 = L(b[0], h, b[1]), p3 = L(a[0], h, a[1])
-        const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 3.5)), vt = Math.max(1, Math.round(h / 3)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=窓の間口, v=階＝壁に窓が並ぶ
+        const wl = Math.hypot(b[0] - a[0], b[1] - a[1]), u = Math.max(1, Math.round(wl / 3.5)), vt = Math.max(1, Math.round(h / HOUSE_FH)), uvq = [[0, 0], [u, 0], [u, vt], [0, vt]] // u=窓の間口, v=階＝壁に窓が並ぶ（P1：階高に追従）
         ;[p0, p1, p2, p3].forEach((p, qi) => { bv.push(p[0], p[1], p[2]); const cf = qi < 2 ? 0.72 : 1; bc.push(wc[0] * cf, wc[1] * cf, wc[2] * cf); buv.push(uvq[qi][0], uvq[qi][1]) }); bidx.push(vo, vo + 1, vo + 2, vo, vo + 2, vo + 3); vo += 4 } // 壁の底を暗く＝足元の接地の陰（E7・2026-06-25）
-      const rh = Math.min(4, Math.min(w, d) * 0.5 + 1), rg = h + rh, eo = Math.min(0.5, Math.min(w, d) * 0.12), eh = h - 0.04 // 軒の出（屋根が壁より外へ張り出す＝本物らしい庇＋軒下の影。低ポリ脱却2026-06-25）
+      const rh = Math.min(2.8, Math.min(w, d) * 0.42 + 0.8), rg = h + rh, eo = Math.min(0.5, Math.min(w, d) * 0.12), eh = h - 0.04 // 軒の出（屋根が壁より外へ張り出す＝本物らしい庇＋軒下の影）。P1：屋根の高さも上限4→2.8に下げ“低い田舎家”の比率に
       const e0 = L(-hw, h, -hd), e1 = L(hw, h, -hd), e2 = L(hw, h, hd), e3 = L(-hw, h, hd) // 妻壁の頂点（壁の位置）
       const x0 = -(hw + eo), x1 = hw + eo, z0 = -(hd + eo), z1 = hd + eo, a0 = L(x0, eh, z0), a1 = L(x1, eh, z0), a2 = L(x1, eh, z1), a3 = L(x0, eh, z1) // 軒先（外へ張り出す）
       const rcD = [rc[0] * 0.72, rc[1] * 0.72, rc[2] * 0.72], krw = 0.16, kch = 0.13, kry = rg + 0.02 // 棟瓦＝屋根の頂上に濃い帯（三角屋根に本物らしさ・低ポリ脱却2026-06-25）
