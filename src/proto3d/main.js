@@ -1147,8 +1147,11 @@ for (const [dx, dz, s] of [[14, 18, 1.1], [-14, 20, 1.05], [10, 30, 1.0], [-12, 
 // ── 木漏れ日（繁った樹冠の下に落ちる光のゆらぎ）──
 const dappleTex = (() => {
   const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
-  for (let i = 0; i < 11; i++) { const px = Math.random() * s, py = Math.random() * s, r = 8 + Math.random() * 22; const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,248,214,0.55)'); g.addColorStop(1, 'rgba(255,248,214,0)'); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill() }
-  return new THREE.CanvasTexture(c)
+  // 葉の隙間から落ちる細かい光の斑＝小さめの明スポットを多数（風で流れると“葉漏れのちらちら”に。タイル境界で切れないようトーラス状に重ね描き）
+  const spot = (px, py, r, a) => { const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, `rgba(255,247,212,${a})`); g.addColorStop(0.6, `rgba(255,247,212,${a * 0.4})`); g.addColorStop(1, 'rgba(255,247,212,0)'); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 6.2832); x.fill() }
+  for (let i = 0; i < 26; i++) { const px = Math.random() * s, py = Math.random() * s, r = 5 + Math.random() * 13, a = 0.34 + Math.random() * 0.3
+    for (const ox of [0, s, -s]) for (const oy of [0, s, -s]) if (Math.abs(ox) + Math.abs(oy) < s * 1.5) spot(px + ox, py + oy, r, a) } // 端をまたいで重ね描き＝RepeatWrapで継ぎ目なし
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t
 })()
 const dapples = []
 function addDapple(x, z, r) {
@@ -8753,9 +8756,15 @@ function update(dt) {
   // 田舎家の窓あかり（夕方からともり、夜も灯る＝遠くの灯）
   const homeLit = THREE.MathUtils.smoothstep(tday, 0.6, 0.74)
   for (let i = 0; i < houseGlows.length; i++) houseGlows[i].material.opacity = homeLit * (0.85 + 0.08 * Math.sin(tsec * 2.4 + i * 2)) // ほのかな揺らぎ
-  // 木漏れ日（昼に強く・夜は消える。ゆっくり回ってちらちら）
+  // 木漏れ日（昼に強く・夜は消える）。★A5：風で葉がそよいで光斑が地面を流れる“ちらちら”に（固定の回転から、風連動のドリフト＋揺れ＋明滅へ）
   const dapF = (1 - nf) * (0.55 + 0.45 * THREE.MathUtils.smoothstep(tday, 0.12, 0.4))
-  for (let i = 0; i < dapples.length; i++) { const m = dapples[i]; m.material.opacity = 0.3 * dapF * (0.7 + 0.3 * Math.sin(tsec * 1.4 + i * 1.7)); m.rotation.z = tsec * 0.04 + i }
+  const wf = THREE.MathUtils.clamp((typeof wind !== 'undefined' ? wind : 0.4), 0, 1.4)
+  dappleTex.offset.x = Math.sin(tsec * 0.21) * 0.05 + tsec * 0.006 * (0.3 + wf) // 共有テクスチャを風でゆっくり流す＝葉漏れの光が地面を移ろう
+  dappleTex.offset.y = Math.cos(tsec * 0.17) * 0.045 + Math.sin(tsec * 0.6) * 0.012 * wf
+  const shimmer = 0.7 + 0.3 * Math.min(1, wf) // 風が強いほどちらつく
+  for (let i = 0; i < dapples.length; i++) { const m = dapples[i]
+    m.material.opacity = 0.42 * dapF * shimmer * (0.72 + 0.28 * Math.sin(tsec * (1.1 + 0.5 * wf) + i * 1.7))
+    m.rotation.z = tsec * 0.03 + i + Math.sin(tsec * 0.4 + i) * 0.05 * wf } // ゆっくり回りつつ風で微振動＝葉の揺れ
   // 屋台のお客（夕方〜夜にだけ立つ＝縁日の賑わい）。ほんのり息づく
   const yataiLit = THREE.MathUtils.smoothstep(tday, 0.56, 0.7)
   for (let i = 0; i < yataiPatrons.length; i++) { const p = yataiPatrons[i]; p.visible = yataiLit > 0.45; if (p.visible) { p.position.y = p.userData.baseY + Math.abs(Math.sin(tsec * 1.2 + i)) * 0.012; p.userData.head.rotation.y = Math.sin(tsec * 0.5 + i) * 0.25 } }
