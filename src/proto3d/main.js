@@ -7530,7 +7530,7 @@ function updateMusicBox(dt) {
     const rbg = rainBgmGain ? rainBgmGain.gain.value : 0
     const tai = taisoGain ? taisoGain.gain.value : 0
     const lead = Math.min(1, Math.max(fest / 0.40, rbg / Math.max(0.02, AUDIO.rainBgmVol || 0.2), tai / 0.30))
-    bg.gain.setTargetAtTime(BGM_BASE * (1 - 0.7 * lead), ctx.currentTime, 0.5) // 主役級が鳴るほど最大-70%まで控えめに
+    bg.gain.setTargetAtTime(BGM_BASE * (settings.volBgm ?? 1) * (1 - 0.7 * lead), ctx.currentTime, 0.5) // 主役級が鳴るほど最大-70%まで控えめに＋G5：BGMスライダー
   }
   bgmWait -= dt
   if (bgmWait > 0) return
@@ -7834,7 +7834,7 @@ function farCall(t0) { if (!audioStarted) return; try {
   const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 6
   f1.frequency.setValueAtTime(480, t0); f1.frequency.linearRampToValueAtTime(680, t0 + 0.8); f1.frequency.linearRampToValueAtTime(500, t0 + 2.2)
   f2.frequency.setValueAtTime(820, t0); f2.frequency.linearRampToValueAtTime(1120, t0 + 0.8); f2.frequency.linearRampToValueAtTime(860, t0 + 2.2)
-  const g = ctx.createGain(), pk = 0.03 * (AUDIO.lifeVol || 0.4)
+  const g = ctx.createGain(), pk = 0.03 * (AUDIO.lifeVol || 0.4) * (settings.volLife ?? 1) // G5：声(生活音)スライダー
   g.gain.setValueAtTime(0.0001, t0)
   g.gain.linearRampToValueAtTime(pk * 0.7, t0 + 0.18) // 「ごはん」
   g.gain.linearRampToValueAtTime(pk * 0.4, t0 + 0.62) // 一旦ゆるむ
@@ -7851,7 +7851,7 @@ function maybeLifeSounds(dt) {
   for (const s of LIFE_SPOTS) { if (tday < s.w[0] || tday > s.w[1]) continue; const d = Math.hypot(boy.position.x - s.x, boy.position.z - s.z); if (d < nd) { nd = d; near = s } }
   const swell = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() * 0.00012)) // ゆっくりした賑わいのうねり
   let target = 0
-  if (near && onYato) { const da = THREE.MathUtils.clamp((85 - nd) / (85 - 10), 0, 1); target = Math.pow(da, 1.4) * AUDIO.lifeVol * swell * worldBreathFactor } // G6：世界の凪で生活音もいっしょに引く
+  if (near && onYato) { const da = THREE.MathUtils.clamp((85 - nd) / (85 - 10), 0, 1); target = Math.pow(da, 1.4) * AUDIO.lifeVol * swell * worldBreathFactor * (settings.volLife ?? 1) } // G6：世界の凪／G5：声(生活音)スライダー
   out.gain.setTargetAtTime(target, ctx.currentTime, 0.5) // バス音量を距離でなめらかに
   // G2：遠い呼び声（家路の夕方・母音だけの「ごはんよー」感）。近接ゲートとは別に、谷戸の夕方ときどき遠くから漂う。
   lifeCallCd -= dt; if (onYato && tday > 0.48 && tday < 0.72 && lifeCallCd <= 0) { lifeCallCd = 50 + Math.random() * 80; farCall(ctx.currentTime + 0.06) }
@@ -8989,7 +8989,7 @@ function update(dt) {
   if (yatoReedShader) { yatoReedShader.uniforms.uTime.value = tsec; yatoReedShader.uniforms.uWind.value = wind } // 水際の葦も夏風でしなる
   if (windGain) { const ctx = listener.context, gust = THREE.MathUtils.clamp((wind - 0.32) / 0.95, 0, 1) // 揺れと同じwindで風の音も増減＝草木が鳴って世界が呼吸する（G1）
     const hushLift = 1 + (1 - cicHushFactor) * 1.1 // ★蝉がふっと鳴き止む瞬間に風(葉ずれ)を持ち上げる＝蝉が引いて世界の奥行きが立ち上がる落差＝郷愁（協議2026-06-27）
-    let wg = gust * gust * AUDIO.windVol * (1 - weather * 0.7) * hushLift, wf = 420 + gust * 950 // 突風ほど葉ずれ「ザー」が増す（二乗で凪は無音に近く）・雨では控える
+    let wg = gust * gust * AUDIO.windVol * (1 - weather * 0.7) * hushLift * (settings.volAmb ?? 1), wf = 420 + gust * 950 // 突風ほど葉ずれ「ザー」が増す＋G5：環境スライダー
     if (mode === 'sliding' && sliding) { const sp = THREE.MathUtils.clamp(sliding.v / 8, 0, 1); wg = Math.max(wg, 0.08 + sp * 0.22); wf = Math.max(wf, 900 + sp * 1300) } // すべり台＝滑るほど耳もとで風が「ぴゅう」と鳴る（日記の一文・小さい頃のあの感覚／既存の風ノードを流用＝新ノード無しで録音じじじを誘発しない）
     if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 60, 0, 1), sp = THREE.MathUtils.clamp(floatVel.length() / 5, 0, 1); wg = Math.max(wg, 0.045 + altF * 0.1 + sp * 0.08); wf = Math.max(wf, 640 + altF * 520) } // 風船で空を漂う＝高く昇るほど・速く動くほど耳もとの風がやさしく鳴る（飛んでる実感・既存の風ノードを流用）
     windGain.gain.setTargetAtTime(wg, ctx.currentTime, mode === 'sliding' ? 0.12 : 0.45)
@@ -9194,9 +9194,9 @@ function update(dt) {
                   : null
     for (const id in ambients) {
       const a = ambients[id]; if (!a.buffer) continue
-      let v = Math.min(1, w[id] || 0) * AUDIO.ambMaster * worldBreathFactor // G6：世界の凪で環境音もいっしょに引く
+      let v = Math.min(1, w[id] || 0) * AUDIO.ambMaster * worldBreathFactor * (settings.volAmb ?? 1) // G6：世界の凪で環境音もいっしょに引く／G5：環境スライダー
       if (id === 'cicada' || id === 'higurashi') v *= cicadaSwell
-      if (id === 'cicada') v *= AUDIO.cicadaVol      // 昼の蝉を少し控えめに（ユーザー要望2026-06-20）
+      if (id === 'cicada') v *= AUDIO.cicadaVol * (settings.volCicada ?? 1)      // 昼の蝉を少し控えめに＋G5：蝉スライダー
       if (id === 'night') v *= AUDIO.nightAmb       // 夜の虫(カエルのような音)を大きく下げる＝眠れる静けさ
       if (id === 'morning') v *= AUDIO.morningAmb
       if (areaAmb && areaAmb[id]) v *= areaAmb[id]
@@ -10327,7 +10327,7 @@ const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
 const setInkBtn = document.getElementById('set-ink')
-const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false } // light=軽量モード（既定OFF＝フル品質。重い端末でユーザーがONにすると線/ボケ/二重描画を省いて軽くする・C1 v2 2026-06-27）。BGM(オルゴール)は既定OFF＝環境音中心
+const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1 } // light=軽量モード（既定OFF＝フル品質）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
 const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
@@ -10365,6 +10365,27 @@ const setGuideEl = document.getElementById('set-guide')
 if (setGuideEl) setGuideEl.addEventListener('click', () => { if (settingsEl) settingsEl.classList.remove('on'); if (guideEl) guideEl.classList.add('on') }) // あそびかたを もう一度みる
 if (setSoundBtn) setSoundBtn.addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); applySound() })
 if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !settings.bgm; saveSettings(); applyBgm() })
+// G5：音量の項目別スライダー（蝉/BGM/環境/声）を設定パネルに注入。値は毎フレームの音量計算で読まれる＝即反映
+;(function buildVolSliders() {
+  if (!settingsEl) return
+  const wrap = document.createElement('div'); wrap.id = 'set-vols'
+  wrap.innerHTML = '<div class="set-vol-h">おとの おおきさ</div>'
+  for (const [key, label] of [['volCicada', 'せみ'], ['volBgm', 'BGM'], ['volAmb', 'かんきょう'], ['volLife', 'こえ']]) {
+    const row = document.createElement('div'); row.className = 'set-vol-row'
+    const lab = document.createElement('span'); lab.className = 'set-vol-lab'; lab.textContent = label
+    const sl = document.createElement('input'); sl.type = 'range'; sl.min = 0; sl.max = 150; sl.step = 10; sl.value = Math.round((settings[key] ?? 1) * 100); sl.setAttribute('aria-label', label + 'の おおきさ')
+    sl.addEventListener('input', () => { settings[key] = +sl.value / 100; saveSettings() })
+    row.appendChild(lab); row.appendChild(sl); wrap.appendChild(row)
+  }
+  const anchor = setBgmBtn && setBgmBtn.closest('.set-row, li, .row, div')
+  if (anchor && anchor.parentNode && anchor.parentNode !== document.body) anchor.parentNode.insertBefore(wrap, anchor.nextSibling); else settingsEl.appendChild(wrap)
+  const s = document.createElement('style'); s.textContent = `#set-vols{margin:0.7em 0;padding:0.6em 0;border-top:1px solid rgba(120,108,86,0.22);}
+    .set-vol-h{font-size:13px;color:#7a6a4a;margin:0 0 0.45em;letter-spacing:0.06em;}
+    .set-vol-row{display:flex;align-items:center;gap:10px;margin:0.4em 0;}
+    .set-vol-lab{width:5.5em;font-size:14px;color:#3b3024;}
+    .set-vol-row input[type=range]{flex:1;accent-color:#c98a4a;height:22px;}`
+  document.head.appendChild(s)
+})()
 if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEPS.findIndex((s) => Math.abs(s.v - settings.sens) < 0.01); settings.sens = SENS_STEPS[(i + 1) % SENS_STEPS.length].v; saveSettings(); applySens() }) // ひくい→ふつう→たかい
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
