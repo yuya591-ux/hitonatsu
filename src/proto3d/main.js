@@ -9158,8 +9158,9 @@ renderer.setAnimationLoop(() => {
     // F1（ユーザー要望2026-06-27）：夕方の入相の鐘は“怖い”ので鳴らさない（夕/夜のBGMは良いのでそのまま）。トリガーを停止＝playTempleBellは呼ばない（テスト用 _bell フックは残す）。
   }
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
-  // 操作している間（スティック/上下ホールド/見回し）はHUDを消さない。何もしない時間が続いたらそっと消す
-  if (puni.active || floatUp || floatDown || lookIds.size > 0) lastInteract = performance.now()
+  // 操作している間（スティックで歩く/飛行の上下ホールド）はHUDを消さない。何もしない時間が続いたらそっと消す。
+  // ※見回し(lookIds)は除外＝指を動かしている間は pointermove が pokeUI を呼ぶので消えない。指を止めて景色を眺める/離した指の取りこぼし（pointerup欠落でlookIdsが残る不具合）では“止まっている”扱いにして、ちゃんとフェードさせる（ユーザー要望2026-06-27：景色を大画面で楽しみたい）
+  if (puni.active || floatUp || floatDown) lastInteract = performance.now()
   if (!titleView && performance.now() - lastInteract > idleMs) { if (!document.body.classList.contains('ui-idle')) document.body.classList.add('ui-idle'); idleMs = IDLE_MS } // 一度フェードしたら以降は通常の4.5秒（初見の長い猶予は最初の1回だけ）
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
