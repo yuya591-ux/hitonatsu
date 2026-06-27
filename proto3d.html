@@ -68,8 +68,7 @@
       #dock > button b { font-size: clamp(17px,3.2vw,21px); font-style: normal; }
       #dock > button i { font-size: clamp(9px,1.8vw,11px); font-style: normal; color: #6a5e4a; letter-spacing: 0.02em; }
       #dock > button:active { transform: scale(0.93); }
-      /* M3：1日目はドックの“のりもの”(🚲のる/🎈とぶ)を隠して初見の視界をすっきりに＝歩いて味わうに集中。2日目から解禁（ねころぶ/しゅかんは残す） */
-      body.day1 #bike, body.day1 #float { display: none !important; }
+      /* （撤回2026-06-27）以前は1日目だけ🚲のる/🎈とぶを隠していたが、「機能が消えた」とユーザー指摘＝機能削減はNG。常に表示する（body.day1での非表示を廃止） */
       #bike.on i, #float.on i, #fpvbtn.on i { color: rgba(255,255,255,0.92); }
       #bike.on { background: rgba(122,168,106,0.95); color: #fff; }
       #float.on { background: rgba(120,150,200,0.95); color: #fff; }

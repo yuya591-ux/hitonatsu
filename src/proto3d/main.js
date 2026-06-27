@@ -7518,8 +7518,7 @@ function renderDiaryView() {
   } catch (e) { return makeDiaryPicture() }
 }
 const badgeEl = document.getElementById('badge')
-function refreshBadge() { if (badgeEl) badgeEl.textContent = `なつやすみ ${day}にちめ`
-  document.body.classList.toggle('day1', day <= 1) } // M3：1日目はドックの“のりもの”(🚲のる/🎈とぶ)を隠して初見の視界をすっきり＝歩いて味わうに集中。2日目から解禁（CSS body.day1）
+function refreshBadge() { if (badgeEl) badgeEl.textContent = `なつやすみ ${day}にちめ` } // （撤回2026-06-27）1日目に🚲/🎈を隠す演出は「機能が消えた」と指摘されたので廃止＝常に表示
 refreshBadge()
 function openDiary() {
   diaryOpen = true; dayAuto = false
