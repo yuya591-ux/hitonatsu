@@ -8312,8 +8312,11 @@ function enterLieView() { // 一人称で空を見る視点へ（カメラは追
   boy.rotation.x = -1.35
   boy.visible = false
   seatLook.yaw = boy.rotation.y; seatLook.pitch = 1.2
-  camera.fov = BASE_FOV; camera.updateProjectionMatrix()
+  camera.fov = 62; camera.updateProjectionMatrix() // ★B5：寝ころんだら画角を広げて空を大きく＝夏空への没入（standUpでBASE_FOVへ戻す）
   lookHint.style.display = 'block'
+  // 空を見上げた“間”に そっと一言（毎回ランダムに・押し付けない短さ）
+  const lines = ['そらが おおきいなあ。くもが ゆっくり ながれていく。', 'ねころんで みあげる なつの そらは、どこまでも たかい。', 'くもが かたちを かえながら、とおくへ いく。', 'かぜが ほっぺを なでていく。むねの おくが しずかに なる。']
+  setTimeout(() => { if (mode === 'lie') showToast(lines[Math.floor(Math.random() * lines.length)]) }, 900) // 横になりきってから
 }
 
 // 縁側の座る位置（家の前・外を向く）
@@ -8407,6 +8410,7 @@ function standUp() {
   boy.position.y = heightAt(boy.position.x, boy.position.z)
   idleTime = 0
   lookHint.style.display = 'none'
+  camera.fov = BASE_FOV; camera.updateProjectionMatrix() // 寝ころびで広げた画角を歩きの標準へ戻す（B5）
 }
 // P2：ブランコの架台＋座面(振り子)を1基つくる。座面Groupを返す（loopがrotation.xで振る）。townとyatoで使い回し
 function makeSwingFrame(cfg, gy) {
