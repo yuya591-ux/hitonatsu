@@ -6185,6 +6185,32 @@ const yatoSunflowerSpots = [] // ヒマワリの位置（検証用）
   const addMerged = (geos, color) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshToonMaterial({ color, gradientMap: GRAD })); m.castShadow = true; geos.forEach((g) => g.dispose()); scene.add(m); if (typeof yatoStatics !== 'undefined') yatoStatics.push(m) }
   addMerged(green, 0x5a8a3a); addMerged(yellow, 0xf2c52e); addMerged(brown, 0x6a4a26)
 })()
+// ── F2：時代考証の細部小物＝地上式消火栓（昭和の街角の赤いポンプ）。民家の前（道路際）に点々と。実在ロゴは出さない。──
+const yatoHydrantSpots = []
+;(function addFireHydrants() {
+  if (!builtBuildings.length) return
+  const reds = [], grays = []
+  const addOne = (wx, wz, ang) => { const gy = heightAtYato(wx, wz), co = Math.cos(ang), si = Math.sin(ang)
+    const body = new THREE.CylinderGeometry(0.11, 0.13, 0.62, 8); body.translate(wx, gy + 0.31, wz); reds.push(body)
+    const dome = new THREE.SphereGeometry(0.12, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2); dome.translate(wx, gy + 0.62, wz); reds.push(dome)
+    const cap = new THREE.CylinderGeometry(0.05, 0.05, 0.06, 6); cap.rotateZ(Math.PI / 2); cap.translate(wx + co * 0.13, gy + 0.42, wz + si * 0.13); grays.push(cap) // 正面の放水口
+    const base = new THREE.CylinderGeometry(0.16, 0.18, 0.08, 8); base.translate(wx, gy + 0.04, wz); grays.push(base) }
+  let n = 0
+  for (let bi = 0; bi < builtBuildings.length && n < 8; bi++) {
+    const b = builtBuildings[bi], cx = b[0], cz = b[1], w = b[2], d = b[3], ang = b[4]
+    if (Math.max(w, d) > 14 || Math.min(w, d) < 3) continue
+    const seed = Math.abs(Math.round(cx) * 23 + Math.round(cz) * 15)
+    if (seed % 9 !== 5) continue // 洗濯物/しぐさ/ヒマワリ/巣 とは別の家に
+    const co = Math.cos(ang), si = Math.sin(ang), side = (seed % 2) ? 1 : -1
+    let ox, oz
+    if (w <= d) { ox = (w / 2 + 1.4) * side; oz = (seed % 3 - 1) * (d * 0.3) } else { ox = (seed % 3 - 1) * (w * 0.3); oz = (d / 2 + 1.4) * side }
+    const px = cx + ox * co - oz * si, pz = cz + ox * si + oz * co
+    if (npcInWater(px, pz) || onYatoRoadCore(px, pz) || npcInCollider(px, pz)) continue
+    addOne(px, pz, Math.atan2(px - cx, pz - cz)); yatoHydrantSpots.push({ x: +px.toFixed(1), z: +pz.toFixed(1) }); n++
+  }
+  if (reds.length) { const m = new THREE.Mesh(mergeGeometries(reds), new THREE.MeshToonMaterial({ color: 0xc0392b, gradientMap: GRAD })); m.castShadow = true; scene.add(m); if (typeof yatoStatics !== 'undefined') yatoStatics.push(m) }
+  if (grays.length) { const m = new THREE.Mesh(mergeGeometries(grays), new THREE.MeshToonMaterial({ color: 0x8a8a86, gradientMap: GRAD })); m.castShadow = true; scene.add(m); if (typeof yatoStatics !== 'undefined') yatoStatics.push(m) }
+})()
 const yatoLaundrySpots = [] // 物干しの位置（検証用）
 ;(function addYatoLifeTraces() {
   if (!builtBuildings.length) return
@@ -10749,6 +10775,7 @@ window.__proto3d = {
   _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
   _laundry() { return yatoLaundrySpots.slice() }, // 検証用：E1 洗濯物（物干し）の位置一覧
   _sunflowers() { return yatoSunflowerSpots.slice() }, // 検証用：D1 ヒマワリの位置一覧
+  _hydrants() { return yatoHydrantSpots.slice() }, // 検証用：F2 消火栓の位置一覧
   _nests() { return yatoNestSpots.slice() }, // 検証用：C6 ツバメの巣の位置一覧
   _fishShadows() { return fishShadows.map((f) => ({ cx: +f.cx.toFixed(0), cz: +f.cz.toFixed(0), vis: f.m.visible })) }, // 検証用：C6 魚影
   _steam() { return { vis: groundSteam.filter((s) => s.s.visible).length, wetness: +wetness.toFixed(2), weather: +weather.toFixed(2) } }, // 検証用：A2 雨上がりの蒸気
