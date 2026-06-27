@@ -6602,7 +6602,7 @@ camera.add(listener)
 // ── 音の調整パラメータ（後から数値だけで微調整できる。BGMは基本なし＝環境音で世界を作る。例外は縁日と雨のみ）──
 const AUDIO = {
   ambMaster: 0.5,     // 環境音(朝/蝉/ヒグラシ/夜)の基準音量。主張しすぎない控えめ
-  cicadaVol: 0.75,    // 昼の蝉の倍率＝他の時間帯より少し大きく感じたので基本を下げる（ユーザー要望2026-06-20）
+  cicadaVol: 0.48,    // 昼の蝉(アブラゼミ基底)の倍率＝うるさい指摘で更に下げる(0.75→0.48)。F3で他の蝉を層に足すので“ジー”一辺倒の音量を抑える（ユーザー要望2026-06-27）
   nightAmb: 0.34,     // 夜の虫(カエルのような音)の音量倍率＝大きく下げて「眠れる静けさ」に
   morningAmb: 0.85,   // 朝の鳥のさえずりの倍率
   windVol: 0.34,      // 風の音(葉ずれ・草原を渡る風)の最大音量＝突風(wind)で増減・控えめ（草/木/稲の揺れと同期・G1 2026-06-25）
@@ -7197,6 +7197,41 @@ function maybeNightCreatures(dt) {
   const nf = nightFactor(tday); if (nf < 0.3) return
   frogCd -= dt; if (frogCd <= 0) { frogCd = 2.4 + Math.random() * 4.2; playFrog(Math.random() < 0.42) } // カエル＝近/遠を混ぜて遠近2層
   owlCd -= dt; if (owlCd <= 0) { owlCd = 45 + Math.random() * 65; if (Math.random() < 0.6) playOwl() } // ふくろう＝ごくたまに（数分に一度・6割の確率）
+}
+// F3（ユーザー要望2026-06-27）：昼の蝉に種類を＝アブラゼミ(基底のmp3"ジー")にミンミンゼミ/ツクツクホウシを自前合成でまばらに重ねる（完全オリジナル合成＝著作権配慮）。
+let dayCicadaCd = 6
+function playMinmin() { // ミンミンゼミ「ミーン・ミンミンミンミン・ミー」＝3kHz台のジリつくトーンをトレモロ(刻み)＋立ち上がりで刻みが速く
+  try { const ctx = listener.context, out = getSfxOut(), t0 = ctx.currentTime + 0.05, dur = 2.4 + Math.random() * 1.3, base = 3000 + Math.random() * 360
+    const trem = ctx.createGain(); trem.gain.value = 0.5 // 0..1のトレモロ（=ミンミンミンの刻み）
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.setValueAtTime(2, t0); lfo.frequency.linearRampToValueAtTime(11, t0 + 0.5); lfo.frequency.setValueAtTime(11, t0 + dur - 0.5); lfo.frequency.linearRampToValueAtTime(3, t0 + dur)
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0.5; lfo.connect(lfoG); lfoG.connect(trem.gain)
+    const master = ctx.createGain()
+    for (const det of [-7, 7]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = base + det
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = base; bp.Q.value = 3.5; o.connect(bp); bp.connect(trem); o.start(t0); o.stop(t0 + dur + 0.2) }
+    trem.connect(master); master.connect(out)
+    master.gain.setValueAtTime(0.0001, t0); master.gain.exponentialRampToValueAtTime(0.034, t0 + 0.4); master.gain.setValueAtTime(0.034, t0 + dur - 0.6); master.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+    lfo.start(t0); lfo.stop(t0 + dur + 0.2)
+  } catch (e) {}
+}
+function playTsukutsuku() { // ツクツクホウシ「ツクツクツク…(だんだん速く)…ボーシ↘」＝短いバーストの列＋下降トーン
+  try { const ctx = listener.context, out = getSfxOut(), t0 = ctx.currentTime + 0.05
+    let tt = t0, rate = 0.22; const n = 6 + Math.floor(Math.random() * 4)
+    for (let i = 0; i < n; i++) { const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 2350 + Math.random() * 240
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 2
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(0.026, tt + 0.014); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.1)
+      o.connect(bp); bp.connect(g); g.connect(out); o.start(tt); o.stop(tt + 0.12); tt += rate; rate *= 0.92 } // だんだん速く
+    const bt = tt + 0.12, o2 = ctx.createOscillator(); o2.type = 'sawtooth'; o2.frequency.setValueAtTime(2150, bt); o2.frequency.exponentialRampToValueAtTime(1480, bt + 0.5) // ボーシ↘
+    const bp2 = ctx.createBiquadFilter(); bp2.type = 'bandpass'; bp2.frequency.value = 1900; bp2.Q.value = 3
+    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, bt); g2.gain.linearRampToValueAtTime(0.032, bt + 0.08); g2.gain.setValueAtTime(0.028, bt + 0.34); g2.gain.exponentialRampToValueAtTime(0.0001, bt + 0.55)
+    o2.connect(bp2); bp2.connect(g2); g2.connect(out); o2.start(bt); o2.stop(bt + 0.6)
+  } catch (e) {}
+}
+function maybeDayCicadas(dt) { // 昼だけ、ミンミン/ツクツクをまばらに（アブラゼミの基底に重ねて“いろんな蝉”に）
+  if (!audioStarted) return
+  if (nightFactor(tday) > 0.4 || tday < 0.1 || tday > 0.66 || weather > 0.5) return // 夜/早朝前/雨は出さない
+  dayCicadaCd -= dt; if (dayCicadaCd > 0) return
+  dayCicadaCd = 6 + Math.random() * 11 // 数秒〜十数秒に1回
+  if (Math.random() < 0.56) playMinmin(); else playTsukutsuku() // ミンミン多め・ツクツク少し
 }
 // 雨上がりのしずく「ぽちゃん」＝軒や葉から落ちる水滴（自前合成）
 function playDrip() {
@@ -8127,6 +8162,7 @@ function update(dt) {
   updateBlinks(dt) // まばたき（主人公/村人/通行人が数秒ごとに目をつぶる＝生きている顔に）
   maybeCricket(dt) // 夜の虫の音
   maybeNightCreatures(dt) // M2：遠いカエルの合唱(遠近2層)＋たまにふくろう＝夜の音層を厚く
+  maybeDayCicadas(dt) // F3：昼の蝉に種類を＝ミンミンゼミ/ツクツクホウシをまばらに重ねる
   // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
   if (lastWeatherForDrip > 0.4 && weather < 0.28) { dripQueue = 8; if (nightFactor(tday) < 0.2) rainbowTimer = 26 }
   lastWeatherForDrip = weather
@@ -9087,9 +9123,7 @@ renderer.setAnimationLoop(() => {
   if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'running') {
     trainTimer -= dt; if (trainTimer <= 0) { trainTimer = 85 + Math.random() * 95; if (tday < 0.95) playTrain() } // 深夜は電車を控える
     dogTimer -= dt; if (dogTimer <= 0) { dogTimer = 60 + Math.random() * 75; playDog() }
-    if (tday < 0.5) bellArmed = true // 翌日へリセット
-    if (bellArmed && tday > 0.64) { bellArmed = false; bellSeq = 3 + (Math.random() < 0.5 ? 1 : 0); bellNext = 0.5 } // 夕暮れに入相の鐘が始まる
-    if (bellSeq > 0) { bellNext -= dt; if (bellNext <= 0) { bellNext = 6.5 + Math.random() * 3; playTempleBell(); bellSeq-- } } // 数回ゆっくり撞く
+    // F1（ユーザー要望2026-06-27）：夕方の入相の鐘は“怖い”ので鳴らさない（夕/夜のBGMは良いのでそのまま）。トリガーを停止＝playTempleBellは呼ばない（テスト用 _bell フックは残す）。
   }
   onYato = area === 'yato' // 毎フレーム先に確定＝heightAt/climbYAtが谷戸では全域DEMを使う
   // 操作している間（スティック/上下ホールド/見回し）はHUDを消さない。何もしない時間が続いたらそっと消す
