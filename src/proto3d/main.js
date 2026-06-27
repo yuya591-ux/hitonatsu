@@ -5305,18 +5305,43 @@ for (let i = 0; i < 5; i++) makeSwallow()
 
 // ── 遠くの人影（道沿いをゆっくり歩く＝“誰かが暮らしている”気配。近づかず遠くに・夜は家へ帰る。道は開けているので建物にめり込まない）2026-06-24 ──
 const farFolk = []
+// 遠くの人影＝以前は円柱＋球の“のっぺり棒人間”で、近づくと「人がよくわからない」状態だった（ユーザー指摘2026-06-27）。
+// 主人公と同じ頭身のチビ（大きな頭・顔・手足・麦わら帽子/髪）に作り直す。フェード用に専用の半透明マテリアル(M)を集める。
 function makeFolk() {
   const g = new THREE.Group(), mats = []
   const M = (c) => { const m = new THREE.MeshToonMaterial({ color: c, gradientMap: GRAD, transparent: true, opacity: 0 }); mats.push(m); return m }
-  const shirt = [0xe8e2d0, 0x9fb8d0, 0xd6b0a0, 0xcfd2c2, 0xe2c79a, 0xb9c4cc][Math.floor(Math.random() * 6)]
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.25, 1.18, 6), M(shirt)); body.position.y = 0.72; g.add(body)
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7), M(0xe9c39a)); head.position.y = 1.45; g.add(head)
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.176, 8, 6, 0, 6.28, 0, 1.85), M(0x3a2c22)); hair.position.y = 1.47; g.add(hair)
+  const adult = Math.random() < 0.45
+  const skin = [0xf0c49c, 0xe8b890, 0xeab584, 0xf2cba0][(Math.random() * 4) | 0]
+  const shirt = [0xe8e2d0, 0x9fb8d0, 0xd6b0a0, 0xcfd2c2, 0xe2c79a, 0xb9c4cc, 0xc8d0b0, 0xd8a4a0, 0x8fb89c][(Math.random() * 9) | 0]
+  const pant = [0x3a4a6a, 0x5a4a3a, 0x46688a, 0x6a5a4a, 0x8a6a4a, 0x4a5a52][(Math.random() * 6) | 0]
+  const hairCol = [0x2a2218, 0x3a2c22, 0x4a3a2e][(Math.random() * 3) | 0]
+  const skinM = M(skin), shirtM = M(shirt), pantM = M(pant), shoeM = M(0x4a4038)
+  // 脚（股関節ピボットで歩行スイング）
+  const legL = new THREE.Group(), legR = new THREE.Group()
+  for (const [grp, sx] of [[legL, -0.07], [legR, 0.07]]) { grp.position.set(sx, 0.62, 0); g.add(grp)
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.46, 4, 6), pantM); thigh.position.y = -0.27; grp.add(thigh)
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.062, 6, 5), shoeM); foot.scale.set(1, 0.66, 1.5); foot.position.set(0, -0.52, 0.03); grp.add(foot) }
+  // 胴（少しすぼまる）
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.5, 8), shirtM); body.position.y = 0.95; g.add(body)
+  // 腕（肩ピボットでスイング）
+  const armL = new THREE.Group(), armR = new THREE.Group()
+  for (const [grp, sx] of [[armL, -0.155], [armR, 0.155]]) { grp.position.set(sx, 1.14, 0); g.add(grp)
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.043, 0.4, 4, 6), shirtM); upper.position.y = -0.2; grp.add(upper)
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), skinM); hand.position.y = -0.42; grp.add(hand) }
+  // 首・頭（チビ＝大きめの頭）
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.08, 6), skinM); neck.position.y = 1.25; g.add(neck)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.155, 12, 10), skinM); head.scale.set(1.05, 1.12, 1.03); head.position.y = 1.41; g.add(head)
+  for (const sx of [-0.058, 0.058]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 7), M(0x2a2420)); eye.position.set(sx, 1.42, 0.128); g.add(eye) } // 目（点目＝主人公と同系統）
+  if (Math.random() < 0.5) { // 麦わら帽子（夏）
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.255, 0.028, 14), M(0xd8b46e)); brim.position.y = 1.53; g.add(brim)
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 8, 0, 6.28, 0, 1.25), M(0xe2c178)); cap.position.y = 1.55; g.add(cap)
+  } else { const hair = new THREE.Mesh(new THREE.SphereGeometry(0.166, 10, 8, 0, 6.28, 0, 1.95), M(hairCol)); hair.position.y = 1.44; g.add(hair) }
+  g.scale.setScalar(adult ? 1.05 : 0.82) // 大人/子どもで背丈差
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動くので影マップへ焼かない（残像防止）
-  g.userData = { tx: 0, tz: 0, sp: 0.9 + Math.random() * 0.5, ph: Math.random() * 6.28, has: false, mats }
+  g.userData = { tx: 0, tz: 0, sp: 0.9 + Math.random() * 0.5, ph: Math.random() * 6.28, has: false, mats, legL, legR, armL, armR, wph: 0 }
   g.visible = false; scene.add(g); farFolk.push(g)
 }
-for (let i = 0; i < 4; i++) makeFolk()
+for (let i = 0; i < 6; i++) makeFolk() // 遠くの人影を4→6に（街に暮らす気配を増やす・ユーザー要望2026-06-27）
 // 道の点を空間ハッシュ化＝人影が「プレイヤー近くの道」を素早く選べる（全道からランダムだと2km四方で近くに当たらない）
 const ROADPT_CELL = 40, roadGrid = new Map()
 for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const a = p[k], b = p[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; for (let t = 0; t < l; t += 9) { const x = a[0] + dx * t / l, z = a[1] + dz * t / l; if (heightAtYato(x, z) < 2) continue; const key = Math.floor(x / ROADPT_CELL) + ',' + Math.floor(z / ROADPT_CELL); let arr = roadGrid.get(key); if (!arr) { arr = []; roadGrid.set(key, arr) } arr.push([x, z]) } } }
@@ -5893,7 +5918,8 @@ for (const [dx, col, sp, boyP] of pedDefs) {
   pedestrians.push(p)
 }
 // ── 獅子ヶ谷の町に通行人を配く（C10・2026-06-25）：今まで人は旧プロト町(x≈1000)だけで、磨いている獅子ヶ谷(x>2200)は無人だった。賑わいの核（商店街/学校通り/バス通り/各所）の最寄りの道に沿って前後に歩く人を置く ──
-{ const anchors = [[2740, -125], [2762, -150], [2690, -112], [2770, -180], [3010, 22], [3052, -22], [3060, -160], [3122, -82], [2960, -330], [3200, -44], [2950, -520], [2520, 230]] // game座標の賑わい候補
+{ const anchors = [[2740, -125], [2762, -150], [2690, -112], [2770, -180], [3010, 22], [3052, -22], [3060, -160], [3122, -82], [2960, -330], [3200, -44], [2950, -520], [2520, 230],
+    [2995, 45], [3026, 5], [3072, -52], [3098, -112], [2945, -270]] // game座標の賑わい候補（2026-06-27：開始地点〜核の散歩道に5点追加＝人を増やす・ユーザー要望）
   const nearestSeg = (px, pz) => { let best = null, bd = 1e18
     for (const rd of SG.roads) { if ((rd.w || 2) < 3 || !rd.p || rd.p.length < 2) continue // 幅3m以上の歩ける道だけ
       for (let k = 0; k < rd.p.length - 1; k++) { const a = rd.p[k], b = rd.p[k + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 7) continue
@@ -8645,7 +8671,9 @@ function update(dt) {
       f.visible = true
       const dx = u.tx - f.position.x, dz = u.tz - f.position.z, d = Math.hypot(dx, dz)
       if (d < 1.2 || Math.hypot(f.position.x - boy.position.x, f.position.z - boy.position.z) > 125) { const p = pickRoadPt(); if (p) { u.tx = p[0]; u.tz = p[1] } else { u.has = false } } // 着いた/遠すぎたら次の道へ
-      else { const s = u.sp * dt; f.position.x += dx / d * s; f.position.z += dz / d * s; f.position.y = heightAtYato(f.position.x, f.position.z) + Math.abs(Math.sin(tsec * 4 + u.ph)) * 0.04; f.rotation.y = Math.atan2(dx, dz) } // ゆっくり歩く＋わずかな上下
+      else { const s = u.sp * dt; f.position.x += dx / d * s; f.position.z += dz / d * s; u.wph += dt * 7; const sw = Math.sin(u.wph) * 0.5 // 歩行の位相＝手足を前後にスイング
+        if (u.legL) { u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw * 0.8; u.armR.rotation.x = sw * 0.8 }
+        f.position.y = heightAtYato(f.position.x, f.position.z) + Math.abs(Math.sin(u.wph)) * 0.03; f.rotation.y = Math.atan2(dx, dz) } // とことこ歩く（手足を振る＋わずかな上下）
       for (const m of u.mats) m.opacity = folkF
     }
   } else for (const f of farFolk) if (f.visible) f.visible = false
@@ -9583,6 +9611,8 @@ window.__proto3d = {
   _tsuku() { startAudio(); try { listener.context.resume() } catch (e) {} playTsukutsuku(); return { state: listener.context.state } }, // 検証用：ツクツクボウシ
   _niinii() { startAudio(); try { listener.context.resume() } catch (e) {} playNiinii(); return { state: listener.context.state } }, // 検証用：ニイニイゼミ
   get _bgmGainVal() { try { startAudio(); return getBgmOut().gain.value } catch (e) { return null } }, // 検証用：BGM音量（無ければ作って読む）
+  _showFolk(x, z) { const f = farFolk[0]; if (!f) return null; f.position.set(x, heightAtYato(x, z), z); f.visible = true; for (const m of f.userData.mats) m.opacity = 1; f.rotation.y = Math.atan2(boy.position.x - x, boy.position.z - z); return { parts: f.children.length, mats: f.userData.mats.length } }, // 検証用：遠くの人影を間近に出す
+  get _folkCount() { return farFolk.length }, // 検証用
 
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
   _dof(on) { dofPass.enabled = on }, // 検証/調整用：被写界深度(ボケ)ON/OFF
