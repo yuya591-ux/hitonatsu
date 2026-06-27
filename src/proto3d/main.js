@@ -6440,20 +6440,26 @@ function buildCloudPuffs(scaleF, maxPuffs) {
   geo.instanceCount = N
   return geo
 }
-// 入道雲を2段に＝近景の大きな主雲(7基)＋遠景の小さめの積雲(4基)で空気遠近の奥行き。1基は開始の通りの抜け(北東 az≈π/4)に。
-const NEAR_N = 7, FAR_N = 4
-for (let i = 0; i < NEAR_N + FAR_N; i++) {
-  const far = i >= NEAR_N
-  const scaleF = i === 0 ? (5.6 + Math.random() * 1.8) : far ? (1.9 + Math.random() * 0.9) : (2.8 + Math.random() * 2.0) // 0番＝開始の抜けの主役＝大きく高い入道雲
-  const mesh = new THREE.Mesh(buildCloudPuffs(scaleF, far ? 40 : 72), cloudMat) // 近景72・遠景40枚まで（性能：半透明オーバードロー抑制）
+// 入道雲：自然なばらつきで散らす（“等間隔・同サイズ”を避ける＝ユーザー要望2026-06-27）。
+//   方位はランダム＝かたまり/隙間が自然にできる。大きさ/距離/高さも階級をばらつかせ（大きな入道雲〜遠くの小さな積雲）空気遠近の奥行きを出す。
+//   1基だけは開始の通りの抜け(北東 az≈π/4)に大きな主雲を固定（スポーンのアイコニックな絵）。全基とも同じ造形/質感（buildCloudPuffs＋cloudMat）で揃える。
+const CLOUD_N = 12
+for (let i = 0; i < CLOUD_N; i++) {
+  let scaleF, budget, dist, baseY
+  if (i === 0) { scaleF = 5.4 + Math.random() * 1.9; budget = 72; dist = 430 + Math.random() * 70; baseY = 98 + Math.random() * 16 } // 主雲（開始の抜け）
+  else {
+    const r = Math.random()
+    if (r < 0.26) { scaleF = 4.0 + Math.random() * 1.9; budget = 72; dist = 340 + Math.random() * 170; baseY = 96 + Math.random() * 42 }       // 大きな入道雲
+    else if (r < 0.64) { scaleF = 2.3 + Math.random() * 1.5; budget = 54; dist = 360 + Math.random() * 200; baseY = 104 + Math.random() * 58 } // 中くらい
+    else { scaleF = 1.3 + Math.random() * 1.0; budget = 36; dist = 470 + Math.random() * 140; baseY = 120 + Math.random() * 72 }               // 小さな遠景の積雲（空気遠近）
+  }
+  const mesh = new THREE.Mesh(buildCloudPuffs(scaleF, budget), cloudMat)
   mesh.frustumCulled = false // ビルボード（バウンディングが効かない）＝常に描く。数が少ないので安い
   mesh.layers.set(1) // インク線の法線パスから除外（やわらかい雲）
   mesh.renderOrder = -2 // 空の背景＝他の半透明より先に描く
-  const az = i === 0 ? (Math.PI / 4 + (Math.random() - 0.5) * 0.35) // 0番＝北東(開始の通りの抜け)に主雲
-    : far ? ((i - NEAR_N) / FAR_N * Math.PI * 2 + 0.8 + Math.random() * 0.5)
-    : ((i / NEAR_N) * Math.PI * 2 + Math.random() * 0.5)
-  // baseY＝雲の“底”の高さ。建物(最大約90m)/丘より十分上＝食い込まない・飛行(上限約200m)でも空として読める
-  mesh.userData = { az, dist: i === 0 ? (430 + Math.random() * 70) : far ? (520 + Math.random() * 60) : (340 + Math.random() * 160), baseY: i === 0 ? (98 + Math.random() * 18) : far ? (130 + Math.random() * 50) : (108 + Math.random() * 46), drift: 0.0014 + Math.random() * 0.0028 }
+  // 方位＝主雲は北東。他はランダム（等間隔にしない＝自然なかたまり/隙間）。baseYは建物(最大約90m)/丘より十分上＝食い込まない・飛行(上限約200m)でも空として読める
+  const az = i === 0 ? (Math.PI / 4 + (Math.random() - 0.5) * 0.3) : Math.random() * Math.PI * 2
+  mesh.userData = { az, dist, baseY, drift: 0.0010 + Math.random() * 0.0032 }
   scene.add(mesh); thunderheads.push(mesh)
 }
 
@@ -6516,6 +6522,8 @@ const godrayPass = new ShaderPass({
         const int N = 30; // ステップ数を18→30に増やしてサンプル間隔を詰める＝明るい太陽が離散コピーされて“ぶどう房/泡の塊”に見えるのを解消（アートD指摘2026-06-27）
         vec2 uv = vUv;
         vec2 delta = (uv - lightPos) * (0.5 / float(N));
+        float jit = fract(sin(dot(vUv, vec2(127.1, 311.7))) * 43758.5453); // 各画素でサンプル開始を1歩ぶんランダムにずらす＝太陽の芯の離散コピー(点々/ぶどう房)を細かなノイズに溶かす（Bloomがさらに均す）
+        uv -= delta * jit;
         float illum = 1.0;
         vec3 ray = vec3(0.0);
         for (int i = 0; i < N; i++) {
@@ -6594,9 +6602,11 @@ const gradePass = new ShaderPass({
       }
       // 水彩紙の地合い：低周波のむら＋紙の繊維(高周波)を全画面に重ね、写実テクスチャを一枚の水彩画に馴染ませる
       float paper = vnoise(vUv * vec2(150.0, 140.0)) * 0.40 + vnoise(vUv * vec2(38.0, 36.0)) * 0.34 + vnoise(vUv * vec2(540.0, 480.0)) * 0.26;
-      c *= 1.0 - wc * (0.06 - paper * 0.17); // 紙の地合いを強めて手描き感を全体に（背景もキャラも一枚の絵に馴染ませる）
+      float hiLum = L(c);
+      float paperAmt = wc * (1.0 - smoothstep(0.72, 0.97, hiLum)); // 太陽/雲などの明るい平らな部分では紙の粒を出さない＝ハイライトに浮く“点々/ブツブツ”を解消（中間調の手描き感は維持）
+      c *= 1.0 - paperAmt * (0.06 - paper * 0.17); // 紙の地合いで手描き感を全体に（背景もキャラも一枚の絵に馴染ませる）
       float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
-      c += (grain - 0.5) * 0.018;
+      c += (grain - 0.5) * 0.018 * (1.0 - smoothstep(0.78, 0.99, hiLum)); // フィルム粒もハイライトでは弱める（太陽の白熱をザラつかせない）
       float d = distance(vUv, vec2(0.5));
       c *= 1.0 - vig * smoothstep(0.62, 0.98, d);                              // 周辺減光（ごく控えめ・四隅だけ）
       gl_FragColor = vec4(c, 1.0);
