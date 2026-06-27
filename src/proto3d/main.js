@@ -1650,6 +1650,7 @@ const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(to
 const toroList = [] // 各灯籠＝｛g, glow, x, z, y, vx, vz, ph, cx, cz, rad｝
 const radioTaiso = new THREE.Group(); radioTaiso.visible = false; scene.add(radioTaiso) // ラジオ体操（夏休みの早朝、公園で体操＝夏のいちばんの定番）。updateTaisoで動かす
 const taisoFigs = [] // 体操する人＝｛g, armL, armR, baseY, ph, lead｝
+const taisoJobs = [], suikaJobs = [] // ラジオ体操/すいか割りの人も主人公級(makeVillager)に。PROPのTDZ回避のため予約→makeVillager定義後にpopulateで建てる
 const yatoTreePos = [] // 獅子ヶ谷の核の近くの木の位置[x,z,y]（虫取りのカブトムシ/セミを木の幹に止めるのに使う）
 let yatoTreeShader = null // 樹冠を夏の風でそよがせるシェーダ（草と同じ仕組み・毎フレームuTime更新）
 let yatoRiceShader = null // 谷戸田の稲を夏風でしならせるシェーダ（草/樹冠と同じ仕組み・毎フレームuTime更新）
@@ -2626,24 +2627,20 @@ function buildShishigaya() {
     { const px = 3124, pz = -186
       const ldx = px, ldz = pz - 5, ly = heightAtYato(ldx, ldz) // 前の号令台＋リーダー
       const dai = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.4, 1.3), toon(0xb5a07a)); dai.position.set(ldx, ly + 0.2, ldz); dai.castShadow = true; radioTaiso.add(dai)
-      const lead = makePerson(0xffffff, 0x3a4a6a, false); lead.g.position.set(ldx, ly + 0.4, ldz); lead.g.rotation.y = 0; radioTaiso.add(lead.g)
-      taisoFigs.push({ g: lead.g, armL: lead.armL, armR: lead.armR, baseY: ly + 0.4, ph: 0, lead: true })
+      taisoJobs.push({ x: ldx, z: ldz, y: ly + 0.4, rot: 0, shirt: 0xffffff, pants: 0x3a4a6a, kid: false, ph: 0, lead: true }) // 号令台のリーダー（主人公級・populateで建てる）
       const tbl = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 0.7), toon(0x9a7a4a)); const tx = px - 6, tz = pz + 5, ty = heightAtYato(tx, tz); tbl.position.set(tx, ty + 0.45, tz); tbl.castShadow = true; radioTaiso.add(tbl) // 出席カードの受付机
       const card = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.36), toon(0xf4efe0)); card.position.set(tx, ty + 0.83, tz); radioTaiso.add(card) // 出席カードの束
       const shirts = [0xe04a4a, 0x4a8ad0, 0xf0c84a, 0xeae6da, 0x4aa86a, 0xe07a2e], pantsC = [0x3a4a6a, 0x6a5a4a, 0x2a3a5a]
       let i = 0; for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const gx = px - 4.5 + c * 3, gz = pz + 1 + r * 2.6 + (c % 2) * 0.4, gy = heightAtYato(gx, gz), kid = (i % 4 !== 0)
-        const fig = makePerson(shirts[i % shirts.length], pantsC[i % 3], kid); fig.g.position.set(gx, gy, gz); fig.g.rotation.y = Math.PI; radioTaiso.add(fig.g) // 前(リーダー=北)を向く
-        taisoFigs.push({ g: fig.g, armL: fig.armL, armR: fig.armR, baseY: gy, ph: i * 0.37, lead: false }); i++ } }
+        taisoJobs.push({ x: gx, z: gz, y: gy, rot: Math.PI, shirt: shirts[i % shirts.length], pants: pantsC[i % 3], kid, ph: i * 0.37, lead: false }); i++ } } // 体操の参加者（前=リーダーを向く）
     // ── すいか割り＝夏の昼下がり、マリノスの原っぱ(2935,-125)で。ござ＋スイカ＋目隠しの子(棒)＋応援の子。updateSuikaで棒を振りかぶって振り下ろす ──
     { const px = 2935, pz = -125, gy = heightAtYato(px, pz)
       const goza = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.05, 1.6), toon(0xd9c79a)); goza.position.set(px, gy + 0.04, pz); goza.receiveShadow = true; suikawari.add(goza) // ござ
       const suika = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), toon(0x357a35)); suika.position.set(px, gy + 0.36, pz); suika.castShadow = true; suikawari.add(suika) // スイカ
       for (let k = 0; k < 6; k++) { const st = new THREE.Mesh(new THREE.TorusGeometry(0.345, 0.022, 6, 18, Math.PI), toon(0x1d4524)); st.position.copy(suika.position); st.rotation.y = k / 6 * Math.PI; suikawari.add(st) } // 縞
-      const sw = makePerson(0xeae6da, 0x3a4a6a, true); sw.g.position.set(px, gy, pz + 2.3); sw.g.rotation.y = Math.PI; suikawari.add(sw.g) // 目隠しの子（スイカの手前・スイカの方を向く）
-      const blind = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.34), toon(0xf2f2f2)); blind.position.set(0, 0.98, 0.12); sw.g.add(blind) // 目隠し（白い手ぬぐい）
-      const bou = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.2, 6), toon(0xb59a6a)); bou.position.set(0, -0.55, 0); sw.armR.add(bou) // 手に持つ棒
-      suikaFigs.push({ g: sw.g, armL: sw.armL, armR: sw.armR, baseY: gy, ph: 0, role: 'swing' })
-      for (const [ox, oz, sh] of [[-2.4, 1.4, 0xe04a4a], [2.2, 0.9, 0xf0c84a], [-0.4, 3.4, 0x4aa86a]]) { const wy = heightAtYato(px + ox, pz + oz), w = makePerson(sh, 0x6a5a4a, true); w.g.position.set(px + ox, wy, pz + oz); w.g.rotation.y = Math.atan2(px - (px + ox), pz - (pz + oz)); suikawari.add(w.g); suikaFigs.push({ g: w.g, armL: w.armL, armR: w.armR, baseY: wy, ph: Math.random() * 6, role: 'watch' }) } } // 応援の子3人（スイカの方を向く）
+      suikaJobs.push({ x: px, z: pz + 2.3, y: gy, rot: Math.PI, shirt: 0xeae6da, pants: 0x3a4a6a, kid: true, ph: 0, role: 'swing' }) // 目隠しの子（スイカの方を向く・棒と目隠しはpopulateで付ける）
+      for (const [ox, oz, sh] of [[-2.4, 1.4, 0xe04a4a], [2.2, 0.9, 0xf0c84a], [-0.4, 3.4, 0x4aa86a]]) { const wy = heightAtYato(px + ox, pz + oz)
+        suikaJobs.push({ x: px + ox, z: pz + oz, y: wy, rot: Math.atan2(-ox, -oz), shirt: sh, pants: 0x6a5a4a, kid: true, ph: Math.random() * 6, role: 'watch' }) } } // 応援の子3人（スイカの方を向く）
     // 公園の遊具（すべり台/ブランコ/砂場/鉄棒/ベンチ）を全公園にインスタンシング配置（1ドロー）。公園ごとに向きを少し変える
     if (parkPos.length) { const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
       const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
@@ -5899,6 +5896,34 @@ function populateFestDancers() {
   festDancerJobs.length = 0
 }
 populateFestDancers()
+// ラジオ体操の人も主人公級（脚・顔・幼児寄り頭身）に。号令台のリーダー＋3×4の参加者を体操着すがたで建てる
+function populateTaisoFigs() {
+  if (!taisoJobs.length) return
+  const skins = [0xf0d6b4, 0xe8c8a0, 0xf2d4b0, 0xeab584], hairs = [0x2a221c, 0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86], rpick = (a) => a[Math.floor(Math.random() * a.length)]
+  for (const j of taisoJobs) {
+    const v = makeVillager(j.x, j.z, { simple: true, garment: 'shorts', boy: true, shirt: j.shirt, skirt: j.pants, skin: rpick(skins), hair: rpick(hairs), adult: !j.kid, hairStyle: rpick(['short', 'short', 'buzz']), scale: j.kid ? 0.78 : 1.0, info: { name: '', byPhase: { noon: [''] } } })
+    v.position.set(j.x, j.y, j.z); v.rotation.y = j.rot; radioTaiso.add(v) // sceneから体操グループへ付け替え
+    taisoFigs.push({ g: v, armL: v.userData.armL, armR: v.userData.armR, baseY: j.y, ph: j.ph, lead: j.lead })
+  }
+  taisoJobs.length = 0
+}
+populateTaisoFigs()
+// すいか割りの人も主人公級に。目隠しの子（棒＋手ぬぐい）＋応援の子3人
+function populateSuikaFigs() {
+  if (!suikaJobs.length) return
+  const skins = [0xf0d6b4, 0xe8c8a0, 0xeab584], hairs = [0x2a221c, 0x3a2e22, 0x46371f], rpick = (a) => a[Math.floor(Math.random() * a.length)]
+  for (const j of suikaJobs) {
+    const v = makeVillager(j.x, j.z, { simple: true, garment: 'shorts', boy: true, shirt: j.shirt, skirt: j.pants, skin: rpick(skins), hair: rpick(hairs), adult: false, hairStyle: 'short', scale: 0.78, info: { name: '', byPhase: { noon: [''] } } })
+    v.position.set(j.x, j.y, j.z); v.rotation.y = j.rot
+    if (j.role === 'swing') { const hy = v.userData.head ? v.userData.head.position.y : 1.05
+      const blind = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.09, 0.3), toon(0xf2f2f2)); blind.position.set(0, hy - 0.02, 0.1); v.add(blind) // 目隠し（白い手ぬぐい）
+      const bou = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 1.0, 6), toon(0xb59a6a)); bou.position.set(0, -0.5, 0); v.userData.armR.add(bou) } // 手に持つ棒
+    suikawari.add(v)
+    suikaFigs.push({ g: v, armL: v.userData.armL, armR: v.userData.armR, baseY: j.y, ph: j.ph, role: j.role })
+  }
+  suikaJobs.length = 0
+}
+populateSuikaFigs()
 const villager = makeVillager(13, 9, {
   shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, // 麦わら帽子（ピンクのリボン）
   info: {
