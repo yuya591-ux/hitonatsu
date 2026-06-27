@@ -224,7 +224,7 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if (k === 'p') { on ? exit() : enter() } else if (on && k === ' ') takePhoto() })
 
   return {
-    enter, exit, takePhoto,
+    enter, exit, takePhoto, openAlbum, // I1：おもいで帳から写真アルバムを開けるよう公開
     get count() { return photos.length },
     get newCount() { return newCount }, // その日 新しく撮った枚数（絵日記用）
     clearNew() { newCount = 0 },

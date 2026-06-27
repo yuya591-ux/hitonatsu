@@ -8194,8 +8194,8 @@ function renderDiaryView() {
 const badgeEl = document.getElementById('badge')
 function refreshBadge() { if (badgeEl) badgeEl.textContent = `なつやすみ ${day}にちめ` } // （撤回2026-06-27）1日目に🚲/🎈を隠す演出は「機能が消えた」と指摘されたので廃止＝常に表示
 refreshBadge()
-function openDiary() {
-  diaryOpen = true; dayAuto = false
+// I1：絵日記の本文を組み立てる（openDiaryと「おもいで帳」ビューアで共用）。{title, body}を返す
+function buildDiaryEntry() {
   const body = []
   const dpick = (arr) => arr[(day - 1 + arr.length) % arr.length] // D1：日替わりで言い回しを変える＝3日が同じ行動でも違う言葉に＝えにっきが“生きている”
   if (caught.count) body.push(`むしを ${caught.count}ひき つかまえた（${Object.keys(caught.kinds).join('・')}）。`)
@@ -8220,13 +8220,20 @@ function openDiary() {
   if (todayFlags.jumped) body.push(dpick(['なんとなく ぴょんと はねた。とくに 理由は なかった。', 'みずたまりを ジャンプで こえた。…ちょっと とどかなかった。']))
   if (todayFlags.climbedRoof) body.push('屋上に のぼった。せかいぜんぶが 見える きが した。')
   if (!body.length) body.push(dpick(['きょうは のんびり あるいた。なんでもない 一日。', 'とくに なにも しなかった。でも、わるくない 一日だった。', 'ただ あるいた。せみの声を 聞きながら、ずっと あるいた。']))
+  let title
   if (day >= 3) {
-    diaryTitleEl.textContent = 'ひと夏が おわった'
+    title = 'ひと夏が おわった'
     body.push('ゆうがた、ひぐらしが ないていた。カナカナカナ…って、夕やけに とけて いった。') // D1：最終日の喪失感＝ヒグラシ＝夏の終わりの音
     body.push('せみの ぬけがらが、木に ひとつ のこっていた。なつが、すこし とおく なった。') // D1：抜け殻＝過ぎ去る夏の象徴（J1の蝉の抜け殻と呼応）
     if (gotOmamori) { body.push('女の子に おまもりを もらった。'); body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('この夏のこと、ぜったい わすれない。…また 来年、あの はらっぱで。') }
     else { body.push('カレンダーの 八月は、もう のこり すこし。'); body.push('なんでもない 毎日が、いちばん たからものだった きがする。…また 来年。') }
-  } else { diaryTitleEl.textContent = `${day}にちめ ― えにっき`; body.push(day === 1 ? 'まだ 夏は はじまった ばかり。あした なにを しようかな。' : 'もうすぐ おまつり。…夏は、あっという間だなあ。') }
+  } else { title = `${day}にちめ ― えにっき`; body.push(day === 1 ? 'まだ 夏は はじまった ばかり。あした なにを しようかな。' : 'もうすぐ おまつり。…夏は、あっという間だなあ。') }
+  return { title, body }
+}
+function openDiary() {
+  diaryOpen = true; dayAuto = false
+  const { title, body } = buildDiaryEntry()
+  diaryTitleEl.textContent = title
   diaryBodyEl.innerHTML = body.map((l) => `<div class="line">${l}</div>`).join('')
   // その日の眺めを「絵」として貼る。今日カメラで撮っていたら、その一枚を絵日記に貼る（＝思い出の写真）
   if (diaryPicEl) {
@@ -10056,6 +10063,90 @@ setTimeout(() => { if (!titleReady) { titleReady = true; markTitleReady() } }, 8
 // 写真モード（平成レトロ画質）を起動。既存には触れず、上に乗せるだけ。
 const photoMode = initPhotoMode({ renderer, getDay: () => day, playShutter })
 window.__photo = photoMode // 検証用
+
+// ── I1/H2：おもいで帳（えにっき・しゃしん・むしさかな図鑑をひとつに）。いつでも開いて夏をふり返れる。──
+const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fish.kindsのキーと対応）
+  むし: [
+    { k: 'チョウ', e: '🦋', d: 'はらっぱを ひらひら。とまると はねを とじる。' },
+    { k: 'カブトムシ', e: '🪲', d: '木の みきに しがみつく。つのが りっぱ。' },
+    { k: 'セミ', e: '🐝', d: 'ジリジリと 夏を ならす。さわると ビーッと とぶ。' },
+  ],
+  さかな: [
+    { k: 'フナ', e: '🐟', d: '池の ぬしみたいに ゆったり。' },
+    { k: 'メダカ', e: '🐠', d: '近づくと さっと ちらばる 小さな いのち。' },
+    { k: 'ザリガニ', e: '🦞', d: 'はさみを ふりあげて おこる。赤い よろい。' },
+    { k: 'ナマズ', e: '🐡', d: 'どろの 底に ひそむ。ひげが ながい。' },
+    { k: 'おたまじゃくし', e: '🐸', d: 'やがて カエルに なる。しっぽが かわいい。' },
+  ],
+}
+;(function buildMemoryBook() {
+  const $ = (tag, css, parent) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e }
+  const style = document.createElement('style')
+  style.textContent = `
+    #mb-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 156px + env(safe-area-inset-top));z-index:38;appearance:none;border:none;cursor:pointer;
+      width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(74,64,50,0.7);box-shadow:0 3px 10px rgba(20,24,40,0.3);}
+    body.titling #mb-btn,body.pm-on #mb-btn{display:none !important;}
+    #mb-modal{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(20,22,34,0.82);backdrop-filter:blur(2px);padding:3vh 3vw;}
+    #mb-modal.on{display:flex;}
+    #mb-card{position:relative;width:min(680px,94vw);max-height:90vh;display:flex;flex-direction:column;background:#fbf4e4;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.5);overflow:hidden;}
+    #mb-tabs{display:flex;border-bottom:2px solid #e3d8bf;background:#f4ebd6;}
+    .mb-tab{flex:1;appearance:none;border:none;cursor:pointer;padding:0.85em 0;font-size:15px;font-family:inherit;color:#7a6a4a;background:transparent;letter-spacing:0.06em;}
+    .mb-tab.on{color:#3b3024;font-weight:700;box-shadow:inset 0 -3px 0 #c98a4a;background:#fbf4e4;}
+    #mb-body{padding:4vh 5vw;overflow:auto;color:#3b3024;}
+    #mb-close{position:absolute;right:10px;top:8px;z-index:2;appearance:none;border:none;cursor:pointer;width:34px;height:34px;border-radius:50%;font-size:18px;background:rgba(120,108,86,0.18);color:#5a4a32;}
+    #mb-body h4{margin:0 0 0.7em;font-weight:700;letter-spacing:0.08em;}
+    #mb-body .line{margin:0.34em 0;line-height:1.7;font-size:15px;}
+    #mb-pic img{width:100%;max-width:360px;display:block;margin:1.4em auto 0;border:5px solid #fff;border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transform:rotate(-1deg);}
+    #mb-zukan{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;}
+    .mb-cre{background:#fff;border-radius:8px;padding:0.8em;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
+    .mb-cre .em{font-size:34px;line-height:1.3;}
+    .mb-cre.got .nm{font-weight:700;color:#3b3024;font-size:14px;}
+    .mb-cre.no{opacity:0.7;}
+    .mb-cre.no .em{filter:grayscale(1) brightness(0.4) opacity(0.5);}
+    .mb-cre .nm{font-size:13px;color:#7a6a4a;margin-top:0.2em;}
+    .mb-cre .ds{font-size:11px;color:#9a8a6a;margin-top:0.3em;line-height:1.4;min-height:2.4em;}
+    .mb-cre .ct{font-size:11px;color:#c98a4a;margin-top:0.2em;}
+    #mb-photo-btn{display:block;margin:1.5em auto 0.5em;appearance:none;border:none;cursor:pointer;padding:0.6em 2em;font-size:15px;font-family:inherit;color:#fff;background:#6a7088;border-radius:999px;}
+    #mb-photo-n{text-align:center;color:#9a8a6a;font-size:13px;}
+  `
+  document.head.appendChild(style)
+  const btn = $('button', '', document.body); btn.id = 'mb-btn'; btn.textContent = '📔'; btn.title = 'おもいで'
+  const modal = $('div', '', document.body); modal.id = 'mb-modal'
+  modal.innerHTML = '<div id="mb-card"><button id="mb-close" title="とじる">×</button>'
+    + '<div id="mb-tabs"><button class="mb-tab on" data-t="diary">えにっき</button><button class="mb-tab" data-t="photo">しゃしん</button><button class="mb-tab" data-t="zukan">ずかん</button></div>'
+    + '<div id="mb-body"></div></div>'
+  const bodyEl = modal.querySelector('#mb-body'), tabs = [...modal.querySelectorAll('.mb-tab')]
+  let cur = 'diary'
+  function renderDiary() {
+    const { title, body } = buildDiaryEntry()
+    let html = `<h4>${title}</h4>` + body.map((l) => `<div class="line">${l}</div>`).join('')
+    let pic = null; try { pic = photoMode.latestPhoto() } catch (e) {}
+    if (!pic) { try { pic = renderDiaryView() } catch (e) {} }
+    if (pic) html += `<div id="mb-pic"><img src="${pic}"></div>`
+    bodyEl.innerHTML = html
+  }
+  function renderPhoto() {
+    bodyEl.innerHTML = `<h4>なつやすみの しゃしん</h4><div id="mb-photo-n">アルバムに ${photoMode.count}まい</div><button id="mb-photo-btn">アルバムを ひらく</button>`
+    bodyEl.querySelector('#mb-photo-btn').addEventListener('click', () => { close(); try { photoMode.openAlbum() } catch (e) {} })
+  }
+  function renderZukan() {
+    const got = (k, isFish) => (isFish ? fish.kinds : caught.kinds)[k] || 0
+    let html = '<h4>むし・さかな ずかん</h4><div id="mb-zukan">'
+    for (const [grp, isFish] of [['むし', false], ['さかな', true]]) for (const c of CREATURES[grp]) {
+      const n = got(c.k, isFish), has = n > 0
+      html += `<div class="mb-cre ${has ? 'got' : 'no'}"><div class="em">${has ? c.e : '❓'}</div><div class="nm">${has ? c.k : '？？？'}</div>` + (has ? `<div class="ds">${c.d}</div><div class="ct">${n}ひき</div>` : '<div class="ds">まだ つかまえていない</div>') + '</div>'
+    }
+    bodyEl.innerHTML = html + '</div>'
+  }
+  function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : renderZukan() }
+  function open() { modal.classList.add('on'); render() }
+  function close() { modal.classList.remove('on') }
+  btn.addEventListener('click', open)
+  modal.querySelector('#mb-close').addEventListener('click', close)
+  modal.addEventListener('click', (e) => { if (e.target === modal) close() })
+  for (const t of tabs) t.addEventListener('click', () => { cur = t.dataset.t; tabs.forEach((x) => x.classList.toggle('on', x === t)); render() })
+  window.__memoryBook = { open, close, render } // 検証用
+})()
 
 // 横画面のおすすめ（縦持ちのスマホにだけ、やさしく一度。閉じれる/数秒で消える）
 const rotateEl = document.getElementById('rotate')
