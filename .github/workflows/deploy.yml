@@ -26,7 +26,20 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
-      - run: npm run build
+      # J6：公開前ゲート。ビルド＋ヘッドレス検証（npm run verify）が通った時だけ成果物を上げる。
+      # 失敗するとここでジョブが止まり、artifact が作られず、deploy（needs: build）も走らない＝壊れたまま公開しない。
+      # ブラウザは ubuntu-latest 同梱の Google Chrome を使う（外部アクション不使用）。
+      - name: Chrome のパスを解決
+        id: chrome
+        run: |
+          P="$(which google-chrome || which google-chrome-stable || which chromium-browser || which chromium || true)"
+          if [ -z "$P" ]; then echo "Chrome が見つからず検証できません" >&2; exit 1; fi
+          echo "ランナーのChrome: $P"
+          echo "path=$P" >> "$GITHUB_OUTPUT"
+      - name: ビルド＋検証（公開前ゲート）
+        run: npm run verify
+        env:
+          PUPPETEER_EXECUTABLE_PATH: ${{ steps.chrome.outputs.path }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: ./dist
