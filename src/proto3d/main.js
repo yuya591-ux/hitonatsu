@@ -5791,10 +5791,15 @@ function makeVillager(x, z, opt) {
     const knot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), trim); knot.position.set(0.04, PROP.waistY + 0.06, fz); g.add(knot) }
   // ランニングシャツ＝肩ひも（地肌の肩に細い白い帯）。夏の年配の男性らしさ（C5★・2026-06-25）
   else if (opt.garment === 'tank') { for (const sx of [-1, 1]) { const strap = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.07), shirtM); strap.position.set(sx * 0.07, (PROP.shoulderY + PROP.chestY) / 2 + 0.02, 0.03); strap.rotation.z = sx * 0.12; g.add(strap) } }
-  // 首（主人公と統一・少し見せる）
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.11, 14), skin); neck.position.y = PROP.neckY; g.add(neck)
+  // 首（主人公と統一・少し見せる）。大人は頭を上げる分だけ首を伸ばし、中心も上げて頭の底に接ぐ＝顔と首が離れない（2026-06-28・ユーザー指摘の「顔と首が離れて怖い」を解消）
+  // 大人は頭を少し上げて頭身を上げる（ユーザー要望2026-06-25）が、上げ過ぎると首が長く見える＝控えめに（2026-06-28・ユーザー「首がまだ少し長い」）
+  const headRaise = opt.adult ? 0.03 : 0
+  // 首：子どもは従来どおり短いまま。大人は頭の底〜胴の上端（full=肩1.30/simple=胴上端1.28）へ橋渡しする最小限の長さに（顔が浮かず・首も伸びすぎない）
+  let neckH = 0.11, neckCy = PROP.neckY, neckR2 = 0.05
+  if (opt.adult) { const headBottom = PROP.headY + headRaise - PROP.headR * 0.95, top = headBottom + 0.016, base = 1.285; neckH = top - base; neckCy = (top + base) / 2; neckR2 = 0.056 }
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, neckR2, neckH, 14), skin); neck.position.y = neckCy; g.add(neck)
   // あたま＝小さめ（主人公と同じ小学生の頭身に統一）。大人はさらに小さめ＝大人びた頭身
-  const head = new THREE.Mesh(new THREE.SphereGeometry(PROP.headR, 18, 16), skin); if (opt.adult) { head.scale.set(0.89, 0.95, 0.87); head.position.y = PROP.headY + 0.08 } else { head.scale.set(PROP.headSX, PROP.headSY, PROP.headSZ); head.position.y = PROP.headY } if (opt.headW) { head.scale.x *= opt.headW; head.scale.z *= opt.headW } g.add(head) // 大人は頭をさらに小さく＝高い頭身で大人らしく（ユーザー要望2026-06-25）。opt.headW=顔の幅の個体差（C5★）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(PROP.headR, 18, 16), skin); if (opt.adult) { head.scale.set(0.89, 0.95, 0.87); head.position.y = PROP.headY + headRaise } else { head.scale.set(PROP.headSX, PROP.headSY, PROP.headSZ); head.position.y = PROP.headY } if (opt.headW) { head.scale.x *= opt.headW; head.scale.z *= opt.headW } g.add(head) // 大人は頭をさらに小さく＝高い頭身で大人らしく（ユーザー要望2026-06-25）。opt.headW=顔の幅の個体差（C5★）
   // 髪＝頭頂〜後頭部〜サイドを覆う“帽子状”のキャップ。顔（額〜目）は開けて、髪が顔に垂れて真っ黒に見えるのを防ぐ。
   // 以前は y=1.38 固定で、大人は頭(1.4)より低く＝髪が顔に覆いかぶさっていた。頭の高さ(head.position.y)に追従させる。
   const hy = head.position.y
