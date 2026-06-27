@@ -6091,6 +6091,44 @@ function makeFisher(px, pz, cx, cz) {
   g.visible = false; flo.visible = false
   return { g, u, rodGrp, flo, waterY: wY, ph: Math.random() * 6, cast: 4 + Math.random() * 8, casting: 0 }
 }
+// ── E1：生活の痕跡（洗濯物の物干し）。谷戸の一般民家の脇に、風にゆれる洗濯物を低ドローでマージ配置。
+//   昭和の夏のいちばんの生活感。水/道/建物の上は避け、4軒に1軒くらい・上限34軒。J1カリング対象に。
+const yatoLaundrySpots = [] // 物干しの位置（検証用）
+;(function addYatoLifeTraces() {
+  if (!builtBuildings.length) return
+  const clothCols = [[0.93, 0.89, 0.83], [0.60, 0.75, 0.85], [0.85, 0.56, 0.56], [0.93, 0.89, 0.83], [0.78, 0.84, 0.62], [0.91, 0.85, 0.62]]
+  const postMat = new THREE.MeshToonMaterial({ color: 0x9a8a6a, gradientMap: GRAD })
+  const clothMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, side: THREE.DoubleSide, map: watercolorTex })
+  const postGeos = []; let n = 0
+  for (let bi = 0; bi < builtBuildings.length && n < 34; bi++) {
+    const b = builtBuildings[bi], cx = b[0], cz = b[1], w = b[2], d = b[3], ang = b[4]
+    if (Math.max(w, d) > 13 || Math.min(w, d) < 3.2) continue // 一般民家サイズだけ（マンション/店/施設は除外）
+    const seed = Math.abs(Math.round(cx) * 13 + Math.round(cz) * 7)
+    if (seed % 4 !== 1) continue // 4軒に1軒くらい
+    const co = Math.cos(ang), si = Math.sin(ang), side = (seed % 2) ? 1 : -1
+    let ox, oz // 建物の短辺の外（生活の裏手）へ物干しを出す
+    if (w <= d) { ox = (w / 2 + 2.4) * side; oz = (seed % 3 - 1) * 1.4 } else { ox = (seed % 3 - 1) * 1.4; oz = (d / 2 + 2.4) * side }
+    const lx = cx + ox * co - oz * si, lz = cz + ox * si + oz * co
+    if (npcInWater(lx, lz) || onYatoRoadCore(lx, lz) || npcInCollider(lx, lz)) continue // 水/道/建物の上は避ける
+    const gy = heightAtYato(lx, lz)
+    const la = (w <= d) ? ang : ang + Math.PI / 2, lc = Math.cos(la), ls = Math.sin(la), lineLen = 3.2 // 物干し竿は建物の長辺に沿う
+    for (const t of [-lineLen / 2, lineLen / 2]) { const g = new THREE.CylinderGeometry(0.05, 0.06, 1.8, 6); g.translate(lx + lc * t, gy + 0.9, lz + ls * t); postGeos.push(g) } // 支柱2本
+    const bar = new THREE.CylinderGeometry(0.018, 0.018, lineLen, 5); bar.rotateZ(Math.PI / 2); bar.rotateY(-la); bar.translate(lx, gy + 1.66, lz); postGeos.push(bar) // 横棒
+    const grp = new THREE.Group(); grp.position.set(lx, gy + 1.66, lz); const cgeos = []
+    const cnt = 2 + (seed % 3) // 洗濯物2〜4枚
+    for (let i = 0; i < cnt; i++) {
+      const t = -lineLen / 2 + 0.6 + i * (lineLen - 1.2) / Math.max(1, cnt - 1), sw = 0.4 + (i % 2) * 0.12, sh = 0.5 + (i % 3) * 0.12
+      const pg = new THREE.PlaneGeometry(sw, sh); pg.rotateY(-la); pg.translate(lc * t, -sh / 2, ls * t) // 竿の向きに正対＝線に沿って幅・下に垂れる
+      const col = clothCols[(seed + i) % clothCols.length], ca = []
+      for (let v = 0; v < pg.attributes.position.count; v++) ca.push(col[0], col[1], col[2])
+      pg.setAttribute('color', new THREE.Float32BufferAttribute(ca, 3)); cgeos.push(pg)
+    }
+    const cloth = new THREE.Mesh(mergeGeometries(cgeos), clothMat); cloth.castShadow = true; grp.add(cloth)
+    scene.add(grp); swayables.push({ obj: grp, ph: n * 0.7, amp: 0.10 }); if (typeof yatoStatics !== 'undefined') yatoStatics.push(grp); yatoLaundrySpots.push({ x: +lx.toFixed(1), z: +lz.toFixed(1) }) // 風でゆれる＋J1カリング対象＋位置記録(検証用)
+    n++
+  }
+  if (postGeos.length) { const pm = new THREE.Mesh(mergeGeometries(postGeos), postMat); pm.castShadow = true; scene.add(pm); if (typeof yatoStatics !== 'undefined') yatoStatics.push(pm) }
+})()
 function initFishers() {
   if (fishersInit || !YATO_PONDS.length) return; fishersInit = true
   const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3) // 面積上位3つ（二ツ池・三ツ池の池）
@@ -10184,9 +10222,11 @@ window.__proto3d = {
   },
   get area() { return area },
   _pose(x, z, rot, a) { if (a) { area = a; onYato = a === 'yato' } boy.position.set(x, heightAt(x, z), z); facing = (rot != null ? rot : facing); boy.rotation.y = facing; boy.userData._cy = null; camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z) }, // 検証用：好きな位置・向きにカメラを置く（景色の確認・3視点QA用）
+  _lookAt(cx, cy, cz, tx, ty, tz, a) { if (a) { area = a; onYato = a === 'yato' } camera.position.set(cx, cy, cz); camera.userData._look = camera.userData._look || new THREE.Vector3(); camera.userData._look.set(tx, ty, tz); camera.lookAt(tx, ty, tz) }, // 検証用：カメラ位置と注視点を直接指定（__freezeCam併用で任意アングル）
   _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
   _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
+  _laundry() { return yatoLaundrySpots.slice() }, // 検証用：E1 洗濯物（物干し）の位置一覧
   _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
   _bgmEnable(on) { settings.bgm = !!on; applyBgm() }, // 検証用：オルゴールBGMのON/OFF（既定OFF＝環境音中心。ダッキング確認用）
   doCatch() { doCatch() }, // 検証用
