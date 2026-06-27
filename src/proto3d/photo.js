@@ -16,9 +16,23 @@ export const PHOTO_CFG = {
   grain: 22, // フィルムグレイン（±grain/2）
   dateStamp: true, // 右下の日付スタンプ（平成デジカメ風）
   dateColor: 'rgba(255,150,46,0.92)',
-  maxPhotos: 30, // アルバム上限（古いものから消す）
-  storeKey: 'hn3d_photos',
+  maxPhotos: 80, // アルバム上限（古いものから消す）。J5でIndexedDB化＝localStorageの5MB制限から解放したので30→80へ
+  storeKey: 'hn3d_photos', // 旧localStorageのキー（IndexedDBへ移行＝後方互換のため残す）
 }
+
+// ── J5：写真をIndexedDBへ（localStorageの5MB制限/無言失敗/同期ブロックを解消）。外部依存なしの極小ラッパ。──
+const IDB = { name: 'hn3d', store: 'photos', v: 1 }
+function idbOpen() {
+  return new Promise((res, rej) => {
+    try { const r = indexedDB.open(IDB.name, IDB.v)
+      r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains(IDB.store)) db.createObjectStore(IDB.store, { keyPath: 'id', autoIncrement: true }) }
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error || new Error('idb open失敗'))
+    } catch (e) { rej(e) }
+  })
+}
+async function idbAll() { const db = await idbOpen(); return new Promise((res) => { const tx = db.transaction(IDB.store, 'readonly'); const rq = tx.objectStore(IDB.store).getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => res([]) }) }
+async function idbAdd(rec) { const db = await idbOpen(); return new Promise((res, rej) => { const tx = db.transaction(IDB.store, 'readwrite'); const rq = tx.objectStore(IDB.store).add(rec); rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error) }) }
+async function idbDel(id) { const db = await idbOpen(); return new Promise((res) => { const tx = db.transaction(IDB.store, 'readwrite'); tx.objectStore(IDB.store).delete(id); tx.oncomplete = () => res(); tx.onerror = () => res() }) }
 
 // レトロ強度プリセット（見た目パラメータのみ差し替え。解像度等は据え置き）
 export const PHOTO_PRESETS = {
@@ -105,10 +119,24 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   const viewClose = $('button', '', viewBar); viewClose.textContent = 'とじる'
   const viewDel = $('button', '', viewBar); viewDel.textContent = 'けす'
 
-  // ── アルバム（localStorageに永続化）──
-  let photos = []
-  try { photos = JSON.parse(localStorage.getItem(cfg.storeKey) || '[]') } catch (e) { photos = [] }
-  const saveAlbum = () => { try { localStorage.setItem(cfg.storeKey, JSON.stringify(photos)) } catch (e) {} }
+  // ── アルバム（J5：IndexedDBに永続化。photosは{id,url,day}の配列＝表示は従来どおりurl(dataURL)）──
+  let photos = [], idbOk = true
+  // 起動時：IndexedDBから読み込み＋旧localStorageからの一度きりの移行
+  ;(async () => {
+    try {
+      let rows = await idbAll()
+      if (!rows.length) { // 旧localStorageに写真があればIndexedDBへ移行（古い順に）
+        let old = []
+        try { old = JSON.parse(localStorage.getItem(cfg.storeKey) || '[]') } catch (e) {}
+        if (old.length) { for (const u of old) { const url = typeof u === 'string' ? u : (u && u.url); if (url) try { await idbAdd({ url, day: 0, t: Date.now() }) } catch (e) {} }
+          try { localStorage.removeItem(cfg.storeKey) } catch (e) {} // 移行済みのlocalStorageは消す（5MBを占有しない）
+          rows = await idbAll() }
+      }
+      photos = rows.sort((a, b) => (a.t || 0) - (b.t || 0)) // 古い順
+      if (album.classList.contains('on')) openAlbum() // 読み込み中にアルバムを開いていたら描き直す
+    } catch (e) { idbOk = false; // IndexedDB不可（プライベートモード等）：セッション内のメモリ保持にフォールバック
+      try { const old = JSON.parse(localStorage.getItem(cfg.storeKey) || '[]'); photos = old.map((u) => ({ url: typeof u === 'string' ? u : u.url, day: 0 })) } catch (e2) {} }
+  })()
 
   // ── 平成レトロ加工（撮影画像のみ・別レイヤー）──
   function dateLabel() { const d = (getDay && getDay()) || 1; return `'08  8 ${14 + d}` }
@@ -156,7 +184,9 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
     requestAnimationFrame(() => {
       const url = processRetro(renderer.domElement)
       if (!url) return
-      photos.push(url); while (photos.length > cfg.maxPhotos) photos.shift(); saveAlbum()
+      const rec = { url, day: (getDay && getDay()) || 1, t: Date.now() }
+      if (idbOk) idbAdd(rec).then((id) => { rec.id = id }).catch(() => { idbOk = false }) // IndexedDBへ非同期保存（同期ブロックしない・失敗してもメモリには残る）
+      photos.push(rec); while (photos.length > cfg.maxPhotos) { const old = photos.shift(); if (old && old.id != null && idbOk) idbDel(old.id) } // 上限超過は古いものから消す（IDBからも）
       newCount++ // その日の絵日記に使えるよう「新しく撮った枚数」を数える
     })
   }
@@ -171,11 +201,11 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   function openAlbum() {
     grid.innerHTML = ''
     if (!photos.length) { grid.innerHTML = '<div id="pm-empty">まだ しゃしんが ありません。<br>📷で とってみよう。</div>' }
-    else for (let i = photos.length - 1; i >= 0; i--) { const im = document.createElement('img'); im.src = photos[i]; im.dataset.idx = i; im.addEventListener('click', () => openView(i)); grid.appendChild(im) }
+    else for (let i = photos.length - 1; i >= 0; i--) { const im = document.createElement('img'); im.src = photos[i].url; im.dataset.idx = i; im.addEventListener('click', () => openView(i)); grid.appendChild(im) }
     album.classList.add('on')
   }
   let viewIdx = -1
-  function openView(i) { viewIdx = i; viewImg.src = photos[i]; view.classList.add('on') }
+  function openView(i) { viewIdx = i; viewImg.src = photos[i].url; view.classList.add('on') }
 
   // ── モード切替 ──
   let on = false
@@ -190,7 +220,7 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   albumBtn.addEventListener('click', openAlbum)
   album.querySelector('#pm-close-album').addEventListener('click', () => album.classList.remove('on'))
   viewClose.addEventListener('click', () => view.classList.remove('on'))
-  viewDel.addEventListener('click', () => { if (viewIdx >= 0) { photos.splice(viewIdx, 1); saveAlbum(); view.classList.remove('on'); openAlbum() } })
+  viewDel.addEventListener('click', () => { if (viewIdx >= 0) { const rec = photos[viewIdx]; if (rec && rec.id != null && idbOk) idbDel(rec.id); photos.splice(viewIdx, 1); view.classList.remove('on'); openAlbum() } })
   addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if (k === 'p') { on ? exit() : enter() } else if (on && k === ' ') takePhoto() })
 
   return {
@@ -198,6 +228,6 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
     get count() { return photos.length },
     get newCount() { return newCount }, // その日 新しく撮った枚数（絵日記用）
     clearNew() { newCount = 0 },
-    latestPhoto() { return photos.length ? photos[photos.length - 1] : null },
+    latestPhoto() { return photos.length ? photos[photos.length - 1].url : null },
   }
 }
