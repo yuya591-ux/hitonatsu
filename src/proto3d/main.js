@@ -5844,9 +5844,9 @@ function makeVillager(x, z, opt) {
     npcEyes.push(sclera, iris, hi)
   }
   registerBlinker(npcEyes) // 村人/通行人もまばたき
-  { const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 6, 12, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.058, P.eyeZ + 0.008); head.add(mouth) }
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 6, 12, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.058, P.eyeZ + 0.008); mouth.userData.by = mouth.scale.y; head.add(mouth) // C1：口パク用に口を保持
   addContactShadow(g, 0.6)
-  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult, char: true, garment: opt.garment || (opt.boy ? 'shorts' : 'skirt') } // char:true＝細棒除外の対象外
+  g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, mouth, talk: 0, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult, char: true, garment: opt.garment || (opt.boy ? 'shorts' : 'skirt') } // char:true＝細棒除外の対象外
   scene.add(g)
   return g
 }
@@ -6209,7 +6209,8 @@ function updateChat(dt) {
     const gest = (g, talk) => { const u = g.userData, t = Math.max(0, talk)
       g.position.y = heightAtYato(g.position.x, g.position.z) + Math.abs(Math.sin(C.ph * 1.2)) * 0.01
       if (u.armR) u.armR.rotation.x = -0.18 * t + Math.sin(C.ph * 3) * 0.12 * t // 話す方は手ぶり
-      if (u.head) u.head.rotation.x = Math.sin(C.ph * 2.4) * 0.05 * (1 - t) - 0.03 * t } // 聞く方はうなずく
+      if (u.head) u.head.rotation.x = Math.sin(C.ph * 2.4) * 0.05 * (1 - t) - 0.03 * t // 聞く方はうなずく
+      if (u.mouth) { const open = t > 0.06 ? (0.5 + 0.5 * Math.sin(C.ph * 9)) * t : 0; u.mouth.scale.y = u.mouth.userData.by * (1 + open * 2.4); u.mouth.position.y = -0.058 - open * 0.012 } } // C1：話す方は口パク（抑揚で開閉）・聞く方は口を閉じる
     gest(C.a, turn); gest(C.b, -turn)
   }
 }
@@ -10214,6 +10215,7 @@ window.__proto3d = {
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
   _chores() { initChores(); return chores.map((c) => ({ x: +c.cx.toFixed(1), z: +c.cz.toFixed(1), kind: c.kind })) }, // 検証用：C3 静かなしぐさの位置と種類
+  _chatMouths() { const out = []; for (const C of chatPairs) for (const g of [C.a, C.b]) { const m = g.userData.mouth; if (m) out.push({ vis: g.visible, sy: +m.scale.y.toFixed(3), by: +m.userData.by.toFixed(3) }) } return out }, // 検証用：C1 会話ペアの口の開き（sy>byなら口パク中）
   _roadDefects() { const out = []
     const proc = (x0, z0, x1, z1, w) => { if (x0 < 2200 && x1 < 2200) return; const L = Math.hypot(x1 - x0, z1 - z0); if (L < 2) return
       const dx = (x1 - x0) / L, dz = (z1 - z0) / L, px = -dz, pz = dx, lift = 0.13, nseg = Math.max(2, Math.round(L / 1.6))
