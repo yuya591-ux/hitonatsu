@@ -7496,6 +7496,16 @@ function showToast(msg) {
   toastEl.textContent = msg; toastEl.classList.add('show')
   clearTimeout(toastEl._t); toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 1800)
 }
+// M1（2026-06-27）：初見だけ、開始のそっとした一言＝“あてもなく歩いて夏を味わう”を伝える（行き先サインやクエストではない。一度だけ・長めに）。
+//   UI/UX指摘＝スポーン直後「で、どこへ？」で手が止まる。本作は当てのない散歩なので、目的でなく“気分”をそっと渡す。
+let wanderShown = false; try { wanderShown = localStorage.getItem('hn3d_wander') === '1' } catch (e) {}
+function showWanderOnce(retries = 4) {
+  if (wanderShown || !toastEl) return
+  if (toastEl.classList.contains('show') && retries > 0) { setTimeout(() => showWanderOnce(retries - 1), 2000); return } // 朝のお知らせ(ラジオ体操等)が出ている間は少し待って、空いた瞬間にそっと出す
+  wanderShown = true; try { localStorage.setItem('hn3d_wander', '1') } catch (e) {}
+  toastEl.textContent = 'いそがなくて いいよ。ぶらり あるいて、ひと夏を ながめよう。'
+  toastEl.classList.add('show'); clearTimeout(toastEl._t); toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 5500)
+}
 function doCatch() {
   if (!catchTarget || catchTarget.done) return
   const tp = catchTarget.obj.position
@@ -9085,12 +9095,14 @@ const startBtn = document.getElementById('t-start')
 const guideEl = document.getElementById('guide')
 const guideOk = document.getElementById('guide-ok')
 let seenGuide = false; try { seenGuide = localStorage.getItem('hn3d_guide') === '1' } catch (e) {}
-if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} pokeUI(); idleMs = 14000 }) // ガイドを閉じた直後は14秒HUDを出したまま＝初見が操作を確かめる時間（最初の1回だけ・以降4.5秒）
+if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} pokeUI(); idleMs = 14000; setTimeout(showWanderOnce, 1500) }) // ガイドを閉じた直後は14秒HUDを出したまま＝初見が操作を確かめる時間（最初の1回だけ・以降4.5秒）＋少し置いてM1の散歩の一言
 if (startBtn) startBtn.addEventListener('click', () => {
   startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
   tday = 0.18; dayAuto = true; setTimeOfDay(0.18) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
   pokeUI(); idleMs = 14000 // 始めた直後もHUDを長めに出す（ガイドを2回目以降スキップした人にも初見の猶予）
-  if (!seenGuide && guideEl) { guideEl.classList.add('on'); seenGuide = true }
+  const willShowGuide = !seenGuide && guideEl
+  if (willShowGuide) { guideEl.classList.add('on'); seenGuide = true } // ガイドを出す回はガイドを閉じてから散歩の一言（guideOkで発火）
+  else setTimeout(showWanderOnce, 3800) // ガイドを出さない回は開始から少し置いて散歩の一言
 })
 
 // ── せってい（おと・モーション軽減）。localStorage に永続化 ──
