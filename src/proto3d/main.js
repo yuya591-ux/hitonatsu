@@ -6175,6 +6175,57 @@ const yatoLaundrySpots = [] // 物干しの位置（検証用）
   }
   if (postGeos.length) { const pm = new THREE.Mesh(mergeGeometries(postGeos), postMat); pm.castShadow = true; scene.add(pm); if (typeof yatoStatics !== 'undefined') yatoStatics.push(pm) }
 })()
+// ── C6：ツバメの巣（軒下）。泥のお椀＋黄色い口をあけたヒナ＝夏の家先の生き物。民家の壁の軒下に数か所。──
+const yatoNestSpots = [] // ツバメの巣の位置（検証用）
+;(function addSwallowNests() {
+  if (!builtBuildings.length) return
+  const mud = new THREE.MeshToonMaterial({ color: 0x6a5038, gradientMap: GRAD }), chickD = new THREE.MeshToonMaterial({ color: 0x2a2620, gradientMap: GRAD }), gape = new THREE.MeshBasicMaterial({ color: 0xe0a020 })
+  let n = 0
+  for (let bi = 0; bi < builtBuildings.length && n < 6; bi++) {
+    const b = builtBuildings[bi], cx = b[0], cz = b[1], w = b[2], d = b[3], ang = b[4]
+    if (Math.max(w, d) > 13 || Math.min(w, d) < 3.2) continue
+    const seed = Math.abs(Math.round(cx) * 19 + Math.round(cz) * 11)
+    if (seed % 8 !== 3) continue
+    const co = Math.cos(ang), si = Math.sin(ang), side = (seed % 2) ? 1 : -1
+    let ox, oz, faceA // 壁面のすぐ外＝軒下。建物の長辺の壁に付ける
+    if (w <= d) { ox = (w / 2 + 0.06) * side; oz = (seed % 3 - 1) * (d * 0.2); faceA = ang + (side > 0 ? Math.PI / 2 : -Math.PI / 2) } else { ox = (seed % 3 - 1) * (w * 0.2); oz = (d / 2 + 0.06) * side; faceA = ang + (side > 0 ? 0 : Math.PI) }
+    const px = cx + ox * co - oz * si, pz = cz + ox * si + oz * co
+    const gy = heightAtYato(px, pz), eaveY = gy + 2.45 // 軒下の高さ（一般民家の階高）
+    const nest = new THREE.Group()
+    const cup = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.55), mud); cup.scale.set(1, 0.8, 0.62); cup.position.set(0, 0, 0.04); nest.add(cup) // 泥のお椀（半球）
+    for (const hx of [-0.06, 0.06]) { const head = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), chickD); head.position.set(hx, 0.05, 0.06); nest.add(head) // ヒナの頭
+      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.05, 4), gape); beak.rotation.x = Math.PI / 2; beak.position.set(hx, 0.05, 0.11); nest.add(beak) } // 黄色い口
+    nest.position.set(px, eaveY, pz); nest.rotation.y = faceA; nest.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(nest); if (typeof yatoStatics !== 'undefined') yatoStatics.push(nest)
+    yatoNestSpots.push({ x: +px.toFixed(1), z: +pz.toFixed(1), y: +eaveY.toFixed(1) }); n++
+  }
+})()
+// ── C6：魚影（谷戸の池）。水面のすぐ下を黒っぽい影がゆっくり回遊＝池に魚がいる気配。──
+const fishShadows = []
+;(function initFishShadows() {
+  if (!YATO_PONDS.length) return
+  const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3)
+  const shMat = new THREE.MeshBasicMaterial({ color: 0x16241e, transparent: true, opacity: 0.4, depthWrite: false })
+  for (const P of ponds) { const nF = 3 + (P.br > 14 ? 2 : 0)
+    for (let i = 0; i < nF; i++) {
+      const geo = new THREE.CircleGeometry(0.34, 10); geo.scale(0.42, 1, 1); geo.rotateX(-Math.PI / 2) // 細長い魚影（長軸=Z）を水平に
+      const m = new THREE.Mesh(geo, shMat); m.renderOrder = 1; m.visible = false; scene.add(m); if (typeof yatoStatics !== 'undefined') yatoStatics.push(m)
+      fishShadows.push({ m, cx: P.cx, cz: P.cz, br: P.br, a: Math.random() * 6.28, r: P.br * (0.2 + Math.random() * 0.5), sp: (Math.random() < 0.5 ? 1 : -1) * (0.18 + Math.random() * 0.22), ph: Math.random() * 6 })
+    }
+  }
+})()
+function updateFishShadows(dt) {
+  if (!fishShadows.length || !onYato) { if (fishShadows.length && !onYato) for (const f of fishShadows) if (f.m.visible) f.m.visible = false; return }
+  const day = tday > 0.1 && tday < 0.82
+  for (const f of fishShadows) {
+    const near = day && Math.hypot(boy.position.x - f.cx, boy.position.z - f.cz) < 95 // 近接時だけ
+    if (f.m.visible !== near) f.m.visible = near
+    if (!near) continue
+    f.a += f.sp * dt * 0.25; const r = f.r + Math.sin(performance.now() * 0.0003 + f.ph) * 1.4
+    const fx = f.cx + Math.cos(f.a) * r, fz = f.cz + Math.sin(f.a) * r
+    f.m.position.set(fx, heightAtYato(fx, fz) + 0.06, fz) // 水面のすぐ下
+    f.m.rotation.y = f.a + (f.sp > 0 ? Math.PI / 2 : -Math.PI / 2) // 進む向きへ長軸を向ける
+  }
+}
 function initFishers() {
   if (fishersInit || !YATO_PONDS.length) return; fishersInit = true
   const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3) // 面積上位3つ（二ツ池・三ツ池の池）
@@ -8806,6 +8857,7 @@ function update(dt) {
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
+  updateFishShadows(dt) // C6：魚影（谷戸の池の水面下をゆっくり回遊・日中・近接時のみ）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
@@ -10347,6 +10399,8 @@ window.__proto3d = {
   _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
   _laundry() { return yatoLaundrySpots.slice() }, // 検証用：E1 洗濯物（物干し）の位置一覧
   _sunflowers() { return yatoSunflowerSpots.slice() }, // 検証用：D1 ヒマワリの位置一覧
+  _nests() { return yatoNestSpots.slice() }, // 検証用：C6 ツバメの巣の位置一覧
+  _fishShadows() { return fishShadows.map((f) => ({ cx: +f.cx.toFixed(0), cz: +f.cz.toFixed(0), vis: f.m.visible })) }, // 検証用：C6 魚影
   _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
   _bgmEnable(on) { settings.bgm = !!on; applyBgm() }, // 検証用：オルゴールBGMのON/OFF（既定OFF＝環境音中心。ダッキング確認用）
   doCatch() { doCatch() }, // 検証用
