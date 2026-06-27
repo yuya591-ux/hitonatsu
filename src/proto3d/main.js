@@ -10065,20 +10065,35 @@ const photoMode = initPhotoMode({ renderer, getDay: () => day, playShutter })
 window.__photo = photoMode // 検証用
 
 // ── I1/H2：おもいで帳（えにっき・しゃしん・むしさかな図鑑をひとつに）。いつでも開いて夏をふり返れる。──
-const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fish.kindsのキーと対応）
+// H2：図鑑の挿絵＝簡素な手描き風をcanvasで（絵文字は昭和の世界観に合わないため。絵日記の手描き感に揃える）
+function creatureArt(kind) {
+  const c = document.createElement('canvas'); c.width = c.height = 72; const x = c.getContext('2d')
+  x.lineWidth = 2.2; x.lineJoin = x.lineCap = 'round'; x.strokeStyle = '#4a3a2a'
+  const cx = 36, cy = 38, fill = (col) => { x.fillStyle = col }
+  const ell = (ex, ey, rx, ry, col, rot) => { x.save(); x.translate(ex, ey); if (rot) x.rotate(rot); x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, 7); fill(col); x.fill(); x.stroke(); x.restore() }
+  if (kind === 'チョウ') { ell(cx - 11, cy - 6, 11, 13, '#e8b94a', -0.3); ell(cx + 11, cy - 6, 11, 13, '#e8b94a', 0.3); ell(cx - 9, cy + 9, 8, 9, '#e0a23a', -0.2); ell(cx + 9, cy + 9, 8, 9, '#e0a23a', 0.2); ell(cx, cy, 2.4, 14, '#5a4632') }
+  else if (kind === 'カブトムシ') { ell(cx, cy + 5, 13, 17, '#5a3a22'); x.beginPath(); x.moveTo(cx, cy - 12); x.lineTo(cx - 3, cy - 26); x.lineTo(cx + 2, cy - 22); x.lineTo(cx + 3, cy - 26); x.stroke(); ell(cx, cy - 9, 7, 6, '#3e2a18') } // 体＋ツノ
+  else if (kind === 'セミ') { ell(cx, cy + 4, 9, 16, '#4a5a3a'); ell(cx - 12, cy, 13, 7, 'rgba(210,220,230,0.7)', -0.5); ell(cx + 12, cy, 13, 7, 'rgba(210,220,230,0.7)', 0.5); ell(cx, cy - 11, 7, 6, '#3a4a2e') } // 体＋透けた翅
+  else if (kind === 'ザリガニ') { ell(cx, cy + 6, 9, 14, '#c0402a'); for (const s of [-1, 1]) { x.beginPath(); x.moveTo(cx + s * 6, cy - 4); x.lineTo(cx + s * 18, cy - 12); x.stroke(); ell(cx + s * 20, cy - 14, 6, 4, '#c0402a', s * 0.6) } x.beginPath(); for (const s of [-1, 1]) { x.moveTo(cx, cy + 14); x.lineTo(cx + s * 8, cy + 20) } x.stroke() } // 体＋はさみ
+  else if (kind === 'おたまじゃくし') { ell(cx - 4, cy, 12, 11, '#3a4636'); x.beginPath(); x.moveTo(cx + 7, cy); x.quadraticCurveTo(cx + 22, cy - 8, cx + 26, cy + 4); x.stroke(); fill('#fff'); x.beginPath(); x.arc(cx - 7, cy - 3, 2.4, 0, 7); x.fill() } // 丸い頭＋しっぽ
+  else { const col = kind === 'メダカ' ? '#9aa66a' : kind === 'ナマズ' ? '#5a5a4a' : '#b0a070'; ell(cx - 4, cy, 17, 10, col); x.beginPath(); x.moveTo(cx + 11, cy); x.lineTo(cx + 24, cy - 9); x.lineTo(cx + 24, cy + 9); x.closePath(); fill(col); x.fill(); x.stroke(); fill('#fff'); x.beginPath(); x.arc(cx - 11, cy - 2, 2.6, 0, 7); x.fill(); if (kind === 'ナマズ') { x.beginPath(); x.moveTo(cx - 13, cy + 2); x.lineTo(cx - 24, cy - 1); x.moveTo(cx - 13, cy + 4); x.lineTo(cx - 24, cy + 7); x.stroke() } } // 魚＝胴＋尾びれ＋目（ナマズはひげ）
+  return c.toDataURL()
+}
+const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fish.kindsのキーと対応）。eは手描き挿絵のdataURL（H2）
   むし: [
-    { k: 'チョウ', e: '🦋', d: 'はらっぱを ひらひら。とまると はねを とじる。' },
-    { k: 'カブトムシ', e: '🪲', d: '木の みきに しがみつく。つのが りっぱ。' },
-    { k: 'セミ', e: '🐝', d: 'ジリジリと 夏を ならす。さわると ビーッと とぶ。' },
+    { k: 'チョウ', d: 'はらっぱを ひらひら。とまると はねを とじる。' },
+    { k: 'カブトムシ', d: '木の みきに しがみつく。つのが りっぱ。' },
+    { k: 'セミ', d: 'ジリジリと 夏を ならす。さわると ビーッと とぶ。' },
   ],
   さかな: [
-    { k: 'フナ', e: '🐟', d: '池の ぬしみたいに ゆったり。' },
-    { k: 'メダカ', e: '🐠', d: '近づくと さっと ちらばる 小さな いのち。' },
-    { k: 'ザリガニ', e: '🦞', d: 'はさみを ふりあげて おこる。赤い よろい。' },
-    { k: 'ナマズ', e: '🐡', d: 'どろの 底に ひそむ。ひげが ながい。' },
-    { k: 'おたまじゃくし', e: '🐸', d: 'やがて カエルに なる。しっぽが かわいい。' },
+    { k: 'フナ', d: '池の ぬしみたいに ゆったり。' },
+    { k: 'メダカ', d: '近づくと さっと ちらばる 小さな いのち。' },
+    { k: 'ザリガニ', d: 'はさみを ふりあげて おこる。赤い よろい。' },
+    { k: 'ナマズ', d: 'どろの 底に ひそむ。ひげが ながい。' },
+    { k: 'おたまじゃくし', d: 'やがて カエルに なる。しっぽが かわいい。' },
   ],
 }
+for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c.k) // 起動時に挿絵を1回だけ生成
 ;(function buildMemoryBook() {
   const $ = (tag, css, parent) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e }
   const style = document.createElement('style')
@@ -10099,10 +10114,11 @@ const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fi
     #mb-pic img{width:100%;max-width:360px;display:block;margin:1.4em auto 0;border:5px solid #fff;border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transform:rotate(-1deg);}
     #mb-zukan{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;}
     .mb-cre{background:#fff;border-radius:8px;padding:0.8em;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
-    .mb-cre .em{font-size:34px;line-height:1.3;}
+    .mb-cre .em{height:52px;display:flex;align-items:center;justify-content:center;}
+    .mb-cre .em img{width:52px;height:52px;}
     .mb-cre.got .nm{font-weight:700;color:#3b3024;font-size:14px;}
-    .mb-cre.no{opacity:0.7;}
-    .mb-cre.no .em{filter:grayscale(1) brightness(0.4) opacity(0.5);}
+    .mb-cre.no{opacity:0.8;}
+    .mb-cre.no .em img{filter:brightness(0) opacity(0.26);}
     .mb-cre .nm{font-size:13px;color:#7a6a4a;margin-top:0.2em;}
     .mb-cre .ds{font-size:11px;color:#9a8a6a;margin-top:0.3em;line-height:1.4;min-height:2.4em;}
     .mb-cre .ct{font-size:11px;color:#c98a4a;margin-top:0.2em;}
@@ -10134,7 +10150,7 @@ const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fi
     let html = '<h4>むし・さかな ずかん</h4><div id="mb-zukan">'
     for (const [grp, isFish] of [['むし', false], ['さかな', true]]) for (const c of CREATURES[grp]) {
       const n = got(c.k, isFish), has = n > 0
-      html += `<div class="mb-cre ${has ? 'got' : 'no'}"><div class="em">${has ? c.e : '❓'}</div><div class="nm">${has ? c.k : '？？？'}</div>` + (has ? `<div class="ds">${c.d}</div><div class="ct">${n}ひき</div>` : '<div class="ds">まだ つかまえていない</div>') + '</div>'
+      html += `<div class="mb-cre ${has ? 'got' : 'no'}"><div class="em"><img src="${c.e}"></div><div class="nm">${has ? c.k : '？？？'}</div>` + (has ? `<div class="ds">${c.d}</div><div class="ct">${n}ひき</div>` : '<div class="ds">まだ つかまえていない</div>') + '</div>'
     }
     bodyEl.innerHTML = html + '</div>'
   }
