@@ -6877,6 +6877,7 @@ const AUDIO = {
   rainStart: 0.1,     // 雨音が鳴り始めるweather。やさしい雨(0.4)もちゃんと聞こえる。低weatherはLPFでやわらかく＝“どしゃどしゃ”でなく癒しのポツポツに
   rainVol: 0.2,       // 雨音の最大音量
   thunderStart: 0.34, // 遠雷が鳴り始めるweather（本降りのときだけ＝紛らわしい低音を出さない）
+  lifeVol: 0.4,       // 生活音（子どもの声・ざわめき・犬・自転車のベル）の基準音量＝環境音より控えめ＝うるさくしない（賑わいPhase3・2026-06-27）
   festVol: 0.6,       // 縁日のお囃子の基準音量（近づくと最大）
   festRefDist: 9,     // この距離以内で最大。離れるほど小さく＝音をたどって屋台へ
   festMaxDist: 180,   // この距離で無音。近づくほど大きく＝遠くからお囃子をたどって会場(校庭の盆踊り)を探す楽しさ（ユーザー要望2026-06-24でやや広げた）
@@ -7315,6 +7316,72 @@ function festCrowd(t0) { // 縁日のざわめき＝やわらかいノイズの2
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.038, t0 + 0.9); g.gain.linearRampToValueAtTime(0.026, t0 + 1.9); g.gain.linearRampToValueAtTime(0.0001, t0 + 2.1)
     src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); src.stop(t0 + 2.2)
   } catch (e) {}
+}
+// ── 生活音／声（賑わいPhase3・2026-06-27）：人を増やしたのに合わせ、子どもの声・遠いざわめき・犬・自転車のベルで“あの夏の生活音”を足す。
+//   ★著作権＝録音は一切使わず、Web Audioの合成のみ。声は母音的フォルマント止まり＝言葉にしない（意味を持たせない＝著作権/没入の両面で安全）。
+//   うるさくしない＝環境音の半分以下・確率トリガ・距離で必ず溶かす。getFestOutと同型の「生活音バス」＋手動距離減衰でお囃子と同じ作法。
+const LIFE_SPOTS = [
+  { x: 3120, z: -186, kinds: ['cheer', 'ball', 'murmur'], w: [0.12, 0.6] }, // 小学校の校庭/広場（昼＝子どもの歓声・ボール）
+  { x: 3850, z: -740, kinds: ['cheer', 'murmur'], w: [0.14, 0.58] },        // 三ツ池公園（昼＝遊ぶ子）
+  { x: 3010, z: 8, kinds: ['murmur', 'dog'], w: [0.5, 0.8] },               // 家並み・夕方の家路（遠い子の声＋犬の遠吠え＝郷愁）
+  { x: 2762, z: -150, kinds: ['murmur', 'bell'], w: [0.2, 0.78] },          // 商店街（立ち話のざわめき＋自転車のベル）
+]
+let lifeGain = null, lifeMurmurCd = 4 + Math.random() * 10, lifeCheerCd = 10 + Math.random() * 24, lifeDogCd = 50 + Math.random() * 70, lifeBellCd = 40 + Math.random() * 70
+function getLifeOut() { const ctx = listener.context; if (lifeGain && lifeGain.context === ctx) return lifeGain
+  lifeGain = ctx.createGain(); lifeGain.gain.value = 0
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2300 // 遠い生活音＝やわらかく（輪郭を消す）
+  lifeGain.connect(lp); lp.connect(getMaster()); return lifeGain }
+const lifePan = (p) => { const pan = listener.context.createStereoPanner(); pan.pan.value = Math.max(-0.85, Math.min(0.85, p)); return pan } // 生活音バス専用のパン（sfxPanはsfxバスへ繋がるので使わない）
+function lifeMurmur(t0) { if (!audioStarted) return; try { const ctx = listener.context, out = getLifeOut()
+  for (const [f, q, v] of [[320, 0.6, 0.6], [560, 0.7, 0.85], [900, 0.85, 0.4]]) { // 母音(あ/お/え)のフォルマント比＝人のざわめき
+    const src = ctx.createBufferSource(); src.buffer = getNoise(); src.loop = true; src.playbackRate.value = 0.36 + Math.random() * 0.16
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f * (0.94 + Math.random() * 0.12); bp.Q.value = q
+    const g = ctx.createGain(); const peak = 0.03 * v
+    g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(peak, t0 + 1.2); g.gain.linearRampToValueAtTime(peak * 0.66, t0 + 2.5); g.gain.linearRampToValueAtTime(0.0001, t0 + 3.1)
+    src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); src.stop(t0 + 3.2) } } catch (e) {} }
+function kidCheer(t0) { if (!audioStarted) return; try { const ctx = listener.context, out = getLifeOut()
+  const n = 3 + (Math.random() * 3 | 0) // 子ども3〜5人ぶんの母音バーストを少しずつずらして重ねる＝群れの歓声
+  for (let i = 0; i < n; i++) { const ts = t0 + Math.random() * 0.18, base = 360 + Math.random() * 240
+    const o = ctx.createOscillator(); o.type = 'triangle'
+    o.frequency.setValueAtTime(base * 0.8, ts); o.frequency.linearRampToValueAtTime(base * 1.22, ts + 0.12); o.frequency.linearRampToValueAtTime(base * 0.92, ts + 0.45) // 歓声の抑揚
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 850; bp.Q.value = 0.8 // 母音っぽく
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ts); g.gain.linearRampToValueAtTime(0.018, ts + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, ts + 0.5)
+    const pan = lifePan((Math.random() * 2 - 1) * 0.5); o.connect(bp); bp.connect(g); g.connect(pan); pan.connect(out); o.start(ts); o.stop(ts + 0.55) } } catch (e) {} }
+function ballBounce(t0) { if (!audioStarted) return; try { const ctx = listener.context, out = getLifeOut()
+  const reps = 2 + (Math.random() * 4 | 0); let tt = t0
+  for (let i = 0; i < reps; i++) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(190, tt); o.frequency.exponentialRampToValueAtTime(95, tt + 0.08)
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(0.02, tt + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.1)
+    o.connect(g); g.connect(out); o.start(tt); o.stop(tt + 0.12); tt += 0.45 + Math.random() * 0.45 } } catch (e) {} }
+function dogBark(t0, howl) { if (!audioStarted) return; try { const ctx = listener.context, out = getLifeOut()
+  const pan = lifePan((Math.random() * 2 - 1) * 0.6)
+  if (howl) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(300, t0); o.frequency.linearRampToValueAtTime(420, t0 + 0.4); o.frequency.linearRampToValueAtTime(330, t0 + 1.1)
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 1.4
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.02, t0 + 0.15); g.gain.linearRampToValueAtTime(0.016, t0 + 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.3)
+    o.connect(bp); bp.connect(g); g.connect(pan); pan.connect(out); o.start(t0); o.stop(t0 + 1.4) } // 遠吠え
+  else { for (let i = 0; i < 2; i++) { const ts = t0 + i * 0.22, o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(330, ts); o.frequency.exponentialRampToValueAtTime(200, ts + 0.12)
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 1.2
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ts); g.gain.linearRampToValueAtTime(0.02, ts + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, ts + 0.16)
+    o.connect(bp); bp.connect(g); g.connect(pan); pan.connect(out); o.start(ts); o.stop(ts + 0.2) } } } catch (e) {} } // 「ワンワン」
+function bikeBell(t0) { if (!audioStarted) return; try { const ctx = listener.context, out = getLifeOut(), pan = lifePan(-0.5)
+  pan.pan.setValueAtTime(-0.5, t0); pan.pan.linearRampToValueAtTime(0.5, t0 + 0.7) // 通り過ぎる感＝左→右
+  for (const ts of [t0, t0 + 0.16]) { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 2350; const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 3140
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ts); g.gain.linearRampToValueAtTime(0.016, ts + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, ts + 0.32)
+    o.connect(g); o2.connect(g); g.connect(pan); pan.connect(out); o.start(ts); o.stop(ts + 0.34); o2.start(ts); o2.stop(ts + 0.34) } } catch (e) {} } // チリン
+function maybeLifeSounds(dt) {
+  if (!audioStarted) return
+  const ctx = listener.context, out = getLifeOut()
+  let near = null, nd = 1e9
+  for (const s of LIFE_SPOTS) { if (tday < s.w[0] || tday > s.w[1]) continue; const d = Math.hypot(boy.position.x - s.x, boy.position.z - s.z); if (d < nd) { nd = d; near = s } }
+  const swell = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() * 0.00012)) // ゆっくりした賑わいのうねり
+  let target = 0
+  if (near && onYato) { const da = THREE.MathUtils.clamp((85 - nd) / (85 - 10), 0, 1); target = Math.pow(da, 1.4) * AUDIO.lifeVol * swell }
+  out.gain.setTargetAtTime(target, ctx.currentTime, 0.5) // バス音量を距離でなめらかに
+  if (!near || !onYato || target < 0.012) return // 遠い/夜/対象外は鳴らさない
+  const at = ctx.currentTime + 0.06, has = (k) => near.kinds.indexOf(k) >= 0
+  lifeMurmurCd -= dt; if (lifeMurmurCd <= 0) { lifeMurmurCd = 9 + Math.random() * 15; if (has('murmur')) lifeMurmur(at) }
+  lifeCheerCd -= dt; if (lifeCheerCd <= 0) { lifeCheerCd = 28 + Math.random() * 55; if (has('cheer')) kidCheer(at); else if (has('ball')) ballBounce(at) }
+  lifeDogCd -= dt; if (lifeDogCd <= 0) { lifeDogCd = 90 + Math.random() * 120; if (has('dog')) dogBark(at, Math.random() < 0.45) }
+  lifeBellCd -= dt; if (lifeBellCd <= 0) { lifeBellCd = 70 + Math.random() * 120; if (has('bell')) bikeBell(at) }
 }
 function activeVenue() { let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(day) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ（同じ日に複数会場でも、近い方のお囃子/花火が効く＝近い祭りへたどれる）
 function updateFestival(dt) {
@@ -8497,6 +8564,7 @@ function update(dt) {
   maybeCricket(dt) // 夜の虫の音
   maybeNightCreatures(dt) // M2：遠いカエルの合唱(遠近2層)＋たまにふくろう＝夜の音層を厚く
   maybeDayCicadas(dt) // F3：昼の蝉に種類を＝ミンミンゼミ/ツクツクホウシをまばらに重ねる
+  maybeLifeSounds(dt) // 賑わいPhase3：子どもの声・ざわめき・犬・自転車のベル（公園/校庭/商店街/家路・時刻と距離でゲート・うるさくしない）
   // 雨上がり：本降りが引いた瞬間に しずくを少し落とす（軒や葉から）＋昼なら虹が架かる
   if (lastWeatherForDrip > 0.4 && weather < 0.28) { dripQueue = 8; if (nightFactor(tday) < 0.2) rainbowTimer = 26 }
   lastWeatherForDrip = weather
@@ -9817,6 +9885,7 @@ window.__proto3d = {
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
+  _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
   _suppressWander() { wanderShown = true }, // 検証用：M1の散歩トーストを出さない（朝のひとことと混同しないため）
