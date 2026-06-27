@@ -578,6 +578,7 @@ scene.add(rim); scene.add(rim.target)
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide,
   fog: false,
+  depthWrite: false, // 空は背景＝深度を書かない（半径400の壁が、その外側(400〜580m)に置いた入道雲を深度で隠していた不具合の解消・2026-06-27）。地形(不透明)が手前を隠すのは depthTest で従来どおり効く
   uniforms: {
     top: { value: new THREE.Color(0x8fc4e6) },
     mid: { value: new THREE.Color(0xcfe8f0) },
@@ -6317,73 +6318,92 @@ function updateContrail(dt) {
   c.trail.position.set(midX, c.y - 0.4, cz); c.trail.scale.set(tailLen, 1, 1)
   c.trail.material.opacity = 0.7 * Math.min(1, p * 4) * Math.min(1, (1 - p) * 3.2) // 白い尾＝出と消えはうっすら溶ける
 }
-// ── 入道雲（夏の空のシンボル）。多数の球を有機的に詰めて1ジオメトリに統合＝軽い。
-// 法線の上向きで「上は白く下は陰る」独自シェーダ＝もくもくの立体感。複数を各所に配置 ──
+// ── 入道雲（夏の空のシンボル）──
+// ★様式更新（ユーザー許可で低ポリ脱却2026-06-27）：球の塊だと上から見て「ぶどう粒」に割れるため、
+//   “やわらかいテクスチャの板（ビルボード）を群れで重ねる”積雲法に作り直し。各パフは常にカメラを向き、
+//   ノイズで縁がふわっと溶ける半透明テクスチャ＝もこもこの綿のような雲に。1基=インスタンス1ドローコールで軽い（モバイル可・点サイズ上限の制約も無い）。
 const thunderheads = []
-const cloudMat = new THREE.ShaderMaterial({
-  uniforms: {
-    opacity: { value: 0.96 },
-    topCol: { value: new THREE.Color(0xfffdf6) },
-    botCol: { value: new THREE.Color(0x95a1bb) },
-    sunDir: { value: sunDir },
-    sunCol: { value: new THREE.Color(0xfff0d4) },
-  },
-  vertexShader: `varying vec3 vN; varying vec3 vL; varying vec3 vView;
-    void main(){ vN = normalize(mat3(modelMatrix) * normal); vL = position; vec4 wp = modelMatrix * vec4(position, 1.0); vView = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  // もくもくの陰影(3Dノイズ)＋上白下青のグラデ＋太陽側の暖色＋フチの銀色(フレネル)で、よりリアルな積乱雲に
-  fragmentShader: `varying vec3 vN; varying vec3 vL; varying vec3 vView; uniform float opacity; uniform vec3 topCol; uniform vec3 botCol; uniform vec3 sunDir; uniform vec3 sunCol;
-    float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-    float noise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
-      return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
-                 mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z); }
-    float fbm(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 3; i++){ v += a * noise(p); p *= 2.02; a *= 0.5; } return v; }
-    void main(){
-      float up = clamp(vN.y * 0.5 + 0.5, 0.0, 1.0);
-      float bump = smoothstep(0.28, 0.78, fbm(vL * 0.13));           // 表面のもくもく（こぶ＝明、谷＝暗）。スケールを少し大きく＝こぶをひとまわり大きく（細かい粒立ちを減らす）
-      vec3 col = mix(botCol, topCol, smoothstep(0.14, 0.86, up));    // 上は白く、下は青く陰る
-      col *= 0.84 + 0.2 * bump;                                      // こぶの陰影をやわらげ（0.74+0.36→0.84+0.2）＝各球が「ぶどう粒」に分離して見えるのを解消（アートD指摘の“房/泡の塊”対策2026-06-27）
-      col += sunCol * max(0.0, dot(vN, normalize(sunDir))) * 0.18;   // 太陽側を暖かく
-      float fres = pow(1.0 - max(0.0, dot(vView, vN)), 4.0);        // フレネルを薄く（3→4乗＝極端な縁だけ）
-      col += vec3(0.045, 0.045, 0.042) * fres;                       // フチの銀色を大幅に弱く（0.14→0.045）＝各球の縁が光って粒立つのを抑える
-      gl_FragColor = vec4(col, opacity);
-    }`,
-  transparent: true, fog: false,
-})
-const unitSphere = new THREE.SphereGeometry(1, 12, 9)
-function buildCumulonimbus() {
-  // ぶどう粒の塊に割れて見えないよう、まず“なめらかな芯（大きな球を縦に重ねた連続した主塊）”を作り、
-  // その輪郭に沿って小さめのカリフラワー粒を乗せる＝コヒーレントな入道雲＋もくもくのディテール（ユーザー要望「もっと自然に」2026-06-27）
-  const geos = []
-  const push = (x, y, z, rx, ry) => { const g = unitSphere.clone(); g.scale(rx, ry, rx); g.translate(x, y, z); geos.push(g) }
-  const H = 26, baseW = 13
-  // 多数の“小さめ”の球を中心寄りに密に詰める＝細かいカリフラワー。大きな球だと上から見たとき「ぶどう粒/風船」に割れて見えるので、
-  // 粒を小さく・密にして連続した雲塊に（ユーザー要望「もっと自然に」2026-06-27）
-  for (let i = 0; i < 104; i++) {
-    const t = Math.pow(Math.random(), 0.8)               // 下に偏らせる（下がもくもく）
-    const y = t * H
-    const prof = Math.sin(Math.min(1, t * 1.08 + 0.12) * Math.PI) // 下〜中ふくらみ、上すぼまり
-    const maxr = baseW * (0.46 + 0.54 * prof)
-    const a = Math.random() * Math.PI * 2, rr = Math.pow(Math.random(), 0.62) * maxr // 中心寄りに密（縁がギザつかない）
-    const sr = (1 - t * 0.45) * 1.7 + 1.15 + Math.random() * 0.7 // 小さめの粒＝細かいディテール
-    push(Math.cos(a) * rr, y, Math.sin(a) * rr * 0.8, sr, sr * (0.9 + Math.random() * 0.16))
+// やわらかいパフのテクスチャ（中心が濃く縁がノイズでふわっと薄れる円）
+const puffTex = (() => {
+  const S = 96, c = document.createElement('canvas'); c.width = c.height = S; const cx2 = c.getContext('2d')
+  const img = cx2.createImageData(S, S), d = img.data
+  const rnd = []; for (let i = 0; i < 64; i++) rnd.push(Math.random())
+  const vn = (x, y) => { const xi = Math.floor(x) & 7, yi = Math.floor(y) & 7, xf = x - Math.floor(x), yf = y - Math.floor(y)
+    const a = rnd[yi * 8 + xi], b = rnd[yi * 8 + ((xi + 1) & 7)], cc = rnd[((yi + 1) & 7) * 8 + xi], dd = rnd[((yi + 1) & 7) * 8 + ((xi + 1) & 7)]
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf); return a * (1 - u) * (1 - v) + b * u * (1 - v) + cc * (1 - u) * v + dd * u * v }
+  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+    const dx = (i - S / 2) / (S / 2), dy = (j - S / 2) / (S / 2), r = Math.hypot(dx, dy)
+    let a = Math.pow(Math.max(0, 1 - r), 1.55)                       // やわらかい放射状の薄れ
+    const n = vn(i / S * 4.5 + 1.3, j / S * 4.5 + 2.1) * 0.55 + vn(i / S * 10.0, j / S * 10.0) * 0.25 // 縁をふわっと不規則に
+    a *= 0.5 + 0.85 * n
+    a = Math.max(0, Math.min(1, a))
+    const idx = (j * S + i) * 4; d[idx] = 255; d[idx + 1] = 255; d[idx + 2] = 255; d[idx + 3] = (a * 255) | 0
   }
-  // てっぺんの丸い盛り上がり（塔の頭）＝小さめに
-  for (const [dx, dy, sr] of [[0, 0.98, 3.0], [-2.6, 0.88, 2.4], [2.6, 0.9, 2.3], [0.4, 1.04, 2.2]]) push(dx, H * dy, (Math.random() - 0.5) * 2, sr, sr)
-  const merged = mergeGeometries(geos); geos.forEach((g) => g.dispose()); return merged
+  cx2.putImageData(img, 0, 0)
+  const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearMipMapLinearFilter; t.magFilter = THREE.LinearFilter; return t
+})()
+// インスタンス・ビルボード（各パフが常にカメラを向く板）。上=白／下=青灰のグラデ＋太陽側を暖色に
+const cloudMat = new THREE.ShaderMaterial({
+  uniforms: { map: { value: puffTex }, opacity: { value: 0.92 }, topCol: { value: new THREE.Color(0xfffefb) }, botCol: { value: new THREE.Color(0xc4ccda) }, sunCol: { value: new THREE.Color(0xfff0d6) }, sunDir: { value: sunDir } },
+  vertexShader: `attribute vec3 iPos; attribute float iSize; attribute float iY; attribute float iSeed;
+    uniform vec3 sunDir; varying vec2 vUv; varying float vY; varying float vWarm;
+    void main(){
+      vUv = uv; vY = iY;
+      vWarm = clamp(dot(normalize(iPos + vec3(0.0, 0.6, 0.0)), normalize(sunDir)) * 0.5 + 0.3, 0.0, 1.0); // 太陽の向きのパフを暖かく
+      vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
+      float c = cos(iSeed), s = sin(iSeed);                          // 板ごとに少し回す＝同じ絵の繰り返しを隠す
+      vec2 q = vec2(position.x * c - position.y * s, position.x * s + position.y * c);
+      mv.xy += q * iSize;
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `uniform sampler2D map; uniform float opacity; uniform vec3 topCol; uniform vec3 botCol; uniform vec3 sunCol;
+    varying vec2 vUv; varying float vY; varying float vWarm;
+    void main(){
+      float a = texture2D(map, vUv).a * opacity;
+      if (a < 0.004) discard;
+      vec3 col = mix(botCol, topCol, smoothstep(-0.05, 0.62, vY));   // 下のすこしだけ灰色、大部分は白＝夏の入道雲（暗い底にしない）
+      col *= 0.9 + 0.12 * vUv.y;                                     // パフ内の上を少し明るく＝丸み
+      col += sunCol * vWarm * 0.14;                                  // 太陽側を暖かく
+      gl_FragColor = vec4(col, a);
+    }`,
+  transparent: true, depthWrite: false, fog: false,
+})
+const cloudQuad = new THREE.PlaneGeometry(2, 2) // position.xy∈[-1,1]＝iSizeが半径
+function buildCloudPuffs(scaleF) {
+  const N = 42 + (Math.random() * 12 | 0)
+  const geo = new THREE.InstancedBufferGeometry()
+  geo.setIndex(cloudQuad.index); geo.setAttribute('position', cloudQuad.attributes.position); geo.setAttribute('uv', cloudQuad.attributes.uv)
+  const iPos = new Float32Array(N * 3), iSize = new Float32Array(N), iY = new Float32Array(N), iSeed = new Float32Array(N)
+  const H = 26, baseW = 13
+  for (let k = 0; k < N; k++) {
+    const t = Math.pow(Math.random(), 0.78), y = t * H                // 下に偏らせる（下がもくもく）
+    const prof = Math.sin(Math.min(1, t * 1.06 + 0.14) * Math.PI)     // 下〜中ふくらみ、上すぼまり（縦に伸びる入道雲）
+    const maxr = baseW * (0.46 + 0.56 * prof)
+    const a = Math.random() * 6.2832, rr = Math.pow(Math.random(), 0.58) * maxr // 中心寄りに密
+    iPos[k * 3] = Math.cos(a) * rr * scaleF; iPos[k * 3 + 1] = y * scaleF; iPos[k * 3 + 2] = Math.sin(a) * rr * 0.8 * scaleF
+    iSize[k] = ((1 - t * 0.4) * 3.0 + 2.7 + Math.random() * 1.7) * scaleF // やわらかいパフ＝大きめに重ねて霧状に
+    iY[k] = t; iSeed[k] = Math.random() * 6.2832
+  }
+  geo.setAttribute('iPos', new THREE.InstancedBufferAttribute(iPos, 3))
+  geo.setAttribute('iSize', new THREE.InstancedBufferAttribute(iSize, 1))
+  geo.setAttribute('iY', new THREE.InstancedBufferAttribute(iY, 1))
+  geo.setAttribute('iSeed', new THREE.InstancedBufferAttribute(iSeed, 1))
+  geo.instanceCount = N
+  return geo
 }
-// N4（2026-06-27）：入道雲を2段に＝近景の大きな主雲(7基)＋遠景の小さめの積雲(4基)で空気遠近の奥行きを作り、
-//   “主雲が地平にぽつんで空が寂しい”を解消。1基は開始の通りの抜け(北東 az≈π/4)に寄せて歩行中も視界に入る。
-//   ※遠端はカメラfar床680内に収める（近dist≤500/遠dist≤580＝クリップで消さない）。
+// 入道雲を2段に＝近景の大きな主雲(7基)＋遠景の小さめの積雲(4基)で空気遠近の奥行き。1基は開始の通りの抜け(北東 az≈π/4)に。
 const NEAR_N = 7, FAR_N = 4
 for (let i = 0; i < NEAR_N + FAR_N; i++) {
   const far = i >= NEAR_N
-  const mesh = new THREE.Mesh(buildCumulonimbus(), cloudMat)
-  mesh.scale.setScalar(far ? (1.9 + Math.random() * 0.9) : (3.4 + Math.random() * 2.6)) // 遠景は小さめ＝奥に見える
-  mesh.layers.set(1) // 入道雲もインク線の法線パスから除外（やわらかい雲）
+  const scaleF = far ? (1.9 + Math.random() * 0.9) : (3.4 + Math.random() * 2.6)
+  const mesh = new THREE.Mesh(buildCloudPuffs(scaleF), cloudMat)
+  mesh.frustumCulled = false // ビルボード（バウンディングが効かない）＝常に描く。数が少ないので安い
+  mesh.layers.set(1) // インク線の法線パスから除外（やわらかい雲）
+  mesh.renderOrder = -2 // 空の背景＝他の半透明より先に描く
   const az = i === 0 ? (Math.PI / 4 + (Math.random() - 0.5) * 0.35) // 0番＝北東(開始の通りの抜け)に主雲
-    : far ? ((i - NEAR_N) / FAR_N * Math.PI * 2 + 0.8 + Math.random() * 0.5) // 遠景は近景の隙間を埋めるよう位相をずらす
+    : far ? ((i - NEAR_N) / FAR_N * Math.PI * 2 + 0.8 + Math.random() * 0.5)
     : ((i / NEAR_N) * Math.PI * 2 + Math.random() * 0.5)
-  // baseY＝雲の“底”の高さ。建物(最大約90m)/丘より十分上に上げる＝低い位置でビルや丘に食い込む違和感を解消（ユーザー指摘2026-06-27）。飛行(最大約200m)でも空の要素として読める高さ
+  // baseY＝雲の“底”の高さ。建物(最大約90m)/丘より十分上＝食い込まない・飛行(上限約200m)でも空として読める
   mesh.userData = { az, dist: far ? (520 + Math.random() * 60) : (340 + Math.random() * 160), baseY: far ? (130 + Math.random() * 50) : (108 + Math.random() * 46), drift: 0.0014 + Math.random() * 0.0028 }
   scene.add(mesh); thunderheads.push(mesh)
 }
