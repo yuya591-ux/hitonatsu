@@ -8052,7 +8052,9 @@ function update(dt) {
   { // 水面を時間帯になじませる（空を映し、夕は橙、夜は紺・暗く）
     const wnf = nightFactor(tday)
     const duskF = THREE.MathUtils.smoothstep(tday, 0.58, 0.74) * (1 - THREE.MathUtils.smoothstep(tday, 0.82, 0.92))
-    waterMat.uniforms.sky.value.copy(skyMat.uniforms.mid.value)
+    waterMat.uniforms.sky.value.copy(skyMat.uniforms.mid.value).lerp(skyMat.uniforms.top.value, 0.3) // 地平の空＋上空の明るい青を少し混ぜる
+    const clearDay = (1 - wnf) * (1 - weather) // 晴天の昼ほど1
+    waterMat.uniforms.sky.value.lerp(_a.set(0xeaf2f6), clearDay * 0.16) // K1：晴天の昼は立ちのぼる入道雲の白い空を水鏡に映して明るく（夕焼け/夜の色は変えない）
     waterMat.uniforms.glint.value.copy(sunBall.material.color)
     waterMat.uniforms.tint.value.setRGB(1, 1, 1).lerp(_a.set(0xffc59a), duskF * 0.55).lerp(_b.set(0x6a7cb0), wnf * 0.85)
     waterMat.uniforms.bright.value = 1.0 - wnf * 0.52
