@@ -34,6 +34,9 @@ const canvas = document.getElementById('c')
 const actBtn = document.getElementById('act')
 const lookHint = document.getElementById('look')
 
+// J8：Service Worker を登録（オフライン対応＋確実な更新）。読み込み後に静かに登録し、失敗してもゲームは普通に動く（外部CDN非依存）
+if ('serviceWorker' in navigator) { try { addEventListener('load', () => { navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {}) }) } catch (e) {} }
+
 // ── 地面の高さ（解析式）。地面メッシュもキャラの足元もこの式で揃える。──
 const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
 const YATO_PONDS = [] // 谷戸で釣りができる池（二ツ池/森のため池）。各 {x,z,r,y(水面の高さ)}＝建設時にpushする（D2・2026-06-27）
