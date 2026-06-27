@@ -8467,6 +8467,9 @@ function showWanderOnce(retries = 4) {
   toastEl.textContent = 'いそがなくて いいよ。ぶらり あるいて、ひと夏を ながめよう。'
   toastEl.classList.add('show'); clearTimeout(toastEl._t); toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 5500)
 }
+// I2：体で覚えるチュートリアル＝初めて何かに出会った時だけ、そっと操作を教える一言（説明文の壁は出さない・1回きり・localStorage永続）
+const seenHints = {}; try { Object.assign(seenHints, JSON.parse(localStorage.getItem('hn3d_hints') || '{}')) } catch (e) {}
+function onceHint(key, msg) { if (seenHints[key] || !seenGuide || dialogue) return; seenHints[key] = 1; try { localStorage.setItem('hn3d_hints', JSON.stringify(seenHints)) } catch (e) {} showToast(msg) }
 function doCatch() {
   if (!catchTarget || catchTarget.done) return
   const tp = catchTarget.obj.position
@@ -9875,13 +9878,13 @@ function update(dt) {
     const nearVending = area === 'town' && Math.hypot(boy.position.x - VENDING.x, boy.position.z - VENDING.z) < 2.8
     const nearGarden = area === 'field' && Math.hypot(boy.position.x - GARDEN.x, boy.position.z - GARDEN.z) < 3.6
     const nearNpc = !!talkTarget
-    if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.act = 'talk'; npcEl.style.display = 'block' }
+    if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.act = 'talk'; npcEl.style.display = 'block'; onceHint('talk', '人が いるね。右下の「はなしかける」を おしてみよう。') }
     else if (nearCat && !dialogue) { npcEl.textContent = 'なでる'; npcEl.dataset.act = 'pet'; npcEl.style.display = 'block' }
     else if (nearVending && !dialogue) { npcEl.textContent = 'ラムネを 一本'; npcEl.dataset.act = 'buy'; npcEl.style.display = 'block' }
     else if (nearGarden && !dialogue) { npcEl.textContent = '水をやる'; npcEl.dataset.act = 'water'; npcEl.style.display = 'block' }
     else npcEl.style.display = 'none'
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
-    else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block' }
+    else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block'; onceHint('sit', 'ベンチが あるね。「すわる」を おすと、ひとやすみ できるよ。') }
     else if (!nearNpc && !dialogue && nearMtSeat) { actBtn.textContent = '街を ながめる'; actBtn.dataset.spot = 'mtview'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearSwing) { actBtn.textContent = 'ブランコに のる'; actBtn.dataset.spot = 'swing'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearSwingY) { actBtn.textContent = 'ブランコに のる'; actBtn.dataset.spot = 'swingY'; actBtn.style.display = 'block' }
@@ -9900,13 +9903,14 @@ function update(dt) {
     catchTarget = null
     if (area === 'field' || onYato) { let cd = 3.2; for (const c of catchables) { if (c.done) continue; const p = c.obj.position; const dd2 = Math.hypot(boy.position.x - p.x, boy.position.z - p.z); if (dd2 < cd) { cd = dd2; catchTarget = c } } }
     catchEl.style.display = (catchTarget && !dialogue) ? 'block' : 'none'
-    if (catchTarget) npcEl.style.display = 'none'
+    if (catchTarget) { npcEl.style.display = 'none'; onceHint('catch', 'むしが いるよ。「つかまえる」を おしてみよう。') }
     // 池のそばで「つる」（はらっぱの池＋谷戸の二ツ池/谷戸の池/川。釣り中は出したまま）
     activePond = null
     if (area === 'field') { if (Math.hypot(boy.position.x - POND.x, boy.position.z - POND.z) < POND.r + 3) activePond = FIELD_POND }
     else if (onYato) { activePond = nearestPondForFishing(boy.position.x, boy.position.z); if (activePond) todayFlags.sawPond = true } // 谷戸の池をのぞいた＝絵日記の「池をのぞいた」も成立
     const nearPond = !!activePond
     fishEl.style.display = ((nearPond || fishState !== 'idle') && !dialogue && !catchTarget) ? 'block' : 'none'
+    if (nearPond && !catchTarget) onceHint('fish', '池の そばだね。「つる」を おすと、さかなが つれるかも。')
     if (fishState === 'bite' && castPond) floatMesh.position.y = floatWy + Math.sin(tsec * 30) * 0.08
 
     // マリオ64/サンシャイン式の追従：歩くとカメラが進行方向の真後ろへゆっくり回り込む。
