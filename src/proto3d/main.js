@@ -6372,17 +6372,19 @@ const cloudMat = new THREE.ShaderMaterial({
       float ndl = dot(N, normalize(sunDirView)) * 0.5 + 0.5;            // ローブ単位の丸い受光（太陽側の面=明・反対=陰）。これが従来欠落していた“粒の丸み”
       float belly = vSph.y * 0.5 + 0.5;                                  // パフ板の上=1・下=0。各コブの“腹”の自己陰＝重なって白飛びした胴でも陰が生き残る
       float lobe = mix(vLit, ndl, 0.60 + vY * 0.12);                     // 雲全体の陰(vLit)＋ローブの丸み(ndl)。頭(上)ほど丸みを強める
-      lobe *= 0.90 + 0.10 * belly;                                       // コブの下側をほんの少し陰らせる（カリフラワーの腹・濁らせない程度に弱める）
+      lobe *= 0.88 + 0.12 * belly;                                       // コブの下側を少し陰らせる（カリフラワーの腹）
       vec3 base = mix(botCol, topCol, smoothstep(-0.10, 0.5, vY));       // 底も明るい灰白＝暗い底にしない（怖くない・濁らせない）
-      // セル(トゥーン)の段＝コブの定義。陰は“澄んだ涼しい青灰”で明るめ（濁った重い灰にしない）
+      // ★白飛び対策（2026-06-27・定量検証で昼40%/夕89%の純白飛びを確認→後段Bloom＋グレードが純白へ押すのが真因）：
+      //   雲の階調全体をBloomしきい値(後述0.89に引上げ)より下に収め、明部でも純白に飛ばさない。陰は涼しい青灰でコブを残す（濁らせない）。
       vec3 cel;
-      if (lobe < 0.44) cel = base * vec3(0.87, 0.90, 0.96);            // 陰＝澄んだ薄青灰（明度を上げ濁りを解消・青>緑>赤）
-      else if (lobe < 0.68) cel = base * vec3(0.94, 0.96, 0.99);       // 中間
-      else cel = base;                                                   // 受光＝明るい白
-      // 連続シェードを少し混ぜる＝セルの平たい段差をやわらげ、各コブに丸み（紙のコラージュ感を解消）
-      vec3 grad = base * (0.86 + 0.16 * smoothstep(0.18, 0.96, lobe));
-      vec3 col = mix(cel, grad, 0.34);
-      col += sunCol * smoothstep(0.58, 1.0, ndl) * 0.18;                 // 受光側ローブの頭を暖色リム（暖↔寒の対比で立体／暖色は怖くならない）
+      if (lobe < 0.46) cel = base * vec3(0.72, 0.77, 0.85);            // 陰＝涼しい澄んだ青灰（lum≈0.77＝十分下でコブがくっきり残る・青>緑>赤で濁らせない）
+      else if (lobe < 0.70) cel = base * vec3(0.81, 0.85, 0.91);       // 中間
+      else cel = base * 0.885;                                          // 受光＝明るい白だが純白手前でとどめる（Bloom+グレードが乗っても飛ばない）
+      // 連続シェードを少し混ぜる＝セルの平たい段差をやわらげ、各コブに丸み（紙のコラージュ感を解消）。最大≈0.89で頭打ち
+      vec3 grad = base * (0.74 + 0.15 * smoothstep(0.16, 0.95, lobe));
+      vec3 col = mix(cel, grad, 0.32);
+      col += sunCol * smoothstep(0.62, 1.0, ndl) * 0.08;                 // 受光側ローブの頭を暖色リム（ごく控えめ＝白飛びさせない）
+      col = min(col, vec3(0.90));                                        // 純白で潰さない＝Bloomしきい値より下に収め白飛びを断つ（コブのディテール保持）
       a *= 0.5 + 0.5 * smoothstep(0.0, 0.22, nz);                        // 縁(nz小)を締める＝ボコボコしたもくもく輪郭（少しだけ柔らかく）
       if (a < 0.34) discard;                                             // ★cutout：芯を残して前のコブが後ろを隠す（depthWriteと組で）＝粒が立つ。フチは少し柔らかめ
       gl_FragColor = vec4(col, a);
@@ -6539,7 +6541,7 @@ const godrayPass = new ShaderPass({
     }`,
 })
 composer.addPass(godrayPass)
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.46, 0.62, 0.86) // やわらかな“記憶のにじみ”＝強さ/半径を少し上げ・しきい値を下げて中間調もふわっと光らせる（夢の質感・2026-06-24。強すぎ白飛びは避ける範囲）。半解像度
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.42, 0.62, 0.89) // やわらかな“記憶のにじみ”。しきい値0.86→0.89・強さ0.46→0.42＝明るい雲が純白に飛ぶのを抑える（夢の質感は残しつつ白飛びを防ぐ・定量検証2026-06-27）。半解像度
 composer.addPass(bloom)
 
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
