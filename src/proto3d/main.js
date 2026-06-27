@@ -7403,7 +7403,7 @@ function startDialogue() {
 let day = 1
 let gotOmamori = false // 夏の終わりに女の子から おまもりを もらった（日をまたいで残る＝関係の証）
 try { gotOmamori = localStorage.getItem('hn3d_omamori') === '1' } catch (e) {}
-const dayEvents = { radio: false, dinner: false } // 昭和の日課（1日1回）
+const dayEvents = { radio: false, dinner: false, fest: false } // 昭和の日課（1日1回）。fest＝その日のおまつりのお囃子に気づくひとこと（D3）
 let diaryOpen = false
 const todayFlags = { metGirl: false, sawPond: false, satHill: false, layDown: false, wentTown: false, petCat: false, lamune: false, metShop: false, gotOmake: false, wadedCreek: false, sawMedaka: false, sawFrog: false, sawView: false, rodeSwing: false, wentShrine: false, jumped: false, watered: false, climbedRoof: false }
 try { const s = +localStorage.getItem('hn3d_day'); if (s >= 1 && s <= 3) day = s } catch (e) {}
@@ -7510,7 +7510,7 @@ function nextDay() {
   day = day >= 3 ? 1 : day + 1 // プロトなので3日のあとは1日目へ
   for (const k in todayFlags) todayFlags[k] = false
   tday = 0.18; dayAuto = true; setTimeOfDay(tday)
-  dayEvents.radio = false; dayEvents.dinner = false
+  dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false
   try { localStorage.setItem('hn3d_day', day) } catch (e) {}
   saveState() // 新しい日（フラグはリセット済・累計は維持）を保存
   refreshBadge()
@@ -8098,8 +8098,11 @@ function update(dt) {
     tday = Math.min(0.97, tday + dt / (fwSlow ? 1000 : 740)) // 一日をさらにゆっくり(620→740)＝各時間帯を長く味わえる“夢のような時間の流れ”（ユーザー「時間もう少しゆっくり」2026-06-24）
     setTimeOfDay(tday)
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
-    if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast('ラジオ体操の じかんだ。') }
+    // D3：朝のひとことを日替りに＝一日ごとに“手ざわり”が違う（初日のときめき→2日目のおまつり予感→最終日の名残）。ラジオ体操は共通の日課
+    if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast(day === 1 ? 'なつやすみ 初日。ラジオ体操の じかんだ。' : day === 2 ? '2日目の 朝。きょうは どこかで おまつりが あるらしい。' : 'なつやすみ さいごの 朝。…一日を、ゆっくり あるこう。') }
     if (!dayEvents.dinner && prev < 0.7 && tday >= 0.7) { dayEvents.dinner = true; showToast('「ごはんよー」と よばれた。') }
+    // D3：おまつりのある日(1・2日目)は夕方にお囃子に気づくひとこと＝音をたどって盆踊りへ。最終日(3日目)は会場が無く、静かな宵が“最後の日”の手ざわりになる
+    if (!dayEvents.fest && tday > 0.5 && typeof activeVenue === 'function' && activeVenue()) { dayEvents.fest = true; showToast('どこかで おまつりの おはやしが きこえる。') }
     if (prev < 0.9 && tday >= 0.9 && !diaryOpen) showToast('そろそろ ねる じかんだ…')
   }
   // 空・太陽・星・月を主人公/カメラに追従（遠くの街エリアでも空が正しく回り、影も届く）
@@ -9504,6 +9507,7 @@ window.__dropFlyPin = dropFlyPin; window.__clearFlyPins = clearFlyPins; window._
 window.__proto3d = {
   THREE, scene, camera, boy, sunDir, get mode() { return mode }, sitDown, standUp, lieDown,
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
+  _setTdayLive(t) { dayAuto = true; tday = t; setTimeOfDay(t) }, // 検証用：dayAutoを生かしたまま時刻を置く（日課トースト=if(dayAuto)内 を発火させる）
   startAudio,
   placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
   sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(3012, heightAt(3012, 25), 25) } boy.userData._cy = null }, // 検証用：屋上/入口に置く
@@ -9523,6 +9527,11 @@ window.__proto3d = {
   talk() { startDialogue() }, // 検証用
   openDiary() { openDiary() }, // 検証用
   get day() { return day },
+  _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
+  _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
+  _suppressWander() { wanderShown = true }, // 検証用：M1の散歩トーストを出さない（朝のひとことと混同しないため）
+  get _toast() { return toastEl ? toastEl.textContent : '' }, // 検証用：いま出ているひとこと
+  get _omamori() { return gotOmamori }, // 検証用：おまもりを受け取ったか
   setGameDay(d) { day = d; refreshBadge() }, // 検証用
   spawnFirework() { spawnFirework() }, // 検証用
   goArea(a) { // 検証用：エリアへ瞬間移動
