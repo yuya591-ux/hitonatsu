@@ -1625,40 +1625,9 @@ function buildBonOdori(ox, oy, oz, grp) {
       const bg = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); bg.position.set(bx, by + 2.7, bz); bonOdori.add(bg) // 夜の灯り
       townNightLights.push({ m: bg, base: 1.2, ph: i * 0.6 }) } }
   // ── 盆踊りの輪＝浴衣すがたの人々が櫓のまわりを輪になって踊る（＋櫓の上で太鼓を打つ人）。お祭りの“人の営み”＝最大の賑わい。updateFestivalで動かす ──
-  const makeDancer = (col, patIdx) => { const g = new THREE.Group()
-    const bodyMat = patIdx == null ? toon(col) : new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, map: YUKATA_PATTERNS[patIdx % YUKATA_PATTERNS.length] }) // 浴衣の色で柄をtint
-    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 0.95, 8), bodyMat); lower.position.y = 0.55; g.add(lower) // 浴衣の裾（広がり・柄）
-    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.55, 8), bodyMat); upper.position.y = 1.16; g.add(upper) // 上半身
-    const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.16, 8), toon(0xcc9a3a)); obi.position.y = 1.0; g.add(obi) // 帯
-    const hw4 = 0.95 + Math.random() * 0.1
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), toon(0xf0d6b4)); head.scale.set(hw4, 1, hw4); head.position.y = 1.6; g.add(head)
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.235, 10, 8, 0, 6.2832, 0, Math.PI * 0.62), toon([0x241e1a, 0x2e2620, 0x3a2e22, 0x4a3a2e][Math.floor(Math.random() * 4)])); hair.position.set(0, 1.64, 0); g.add(hair)
-    // 顔＝白目/瞳/きらり＋小さな口（盆踊りの踊り手にも・C5★・2026-06-25）。正面=+z（踊りの進行方向＝接線を向く）
-    const dE = new THREE.MeshBasicMaterial({ color: 0x2e241c }), dH = new THREE.MeshBasicMaterial({ color: 0xffffff }), dEyes = []
-    for (const ex of [-0.082, 0.082]) {
-      const w = new THREE.Mesh(new THREE.SphereGeometry(0.034, 9, 7), dH); w.scale.set(0.9, 1.12, 0.45); w.position.set(ex, 1.63, 0.196); g.add(w)
-      const ir = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), dE); ir.position.set(ex, 1.628, 0.21); g.add(ir)
-      const h0 = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 6), dH); h0.position.set(ex + 0.01, 1.643, 0.218); g.add(h0)
-      dEyes.push(w, ir)
-    }
-    const dm = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.0055, 6, 10, Math.PI * 0.9), dE); dm.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; dm.position.set(0, 1.55, 0.206); g.add(dm)
-    registerBlinker(dEyes)
-    const arm = (sx) => { const a = new THREE.Group(); a.position.set(sx * 0.3, 1.34, 0); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.6, 6), toon(col)); m.position.y = -0.28; a.add(m); g.add(a); return a }
-    const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
-  const yukataCols = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96, 0xa83f6a] // 浴衣の色とりどり
-  const ND = 10, RD = Math.min(6.0, RR - 3.5) // 踊りの輪の半径（提灯ポールの内側）
-  for (let i = 0; i < ND; i++) { const d = makeDancer(yukataCols[i % yukataCols.length], i % 4); if (i === 3 || i === 7) d.g.scale.setScalar(0.66) /*輪に子どもも混ぜる*/; bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD, a0: (i / ND) * Math.PI * 2, ph: i * 0.73, baseY: oy, armL: d.armL, armR: d.armR, beat: false, style: i % 3 }) } // 浴衣に柄(i%4)＋styleで所作（0交互/1万歳/2手拍子）
-  const ND2 = 12, RD2 = RD + 3.2 // 外側にもう一重の輪（盆踊りの二重の隊列＝本物らしく賑やか）
-  for (let i = 0; i < ND2; i++) { const d = makeDancer(yukataCols[(i + 3) % yukataCols.length], (i + 2) % 4); if (i % 5 === 2) d.g.scale.setScalar(0.66); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: RD2, a0: (i / ND2) * Math.PI * 2 + 0.26, ph: i * 0.61 + 1.0, baseY: oy, armL: d.armL, armR: d.armR, beat: false, style: (i + 1) % 3 }) } // 外輪
-  { const d = makeDancer(0xe0e0e0); bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.85, armL: d.armL, armR: d.armR, beat: true }) } // 櫓の上で太鼓を打つ人（白い法被）
-  // 子どもが金魚袋やヨーヨーを持って走り回る（屋台のあたりをふらふら＝縁日の生気）
-  const heldItem = (kind) => { const it = new THREE.Group()
-    if (kind === 'kingyo') { const bag = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 7), new THREE.MeshToonMaterial({ color: 0xcfe8f0, gradientMap: GRAD, transparent: true, opacity: 0.82 })); bag.scale.y = 1.25; it.add(bag); const fish = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), toon(0xe0622a)); fish.position.y = -0.02; it.add(fish) } // 金魚袋
-    else { const yo = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 7), toon([0xe03a5a, 0x3a8ad0, 0xf0c020][Math.floor(Math.random() * 3)])); it.add(yo) } // ヨーヨー
-    return it }
-  for (let i = 0; i < 3; i++) { const d = makeDancer([0xe06a8a, 0x4a9ad0, 0xf0c84a][i], (i + 1) % 4); d.g.scale.setScalar(0.6) // 子ども（浴衣に柄）
-    const item = heldItem(i === 0 ? 'kingyo' : 'yoyo'); item.position.set(0.32, 1.15, 0.25); d.g.add(item) // 手に持つ
-    bonOdori.add(d.g); festFigs.push({ g: d.g, cx: ox - 8 + i * 6, cz: oz + 9, r: 3.5 + i, ph: i * 2.1, baseY: oy, armL: d.armL, armR: d.armR, roam: true }) }
+  // 踊り手は主人公級の品質（脚・顔・幼児寄り頭身＝makeVillager）で作る。ここでは会場とspawn情報だけ予約し、makeVillager定義後にpopulateFestDancersが浴衣すがたを建てる
+  festDancerJobs.push({ group: bonOdori, ox, oz, oy, RR })
+  // 子ども（金魚袋/ヨーヨーを持って走り回る）も主人公級の品質で。populateFestDancersでmakeVillagerにより建てる（heldItemも含め）
   // ── 参道の提灯＝最寄りの道から会場の縁まで、両脇に赤提灯の列が続く（遠くから「こっちでお祭りやってる」と誘われる）──
   { let bx = ox, bz = oz, bd = 1e18
     for (const rd of SG.roads) { const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const a = p[k], b = p[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; for (let t = 0; t < l; t += 4) { const px = a[0] + dx * t / l, pz = a[1] + dz * t / l, dd = (px - ox) * (px - ox) + (pz - oz) * (pz - oz); if (dd < bd) { bd = dd; bx = px; bz = pz } } } }
@@ -1676,6 +1645,7 @@ function buildBonOdori(ox, oy, oz, grp) {
 // 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
 const FEST_VENUES = []
 const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
+const festDancerJobs = [] // 踊り手の生成予約（buildBonOdoriは会場だけ建て、makeVillager定義後にpopulateFestDancersで主人公級の浴衣すがたを作る＝PROPのTDZ回避）
 const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(toroNagashi) // 灯籠流し（夏の夕暮れ〜夜、二ツ池をゆっくり流れる灯籠＝お盆の静かな風物詩）。updateToroで動かす
 const toroList = [] // 各灯籠＝｛g, glow, x, z, y, vx, vz, ph, cx, cz, rad｝
 const radioTaiso = new THREE.Group(); radioTaiso.visible = false; scene.add(radioTaiso) // ラジオ体操（夏休みの早朝、公園で体操＝夏のいちばんの定番）。updateTaisoで動かす
@@ -5759,7 +5729,9 @@ function updateBillboard() {
 // ── 村の人（“人の気配”。近づくと話せる。台詞は時間帯で変わる）──
 function makeVillager(x, z, opt) {
   const g = new THREE.Group()
-  const skin = skinToon(opt.skin || 0xeeccb4), shirtM = charToon(opt.garment === 'dress' ? opt.skirt : opt.shirt) // 服は charToon＝逆光でも黒く沈まない。ワンピースは上下同色（C5★）。opt.skinで個体差も
+  const skin = skinToon(opt.skin || 0xeeccb4)
+  const bodyCol = opt.garment === 'dress' ? opt.skirt : opt.shirt
+  const shirtM = opt.bodyMap ? new THREE.MeshToonMaterial({ color: bodyCol, gradientMap: GRAD_CHAR, map: opt.bodyMap }) : charToon(bodyCol) // 服は charToon＝逆光でも黒く沈まない。ワンピースは上下同色。opt.bodyMap＝浴衣の柄(お祭りの踊り手)
   const full = !opt.simple // 会話する村人＝関節あり／背景の通行人＝軽量（股ピボットのみ）
   // 主人公と同じ“幼児寄り”の頭身に統一（頭大きめ・胴短く・脚短め・重心低い）。大人はopt.scaleで少し背を高く。
   let kneeL = null, kneeR = null
@@ -5779,7 +5751,7 @@ function makeVillager(x, z, opt) {
   const LL = makeLeg(-1), LR = makeLeg(1)
   const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
   if (opt.boy) { const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.16, 0.22, 14), charToon(opt.garment === 'jinbei' ? opt.shirt : opt.skirt)); shorts.scale.set(1, 1, 0.86); shorts.position.y = PROP.hipY + 0.06; g.add(shorts) } // 甚平は下も上と同色
-  else if (opt.garment === 'dress') { const dress = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.66, 16), charToon(opt.skirt)); dress.position.y = PROP.hipY - 0.12; g.add(dress) // ワンピース＝裾が長くふくらむ（大人の女性/女の子）
+  else if (opt.garment === 'dress') { const dress = new THREE.Mesh(new THREE.ConeGeometry(opt.robe ? 0.32 : 0.3, opt.robe ? 0.92 : 0.66, 16), opt.bodyMap ? shirtM : charToon(opt.skirt)); dress.position.y = PROP.hipY - (opt.robe ? 0.3 : 0.12); g.add(dress) // ワンピース／opt.robe=浴衣の長い裾(足首まで)。柄はbodyMapで上下そろえる
     if (opt.apron) { const ap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.04), charToon(opt.apron === true ? 0xe8e2d4 : opt.apron)); ap.position.set(0, PROP.hipY + 0.02, 0.2); g.add(ap) } } // エプロン（おばさん）
   else { const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.36, 16), charToon(opt.skirt)); skirt.position.y = PROP.hipY + 0.02; g.add(skirt) } // 小学生のすっきりしたスカート
   // 胴＝すっきり縦長（主人公と統一）。会話する村人は肩つき、背景の人は1本。opt.build=体格(肥痩)の個体差（C5★Step3）
@@ -5895,6 +5867,38 @@ function makeVillager(x, z, opt) {
   scene.add(g)
   return g
 }
+// ── お祭りの踊り手＝主人公級の品質（脚・顔・幼児寄り頭身）に作り直す。buildBonOdoriが予約したジョブを、makeVillager定義後のここで建てる。──
+// 浴衣＝dress+robe(足首までの裾)+柄(bodyMap)+帯。simple軽量figureで描画予算を守りつつ、人形型でなく“ちゃんと人”に。会場グループへ付け替え（開催日だけ見える）。
+function populateFestDancers() {
+  if (!festDancerJobs.length) return
+  const yukataCols = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96, 0xa83f6a]
+  const skins = [0xf0d6b4, 0xe8c8a0, 0xf2d4b0, 0xeab584], hairs = [0x241e1a, 0x2e2620, 0x3a2e22, 0x46371f], styles = ['short', 'pony', 'bob', 'buzz']
+  const rpick = (a) => a[Math.floor(Math.random() * a.length)]
+  const mk = (group, x, z, col, pat, child, drummer) => {
+    const v = makeVillager(x, z, { simple: true, garment: drummer ? 'jinbei' : 'dress', robe: !drummer, bodyMap: drummer ? null : YUKATA_PATTERNS[pat % YUKATA_PATTERNS.length],
+      shirt: col, skirt: col, jinTrim: 0xeae3d2, skin: rpick(skins), hair: rpick(hairs), boy: !!drummer, adult: !child, hairStyle: rpick(styles), scale: child ? 0.7 : (0.96 + Math.random() * 0.08), info: { name: '', byPhase: { noon: [''] } } })
+    if (!drummer) { const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.09, 10), charToon(rpick([0xcc9a3a, 0xb5462f, 0x3a5a8a]))); obi.position.y = PROP.waistY + 0.04; obi.castShadow = true; v.add(obi) } // 帯
+    group.add(v) // sceneから会場グループへ付け替え（開催日だけ見える）
+    return { g: v, armL: v.userData.armL, armR: v.userData.armR }
+  }
+  for (const job of festDancerJobs) {
+    const { group, ox, oz, oy } = job, RD = Math.min(6.0, (job.RR || 10) - 3.5), N1 = 6, N2 = 6 // 内輪6＋外輪6＋太鼓打ち1（主人公級なので数は控えめ＝質で賑わい）
+    for (let i = 0; i < N1; i++) { const a = (i / N1) * 6.283, d = mk(group, ox + Math.cos(a) * RD, oz + Math.sin(a) * RD, yukataCols[i % yukataCols.length], i, i === 2, false)
+      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, cx: ox, cz: oz, r: RD, a0: a, ph: i * 0.73, baseY: oy, beat: false, style: i % 3 }) }
+    const RD2 = RD + 3.0
+    for (let i = 0; i < N2; i++) { const a = (i / N2) * 6.283 + 0.26, d = mk(group, ox + Math.cos(a) * RD2, oz + Math.sin(a) * RD2, yukataCols[(i + 3) % yukataCols.length], i + 2, i === 4, false)
+      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, cx: ox, cz: oz, r: RD2, a0: a, ph: i * 0.61 + 1.0, baseY: oy, beat: false, style: (i + 1) % 3 }) }
+    const dr = mk(group, ox, oz, 0xeae6da, 0, false, true); festFigs.push({ g: dr.g, armL: dr.armL, armR: dr.armR, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.82, beat: true }) // 櫓の上で太鼓を打つ人（甚平）
+    for (let i = 0; i < 3; i++) { const d = mk(group, ox - 8 + i * 6, oz + 9, [0xe06a8a, 0x4a9ad0, 0xf0c84a][i], i + 1, true, false) // 走り回る子ども（浴衣・小柄）
+      const it = new THREE.Group()
+      if (i === 0) { const bag = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 7), new THREE.MeshToonMaterial({ color: 0xcfe8f0, gradientMap: GRAD, transparent: true, opacity: 0.82 })); bag.scale.y = 1.25; it.add(bag); const fish = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), toon(0xe0622a)); fish.position.y = -0.015; it.add(fish) } // 金魚袋
+      else { const yo = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 7), toon([0xe03a5a, 0x3a8ad0, 0xf0c020][i % 3])); it.add(yo) } // ヨーヨー
+      it.position.set(0.2, 0.82, 0.16); d.g.add(it)
+      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, cx: ox - 8 + i * 6, cz: oz + 9, r: 3.5 + i, ph: i * 2.1, baseY: oy, roam: true }) }
+  }
+  festDancerJobs.length = 0
+}
+populateFestDancers()
 const villager = makeVillager(13, 9, {
   shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, // 麦わら帽子（ピンクのリボン）
   info: {
