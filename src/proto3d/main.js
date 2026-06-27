@@ -9403,6 +9403,7 @@ window.__proto3d = {
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
+  _mem() { const m = renderer.info.memory, pm = (performance && performance.memory) ? performance.memory : null; return { geometries: m.geometries, textures: m.textures, heapMB: pm ? +(pm.usedJSHeapSize / 1048576).toFixed(1) : null } }, // P6：常駐メモリ（GPUジオメトリ/テクスチャ＋JSヒープ）＝モバイル生存の予算ゲート用
   get _camYaw() { return camCtl.yaw }, get _facing() { return facing }, // 検証用：カメラ追従
   _face(r) { facing = r; boy.rotation.y = r }, // 検証用：主人公の向きを固定（後ろ姿の撮影など。loopのlerpが facing に追従するので固定される）
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）

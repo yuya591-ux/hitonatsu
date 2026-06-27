@@ -75,6 +75,16 @@ try {
       if (overC) errors.push(`${area}: draw call ${st.calls} が予算 ${b.calls} を超過（性能回帰の疑い）`)
       if (overT) errors.push(`${area}: 三角形 ${st.tris} が予算 ${b.tris} を超過（性能回帰の疑い）`)
     }
+    // P6 メモリ予算ゲート：全エリアを訪問した後（=常駐ピーク）の GPUジオメトリ/テクスチャと JSヒープに上限。
+    //   実測（_memcheck.mjs 2026-06-27）＝全エリア後 geom≈5536/tex≈97/heap≈360MB で、2巡してもほぼ不変＝リーク無し・有界。
+    //   この予算は「goAreaが再ビルドで重複生成する」等の将来のリーク/肥大を機械的に捕まえる（モバイル生存の核）。
+    const MEM_BUDGET = { geometries: 9000, textures: 160, heapMB: 600 } // verify全工程(全エリア×全時刻×乗り物スモークでGPUアップロード)の実測ピーク geom≈7274/tex≈118/heap≈367 に余裕。超えたら回帰（goAreaの再ビルド重複等のリークは1.5万超に膨らむので確実に捕まえる）
+    const mem = await page.evaluate(() => window.__proto3d._mem())
+    const overG = mem.geometries > MEM_BUDGET.geometries, overTx = mem.textures > MEM_BUDGET.textures, overH = mem.heapMB != null && mem.heapMB > MEM_BUDGET.heapMB
+    console.log(`  メモリ(全エリア常駐): geom=${mem.geometries}/${MEM_BUDGET.geometries} tex=${mem.textures}/${MEM_BUDGET.textures} heap=${mem.heapMB}MB/${MEM_BUDGET.heapMB}${overG || overTx || overH ? '  ← 予算超過' : ' ✓'}`)
+    if (overG) errors.push(`常駐ジオメトリ ${mem.geometries} が予算 ${MEM_BUDGET.geometries} を超過（メモリリーク/肥大の疑い）`)
+    if (overTx) errors.push(`常駐テクスチャ ${mem.textures} が予算 ${MEM_BUDGET.textures} を超過（メモリリーク/肥大の疑い）`)
+    if (overH) errors.push(`JSヒープ ${mem.heapMB}MB が予算 ${MEM_BUDGET.heapMB}MB を超過（メモリリーク/肥大の疑い）`)
     // 乗り物・所作の機能スモーク（例外が出ないこと）
     const moves = await page.evaluate(() => {
       const H = window.__proto3d, out = {}
