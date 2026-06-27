@@ -6039,6 +6039,59 @@ function updateFishers(dt) {
       else f.u.head.rotation.y *= 0.93 }
   }
 }
+// ── 走り回る子（追いかけっこ）と立ち話＝公園/校庭/道の賑わい（賑わいPhase2・2026-06-27）──
+//   既存の歩行スイング(line8635)を速く・大きくし前傾＝走り。立ち話は2人が向き合い身振り/うなずき。時間帯＋距離でゲート。
+const runGroups = [], chatPairs = []
+function makePlayKid(x, z, hue, sk, hr) {
+  const g = makeVillager(x, z, { shirt: hue, skirt: 0x3a4a6a, skin: sk, hair: hr, boy: true, simple: false, adult: false, hat: Math.random() < 0.4, hairStyle: 'short', garment: 'shorts', build: 0.9 + Math.random() * 0.1, scale: 0.8 + Math.random() * 0.08, shoe: 0xcfcabd, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  g.rotation.order = 'YXZ'; g.visible = false; return g // YXZ＝yaw後にpitch(前傾)を正しくかける
+}
+function addRunGroup(cx, cz, r) { runGroups.push({ a: makePlayKid(cx, cz, 0xe07a4a, 0xf0c49c, 0x2a2218), b: makePlayKid(cx, cz, 0x4f86b0, 0xeab584, 0x35291c), cx, cz, r, ph: Math.random() * 6 }) }
+function updateRunKids(dt) {
+  const active = onYato && tday > 0.12 && tday < 0.6 // 昼に駆け回る
+  for (const G of runGroups) {
+    const vis = active && Math.hypot(boy.position.x - G.cx, boy.position.z - G.cz) < 140
+    if (G.a.visible !== vis) { G.a.visible = vis; G.b.visible = vis }
+    if (!vis) continue
+    G.ph += dt * 0.8
+    const lay = (g, ang, wb) => { const x = G.cx + Math.cos(ang) * G.r, z = G.cz + Math.sin(ang) * G.r * 0.66 // 楕円の周回（トラックを駆ける）
+      g.position.set(x, heightAtYato(x, z), z)
+      g.rotation.y = Math.atan2(-Math.sin(ang), Math.cos(ang) * 0.66) // 進行方向（接線）を向く
+      const wph = G.ph * 9 + wb; g.position.y += Math.abs(Math.sin(wph)) * 0.09 // 大きく弾む＝走り
+      const sw = Math.sin(wph) * 0.9, u = g.userData
+      u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw * 1.1; u.armR.rotation.x = sw * 1.1
+      g.rotation.x = 0.16 } // 前傾
+    lay(G.a, G.ph, 0); lay(G.b, G.ph - 0.55, 1.4) // bはaを追いかける
+  }
+}
+function addChatPair(x, z, ang) {
+  const off = 0.82, adultPair = Math.random() < 0.7
+  const cpick = (a) => a[Math.floor(Math.random() * a.length)]
+  const mk = (px, pz, fx, fz) => { const g = makeVillager(px, pz, { shirt: cpick([0x6a7a8a, 0x8a6a5a, 0x7a8a6a, 0xb0a898]), skirt: 0x4a4438, skin: cpick([0xf0c49c, 0xe8b890]), hair: 0x3a2e22, boy: Math.random() < 0.5, simple: false, adult: adultPair, hat: adultPair && Math.random() < 0.35, hairStyle: 'short', garment: adultPair ? 'pants' : 'shorts', scale: adultPair ? 1.05 : 0.84, shoe: 0x5a4a3a, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+    g.position.set(px, heightAtYato(px, pz), pz); g.rotation.y = Math.atan2(fx - px, fz - pz); g.visible = false; return g }
+  const ax = x + Math.sin(ang) * off, az = z + Math.cos(ang) * off, bx = x - Math.sin(ang) * off, bz = z - Math.cos(ang) * off
+  chatPairs.push({ a: mk(ax, az, bx, bz), b: mk(bx, bz, ax, az), cx: x, cz: z, ph: Math.random() * 6 })
+}
+function updateChat(dt) {
+  const active = onYato && tday > 0.18 && tday < 0.82 // 昼〜夕の井戸端
+  for (const C of chatPairs) {
+    const vis = active && Math.hypot(boy.position.x - C.cx, boy.position.z - C.cz) < 130
+    if (C.a.visible !== vis) { C.a.visible = vis; C.b.visible = vis }
+    if (!vis) continue
+    C.ph += dt
+    const turn = Math.sin(C.ph * 0.5) // どちらが話すか交互に
+    const gest = (g, talk) => { const u = g.userData, t = Math.max(0, talk)
+      g.position.y = heightAtYato(g.position.x, g.position.z) + Math.abs(Math.sin(C.ph * 1.2)) * 0.01
+      if (u.armR) u.armR.rotation.x = -0.18 * t + Math.sin(C.ph * 3) * 0.12 * t // 話す方は手ぶり
+      if (u.head) u.head.rotation.x = Math.sin(C.ph * 2.4) * 0.05 * (1 - t) - 0.03 * t } // 聞く方はうなずく
+    gest(C.a, turn); gest(C.b, -turn)
+  }
+}
+// 配置：公園/校庭の開けた所で走り回る子＋道沿いの立ち話（既知の平らな場所）
+addRunGroup(3112, -188, 4.2) // 校庭（広い土の校庭で駆け回る）。広場はkidsCatchが居るので密集を避けここだけ
+addChatPair(3010, 22, 0.6)   // バス通りぎわ
+addChatPair(2762, -150, 1.9) // 商店街の道
+addChatPair(2960, -330, 0.3) // 谷戸の道
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
   const N = 140
@@ -8368,6 +8421,8 @@ function update(dt) {
   updateContrail(dt) // 飛行機雲（夏の空に一機）
   updateChimneys(tsec) // 夕餉の煙（夕方に家々から）
   updateFishers(dt) // 釣り人（二ツ池・三ツ池の岸・朝〜昼下がり・近接時のみ）
+  updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
+  updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
@@ -9761,6 +9816,7 @@ window.__proto3d = {
   get day() { return day },
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
+  _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
   _suppressWander() { wanderShown = true }, // 検証用：M1の散歩トーストを出さない（朝のひとことと混同しないため）
