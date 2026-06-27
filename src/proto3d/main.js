@@ -6109,6 +6109,36 @@ function makeFisher(px, pz, cx, cz) {
 }
 // ── E1：生活の痕跡（洗濯物の物干し）。谷戸の一般民家の脇に、風にゆれる洗濯物を低ドローでマージ配置。
 //   昭和の夏のいちばんの生活感。水/道/建物の上は避け、4軒に1軒くらい・上限34軒。J1カリング対象に。
+// ── D1：夏の花＝ヒマワリ。民家の庭先や畑のへりに、低ドローでマージ配置（夏の田舎の象徴）。茎=緑/花びら=黄/芯=茶の3メッシュに統合。──
+const yatoSunflowerSpots = [] // ヒマワリの位置（検証用）
+;(function addSunflowers() {
+  if (!builtBuildings.length) return
+  const green = [], yellow = [], brown = []
+  const sunAng = Math.atan2(sunDir.x, sunDir.z) // 花は太陽の方位を向く
+  const addOne = (wx, wz) => { const gy = heightAtYato(wx, wz), h = 1.5 + Math.random() * 0.8
+    const st = new THREE.CylinderGeometry(0.022, 0.04, h, 5); st.translate(wx, gy + h / 2, wz); green.push(st) // 茎
+    for (const ly of [0.4, 0.68]) { if (Math.random() < 0.4) continue; const lf = new THREE.PlaneGeometry(0.42, 0.2); lf.rotateX(-0.6); lf.rotateY(Math.random() * 6.28); lf.translate(wx, gy + h * ly, wz); green.push(lf) } // 葉
+    const headY = gy + h
+    const pet = new THREE.SphereGeometry(0.24, 10, 8); pet.scale(1, 1, 0.32); pet.rotateX(-0.42); pet.rotateY(sunAng); pet.translate(wx, headY, wz); yellow.push(pet) // 花びらの輪
+    const ctr = new THREE.SphereGeometry(0.12, 8, 6); ctr.scale(1, 1, 0.3); ctr.rotateX(-0.42); ctr.rotateY(sunAng); ctr.translate(wx + Math.sin(sunAng) * 0.05, headY + 0.02, wz + Math.cos(sunAng) * 0.05); brown.push(ctr) } // 芯（太陽側へ少し前へ）
+  let clusters = 0
+  for (let bi = 0; bi < builtBuildings.length && clusters < 9; bi++) {
+    const b = builtBuildings[bi], cx = b[0], cz = b[1], w = b[2], d = b[3], ang = b[4]
+    if (Math.max(w, d) > 13 || Math.min(w, d) < 3.2) continue
+    const seed = Math.abs(Math.round(cx) * 17 + Math.round(cz) * 9)
+    if (seed % 7 !== 4) continue // 洗濯物/しぐさとは別の家に
+    const co = Math.cos(ang), si = Math.sin(ang), side = (seed % 2) ? 1 : -1
+    let ox, oz
+    if (w <= d) { ox = (w / 2 + 1.8) * side; oz = (seed % 4 - 1.5) * 1.0 } else { ox = (seed % 4 - 1.5) * 1.0; oz = (d / 2 + 1.8) * side }
+    const px = cx + ox * co - oz * si, pz = cz + ox * si + oz * co
+    if (npcInWater(px, pz) || onYatoRoadCore(px, pz) || npcInCollider(px, pz)) continue
+    const n = 3 + (seed % 4) // 3〜6本のかたまり
+    for (let k = 0; k < n; k++) { const a = (k / n) * 6.28 + seed, r = 0.2 + Math.random() * 0.7; addOne(px + Math.cos(a) * r, pz + Math.sin(a) * r) }
+    yatoSunflowerSpots.push({ x: +px.toFixed(1), z: +pz.toFixed(1), n }); clusters++
+  }
+  const addMerged = (geos, color) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshToonMaterial({ color, gradientMap: GRAD })); m.castShadow = true; geos.forEach((g) => g.dispose()); scene.add(m); if (typeof yatoStatics !== 'undefined') yatoStatics.push(m) }
+  addMerged(green, 0x5a8a3a); addMerged(yellow, 0xf2c52e); addMerged(brown, 0x6a4a26)
+})()
 const yatoLaundrySpots = [] // 物干しの位置（検証用）
 ;(function addYatoLifeTraces() {
   if (!builtBuildings.length) return
@@ -10316,6 +10346,7 @@ window.__proto3d = {
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
   _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
   _laundry() { return yatoLaundrySpots.slice() }, // 検証用：E1 洗濯物（物干し）の位置一覧
+  _sunflowers() { return yatoSunflowerSpots.slice() }, // 検証用：D1 ヒマワリの位置一覧
   _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
   _bgmEnable(on) { settings.bgm = !!on; applyBgm() }, // 検証用：オルゴールBGMのON/OFF（既定OFF＝環境音中心。ダッキング確認用）
   doCatch() { doCatch() }, // 検証用
