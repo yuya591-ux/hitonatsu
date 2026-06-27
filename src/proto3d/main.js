@@ -1863,7 +1863,7 @@ function buildShishigaya() {
     if (villThin && !isHome && (seed % 100) < villThin) { nVillage++; return } // 田舎寄せ：一部の家を間引いて“間”と空を取り戻す（種で決定＝毎回同じ・サンライズは残す）
     pushGroundAO(cx, cz, w, d, ang, gy) // 接地AO（A1）：この家の足元に放射状の陰を敷く＝地に足を付ける
     // 夜の窓あかり：この家の壁にぽつぽつ点る暖色の窓（約55%の家・大きい棟は四方、家は対面の2壁）。glowGeosに集めて最後にまとめて1メッシュ化
-    if (seed % 100 < 55) { const big = area > 260
+    if (seed % 100 < 70) { const big = area > 260 // P5：夜の窓あかりの点灯率 55→70%＝夏の夜の家々の温かさを増す（QA指摘＝まばらで手前の家が消灯）
       for (let wi = 0; wi < 4; wi += big ? 1 : 2) { const a = baseXZ[wi], b = baseXZ[(wi + 1) % 4], mlx = (a[0] + b[0]) / 2, mlz = (a[1] + b[1]) / 2
         const wnx = mlx * co - mlz * si, wnz = mlx * si + mlz * co, nl = Math.hypot(wnx, wnz) || 1
         const fl = (seed >> wi) % (flat ? 3 : 2)
@@ -6593,6 +6593,7 @@ function getMaster() {
 }
 const audioUrls = loadAudioUrls()
 const ambients = {} // id -> THREE.Audio
+const ambientPan = {} // P5：id -> StereoPannerNode（面の環境音にごく低速のオートパンで広がりを出す）
 let audioStarted = false
 let chimeArmed = true
 ;(function initAmbients() {
@@ -6602,6 +6603,9 @@ let chimeArmed = true
     if (!url) continue
     const a = new THREE.Audio(listener)
     a.setLoop(true); a.setVolume(0)
+    // P5：面の環境音(蝉/ヒグラシ/朝の鳥/夜のカエル)は元がモノ＝頭内定位だった（サウンドD指摘）。
+    //   ごく低速のオートパンをかける緩いステレオパンを挟んで“四方から鳴る”広がりに（素材はそのまま）。
+    try { const panner = listener.context.createStereoPanner(); a.setFilter(panner); ambientPan[id] = panner } catch (e) {}
     loader.load(url, (buf) => { a.setBuffer(buf); if (audioStarted) try { a.play() } catch (e) {} }, undefined, () => {})
     ambients[id] = a
   }
@@ -8114,6 +8118,8 @@ function update(dt) {
       if (id === 'morning') v *= AUDIO.morningAmb
       if (areaAmb && areaAmb[id]) v *= areaAmb[id]
       a.setVolume(Math.max(0, v))
+      // P5：ごく低速のオートパン（±0.32）＝idごとに位相をずらし“面”の環境音が頭の中でなく四方からに（素材はモノのまま広がりだけ付与）
+      const pn = ambientPan[id]; if (pn) { const ph = { cicada: 0, higurashi: 2.1, morning: 4.2, night: 1.0 }[id] || 0; pn.pan.value = Math.sin(tsec * 0.05 + ph) * 0.32 }
     }
     if (tday < 0.4) chimeArmed = true
     if (chimeArmed && tday > 0.69) { chimeArmed = false; playChime() }
