@@ -4416,6 +4416,16 @@ function makeJizo(x, z, rot) {
   makeJizo(2994, 41, Math.atan2(3004 - 2994, 30 - 41)); makeJizo(3041, 19, Math.atan2(3018 - 3041, 24 - 19)) // 通りの辻の小さなお地蔵さま（道の方を向く）
   for (const [sx, sz] of [[3028, 33], [3041, 47], [2986, 36]]) makeSunflower(sx, sz) // 開始の通りの家の軒先のひまわり
   makeAsagao(3026, 49, 0.4); makeAsagao(3038, 41, -1.0) // 通りの家のかきねの朝顔
+  // ── J1（2026-06-27）：歩いていて出会う夏の小さな発見＝蝉の抜け殻を木の幹にいくつか（夏休みの定番の“見つける喜び”。完全オリジナル造形） ──
+  const addCicadaShell = (tx, tz) => { const g = new THREE.Group(), mat = toon(0xcf9a54) // 飴色（無地の明るめ＝暗い樹皮に埋もれず“見つけられる”）
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.028, 0.07, 3, 7), mat); body.rotation.x = -0.5; g.add(body) // 胴（背割れの抜け殻）
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.03, 7, 6), mat); head.position.set(0, 0.05, 0.018); g.add(head)
+    for (const s of [-1, 1]) for (const fz of [0.015, -0.02]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.004, 0.045, 4), mat); leg.position.set(s * 0.024, -0.008, fz); leg.rotation.z = s * 0.6; g.add(leg) } // しがみつく脚
+    const ang = (Math.abs(Math.round(tx) * 7 + Math.round(tz) * 3) % 628) / 100, r = 0.36 // 種で安定（毎回同じ向き）
+    g.position.set(tx + Math.cos(ang) * r, heightAtYato(tx, tz) + 1.15 + (Math.round(tx) % 5) * 0.08, tz + Math.sin(ang) * r)
+    g.rotation.y = ang + Math.PI / 2 // 背を幹の外へ
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true }); addOutline(g, 0.012); scene.add(g) }
+  for (const [tx, tz] of [[3057, 6], [3059, -5], [3045, 26], [2987, 27], [3033.7, 53.7]]) addCicadaShell(tx, tz) // P3で植えた街路樹4本＋N2の木かげの木の幹に（実在する木だけ）
   { let gp = 0, gt = 0; while (gp < 80 && gt < 1200) { gt++; const x = 2900 + Math.random() * 200, z = -20 + Math.random() * 160, y = heightAt(x, z); if (y < 1.6 || y > 8) continue; const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 5), toon(0x6f9a3e)); tuft.position.set(x, y + 0.19, z); scene.add(tuft); gp++ } } // 地際の下草（接地をやわらかく）
   for (const [cx, cz] of [[3040, -70], [3026, -26], [3000, 128]]) { const g = new THREE.Group(); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 1.0, 5), toon(0x4a7ab2)); body.rotation.z = Math.PI / 2; g.add(body); const w = []; for (const [sx, sz] of [[0.1, 0.26], [0.1, -0.26], [-0.1, 0.26], [-0.1, -0.26]]) { const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.16), new THREE.MeshToonMaterial({ color: 0xeaf2f6, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide })); wing.position.set(sx, 0.02, sz); wing.rotation.x = -Math.PI / 2; g.add(wing); w.push(wing) } g.position.set(cx, heightAt(cx, cz) + 1.4, cz); scene.add(g); yatoBugs.push({ obj: g, cx, cz, sp: 0.5 + Math.random() * 0.4, ph: Math.random() * 6.28, r: 2 + Math.random() * 2, kind: 'tombo', w, h: 1.4 }) } // 池・土手の青いとんぼ
   } // ← 旧archetypeランドマークの無効化ここまで
