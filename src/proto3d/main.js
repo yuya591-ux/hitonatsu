@@ -6346,7 +6346,7 @@ const puffTex = (() => {
 })()
 // インスタンス・ビルボード（各パフが常にカメラを向く板）。上=白／下=青灰のグラデ＋太陽側を暖色に
 const cloudMat = new THREE.ShaderMaterial({
-  uniforms: { map: { value: puffTex }, opacity: { value: 0.96 }, topCol: { value: new THREE.Color(0xfffdf8) }, botCol: { value: new THREE.Color(0xdadfe9) }, sunCol: { value: new THREE.Color(0xfff3de) }, sunDir: { value: sunDir }, sunDirView: { value: new THREE.Vector3().copy(sunDir) } },
+  uniforms: { map: { value: puffTex }, opacity: { value: 0.96 }, topCol: { value: new THREE.Color(0xfffdf8) }, botCol: { value: new THREE.Color(0xe7ebf1) }, sunCol: { value: new THREE.Color(0xfff3de) }, sunDir: { value: sunDir }, sunDirView: { value: new THREE.Vector3().copy(sunDir) } },
   vertexShader: `attribute vec3 iPos; attribute float iSize; attribute float iY; attribute float iSeed;
     uniform vec3 sunDir; varying vec2 vUv; varying float vY; varying float vLit; varying vec2 vSph;
     void main(){
@@ -6372,16 +6372,19 @@ const cloudMat = new THREE.ShaderMaterial({
       float ndl = dot(N, normalize(sunDirView)) * 0.5 + 0.5;            // ローブ単位の丸い受光（太陽側の面=明・反対=陰）。これが従来欠落していた“粒の丸み”
       float belly = vSph.y * 0.5 + 0.5;                                  // パフ板の上=1・下=0。各コブの“腹”の自己陰＝重なって白飛びした胴でも陰が生き残る
       float lobe = mix(vLit, ndl, 0.60 + vY * 0.12);                     // 雲全体の陰(vLit)＋ローブの丸み(ndl)。頭(上)ほど丸みを強める
-      lobe *= 0.82 + 0.18 * belly;                                       // コブの下側を少し陰らせる（カリフラワーの腹）
-      vec3 base = mix(botCol, topCol, smoothstep(-0.08, 0.46, vY));      // 底も明るめの灰白＝暗い底にしない（怖くない）
-      // 3段トゥーン（白／淡灰／青灰）。境界はパフ単位の太陽向き＋腹の陰＝隣り合うコブで白と青灰が切り替わり、境界線がローブ輪郭をなぞる＝もくもくが立つ
-      vec3 col;
-      if (lobe < 0.44) col = base * vec3(0.79, 0.83, 0.93);             // 陰＝薄い青灰（青>緑>赤・明度は約0.8で床止め＝怖くない）
-      else if (lobe < 0.68) col = base * vec3(0.90, 0.93, 0.98);        // 中間
-      else col = base;                                                   // 受光＝明るい白
-      col += sunCol * smoothstep(0.58, 1.0, ndl) * 0.17;                 // 受光側ローブの頭を暖色リム（暖↔寒の対比で立体／暖色は怖くならない）
-      a *= 0.56 + 0.44 * smoothstep(0.0, 0.18, nz);                      // 縁(nz小)を締める＝ボコボコしたもくもく輪郭（締めすぎず霧感は残す）
-      if (a < 0.4) discard;                                              // ★cutout：芯だけ残して前のコブが後ろを隠す（depthWriteと組で）＝カリフラワーの粒が立つ
+      lobe *= 0.90 + 0.10 * belly;                                       // コブの下側をほんの少し陰らせる（カリフラワーの腹・濁らせない程度に弱める）
+      vec3 base = mix(botCol, topCol, smoothstep(-0.10, 0.5, vY));       // 底も明るい灰白＝暗い底にしない（怖くない・濁らせない）
+      // セル(トゥーン)の段＝コブの定義。陰は“澄んだ涼しい青灰”で明るめ（濁った重い灰にしない）
+      vec3 cel;
+      if (lobe < 0.44) cel = base * vec3(0.87, 0.90, 0.96);            // 陰＝澄んだ薄青灰（明度を上げ濁りを解消・青>緑>赤）
+      else if (lobe < 0.68) cel = base * vec3(0.94, 0.96, 0.99);       // 中間
+      else cel = base;                                                   // 受光＝明るい白
+      // 連続シェードを少し混ぜる＝セルの平たい段差をやわらげ、各コブに丸み（紙のコラージュ感を解消）
+      vec3 grad = base * (0.86 + 0.16 * smoothstep(0.18, 0.96, lobe));
+      vec3 col = mix(cel, grad, 0.34);
+      col += sunCol * smoothstep(0.58, 1.0, ndl) * 0.18;                 // 受光側ローブの頭を暖色リム（暖↔寒の対比で立体／暖色は怖くならない）
+      a *= 0.5 + 0.5 * smoothstep(0.0, 0.22, nz);                        // 縁(nz小)を締める＝ボコボコしたもくもく輪郭（少しだけ柔らかく）
+      if (a < 0.34) discard;                                             // ★cutout：芯を残して前のコブが後ろを隠す（depthWriteと組で）＝粒が立つ。フチは少し柔らかめ
       gl_FragColor = vec4(col, a);
     }`,
   transparent: true, depthWrite: true, fog: false,
