@@ -6213,6 +6213,64 @@ function updateChat(dt) {
     gest(C.a, turn); gest(C.b, -turn)
   }
 }
+// ── C3：静かな夏のしぐさ（畑仕事・打ち水・縁台）。背景に“暮らしの所作”を点々と。近接LODで描画・風景に溶ける。 ──
+const chores = []
+function makeChore(x, z, kind, fx, fz) {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)]
+  const g = makeVillager(x, z, { shirt: pick([0x8a8576, 0x6e7a68, 0x9a8a64, 0x7a8390]), skirt: pick([0x46412f, 0x3a4250, 0x5a4a3a]), skin: pick([0xf0c49c, 0xe8b890, 0xeab584]), hair: 0x2e2620, boy: true, adult: true, hairStyle: 'short', garment: 'shorts', scale: 1.06, shoe: 0x5a4a3a, info: { name: '', byPhase: { noon: [''] } } })
+  const gy = heightAtYato(x, z); let baseY = gy
+  g.position.set(x, gy, z); g.rotation.y = Math.atan2((fx != null ? fx : x) - x, (fz != null ? fz : z) - z)
+  const u = g.userData
+  if (kind === 'hatake') { // 畑仕事＝しゃがんで前かがみで土をいじる
+    g.rotation.x = 0.52; baseY = gy - 0.12 // 深く前傾＋少し腰を落とす（しゃがみ）
+    if (u.kneeL) u.kneeL.rotation.x = 0.95; if (u.kneeR) u.kneeR.rotation.x = 0.95
+    if (u.armL) u.armL.rotation.x = -1.15; if (u.armR) u.armR.rotation.x = -1.2
+    if (u.elbowL) u.elbowL.rotation.x = -0.95; if (u.elbowR) u.elbowR.rotation.x = -0.95
+  } else if (kind === 'uchimizu') { // 打ち水＝桶から水をまく
+    if (u.armL) u.armL.rotation.x = -0.35
+    const pail = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.22, 8), toon(0x9a8a6a)); pail.position.set(-0.18, 0.55, 0.18); g.add(pail) // 手桶
+  } else if (kind === 'endai') { // 縁台に腰かけてひと休み
+    baseY = gy + 0.30
+    if (u.legL) u.legL.rotation.x = -1.3; if (u.legR) u.legR.rotation.x = -1.3
+    if (u.kneeL) u.kneeL.rotation.x = 1.3; if (u.kneeR) u.kneeR.rotation.x = 1.3
+    const bench = new THREE.Group()
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 0.58), toon(0x8a6a44)); seat.position.y = gy + 0.28; bench.add(seat)
+    for (const sx of [-0.6, 0.6]) for (const sz of [-0.2, 0.2]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), toon(0x6a4a30)); leg.position.set(sx, gy + 0.14, sz); bench.add(leg) }
+    bench.position.set(x, 0, z); bench.rotation.y = g.rotation.y; bench.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(bench); if (typeof yatoStatics !== 'undefined') yatoStatics.push(bench)
+  }
+  g.position.y = baseY; g.visible = false; g.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(g); if (typeof yatoStatics !== 'undefined') yatoStatics.push(g)
+  return { g, u, kind, cx: x, cz: z, baseY, ph: Math.random() * 6 }
+}
+let choresInit = false
+function initChores() {
+  if (choresInit || !builtBuildings.length) return; choresInit = true
+  const kinds = ['hatake', 'uchimizu', 'endai']; let ci = 0
+  for (let bi = 0; bi < builtBuildings.length && chores.length < 7; bi++) {
+    const b = builtBuildings[bi], cx = b[0], cz = b[1], w = b[2], d = b[3], ang = b[4]
+    if (Math.max(w, d) > 13 || Math.min(w, d) < 3.2) continue
+    const seed = Math.abs(Math.round(cx) * 11 + Math.round(cz) * 5)
+    if (seed % 7 !== 2) continue // 洗濯物(seed%4)とは別の家に・点々と
+    const co = Math.cos(ang), si = Math.sin(ang), side = (seed % 2) ? 1 : -1
+    let ox, oz // 建物の前/脇の外
+    if (w <= d) { ox = (w / 2 + 2.0) * side; oz = (seed % 3 - 1) * 1.2 } else { ox = (seed % 3 - 1) * 1.2; oz = (d / 2 + 2.0) * side }
+    const px = cx + ox * co - oz * si, pz = cz + ox * si + oz * co
+    if (npcInWater(px, pz) || onYatoRoadCore(px, pz) || npcInCollider(px, pz)) continue
+    chores.push(makeChore(px, pz, kinds[ci % kinds.length], px + (px - cx), pz + (pz - cz))); ci++ // 建物に背を向け開けた側（庭/畑/道）を向く＝所作が見える
+  }
+}
+function updateChores(dt) {
+  initChores(); if (!chores.length) return
+  const active = onYato && tday > 0.12 && tday < 0.66 // 日中の所作（夕方以降は引き上げる）
+  for (const c of chores) {
+    const vis = active && Math.hypot(boy.position.x - c.cx, boy.position.z - c.cz) < 135 // 近接LOD
+    if (c.g.visible !== vis) c.g.visible = vis
+    if (!vis) continue
+    c.ph += dt; const u = c.u
+    if (c.kind === 'hatake') { c.g.position.y = c.baseY + Math.abs(Math.sin(c.ph * 1.4)) * 0.05; const f = Math.sin(c.ph * 1.4) * 0.18; if (u.elbowL) u.elbowL.rotation.x = -0.7 + f; if (u.elbowR) u.elbowR.rotation.x = -0.7 + f } // 土をいじる上下
+    else if (c.kind === 'uchimizu') { const s = Math.sin(c.ph * 1.1); if (u.armR) u.armR.rotation.x = -0.6 + s * 0.5; if (u.armR) u.armR.rotation.z = s * 0.6; if (u.head) u.head.rotation.y = s * 0.2 } // 水をまく腕の往復
+    else if (c.kind === 'endai') { if (u.head) u.head.rotation.x = Math.sin(c.ph * 0.7) * 0.06; if (u.armL) u.armL.rotation.x = -0.2 + Math.abs(Math.sin(c.ph * 1.8)) * 0.25 } // ひと休み（うちわで扇ぐ気配）
+  }
+}
 // 配置：公園/校庭の開けた所で走り回る子＋道沿いの立ち話（既知の平らな場所）
 addRunGroup(3112, -188, 4.2) // 校庭（広い土の校庭で駆け回る）。広場はkidsCatchが居るので密集を避けここだけ
 addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子）＝公園を賑やかに（ユーザー要望）
@@ -8697,6 +8755,7 @@ function update(dt) {
   updateFishers(dt) // 釣り人（二ツ池・三ツ池の岸・朝〜昼下がり・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
+  updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
   // 入道雲：地平のまわりをごくゆっくり巡り、どのエリアからも見える。夜はうすれる（回転させない＝上面が常に空向き）
   cloudMat.uniforms.opacity.value = 0.96 * (1 - nightFactor(tday))
   // 太陽方向をカメラのビュー空間へ＝各パフの擬似ヘミ球面法線と内積を取り「ローブが太陽に丸く受光」を出す（ビルボードはビュー正対なのでビュー空間で扱う）
@@ -10147,6 +10206,7 @@ window.__proto3d = {
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
+  _chores() { initChores(); return chores.map((c) => ({ x: +c.cx.toFixed(1), z: +c.cz.toFixed(1), kind: c.kind })) }, // 検証用：C3 静かなしぐさの位置と種類
   _roadDefects() { const out = []
     const proc = (x0, z0, x1, z1, w) => { if (x0 < 2200 && x1 < 2200) return; const L = Math.hypot(x1 - x0, z1 - z0); if (L < 2) return
       const dx = (x1 - x0) / L, dz = (z1 - z0) / L, px = -dz, pz = dx, lift = 0.13, nseg = Math.max(2, Math.round(L / 1.6))
