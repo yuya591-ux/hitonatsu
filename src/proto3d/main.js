@@ -8302,7 +8302,9 @@ function update(dt) {
   // 提灯のあかり（夜に灯る・ゆらぐ）
   for (let i = 0; i < lanterns.length; i++) lanterns[i].material.opacity = nf * (0.8 + 0.2 * Math.sin(tsec * 3 + i))
   // 街のあかり（窓・街灯・光だまり）。ほんのり揺らいで灯る
-  for (const L of townNightLights) { const fa = L.fa ?? 0.1; L.m.material.opacity = nf * L.base * (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph)) } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
+  // J2（2026-06-27）：夕暮れに灯りがともり始める“家路”の温かさ＝nf(夜0.72-0.99)でなく winLit(夕0.60から点り0.82で満ちる)で点灯。夕の黄金比を締める（ぼくなつD案）
+  const winLit = THREE.MathUtils.smoothstep(tday, 0.60, 0.82)
+  for (const L of townNightLights) { const fa = L.fa ?? 0.1; L.m.material.opacity = winLit * L.base * (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph)) } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
   // 蛍：夕暮れ(0.55)〜夜に灯り、低くふわふわ漂う。明るい時間は更新を止めて軽くする
   if (fireflies) { const fg = THREE.MathUtils.smoothstep(tday, 0.55, 0.70); fireflies.mat.uniforms.uGlow.value = fg; fireflies.mat.uniforms.uTime.value = tsec
     if (fg > 0.02) { const P = fireflies.pos, A = fireflies.anchor, S = fireflies.seed, n = fireflies.count
