@@ -2167,7 +2167,10 @@ function buildShishigaya() {
       return new THREE.CanvasTexture(c) })()
     const vending = (vx, vz, vry, bodyCol) => { const vy = heightAtYato(vx, vz), fwd = [Math.sin(vry), Math.cos(vry)] // 自動販売機（店先の定番）
       grp.add(mk(new THREE.BoxGeometry(1.0, 1.9, 0.72), toon(bodyCol), vx, vy + 0.95, vz, vry, true)) // 本体
-      grp.add(mk(new THREE.PlaneGeometry(0.92, 1.74), new THREE.MeshBasicMaterial({ map: vendTex }), vx + fwd[0] * 0.37, vy + 1.0, vz + fwd[1] * 0.37, vry)) // 前面パネル
+      grp.add(mk(new THREE.PlaneGeometry(0.92, 1.74), new THREE.MeshBasicMaterial({ map: vendTex }), vx + fwd[0] * 0.37, vy + 1.0, vz + fwd[1] * 0.37, vry)) // 前面パネル（常時点灯）
+      // 夜＝暗い街にこぼれる自販機の光（やわらかいにじみ＋足元の光だまり）＝昭和の夜の自販機。townNightLightsで夜だけ灯る
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 2.15), new THREE.MeshBasicMaterial({ color: 0xd6e8f2, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); glow.position.set(vx + fwd[0] * 0.42, vy + 1.0, vz + fwd[1] * 0.42); glow.rotation.y = vry; glow.layers.set(1); grp.add(glow); townNightLights.push({ m: glow, base: 0.5, ph: Math.random() * 6, fa: 0.03 })
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(1.4, 14), new THREE.MeshBasicMaterial({ color: 0xc4e0ee, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); pool.rotation.x = -Math.PI / 2; pool.position.set(vx + fwd[0] * 0.75, vy + 0.05, vz + fwd[1] * 0.75); grp.add(pool); townNightLights.push({ m: pool, base: 0.16, ph: Math.random() * 6 })
       addBox(vx, vz, 0.5, 0.36, vry, 0.15) }
     const norenTex = (txt, col) => { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const x = c.getContext('2d'); x.fillStyle = col; x.fillRect(0, 0, 128, 64)
       x.fillStyle = 'rgba(0,0,0,0.16)'; for (const sx of [43, 85]) x.fillRect(sx, 6, 2, 58) // 暖簾の切れ目
