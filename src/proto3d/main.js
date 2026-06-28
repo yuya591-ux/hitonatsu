@@ -1773,6 +1773,7 @@ let villageLevel = 0
 let tvGlowMesh = null // 夜の窓の“ブラウン管TVの青い明滅”メッシュ（buildShishigayaで生成・ループで明滅）
 const shopFronts = [] // 店の店先(道側)の位置と向き＝あとで店番を立てる（makeVillagerはbuildShishigayaの後で安全に呼べる＝TDZ回避でここでは座標だけ集める）
 const shopkeepers = [] // 店番（昼〜夕に店先に立つ・主人公に気づいて顔を向ける）
+let yokomizoYard = null // 横溝屋敷の前庭（あとで にわとり を放す。buildYokomizoで代入）
 try { const u = new URLSearchParams(location.search); if (u.has('v')) villageLevel = Math.max(0, Math.min(2, +u.get('v') | 0)); else villageLevel = Math.max(0, Math.min(2, +(localStorage.getItem('hn3d_village') || 0) | 0)) } catch (e) {}
 function buildShishigaya() {
   const gw = SG.half * 2 + WEST_EXT, gcx = SG.gx0 - WEST_EXT / 2 // 西へWEST_EXTだけ広げた地面（中心を西へずらす＝師岡まで地続き。heightAtYatoは±half外を縁の値でクランプ＝平らに延びる）
@@ -2342,6 +2343,7 @@ function buildShishigaya() {
       const wall = toon(0xcabfa2), woodD = toon(0x6a5236), thatch = toon(0x7d6a47), kura = toon(0xe9e5d9), tile = toon(0x595d61), post = toon(0x836a44), board = toon(0x9a7e54)
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
       groundPatch(grp, cx, cz + 3, 34, 32, 0xc3b899) // 前庭（踏み固めた土＝屋敷だと分かる地面色）
+      yokomizoYard = { x: cx, z: cz + 5 } // 前庭の中ほど＝にわとりを放す場所（initChickensが使う）
       // 長屋門（茅葺き・中央が通路）front=南(cz+13)
       { const tz = cz + 13, ty = heightAtYato(cx, tz)
         for (const sx of [-5.5, 5.5]) grp.add(mk(new THREE.BoxGeometry(3.0, 2.8, 3.4), wall, cx + sx, ty + 1.4, tz, 0, true)) // 門の両脇（部屋）
@@ -6746,6 +6748,82 @@ function updateDogWalkers(dt) {
     w.leash.position.copy(_wA).add(_wB).multiplyScalar(0.5); w.leash.scale.set(1, llen, 1); w.leash.quaternion.setFromUnitVectors(_wUP, _wD.normalize())
   }
 }
+// ── にわとり（横溝屋敷の前庭でついばむ／地面を蹴る＝昭和の農家の庭。新しい生きもの・C16）。距離ゲートで負荷を抑える ──
+// 塊感を出さない（[[animal-no-blob]]）＝胴を一個の球にせず、胸/尾羽/首/頭/とさか/脚に分ける。頭はグループ＝ついばみで前下へ振る。
+const chickens = []
+let chickensInit = false
+function makeChicken(opt) {
+  opt = opt || {}; const rooster = !!opt.rooster
+  const g = new THREE.Group()
+  const fe = toon(opt.body || 0xb07a4a), fe2 = toon(opt.body2 || 0x946038), red = toon(0xc6402f), beakM = toon(0xe7a93c), legM = toon(0xe0a83a)
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), fe); body.scale.set(0.92, 0.86, 1.12); body.position.set(-0.02, 0.42, 0); g.add(body); g.userData.body = body // ふっくらした胴（前後に長い卵形）
+  const breast = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), fe); breast.scale.set(0.86, 1.0, 0.86); breast.position.set(0.13, 0.36, 0); g.add(breast) // 胸（前下のふくらみ）
+  for (const sz of [-1, 1]) { const wing = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), fe2); wing.scale.set(0.5, 0.74, 1.18); wing.position.set(-0.03, 0.44, sz * 0.17); g.add(wing) } // たたんだ翼（両脇の平たいふくらみ）
+  // 尾羽＝後ろに立ち上がる数枚の羽（雄は大きく弧を描く）。平たい羽根を扇状に
+  const tailG = new THREE.Group(); tailG.position.set(-0.2, 0.5, 0); g.add(tailG); g.userData.tail = tailG
+  { const n = rooster ? 5 : 3, spread = rooster ? 0.5 : 0.32, up = rooster ? 0.5 : 0.9
+    for (let i = 0; i < n; i++) { const t = n > 1 ? i / (n - 1) - 0.5 : 0
+      const f = new THREE.Mesh(new THREE.ConeGeometry(rooster ? 0.07 : 0.05, rooster ? 0.42 : 0.28, 5), rooster && i % 2 ? toon(0x2c3a2e) : fe2); f.scale.set(1, 1, 0.42)
+      f.position.set(-0.02, rooster ? 0.06 : 0.04, t * spread); f.rotation.z = up + (rooster ? Math.abs(t) * 0.5 : 0); f.rotation.x = t * (rooster ? 1.0 : 0.6); tailG.add(f) } } // 上へ立てた尾羽（雄は反って大きい）
+  // 首＋頭（グループ＝ついばみで前下へ振る）。首の付け根は胸の上
+  const headG = new THREE.Group(); headG.position.set(0.16, 0.56, 0); g.add(headG); g.userData.head = headG
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.078, 0.16, 8), fe); neck.position.set(-0.01, -0.06, 0); neck.rotation.z = 0.32; headG.add(neck) // 首（やや前傾）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.092, 10, 9), fe); head.position.set(0.05, 0.06, 0); headG.add(head)
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 5), beakM); beak.rotation.z = -Math.PI / 2; beak.position.set(0.16, 0.04, 0); headG.add(beak) // くちばし（前へ）
+  // とさか（頭の上の赤い冠）＝小さな赤い玉を前後に並べる。雄は大きく高い
+  { const cn = rooster ? 4 : 3, ch = rooster ? 0.07 : 0.04, cr = rooster ? 0.05 : 0.034
+    for (let i = 0; i < cn; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(cr * (1 - Math.abs(i / (cn - 1) - 0.5)) + cr * 0.5, 7, 6), red); c.position.set(0.03 + (i / (cn - 1) - 0.5) * 0.1, 0.12 + ch, 0); headG.add(c) } }
+  { const w1 = new THREE.Mesh(new THREE.SphereGeometry(rooster ? 0.03 : 0.022, 7, 6), red); w1.scale.set(0.7, 1.2, 0.7); w1.position.set(0.14, -0.04, 0); headG.add(w1) } // 肉垂れ（くちばしの下の赤）
+  for (const ez of [-0.06, 0.06]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.016, 7, 6), new THREE.MeshBasicMaterial({ color: 0x1a1410 })); e.position.set(0.1, 0.07, ez); e.userData.noOutline = true; headG.add(e) } // 目
+  // 脚（2本・細い・股ピボットで歩くと前後に振る）＋足先
+  const legs = []
+  for (const lz of [-0.075, 0.075]) { const hip = new THREE.Group(); hip.position.set(0.02, 0.24, lz); g.add(hip)
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.016, 0.24, 5), legM); leg.position.y = -0.12; hip.add(leg)
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.02, 0.09), legM); foot.position.set(0.02, -0.235, 0); hip.add(foot) // 三本指っぽい平たい足
+    legs.push(hip) }
+  g.userData.legs = legs
+  g.traverse((o) => { if (o.isMesh) o.castShadow = false })
+  outlineObj(g, 0.018); addContactShadow(g, 0.34)
+  scene.add(g)
+  return g
+}
+function initChickens() {
+  if (chickensInit) return; if (!yokomizoYard) return; chickensInit = true
+  const cx = yokomizoYard.x, cz = yokomizoYard.z
+  const defs = [{ rooster: true, body: 0x6a4a32, body2: 0x4a3424 }, { body: 0xb98a52, body2: 0x9a6c3a }, { body: 0xe8e2d4, body2: 0xcfc6b2 }, { body: 0xa86c40, body2: 0x854f2a }] // 雄1＋雌3（毛色ちがい）
+  for (let i = 0; i < defs.length; i++) { const a = (i / defs.length) * 6.283 + Math.random(), r = 2 + Math.random() * 5
+    const spot = placeNPCOnLand(cx + Math.cos(a) * r, cz + Math.sin(a) * r, 0.4, 10); if (!spot) continue
+    const c = makeChicken(defs[i]); c.position.set(spot.x, heightAtYato(spot.x, spot.z), spot.z); c.rotation.y = Math.random() * 6.283
+    Object.assign(c.userData, { hx: cx, hz: cz, tx: spot.x, tz: spot.z, state: 'peck', timer: 1 + Math.random() * 2, peckPh: Math.random() * 6, gait: 0, moving: false }); chickens.push(c) }
+}
+function updateChickens(dt) {
+  initChickens(); if (!chickens.length) return
+  const active = onYato && tday > 0.06 && tday < 0.82 // 日中（夜は小屋＝出さない）
+  for (const c of chickens) {
+    const u = c.userData
+    const vis = active && Math.hypot(boy.position.x - c.position.x, boy.position.z - c.position.z) < 55 // 近接時だけ
+    if (c.visible !== vis) c.visible = vis
+    if (!vis) continue
+    u.timer -= dt
+    if (u.state === 'peck') { // その場でついばむ＝頭を前下へ小刻みに振る
+      u.moving = false; u.peckPh += dt * 8
+      const dip = Math.max(0, Math.sin(u.peckPh)) // 0→1→0 で下げて戻す
+      if (u.head) { u.head.rotation.z = -1.15 * dip; u.head.rotation.y = (!u.head._lk ? Math.sin(u.peckPh * 0.21) * 0.3 : 0) } // つつく合間に首を かしげる
+      if (u.timer <= 0) { u.state = 'walk'; u.timer = 1.5 + Math.random() * 2.5 // 数歩あるいて次の餌場へ
+        const a = Math.random() * 6.283, r = 1.2 + Math.random() * 2.5; u.tx = u.hx + Math.cos(a) * (2 + Math.random() * 5); u.tz = u.hz + Math.sin(a) * (2 + Math.random() * 5) }
+    } else { // walk＝目標へとことこ。頭を前後に小刻みに突き出す“鶏歩き”
+      const dx = u.tx - c.position.x, dz = u.tz - c.position.z, d = Math.hypot(dx, dz)
+      if (d < 0.25 || u.timer <= 0) { u.state = 'peck'; u.timer = 2 + Math.random() * 3; u.moving = false }
+      else { const s = 0.7 * dt; c.position.x += dx / d * s; c.position.z += dz / d * s; u.moving = true
+        const ta = Math.atan2(-dz, dx); let da = ta - c.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; c.rotation.y += da * Math.min(1, dt * 8)
+        u.gait += dt * 11
+        if (u.head) { u.head.rotation.z = Math.sin(u.gait) * 0.16 - 0.05; u.head.rotation.y = 0 } } // 歩くと頭が前後にカクカク
+    }
+    c.position.y = heightAtYato(c.position.x, c.position.z) + (u.moving ? Math.abs(Math.sin(u.gait)) * 0.012 : 0)
+    if (u.legs) { const sw = u.moving ? Math.sin(u.gait) * 0.5 : 0; u.legs[0].rotation.z = sw; u.legs[1].rotation.z = -sw }
+    if (u.tail) u.tail.rotation.z = Math.sin(performance.now() * 0.002 + u.peckPh) * 0.05 // 尾羽がぴくぴく
+  }
+}
 // ── 走り回る子（追いかけっこ）と立ち話＝公園/校庭/道の賑わい（賑わいPhase2・2026-06-27）──
 //   既存の歩行スイング(line8635)を速く・大きくし前傾＝走り。立ち話は2人が向き合い身振り/うなずき。時間帯＋距離でゲート。
 const runGroups = [], chatPairs = []
@@ -9561,6 +9639,7 @@ function update(dt) {
   updateFishers(dt) // 釣り人（二ツ池・三ツ池の岸・朝〜昼下がり・近接時のみ）
   updateUchimizu(dt) // 打ち水（夕方・家の前・近接時のみ）
   updateDogWalkers(dt) // 犬の散歩（朝夕・住宅街の道・近接時のみ）
+  updateChickens(dt) // にわとり（横溝屋敷の前庭・日中・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
@@ -11259,6 +11338,7 @@ window.__proto3d = {
   get day() { return day },
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
+  _chickens() { initChickens(); return { yard: yokomizoYard, list: chickens.map((c) => ({ x: +c.position.x.toFixed(1), y: +c.position.y.toFixed(1), z: +c.position.z.toFixed(1), st: c.userData.state, vis: c.visible, hz: +c.userData.head.rotation.z.toFixed(2) })) } }, // 検証用：にわとりの位置・状態・頭の角度
   _dogwalkers() { initDogWalkers(); return dogWalkers.map((w) => ({ px: +w.person.position.x.toFixed(1), py: +w.person.position.y.toFixed(1), pz: +w.person.position.z.toFixed(1), dx: +w.dog.position.x.toFixed(1), dz: +w.dog.position.z.toFixed(1), vis: w.person.visible, gap: +Math.hypot(w.person.position.x - w.dog.position.x, w.person.position.z - w.dog.position.z).toFixed(2) })) }, // 検証用：犬の散歩（人と犬の位置・間隔）
   _uchimizu() { initUchimizu(); return uchimizu.map((m) => { let sx = null, sy = null, sz = null; for (let i = 0; i < m.vel.length; i++) { if (m.vel[i].life > 0) { sx = +m.pos[i * 3].toFixed(1); sy = +m.pos[i * 3 + 1].toFixed(1); sz = +m.pos[i * 3 + 2].toFixed(1); break } } return { x: +m.g.position.x.toFixed(0), z: +m.g.position.z.toFixed(0), ry: +m.g.rotation.y.toFixed(2), vis: m.drops.visible, live: m.vel.filter((v) => v.life > 0).length, wet: +m.wet.material.opacity.toFixed(2), drop: sx === null ? null : [sx, sy, sz] } }) }, // 検証用：打ち水の人の位置・飛んでる水滴数/サンプル座標・路面の濡れ
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
