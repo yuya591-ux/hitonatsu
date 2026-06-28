@@ -6693,6 +6693,18 @@ addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子
   beside(vAt('三石原っぱ'), 12, 12, 2.8)       // 三石原っぱ（1日目）
   beside(vAt('上の宮中学校'), 16, 16, 3.0) }  // 上の宮中学校のグラウンド（3日目の祭り）
 populateFestSpectators() // 縁日の人だかり＝npcSpotOk(水/建物/道よけ)が使えるここで生成（TDZ回避・上の関数定義は先・呼び出しは後）
+// ── 夜の街灯（昭和の田舎道の角＝コンクリ柱＋小さなかさ＋暖色の灯り＋空気中のやわらかい光のコーン＋地面の光だまり）。夜の道のあかり＝最強の夜エモ（2026-06-28）。道のど真ん中は避け、近ければ少し脇へ寄せる ──
+function makeYatoLamp(x, z) {
+  if (onYatoRoadCore(x, z)) { let moved = false; for (let r = 1.5; r <= 5 && !moved; r += 1.0) for (let a = 0; a < 6.28; a += 0.7) { const nx = x + Math.cos(a) * r, nz = z + Math.sin(a) * r; if (!onYatoRoadCore(nx, nz) && !npcInWater(nx, nz)) { x = nx; z = nz; moved = true; break } } }
+  const gy = heightAtYato(x, z)
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 4.2, 6), toon(0x8a8680)); pole.position.set(x, gy + 2.1, z); pole.castShadow = true; addOutline(pole, 0.02); scene.add(pole)
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.07, 0.07), toon(0x8a8680)); arm.position.set(x - 0.3, gy + 4.16, z); scene.add(arm)
+  const shade = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.2, 10), toon(0x615d55)); shade.position.set(x - 0.56, gy + 4.12, z); addOutline(shade, 0.015); scene.add(shade)
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a0, fog: false, transparent: true, opacity: 0 })); bulb.position.set(x - 0.56, gy + 3.97, z); scene.add(bulb); townNightLights.push({ m: bulb, base: 1.0, ph: Math.random() * 6, flame: true })
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(1.45, 3.5, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd890, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); cone.position.set(x - 0.56, gy + 2.15, z); cone.layers.set(1); scene.add(cone); townNightLights.push({ m: cone, base: 0.06, ph: Math.random() * 6, fa: 0.05 }) // 空気中の光のコーン（加算・ごく淡く）
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(2.5, 18), new THREE.MeshBasicMaterial({ color: 0xffce84, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); pool.rotation.x = -Math.PI / 2; pool.position.set(x - 0.56, gy + 0.05, z); scene.add(pool); townNightLights.push({ m: pool, base: 0.2, ph: Math.random() * 6 }) // 地面の光だまり
+}
+for (const [lx, lz] of [[3016, 14], [3012, -2], [2966, -88], [2933, -52], [2770, -148], [2756, -138], [3060, -118], [3852, -700]]) makeYatoLamp(lx, lz) // 開始位置/家並み/ビスコ前/商店街/谷戸の道/三ツ池
 addChatPair(3010, 22, 0.6)   // バス通りぎわ
 addChatPair(2762, -150, 1.9) // 商店街の道
 addChatPair(2960, -330, 0.3) // 谷戸の道
@@ -6719,8 +6731,13 @@ addChatPair(3050, -20, 0.4)  // 第三公園のブランコぎわ（公園に必
 
 // ── 夜の演出：月・星・蛍（夜になるほど現れる）──
 const nightFactor = (t) => THREE.MathUtils.smoothstep(t, 0.72, 0.99)
+const moonTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d') // 月の海(暗い斑)＋小クレーター＝のっぺりした白丸でなく“ほんものの月”に（夜のエモさ・2026-06-28）
+  x.fillStyle = '#eef0fa'; x.fillRect(0, 0, 128, 128)
+  for (const [mx, my, mr] of [[46, 52, 24], [80, 44, 17], [62, 84, 21], [92, 92, 13], [38, 84, 12]]) { const gr = x.createRadialGradient(mx, my, 0, mx, my, mr); gr.addColorStop(0, 'rgba(150,158,182,0.5)'); gr.addColorStop(1, 'rgba(150,158,182,0)'); x.fillStyle = gr; x.beginPath(); x.arc(mx, my, mr, 0, 6.283); x.fill() } // 海(マリア)
+  for (let i = 0; i < 12; i++) { const cx = Math.random() * 128, cy = Math.random() * 128, cr = 1.6 + Math.random() * 3.6; x.fillStyle = 'rgba(120,128,152,0.28)'; x.beginPath(); x.arc(cx, cy, cr, 0, 6.283); x.fill() } // 小さなクレーター
+  return new THREE.CanvasTexture(c) })()
 const moon = new THREE.Mesh(new THREE.SphereGeometry(9, 24, 24),
-  new THREE.MeshBasicMaterial({ color: 0xeef0ff, fog: false, transparent: true, opacity: 0 }))
+  new THREE.MeshBasicMaterial({ color: 0xeef0ff, map: moonTex, fog: false, transparent: true, opacity: 0 }))
 moon.position.set(70, 95, -90); moon.layers.set(1); scene.add(moon) // 月・星などの空の装飾はインク線の法線パスから除外
 const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(20, 24, 24),
   new THREE.MeshBasicMaterial({ color: 0xbcd0ff, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending }))
