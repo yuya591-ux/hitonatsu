@@ -5369,12 +5369,20 @@ if (butterflies[0]) butterflies[0].userData.visitor = true // 立ち止まると
 
 // ── 赤とんぼ（夕方に飛ぶ＝夏の終わりの象徴）──
 const dragonflies = []
+const DRF_WING_GEO = new THREE.PlaneGeometry(0.12, 0.44) // 赤とんぼの細い翅（共有）
 function makeDragonfly(cx, cz) {
   const g = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.75, 5), new THREE.MeshToonMaterial({ color: 0xd0503a, gradientMap: GRAD, transparent: true })); body.rotation.z = Math.PI / 2; g.add(body)
-  const wmat = new THREE.MeshBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
-  for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.15), wmat); w.position.set(s * 0.05, 0.03, s * 0.12); g.add(w) }
-  g.userData = { cx, cz, ph: Math.random() * 6.28, r: 3 + Math.random() * 5, sp: 0.5 + Math.random() * 0.4, body: body.material, wing: wmat }
+  const redM = new THREE.MeshToonMaterial({ color: 0xd0503a, gradientMap: GRAD, transparent: true })
+  const eyeM = new THREE.MeshToonMaterial({ color: 0x5a2418, gradientMap: GRAD, transparent: true })
+  // 胴＝頭＋胸＋細長い腹（赤とんぼの長い尾）＝1本の棒をやめる。前(+x)へ並べる
+  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), redM); thorax.scale.set(1.4, 1, 1); thorax.position.x = 0.14; g.add(thorax)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), redM); head.position.x = 0.27; g.add(head)
+  const abdomen = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.01, 0.5, 6), redM); abdomen.rotation.z = Math.PI / 2; abdomen.position.x = -0.12; g.add(abdomen) // 細長い腹（後ろへ）
+  for (const s of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.032, 7, 6), eyeM); eye.position.set(0.29, 0.015, s * 0.028); g.add(eye) } // 大きな複眼（とんぼの顔）
+  const wmat = new THREE.MeshBasicMaterial({ color: 0xeaf2ff, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })
+  for (const s of [-1, 1]) for (const wx of [0.13, 0.0]) { const w = new THREE.Mesh(DRF_WING_GEO, wmat); w.rotation.x = s * Math.PI / 2; w.position.set(wx, 0.06, s * 0.24); g.add(w) } // 前後2対の透明な翅（横へ水平に張る）
+  g.userData = { cx, cz, ph: Math.random() * 6.28, r: 3 + Math.random() * 5, sp: 0.5 + Math.random() * 0.4, body: redM, wing: wmat, eye: eyeM }
+  g.traverse((o) => o.layers.set(1)) // とんぼもインク法線パスから除外（透明翅が四角くならない）
   scene.add(g); dragonflies.push(g)
 }
 for (const [x, z] of [[7, 4], [-6, 6], [10, -6], [-12, -2]]) makeDragonfly(x, z)
@@ -10291,7 +10299,7 @@ function update(dt) {
     const dx = u.cx + Math.cos(a) * u.rr, dz = u.cz + Math.sin(a * 1.3) * u.rr
     d.position.set(dx, heightAt(dx, dz) + (close ? 1.45 : 1.9) + Math.sin(a * 2) * (close ? 0.1 : 0.4), dz)
     d.rotation.y = -a * 1.3 + Math.PI / 2
-    u.body.opacity = eveningF; u.wing.opacity = eveningF * 0.5
+    u.body.opacity = eveningF; u.wing.opacity = eveningF * 0.5; if (u.eye) u.eye.opacity = eveningF
     d.visible = eveningF > 0.02
   }
   // 新エリア『獅子ヶ谷』の生き物（気配）＝area判定に依存せず常時アニメ（夜は消える）
