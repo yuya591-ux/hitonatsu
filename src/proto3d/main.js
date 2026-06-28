@@ -5481,39 +5481,55 @@ makeBug(9, 2.0, -21.5, 'セミ')
     makeBug(x + Math.cos(ang) * tr, y + (kind === 'セミ' ? 2.0 : 1.3) + Math.random() * 0.3, z + Math.sin(ang) * tr, kind) }) } // カブトムシは幹の低め・セミは少し上
 
 // ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
+// 猫らしさの要＝①すらりと細い胴(犬と差別化) ②大きな三角の立ち耳 ③平たい顔＋小さな鼻面 ④大きなアーモンドの目＋縦長ひとみ ⑤ヒゲ ⑥上に立てた長い尾の先がくるり（ユーザー「全く猫っぽく見えない・大幅刷新を」2026-06-28）
 function makeCat(furCol, creamCol) {
   const g = new THREE.Group()
   const fur = toon(furCol || 0xdf9450), cream = toon(creamCol || 0xf2e4cb) // 毛色＝個体差（茶トラ/サバ/黒白）
-  // 胴＝しなやかな横向きカプセル＋腰のふくらみ＋首＝ずんぐりした一個の球(塊感)をやめ、輪郭にくびれと流れを作る（ユーザー要望2026-06-28）
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.4, 6, 12), fur); body.rotation.z = Math.PI / 2; body.position.set(-0.02, 0.42, 0); g.add(body); g.userData.body = body
-  const hip = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), fur); hip.scale.set(1.0, 1.05, 1.02); hip.position.set(-0.32, 0.42, 0); g.add(hip) // 腰（後ろ脚の付け根のふくらみ）
-  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), cream); chest.scale.set(0.82, 1.05, 0.82); chest.position.set(0.32, 0.33, 0); g.add(chest) // 胸の白
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.115, 0.2, 8), fur); neck.position.set(0.36, 0.52, 0); neck.rotation.z = -0.72; g.add(neck) // 首（頭へ斜めに）＝頭が胴から浮かない
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), fur); head.scale.set(1, 0.96, 1.05); head.position.set(0.5, 0.63, 0); g.add(head)
-  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), cream); muzzle.scale.set(1, 0.74, 0.92); muzzle.position.set(0.6, 0.56, 0); g.add(muzzle) // 口元の白
-  for (const ez of [-0.085, 0.085]) {
-    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.072, 0.15, 5), fur); ear.position.set(0.47, 0.79, ez); g.add(ear)
-    const ein = new THREE.Mesh(new THREE.ConeGeometry(0.036, 0.085, 5), toon(0xe6a8a4)); ein.position.set(0.485, 0.79, ez); g.add(ein) // 耳の中のピンク
+  const pink = toon(0xe7a9a4)
+  // 胴＝犬より細くしなやかな横向きカプセル（猫＝すらりとした流れる輪郭）
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.128, 0.46, 6, 12), fur); body.rotation.z = Math.PI / 2; body.position.set(-0.02, 0.4, 0); g.add(body); g.userData.body = body
+  const hip = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), fur); hip.scale.set(0.94, 1.06, 1.0); hip.position.set(-0.34, 0.41, 0); g.add(hip) // 腰（後ろ脚の付け根のふくらみ）
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 8), cream); chest.scale.set(0.78, 1.02, 0.78); chest.position.set(0.3, 0.33, 0); g.add(chest) // 胸の白
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.17, 8), fur); neck.position.set(0.33, 0.49, 0); neck.rotation.z = -0.66; g.add(neck) // 細くしなやかな首
+  const headG = new THREE.Group(); headG.position.set(0.45, 0.59, 0); g.add(headG); g.userData.head = headG // 頭はグループ＝歩く時のうなずき/見回しで動かす
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.152, 16, 13), fur); head.scale.set(0.98, 0.96, 1.08); headG.add(head) // 横にやや広い丸顔（猫＝ほお骨が張る）
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.072, 10, 8), cream); muzzle.scale.set(0.95, 0.62, 1.05); muzzle.position.set(0.1, -0.075, 0); headG.add(muzzle) // 口元の白＝小さく低く（突き出さない＝平たい猫の顔）
+  // 大きな三角の立ち耳（猫の最大の特徴）。頭の上に高く・左右に開き・少し外へ倒す
+  for (const ez of [-0.078, 0.078]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.082, 0.22, 5), fur); ear.position.set(-0.015, 0.16, ez); ear.rotation.x = ez > 0 ? 0.34 : -0.34; ear.rotation.z = ez > 0 ? -0.12 : 0.12; headG.add(ear)
+    const ein = new THREE.Mesh(new THREE.ConeGeometry(0.046, 0.14, 5), pink); ein.position.set(0.012, 0.155, ez); ein.rotation.x = ez > 0 ? 0.34 : -0.34; ein.rotation.z = ez > 0 ? -0.12 : 0.12; headG.add(ein) // 耳の中のピンク
   }
-  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.026, 0.62, 6), fur); tail.geometry.translate(0, 0.31, 0); tail.position.set(-0.46, 0.44, 0); tail.rotation.z = -1.0; g.add(tail) // 根元支点で振るしなやかな尾
-  const legs = [] // 4本の脚を股ピボット化＝歩く時に交互に振る（4足歩行・ユーザー要望2026-06-28）。並び＝前左/前右/後左/後右
-  for (const [lx, lz] of [[0.25, 0.12], [0.25, -0.12], [-0.27, 0.12], [-0.27, -0.12]]) {
-    const hip = new THREE.Group(); hip.position.set(lx, 0.42, lz); g.add(hip) // 脚の付け根（ここを支点に前後へ振る）
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.038, 0.42, 6), fur); leg.position.y = -0.21; hip.add(leg) // 付け根からぶら下がる細め・少し長めの脚
-    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.058, 8, 6), cream); paw.scale.set(1, 0.72, 1.25); paw.position.set(0.02, -0.4, 0); hip.add(paw) // 白い足先
+  // 上に立てた長い尾＝先がくるりと前へ（ごきげんな猫）。根元を支点に左右へゆらす
+  const tailCurve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(-0.13, 0.2, 0), new THREE.Vector3(-0.2, 0.43, 0), new THREE.Vector3(-0.12, 0.61, 0), new THREE.Vector3(0.07, 0.66, 0)])
+  const tail = new THREE.Mesh(new THREE.TubeGeometry(tailCurve, 18, 0.05, 6, false), fur); tail.position.set(-0.42, 0.46, 0); g.add(tail)
+  const legs = [] // 4本の脚を股ピボット化＝歩く時に交互に振る（4足歩行）。並び＝前左/前右/後左/後右。猫＝犬より細い脚
+  for (const [lx, lz] of [[0.24, 0.1], [0.24, -0.1], [-0.28, 0.1], [-0.28, -0.1]]) {
+    const hip = new THREE.Group(); hip.position.set(lx, 0.4, lz); g.add(hip) // 脚の付け根（ここを支点に前後へ振る）
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.03, 0.4, 6), fur); leg.position.y = -0.2; hip.add(leg) // 付け根からぶら下がる細い脚
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), cream); paw.scale.set(1, 0.7, 1.3); paw.position.set(0.02, -0.38, 0); hip.add(paw) // 白い足先
     legs.push(hip)
   }
   g.userData.legs = legs
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く猫も残像防止で影マップへ焼かない
-  outlineObj(g, 0.02); addContactShadow(g, 0.62)
-  // 顔（輪郭線の後・フチ無し）：目・鼻
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x394a2c }) // 猫の目＝少し緑がかった琥珀
+  outlineObj(g, 0.02); addContactShadow(g, 0.55)
+  // 顔（輪郭線の後・フチ無し）：大きなアーモンドの目＋縦長のひとみ・鼻・ヒゲ
+  const irisMat = new THREE.MeshBasicMaterial({ color: 0x8a9a3e }) // 黄緑がかった琥珀の虹彩
+  const pupMat = new THREE.MeshBasicMaterial({ color: 0x1c160c }) // 縦長のひとみ
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
-  for (const ez of [-0.082, 0.082]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), eyeMat); e.scale.set(0.74, 1, 0.62); e.position.set(0.615, 0.66, ez); g.add(e)
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.017, 8, 8), hiMat); hi.position.set(0.645, 0.692, ez + (ez > 0 ? 0.01 : -0.01)); g.add(hi) // きらり（うるうる）
+  for (const ez of [-0.066, 0.066]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.052, 12, 9), irisMat); e.scale.set(0.66, 1.05, 0.5); e.position.set(0.112, 0.045, ez); headG.add(e) // 大きめのアーモンド目
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), pupMat); p.scale.set(0.32, 0.95, 0.3); p.position.set(0.138, 0.045, ez); headG.add(p) // 縦に細いひとみ＝猫の目
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 8), hiMat); hi.position.set(0.152, 0.078, ez + (ez > 0 ? 0.012 : -0.012)); headG.add(hi) // きらり
   }
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xd98a9a })); nose.position.set(0.67, 0.56, 0); g.add(nose)
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.038, 3), new THREE.MeshBasicMaterial({ color: 0xd98a9a })); nose.rotation.x = Math.PI; nose.rotation.y = Math.PI / 6; nose.position.set(0.158, -0.022, 0); headG.add(nose) // 小さな逆三角のピンクの鼻
+  // ヒゲ＝鼻のわきから外へ放射状に（細い円柱を1メッシュに統合・輪郭なし）。猫だと一目で分かる決め手
+  const whG = [], up = new THREE.Vector3(0, 1, 0)
+  for (const side of [-1, 1]) for (const [dy, dz, len] of [[0.06, 0.92, 0.24], [-0.04, 1.0, 0.26], [-0.16, 0.9, 0.23]]) {
+    const cg = new THREE.CylinderGeometry(0.0048, 0.0016, len, 4); cg.translate(0, len / 2, 0)
+    const q = new THREE.Quaternion().setFromUnitVectors(up, new THREE.Vector3(0.5, dy, side * dz).normalize())
+    cg.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(0.13, -0.028, side * 0.05), q, new THREE.Vector3(1, 1, 1))); whG.push(cg)
+  }
+  const whisk = new THREE.Mesh(mergeGeometries(whG), new THREE.MeshBasicMaterial({ color: 0xeae3d2, fog: true })); whG.forEach((q) => q.dispose()); whisk.userData.noOutline = true; headG.add(whisk)
   g.userData.tail = tail
   scene.add(g)
   return g
@@ -9757,7 +9773,10 @@ function update(dt) {
     if (u.body) { const br = resting ? Math.sin(tsec * 1.6 + ci) * 0.045 : 0; u.body.scale.set(1 + br, 1, 1 + br * 0.8) } // 休む間はゆっくり呼吸（胴の girth がふくらむ。bodyは横向きカプセル＝local x/zが胴回り）
     if (u.legs) { const sw = u.moving ? Math.sin(u.phase) * 0.6 : 0 // 4足歩行＝対角の足が同じ向きに前後（前左+後右／前右+後左）。脚の付け根をlocal zで前後に振る
       u.legs[0].rotation.z = sw; u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
-    if (u.tail) u.tail.rotation.z = -1.0 + Math.sin(tsec * (resting ? 1.4 : 2.5) + ci * 1.3) * (resting ? 0.16 : 0.28) // 休む時は尾もゆっくり・歩く時は元気に
+    if (u.head) { // 頭の動き＝歩くと小さくうなずき＋左右に揺れる／休む間はゆっくり見回す（より猫らしく・2026-06-28）
+      if (u.moving) { u.head.rotation.z = -0.05 + Math.sin(u.phase * 2) * 0.05; u.head.rotation.y = Math.sin(u.phase) * 0.06 }
+      else { u.head.rotation.z += (0 - u.head.rotation.z) * Math.min(1, dt * 3); u.head.rotation.y = Math.sin(tsec * 0.42 + ci * 2.1) * 0.5 } }
+    if (u.tail) { u.tail.rotation.y = Math.sin(tsec * (resting ? 1.2 : 2.3) + ci * 1.3) * (resting ? 0.2 : 0.34); u.tail.rotation.z = Math.sin(tsec * (resting ? 0.9 : 1.8) + ci) * 0.07 } // 立てた尾を左右にゆらす（休む時はゆっくり・歩く時は元気に）
   }
   // 番犬：犬小屋のそばを前後にゆっくりうろつき（歩行モーション・脚を交互に振る）、立ち止まってしっぽを振り、たまに頭を上げて吠える（繋がれているので遠くへは行かない）
   for (const dg of dogs) { const u = dg.userData
@@ -9776,7 +9795,10 @@ function update(dt) {
     if (u.legs) { const sw = u.dmoving ? Math.sin(u.gphase) * 0.55 : 0 // 4足歩行＝対角の足が同じ向きに前後
       u.legs[0].rotation.z = sw; u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
     const up = barking ? Math.sin((1 - u.barkT / 0.7) * Math.PI) : 0 // 0→1→0で頭を上げて戻す
-    if (u.head) u.head.rotation.z = 0.5 * up // 鼻面を上げて吠える
+    if (u.head) { // 頭の動き＝吠える時は鼻面を上げる／歩くと小さく上下＋左右／立ち止まると たまに地面をくんくん（より犬らしく・2026-06-28）
+      if (barking) { u.head.rotation.z = 0.5 * up; u.head.rotation.y = 0 }
+      else if (u.dmoving) { u.head.rotation.z = Math.sin(u.gphase) * 0.05; u.head.rotation.y = Math.sin(u.gphase * 0.5) * 0.06 }
+      else { const sn = Math.max(0, Math.sin(tsec * 0.5 + u.ph)); u.head.rotation.z = -0.5 * sn * sn; u.head.rotation.y = 0 } }
     if (u.tail) u.tail.rotation.z = 1.0 + Math.sin(tsec * (barking ? 16 : 6) + u.ph) * (barking ? 0.5 : 0.35) // 吠える時はしっぽ激しく・普段もぶんぶん
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
