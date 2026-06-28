@@ -646,14 +646,17 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe0a6, li: 1.9, sky: 0xa6cce2, mid: 0xe9e8dc, bot: 0xf7ecd0, fog: 0xe9e6d6, hi: 1.18, hsky: 0xc4dcec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78 }, // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく
-  noon: { light: 0xffeac6, li: 2.4, sky: 0x8cc0e2, mid: 0xc8e2ec, bot: 0xf1f3e4, fog: 0xdee9ee, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34 }, // 真昼＝直射を金色寄りの暖色へ。霧色を地平の空色(mid)寄りに落ち着かせ＝遠景の霞が空と地続きで、黒い輪郭線が浮かず自然に溶ける（ユーザー指摘の遠景のモヤ修正2026-06-25）
-  dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）
-  night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる
+  morn: { light: 0xffe0a6, li: 1.9, sky: 0xa6cce2, mid: 0xe9e8dc, bot: 0xf7ecd0, fog: 0xe9e6d6, hi: 1.18, hsky: 0xc4dcec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
+  noon: { light: 0xffeac6, li: 2.4, sky: 0x8cc0e2, mid: 0xc8e2ec, bot: 0xf1f3e4, fog: 0xdee9ee, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝直射を金色寄りの暖色へ。霧色を地平の空色(mid)寄りに落ち着かせ＝遠景の霞が空と地続きで、黒い輪郭線が浮かず自然に溶ける（ユーザー指摘の遠景のモヤ修正2026-06-25）。c*=雲は白＋涼しい青灰の腹（既定値＝夏の入道雲）
+  dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
+  night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
 const lc = (out, ha, hb, u) => out.copy(_a.set(ha)).lerp(_b.set(hb), u)
 const ln = (a, b, u) => a + (b - a) * u
+// 雲のマテリアルは後方で生成するが、setTimeOfDayが時間帯で色を染める＝先に null で宣言（const のままだと初回 setTimeOfDay が TDZ で落ちる。後の生成時に代入）
+let cloudMat = null // 入道雲/綿雲のビルボード（per-pixelシェーダ）
+let cmat = null     // 低い綿パフ群（MeshToon）
 function pickPal(t) {
   if (t < 0.5) return { from: PAL.morn, to: PAL.noon, u: t / 0.5 }
   if (t < 0.78) return { from: PAL.noon, to: PAL.dusk, u: (t - 0.5) / 0.28 }
@@ -675,6 +678,13 @@ function setTimeOfDay(t) {
   lc(skyMat.uniforms.top.value, from.sky, to.sky, u)
   lc(skyMat.uniforms.mid.value, from.mid, to.mid, u)
   lc(skyMat.uniforms.bottom.value, from.bot, to.bot, u)
+  // 雲を時間帯で染める＝空(skyMat)と同じ仕組みで朝夕の暖色へ。昼は白＋涼しい青灰の腹、夜は青灰へ沈める＝「雲だけ白く浮く」を解消（cloudMatは後方定義なのでガード／cmatは入道雲とは別の低い綿パフ群）。
+  if (cloudMat) {
+    lc(cloudMat.uniforms.topCol.value, from.ctop, to.ctop, u)
+    lc(cloudMat.uniforms.botCol.value, from.cbot, to.cbot, u)
+    lc(cloudMat.uniforms.sunCol.value, from.csun, to.csun, u)
+  }
+  if (cmat) lc(cmat.color, from.ctop, to.ctop, u) // 低い綿雲（MeshToon）も同じ染め＝昼白・朝夕暖・夜青で空に馴染む
   lc(scene.fog.color, from.fog, to.fog, u); _todFog.copy(scene.fog.color) // 雨の紫霞を重ねる素色として保持
   hemi.intensity = ln(from.hi, to.hi, u)
   lc(hemi.color, from.hsky, to.hsky, u)
@@ -7505,22 +7515,24 @@ let trainTimer = 35 + Math.random() * 45, dogTimer = 25 + Math.random() * 40 // 
 let bellArmed = true, bellSeq = 0, bellNext = 0 // 夕暮れの入相の鐘（1日1回・数回つく）
 // ── 入道雲（高くにゆっくり流れる。寝ころんで空を見ると気持ちいい）──
 const clouds = []
+// cmat＝低い綿パフ群の共有マテリアル。setTimeOfDayが時間帯で色を染めるので上方で let 宣言済み（ここで代入）。全パフで1マテリアル共有＝安い
+cmat = new THREE.MeshToonMaterial({ color: 0xfffdf8, gradientMap: GRAD, fog: false }) // トゥーン陰影で上は白く下はやわらかく陰る＝入道雲と様式をそろえる(のっぺり解消)。初期色は昼の白(setTimeOfDayで更新)
 {
-  const cmat = new THREE.MeshToonMaterial({ color: 0xf6f7f3, gradientMap: GRAD, fog: false }) // トゥーン陰影で上は白く下はやわらかく陰る＝入道雲と様式をそろえる(のっぺり解消)
-  for (let i = 0; i < 6; i++) {
-    const g = new THREE.Group()
-    const n = 3 + Math.floor(Math.random() * 3)
+  for (let i = 0; i < 12; i++) { // 6→12：昼の大きな空に綿雲の情報量を足す（散らして点在の寂しさを解消）
+    // 1雲＝複数の球を1ジオメトリにマージ＝雲1個につきドローコール1（48メッシュ→12メッシュ。yatoのdraw call予算を守る）。見た目はマージ前と同じ
+    const n = 3 + Math.floor(Math.random() * 3), parts = []
     for (let k = 0; k < n; k++) {
       const r = 7 + Math.random() * 8
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), cmat)
-      puff.position.set((k - n / 2) * 9 + Math.random() * 4, Math.random() * 4, Math.random() * 6)
-      puff.scale.y = 0.6
-      puff.layers.set(1) // 雲はインク線の法線パスから除外（やわらかい雲＝ハードな縁取りを描かない）
-      g.add(puff)
+      const sg = new THREE.SphereGeometry(r, 10, 8); sg.scale(1, 0.6, 1) // 縦に潰した綿
+      sg.translate((k - n / 2) * 9 + Math.random() * 4, Math.random() * 4, Math.random() * 6)
+      parts.push(sg)
     }
-    g.position.set((Math.random() - 0.5) * 260, 60 + Math.random() * 25, (Math.random() - 0.5) * 260)
-    g.userData = { sp: 0.6 + Math.random() * 0.7 }
-    scene.add(g); clouds.push(g)
+    const geo = mergeGeometries(parts, false); parts.forEach((p) => p.dispose())
+    const cloud = new THREE.Mesh(geo, cmat)
+    cloud.position.set((Math.random() - 0.5) * 360, 58 + Math.random() * 30, (Math.random() - 0.5) * 360) // 広く散らす（±260→±360＝12個でも空に均す）
+    cloud.layers.set(1) // 雲はインク線の法線パスから除外（やわらかい雲＝ハードな縁取りを描かない）
+    cloud.userData = { sp: 0.6 + Math.random() * 0.7 }
+    scene.add(cloud); clouds.push(cloud)
   }
 }
 // ── 飛行機雲（夏の空に一機だけ・ゆっくり横切り、白い尾を引いてやがて溶ける）＝昭和の夏の空のノスタルジー。2026-06-26 ──
@@ -7614,7 +7626,7 @@ const puffTex = (() => {
   const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearMipMapLinearFilter; t.magFilter = THREE.LinearFilter; return t
 })()
 // インスタンス・ビルボード（各パフが常にカメラを向く板）。上=白／下=青灰のグラデ＋太陽側を暖色に
-const cloudMat = new THREE.ShaderMaterial({
+cloudMat = new THREE.ShaderMaterial({ // 上方で let 宣言済み（setTimeOfDayが topCol/botCol/sunCol を時間帯で染める）
   uniforms: { map: { value: puffTex }, opacity: { value: 0.96 }, topCol: { value: new THREE.Color(0xfffdf8) }, botCol: { value: new THREE.Color(0xe7ebf1) }, sunCol: { value: new THREE.Color(0xfff3de) }, sunDir: { value: sunDir }, sunDirView: { value: new THREE.Vector3().copy(sunDir) } },
   vertexShader: `attribute vec3 iPos; attribute float iSize; attribute float iY; attribute float iSeed;
     uniform vec3 sunDir; varying vec2 vUv; varying float vY; varying float vLit; varying vec2 vSph;
@@ -10056,7 +10068,10 @@ function update(dt) {
   }
   // 夜の演出
   const nf = nightFactor(tday)
-  shadowMat.opacity = 1 - nf * 0.62 // 接地影は直射日光の影なので、夜は薄めて地面に不自然な暗円が残らないように
+  // 接地影／接地AO（建物フットプリント・小物の足元の陰）。直射日光の影なので夜は薄め、真昼は太陽が高いほど濃く＝強い直射で足元がくっきり地面に乗る（昼の三人称で建物/人が浮いて見えるのを締める）。
+  // sunDir.y≈0(朝夕)→0.9(昼ピーク)。昼だけ最大+18%濃く（×1.18＝canvasα0.78が実効≈0.92、真っ黒にはしない）。朝夕は等倍＝長い影の空気感を保つ。
+  const noonAO = 1 + THREE.MathUtils.smoothstep(sunDir.y, 0.45, 0.85) * 0.18
+  shadowMat.opacity = (1 - nf * 0.62) * noonAO
   moon.material.opacity = nf
   moonGlow.material.opacity = nf * 0.5
   stars.material.uniforms.uOpacity.value = nf; stars.material.uniforms.uTime.value = tsec // 夜にフェードイン＋星ごとにまたたく
