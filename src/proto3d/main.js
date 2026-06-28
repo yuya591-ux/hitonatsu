@@ -5499,13 +5499,33 @@ let lastStepS = 0
 const caught = { count: 0, kinds: {} }
 const catchables = []
 for (const b of butterflies) catchables.push({ obj: b, kind: 'チョウ', done: false })
+// 蝉の胴と翅を「全個体で共有する1個ずつの合成ジオメトリ」に焼き込む（蝶BFLY_WING_GEO/とんぼDRF_WING_GEOと同じ思想＝個体ごとにジオメトリ/draw callを増やさない）
+const CICADA_BODY_GEO = (() => { // 頭/胸/腹の節＋複眼を頂点色つきで1メッシュに合成（draw call=1）
+  const parts = []
+  const tint = (geo, hex) => { const c = new THREE.Color(hex), n = geo.attributes.position.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo }
+  const ab = new THREE.ConeGeometry(0.13, 0.34, 8); ab.rotateX(Math.PI / 2); ab.translate(0, 0, -0.1); parts.push(tint(ab, 0x4a4a40)) // 腹（後ろへ細る節）
+  const th = new THREE.SphereGeometry(0.13, 9, 7); th.scale(1, 0.85, 1.1); th.translate(0, 0.01, 0.06); parts.push(tint(th, 0x5a5a4e)) // 胸（一番ふくらむ）
+  const hd = new THREE.SphereGeometry(0.085, 8, 6); hd.scale(1.25, 0.8, 0.7); hd.translate(0, 0, 0.18); parts.push(tint(hd, 0x4a4a40)) // 頭（横に広い）
+  for (const s of [-1, 1]) { const ey = new THREE.SphereGeometry(0.028, 6, 5); ey.translate(s * 0.07, 0.01, 0.2); parts.push(tint(ey, 0x2a2a22)) } // 複眼（左右）
+  return mergeGeometries(parts, false)
+})()
+const CICADA_BODY_MAT = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }) // 頂点色で頭/胸/腹/眼を塗り分け（材質は共有）
+const CICADA_WING_GEO = (() => { // 背に伏せた半透明V字の翅2枚を1メッシュに合成（draw call=1）
+  const parts = []
+  for (const s of [-1, 1]) { const w = new THREE.PlaneGeometry(0.16, 0.34); w.translate(0, -0.10, 0); w.rotateX(-Math.PI / 2 + 0.32); w.rotateZ(s * 0.34); w.translate(s * 0.04, 0.06, 0); parts.push(w) }
+  return mergeGeometries(parts, false)
+})()
+const CICADA_WING_MAT = new THREE.MeshBasicMaterial({ color: 0xdfe6ea, transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false }) // 蝉の翅＝透明で翅脈が透ける質感（とんぼの翅に倣う）
 function makeBug(x, y, z, kind) {
   const g = new THREE.Group()
   if (kind === 'カブトムシ') {
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), toon(0x3a2a1a)); body.scale.set(1, 0.7, 1.35); g.add(body)
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.32, 6), toon(0x241810)); horn.position.set(0, 0.1, 0.34); horn.rotation.x = -0.7; g.add(horn)
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.32, 6), toon(0x241810)); horn.position.set(0, 0.1, 0.34); horn.rotation.x = -0.7; g.add(horn) // 頭角（長く前へ反る）
+    const thHorn = new THREE.Mesh(new THREE.ConeGeometry(0.038, 0.16, 6), toon(0x241810)); thHorn.position.set(0, 0.13, 0.12); thHorn.rotation.x = -0.35; g.add(thHorn) // 胸角（短くヘラ状＝頭角と対になる2本目）
   } else {
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), toon(0x5a5a50)); body.scale.set(1, 0.8, 1.7); g.add(body)
+    // セミ＝頭/胸/腹の節ある胴（合成）＋背に伏せた半透明のV字の翅2枚（合成）。“黒い球”からの脱却。各1draw call
+    const body = new THREE.Mesh(CICADA_BODY_GEO, CICADA_BODY_MAT); g.add(body)
+    const wings = new THREE.Mesh(CICADA_WING_GEO, CICADA_WING_MAT); wings.layers.set(1); g.add(wings) // layer1＝インク法線パスから除外（透明翅が黒い四角にならない）
   }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, y, z); scene.add(g)
