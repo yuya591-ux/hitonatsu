@@ -6326,7 +6326,11 @@ const kidsCatch = (() => {
 // ── NPC配置の安全検証（水域/建物に立たせない＝ユーザー指摘2026-06-27「それ池の中だよ」）──
 //   配置前に必ず「水域でない・障害物(建物)でない・開けた地面か」を判定し、ダメなら近くの安全な地面へ逃がす。
 const npcInWater = (x, z) => !!(SG && SG.waters && SG.waters.some((w) => w.p && w.p.length >= 3 && pip(x, z, w.p)))
-function npcInCollider(x, z) { for (const c of colliders) { if (c.box) { const dx = x - c.x, dz = z - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) return true } else if ((x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true } return false }
+function npcInCollider(x, z) { // ★性能：全コライダー(約1.2万)走査をやめ衝突グリッドの近傍3x3だけ見る（点を含むコライダーは必ずその点のセルに登録済＝等価で高速・2026-06-28）
+  const ci = Math.floor(x / CG_CELL), cj = Math.floor(z / CG_CELL)
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue
+    for (const idx of a) { const c = colliders[idx]; if (c.box) { const dx = x - c.x, dz = z - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw && Math.abs(lz) < c.hd) return true } else if ((x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r) return true } }
+  return false }
 function npcSpotOk(x, z, clearR) { clearR = clearR || 0
   const ng = (px, pz) => npcInWater(px, pz) || npcInCollider(px, pz) || onYatoRoadCore(px, pz) // 水/建物/道路の舗装のどれかなら不可
   if (ng(x, z)) return false // 中心が水/建物/道のど真ん中はNG
@@ -6640,8 +6644,13 @@ function initUchimizu() {
     if (uchimizu.length >= 3) break
     const spot = placeNPCOnLand(cx, cz, 1.0, 16); if (!spot) continue
     if (uchimizu.some((m) => Math.hypot(m.g.position.x - spot.x, m.g.position.z - spot.z) < 22)) continue
+    // まく向き＝本来は路面（道）にまくので、まず前方が道になる向きを探し、無ければ開けた地面へ。方位も少しずつずらす（皆+zを向く不自然を解消）
     let ry = null
-    for (let k = 0; k < 8; k++) { const a = k * 0.7854, fx = spot.x + Math.sin(a) * 2.4, fz = spot.z + Math.cos(a) * 2.4; if (fwdOk(fx, fz) && fwdOk(spot.x + Math.sin(a) * 1.2, spot.z + Math.cos(a) * 1.2)) { ry = a; break } }
+    for (let pass = 0; pass < 2 && ry === null; pass++) {
+      const off = Math.random() * 6.283 // 走査開始の方位をばらす
+      for (let k = 0; k < 8; k++) { const a = off + k * 0.7854, fx = spot.x + Math.sin(a) * 2.4, fz = spot.z + Math.cos(a) * 2.4
+        if (fwdOk(fx, fz) && fwdOk(spot.x + Math.sin(a) * 1.2, spot.z + Math.cos(a) * 1.2) && (pass === 1 || onYatoRoadCore(fx, fz))) { ry = a; break } }
+    }
     if (ry === null) continue
     uchimizu.push(makeUchimizu(spot.x, spot.z, ry))
   }
@@ -6809,8 +6818,8 @@ function updateChickens(dt) {
       u.moving = false; u.peckPh += dt * 8
       const dip = Math.max(0, Math.sin(u.peckPh)) // 0→1→0 で下げて戻す
       if (u.head) { u.head.rotation.z = -1.15 * dip; u.head.rotation.y = (!u.head._lk ? Math.sin(u.peckPh * 0.21) * 0.3 : 0) } // つつく合間に首を かしげる
-      if (u.timer <= 0) { u.state = 'walk'; u.timer = 1.5 + Math.random() * 2.5 // 数歩あるいて次の餌場へ
-        const a = Math.random() * 6.283, r = 1.2 + Math.random() * 2.5; u.tx = u.hx + Math.cos(a) * (2 + Math.random() * 5); u.tz = u.hz + Math.sin(a) * (2 + Math.random() * 5) }
+      if (u.timer <= 0) { u.state = 'walk'; u.timer = 1.5 + Math.random() * 2.5 // 数歩あるいて次の餌場へ（前庭の中の安全な地面だけ＝家の壁/道に踏み込まない）
+        u.tx = u.hx; u.tz = u.hz; for (let k = 0; k < 6; k++) { const a = Math.random() * 6.283, r = 1.5 + Math.random() * 4.5, nx = u.hx + Math.cos(a) * r, nz = u.hz + Math.sin(a) * r; if (npcSpotOk(nx, nz, 0.3)) { u.tx = nx; u.tz = nz; break } } }
     } else { // walk＝目標へとことこ。頭を前後に小刻みに突き出す“鶏歩き”
       const dx = u.tx - c.position.x, dz = u.tz - c.position.z, d = Math.hypot(dx, dz)
       if (d < 0.25 || u.timer <= 0) { u.state = 'peck'; u.timer = 2 + Math.random() * 3; u.moving = false }
@@ -7869,7 +7878,7 @@ const AUDIO = {
   cicadaVol: 0.48,    // 昼の蝉(アブラゼミ基底)の倍率＝うるさい指摘で更に下げる(0.75→0.48)。F3で他の蝉を層に足すので“ジー”一辺倒の音量を抑える（ユーザー要望2026-06-27）
   nightAmb: 0.34,     // 夜の虫(カエルのような音)の音量倍率＝大きく下げて「眠れる静けさ」に
   morningAmb: 0.85,   // 朝の鳥のさえずりの倍率
-  windVol: 0.34,      // 風の音(葉ずれ・草原を渡る風)の最大音量＝突風(wind)で増減・控えめ（草/木/稲の揺れと同期・G1 2026-06-25）
+  windVol: 0.2,       // 風の音(葉ずれ・草原を渡る風)の最大音量＝突風(wind)で増減・控えめ（ユーザー「風の音が大きすぎて怖い」2026-06-28で0.34→0.2へ）
   rainStart: 0.1,     // 雨音が鳴り始めるweather。やさしい雨(0.4)もちゃんと聞こえる。低weatherはLPFでやわらかく＝“どしゃどしゃ”でなく癒しのポツポツに
   rainVol: 0.2,       // 雨音の最大音量
   thunderStart: 0.34, // 遠雷が鳴り始めるweather（本降りのときだけ＝紛らわしい低音を出さない）
@@ -9614,8 +9623,8 @@ function update(dt) {
   if (yatoRiceShader) { yatoRiceShader.uniforms.uTime.value = tsec; yatoRiceShader.uniforms.uWind.value = wind } // 谷戸田の稲も夏風でしなる
   if (yatoReedShader) { yatoReedShader.uniforms.uTime.value = tsec; yatoReedShader.uniforms.uWind.value = wind } // 水際の葦も夏風でしなる
   if (windGain) { const ctx = listener.context, gust = THREE.MathUtils.clamp((wind - 0.32) / 0.95, 0, 1) // 揺れと同じwindで風の音も増減＝草木が鳴って世界が呼吸する（G1）
-    const hushLift = 1 + (1 - cicHushFactor) * 1.1 // ★蝉がふっと鳴き止む瞬間に風(葉ずれ)を持ち上げる＝蝉が引いて世界の奥行きが立ち上がる落差＝郷愁（協議2026-06-27）
-    let wg = gust * gust * AUDIO.windVol * (1 - weather * 0.7) * hushLift * (settings.volAmb ?? 1), wf = 420 + gust * 950 // 突風ほど葉ずれ「ザー」が増す＋G5：環境スライダー
+    const hushLift = 1 + (1 - cicHushFactor) * 0.4 // ★蝉がふっと鳴き止む瞬間に風(葉ずれ)を少しだけ持ち上げる＝郷愁の落差（ユーザー「風が大きすぎて怖い」2026-06-28で持ち上げを1.1→0.4へ＝急な吹き上がりを抑える）
+    let wg = gust * gust * AUDIO.windVol * (1 - weather * 0.7) * hushLift * (settings.volAmb ?? 1), wf = 360 + gust * 560 // 突風ほど葉ずれが増す（峠の明るい「ザー」を抑えてやわらかい風切りに）＋G5：環境スライダー
     if (mode === 'sliding' && sliding) { const sp = THREE.MathUtils.clamp(sliding.v / 8, 0, 1); wg = Math.max(wg, 0.08 + sp * 0.22); wf = Math.max(wf, 900 + sp * 1300) } // すべり台＝滑るほど耳もとで風が「ぴゅう」と鳴る（日記の一文・小さい頃のあの感覚／既存の風ノードを流用＝新ノード無しで録音じじじを誘発しない）
     if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 60, 0, 1), sp = THREE.MathUtils.clamp(floatVel.length() / 5, 0, 1); wg = Math.max(wg, 0.045 + altF * 0.1 + sp * 0.08); wf = Math.max(wf, 640 + altF * 520) } // 風船で空を漂う＝高く昇るほど・速く動くほど耳もとの風がやさしく鳴る（飛んでる実感・既存の風ノードを流用）
     windGain.gain.setTargetAtTime(wg, ctx.currentTime, mode === 'sliding' ? 0.12 : 0.45)
@@ -10604,10 +10613,13 @@ function update(dt) {
       for (let s = 0.35; s <= 0.92; s += 0.12) { // 主人公に近い側は無視(0.35〜)＝建物の角をかすめた程度では寄せない
         const px = hx + (camGoal.x - hx) * s, pz = hz + (camGoal.z - hz) * s
         let blocked = false
-        for (const c of colliders) {
-          if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.3 && Math.abs(lz) < c.hd + 0.3) { blocked = true; break } }
-          else { const rr = c.r + 0.3; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } }
-        }
+        // ★性能：全コライダー走査(数千)をやめ、衝突グリッドの近傍3x3セルだけ見る（毎フレーム×5サンプルの重い走査＝坂を下りると重くなる原因・2026-06-28）
+        const ci = Math.floor(px / CG_CELL), cj = Math.floor(pz / CG_CELL)
+        for (let di = -1; di <= 1 && !blocked; di++) for (let dj = -1; dj <= 1 && !blocked; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue
+          for (const idx of a) { const c = colliders[idx]
+            if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.3 && Math.abs(lz) < c.hd + 0.3) { blocked = true; break } }
+            else { const rr = c.r + 0.3; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } }
+          } }
         if (blocked) { ctTarget = Math.max(0.35, s - 0.08); break }
       }
       // 寄せ量を時間でなめらかに：塞がれたら少し速く寄り(dt*5)、空いたらゆっくり戻す(dt*1.5)＝走行中に頻繁にズームが切り替わるのを抑える
@@ -11507,6 +11519,7 @@ window.__proto3d = {
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
+  _perfOccl(hx, hz, cgx, cgz) { const t0 = performance.now(); for (let f = 0; f < 60; f++) { for (let s = 0.35; s <= 0.92; s += 0.12) { const px = hx + (cgx - hx) * s, pz = hz + (cgz - hz) * s; let blocked = false; const ci = Math.floor(px / CG_CELL), cj = Math.floor(pz / CG_CELL); for (let di = -1; di <= 1 && !blocked; di++) for (let dj = -1; dj <= 1 && !blocked; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue; for (const idx of a) { const c = colliders[idx]; if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.3 && Math.abs(lz) < c.hd + 0.3) { blocked = true; break } } else { const rr = c.r + 0.3; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } } } } if (blocked) break } } return +(performance.now() - t0).toFixed(2) }, // 検証用：新しいグリッド版カメラ遮蔽の60フレーム所要ms（旧・全コライダー走査との比較）
   _mem() { const m = renderer.info.memory, pm = (performance && performance.memory) ? performance.memory : null; return { geometries: m.geometries, textures: m.textures, heapMB: pm ? +(pm.usedJSHeapSize / 1048576).toFixed(1) : null } }, // P6：常駐メモリ（GPUジオメトリ/テクスチャ＋JSヒープ）＝モバイル生存の予算ゲート用
   get _camYaw() { return camCtl.yaw }, get _facing() { return facing }, // 検証用：カメラ追従
   _face(r) { facing = r; boy.rotation.y = r }, // 検証用：主人公の向きを固定（後ろ姿の撮影など。loopのlerpが facing に追従するので固定される）
