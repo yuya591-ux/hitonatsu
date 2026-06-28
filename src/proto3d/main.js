@@ -3424,6 +3424,126 @@ function buildShishigaya() {
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
 buildShishigaya()
+// ── 静的ワールドの空間チャンク化（性能・2026-06-29）─────────────────────────────────────
+//   問題：谷戸の町並み/樹林/地面は「全域に渡る1枚の巨大メッシュ」（merge済み or InstancedMesh）で作られている。
+//   これらは bounding sphere がワールド全体（約2500m四方）を覆うため Three.js のフラスタムカリングが一切効かず、
+//   カメラが空を向いても背後を向いても約266万tri が常に描かれていた（_skyfloor.mjs で実測＝真上を見て2.66M）。
+//   対策：見た目・配置・継ぎ目を一切変えずに、これらの巨大メッシュだけを 128m 四方のチャンクに「振り分け直す」。
+//   ・各チャンクは元と同じ頂点（位置/色/UV/法線）・同じマテリアル（共有＝風シェーダのuniformも一括更新される）・
+//     同じ pos/rot/scale・同じ castShadow/receiveShadow/layers/renderOrder を持つ＝描画結果はピクセル同一。
+//   ・チャンクごとに bounding が締まる＝視錐台の外（背後）のチャンクは Three.js が自動でカリング（保守的＝縁では消えない）。
+//   ・霧far+余裕より遠いチャンクは毎フレーム visible=false（霧で見えない＝ポップしない）。屋上/飛行で霧farが伸びたら閾値も伸びる。
+//   ・当たり判定(colliders/cgrid)・道マスク・標高・NPCには一切触れない（描画の振り分けだけ）。チャンクが見えなくても壁は残る。
+//   ・InstancedMesh はインスタンス単位で原子的に振り分け＝完全に可逆・無損失。非インスタンスのmergeメッシュは三角形単位で
+//     頂点を複製して振り分ける（チャンク境界で頂点が重複するが位置/色/法線は同一なので見た目は完全に同じ）。
+const CHUNK = 144 // チャンク1辺(m)。fog farが約470mなので近傍3〜4チャンクで視界をカバー。100〜140m級＝frustum/距離カリングの精度とtri削減を最大化（細かいほど遠方のtriが落ちる）
+const yatoChunks = [] // 距離カリングの対象（各 { mesh, cx, cz }）
+function chunkYatoWorld() {
+  const ckey = (x, z) => Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK)
+  const box = new THREE.Box3(), c = new THREE.Vector3()
+  // 巨大かつ広域に渡る静的メッシュだけを対象に選ぶ（窓あかり/AO等の透明・描画順依存は触らない＝安全側）。
+  const targets = []
+  for (const o of scene.children.slice()) {
+    if (!(o.isMesh || o.isInstancedMesh) || !o.geometry) continue
+    if (o.userData && (o.userData.noChunk || o.userData.yatoGround)) continue // 地面は対象外＝足元は常に近傍が見えるので分割しても距離カリングがほぼ効かず、draw callだけ嵩む（地面はフラットで頂点も安い）。単一メッシュのまま
+    const m = o.material
+    if (m && (m.transparent || m.depthWrite === false)) continue // 窓あかり/AO/水たまり等の半透明＝描画順を割らない
+    if (o.renderOrder !== 0) continue
+    if (o.layers && (o.layers.mask & 1) === 0) continue // layer0(=通常描画)を含まない＝layer1専用（インク除外の粒子等）は触らない
+    const g = o.geometry
+    const triCount = (g.index ? g.index.count : (g.attributes.position ? g.attributes.position.count : 0)) / 3 * (o.isInstancedMesh ? o.count : 1)
+    if (triCount < 30000) continue // 小さいメッシュは元から安い＝触らない
+    box.makeEmpty(); try { box.setFromObject(o) } catch (e) { continue }
+    if (box.isEmpty()) continue
+    const spanX = box.max.x - box.min.x, spanZ = box.max.z - box.min.z
+    // ★ワールド全域（約2500m）に渡る巨大メッシュ＝樹林/夏草のInstancedMesh等だけを対象に（しきい値1200m）。
+    //   建物のmergeメッシュは町の核(約500〜650m)に局在＝単一メッシュでもフラスタムが効くうえ、核に立つと全部視界に入り、
+    //   チャンク化すると逆にdraw callが多重化して予算を圧迫するだけ＝触らない。tri削減の主役は全域樹林なのでそこに集中。
+    if (spanX < 1200 && spanZ < 1200) continue
+    targets.push(o)
+  }
+  for (const o of targets) {
+    try {
+      const parts = o.isInstancedMesh ? splitInstanced(o, ckey) : splitMerged(o, ckey)
+      if (!parts || parts.length <= 1) continue // 分割で増えない（1チャンクに収まる）なら触らない
+      scene.remove(o) // ※この時点では yatoStatics のバケツ分け(後段)はまだ走っていない＝元メッシュを除き、チャンクを scene.add すれば後段が自動でチャンクを yatoStatics に振り分ける
+      for (const p of parts) { scene.add(p.mesh); box.makeEmpty(); box.setFromObject(p.mesh); box.getCenter(c); yatoChunks.push({ mesh: p.mesh, cx: c.x, cz: c.z }) }
+    } catch (e) { console.warn('[chunk] スキップ', o.name || o.type, e && e.message) } // 失敗時は元メッシュをそのまま残す＝安全
+  }
+  console.log('[chunk] 巨大メッシュ', targets.length, '件を', yatoChunks.length, 'チャンクへ振り分け（CHUNK=' + CHUNK + 'm）')
+}
+// InstancedMesh をインスタンスの平面位置でチャンク分け（同geometry/material/flagsの小InstancedMeshへ・無損失）
+function splitInstanced(o, ckey) {
+  const m4 = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3()
+  const groups = new Map()
+  for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m4); m4.decompose(p, q, s); const k = ckey(p.x, p.z); (groups.get(k) || groups.set(k, []).get(k)).push(i) }
+  if (groups.size <= 1) return null
+  const col = new THREE.Color(), out = []
+  for (const idxs of groups.values()) {
+    const im = new THREE.InstancedMesh(o.geometry, o.material, idxs.length) // geometry/materialは共有（破棄しない）
+    im.castShadow = o.castShadow; im.receiveShadow = o.receiveShadow; im.renderOrder = o.renderOrder
+    im.name = o.name; im.frustumCulled = true; im.layers.mask = o.layers.mask
+    if (o.userData) im.userData = Object.assign({}, o.userData)
+    const hasCol = !!o.instanceColor
+    for (let j = 0; j < idxs.length; j++) { o.getMatrixAt(idxs[j], m4); im.setMatrixAt(j, m4); if (hasCol) { o.getColorAt(idxs[j], col); im.setColorAt(j, col) } }
+    im.instanceMatrix.needsUpdate = true; if (hasCol && im.instanceColor) im.instanceColor.needsUpdate = true
+    im.computeBoundingSphere() // インスタンス分布で締まったbounding＝フラスタムが効く
+    out.push({ mesh: im })
+  }
+  return out
+}
+// 非インスタンスの巨大merge済みメッシュを三角形の重心でチャンク分け（頂点を複製＝見た目同一）
+function splitMerged(o, ckey) {
+  const g = o.geometry, pos = g.attributes.position
+  if (!pos) return null
+  const idxAttr = g.index, triN = idxAttr ? idxAttr.count / 3 : pos.count / 3
+  const getIdx = idxAttr ? (t, k) => idxAttr.getX(t * 3 + k) : (t, k) => t * 3 + k
+  // メッシュの平行移動（ground は position オフセットあり・回転/スケール無し前提）をワールド変換に使う
+  const off = o.position
+  const attrs = Object.keys(g.attributes) // position/color/uv/normal 等を全て引き継ぐ
+  const groups = new Map() // key -> 三角形indexの配列
+  for (let t = 0; t < triN; t++) {
+    let sx = 0, sz = 0
+    for (let k = 0; k < 3; k++) { const vi = getIdx(t, k); sx += pos.getX(vi); sz += pos.getZ(vi) }
+    const key = ckey(sx / 3 + off.x, sz / 3 + off.z)
+    ;(groups.get(key) || groups.set(key, []).get(key)).push(t)
+  }
+  if (groups.size <= 1) return null
+  const out = []
+  for (const tris of groups.values()) {
+    const ng = new THREE.BufferGeometry()
+    for (const name of attrs) { const a = g.attributes[name], arr = new Float32Array(tris.length * 3 * a.itemSize)
+      let w = 0; for (const t of tris) for (let k = 0; k < 3; k++) { const vi = getIdx(t, k); for (let c2 = 0; c2 < a.itemSize; c2++) arr[w++] = a.getComponent(vi, c2) }
+      ng.setAttribute(name, new THREE.BufferAttribute(arr, a.itemSize)) }
+    ng.computeBoundingSphere()
+    const m = new THREE.Mesh(ng, o.material) // materialは共有（シェーダ/uniformそのまま）
+    m.position.copy(o.position); m.quaternion.copy(o.quaternion); m.scale.copy(o.scale)
+    m.castShadow = o.castShadow; m.receiveShadow = o.receiveShadow; m.renderOrder = o.renderOrder
+    m.name = o.name; m.frustumCulled = true; m.layers.mask = o.layers.mask
+    if (o.userData) m.userData = Object.assign({}, o.userData)
+    out.push({ mesh: m })
+  }
+  return out
+}
+chunkYatoWorld()
+// 距離カリング：fog far + 余裕 より遠いチャンクは霧で見えないので非表示（フラスタムは Three.js が自動でやる）。
+//   屋上/飛行で fog far が伸びる場面では閾値も自動で伸びる（scene.fog.far を読む）ので広い俯瞰でもポップしない。
+//   ※チャンクが見えなくても当たり判定(colliders)は別管理なので残る＝壁をすり抜けない。
+const _chunkCamXZ = new THREE.Vector2()
+function cullYatoChunks() {
+  if (!yatoChunks.length) return
+  const inY = (area === 'yato' || onYato)
+  if (!inY) { return } // 谷戸以外では cullAreas が yatoStatics ごと隠す（チャンクもその中＝二重に触らない）
+  const far = (scene.fog ? scene.fog.far : 470) + 80 // 霧の到達＋余裕80m（霞で完全に隠れる距離）。屋上/飛行で far が伸びれば閾値も伸びる
+  const far2 = far * far
+  _chunkCamXZ.set(camera.position.x, camera.position.z)
+  for (const ch of yatoChunks) {
+    // チャンク中心までの平面距離（チャンク半径ぶんの余裕を見込む＝端が霧境界を跨いでもポップしない）
+    const dx = ch.cx - _chunkCamXZ.x, dz = ch.cz - _chunkCamXZ.y
+    const want = (dx * dx + dz * dz) < (far2 + CHUNK * CHUNK) // チャンク対角ぶん甘く
+    if (ch.mesh.visible !== want) ch.mesh.visible = want
+  }
+}
 // ── 道しるべ（素朴な木の標識）＝開始地点(サンライズ前)で「どっちへ行こう」の手がかりに。
 //   実在の地物の方角へそっと示すだけ。クエストにはしない。makeSignpost(x,z,rot,文字)は placeProp→heightAt で接地し、
 //   板の文字面は rot=0 で +z(北)向き／rot=Math.PI で -z(南)向き＝歩いてくる人に正対させる。道の舗装の上は避けて路肩に立てる（_signposts で点検）。
@@ -11359,6 +11479,7 @@ renderer.setAnimationLoop(() => { try {
   dofPass.enabled = !aerial && !fpv && mode !== 'sit' && mode !== 'lie' && !(settings && settings.light)
   const camMoved = camera.position.distanceToSquared(_prevCamPos) > 1e-5 || Math.abs(camera.quaternion.dot(_prevCamQuat)) < 0.999995 || mode !== 'walk' || moving
   _prevCamPos.copy(camera.position); _prevCamQuat.copy(camera.quaternion)
+  cullYatoChunks() // 谷戸の巨大メッシュをチャンク化したぶんの距離カリング（fog far+余裕より遠いチャンクを非表示・カメラ確定後＝この場フレームで反映）。フラスタムカリングは Three.js が描画時に自動で行う
   if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick & 1))) { // 動いている時は毎フレーム、静止中だけ半分の頻度＝残像なし＋静止時は発熱を抑える
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     renderer.setRenderTarget(normalRT); renderer.clear(); renderer.render(scene, camera)
@@ -11963,6 +12084,7 @@ window.__proto3d = {
   _pose(x, z, rot, a) { if (a) { area = a; onYato = a === 'yato' } boy.position.set(x, heightAt(x, z), z); facing = (rot != null ? rot : facing); boy.rotation.y = facing; boy.userData._cy = null; camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z) }, // 検証用：好きな位置・向きにカメラを置く（景色の確認・3視点QA用）
   _lookAt(cx, cy, cz, tx, ty, tz, a) { if (a) { area = a; onYato = a === 'yato' } camera.position.set(cx, cy, cz); camera.userData._look = camera.userData._look || new THREE.Vector3(); camera.userData._look.set(tx, ty, tz); camera.lookAt(tx, ty, tz) }, // 検証用：カメラ位置と注視点を直接指定（__freezeCam併用で任意アングル）
   _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
+  _chunkInfo() { return { total: yatoChunks.length, chunk: CHUNK, shownByDistance: yatoChunks.filter((c) => c.mesh.visible).length, fogFar: scene.fog ? +scene.fog.far.toFixed(0) : null } }, // 検証用：チャンク総数・現在距離で表示中の数・fog far
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
   _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
   _laundry() { return yatoLaundrySpots.slice() }, // 検証用：E1 洗濯物（物干し）の位置一覧
