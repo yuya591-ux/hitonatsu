@@ -1638,6 +1638,7 @@ function buildBonOdori(ox, oy, oz, grp) {
   // ── 盆踊りの輪＝浴衣すがたの人々が櫓のまわりを輪になって踊る（＋櫓の上で太鼓を打つ人）。お祭りの“人の営み”＝最大の賑わい。updateFestivalで動かす ──
   // 踊り手は主人公級の品質（脚・顔・幼児寄り頭身＝makeVillager）で作る。ここでは会場とspawn情報だけ予約し、makeVillager定義後にpopulateFestDancersが浴衣すがたを建てる
   festDancerJobs.push({ group: bonOdori, ox, oz, oy, RR })
+  festSpectatorJobs.push({ group: bonOdori, ox, oz, oy, RR }) // 縁日の人だかり（踊りを見る客＋練り歩く客）も同じ会場に予約
   // 子ども（金魚袋/ヨーヨーを持って走り回る）も主人公級の品質で。populateFestDancersでmakeVillagerにより建てる（heldItemも含め）
   // ── 参道の提灯＝最寄りの道から会場の縁まで、両脇に赤提灯の列が続く（遠くから「こっちでお祭りやってる」と誘われる）──
   { let bx = ox, bz = oz, bd = 1e18
@@ -1657,6 +1658,8 @@ function buildBonOdori(ox, oy, oz, grp) {
 const FEST_VENUES = []
 const festFigs = [] // 盆踊りの輪の踊り手＋太鼓打ち（updateFestivalで毎フレーム動かす＝賑わい）。各=｛g,cx,cz,r,a0,ph,baseY,armL,armR,beat｝
 const festDancerJobs = [] // 踊り手の生成予約（buildBonOdoriは会場だけ建て、makeVillager定義後にpopulateFestDancersで主人公級の浴衣すがたを作る＝PROPのTDZ回避）
+const festSpectatorJobs = [] // 縁日を見にきた人だかりの生成予約（立ち見＋ゆっくり歩く客）。同じ遅延生成パターン
+const festSpectators = [] // 縁日の人だかり（立ち見/うちわ＋ゆっくり練り歩く客）。updateFestivalで息づく
 const stallKeeperJobs = [] // 屋台の店番の生成予約（同上＝makeVillager定義後にpopulateStallKeepersで主人公級の店番を建てる）
 const toroWatcherJobs = [] // 灯籠流しを岸辺で見送る人の生成予約（岸の点はbuildShishigaya中に算出して保存）
 const toroNagashi = new THREE.Group(); toroNagashi.visible = false; scene.add(toroNagashi) // 灯籠流し（夏の夕暮れ〜夜、二ツ池をゆっくり流れる灯籠＝お盆の静かな風物詩）。updateToroで動かす
@@ -5539,6 +5542,7 @@ const PROP = {
   hatBrim: 0.27, hatBrimY: 0.096, hatCap: 0.15, hatCapY: 0.096, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)。つばを少し上げ前髪の居場所を作る
 }
 function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
+const CHAR_SHOULDER_GEO = new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 10, 8) // 簡易figure(通行人/踊り手/見物客)の肩＝首の付け根を隠して「首が異様に長い」を解消（2026-06-28・ユーザー指摘）。1個を共有して描画予算を節約
 const NET_REST = -0.85 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る。肩にちゃんと乗る角度に（浮き解消）
 function makeBoy() {
   const g = new THREE.Group(); const P = PROP
@@ -5793,6 +5797,7 @@ function makeVillager(x, z, opt) {
     const shoulders = new THREE.Mesh(new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 14, 10), opt.garment === 'tank' ? skin : shirtM); shoulders.scale.set((opt.garment === 'tank' ? 1.05 : 1.2) * bld, 0.66, 0.82 * bld); shoulders.position.y = PROP.shoulderY; g.add(shoulders) // ランニングシャツは肩が地肌
   } else {
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(PROP.torsoTopR + 0.008, PROP.torsoBotR, PROP.chestY - PROP.waistY + 0.2, 12), shirtM); torso.scale.set(bld, 1, 0.86 * bld); torso.position.y = (PROP.waistY + PROP.chestY) / 2; g.add(torso)
+    const shoulders = new THREE.Mesh(CHAR_SHOULDER_GEO, opt.garment === 'tank' ? skin : shirtM); shoulders.scale.set((opt.garment === 'tank' ? 1.05 : 1.2) * bld, 0.66, 0.82 * bld); shoulders.position.y = PROP.shoulderY; g.add(shoulders) // 簡易figureにも肩＝首の付け根を隠す（首が長く見えない・2026-06-28）
   }
   // 甚平＝前合わせの縦帯＋腰ひも。昭和の夏の子ども/男性の普段着（C5★・2026-06-25）
   if (opt.garment === 'jinbei') { const trim = charToon(opt.jinTrim || 0xeae3d2), fz = PROP.torsoBotR * 0.84 * bld + 0.03
@@ -5936,6 +5941,43 @@ function populateFestDancers() {
   festDancerJobs.length = 0
 }
 populateFestDancers()
+// 縁日の人だかり＝踊りの輪を囲んで見物する客（うちわ）＋屋台の前をゆっくり練り歩く客。会場の外周にゆるく散らす（一列でなく自然な群れ）。会場グループへ付け替え＝開催日の夜だけ見える
+function populateFestSpectators() {
+  if (!festSpectatorJobs.length) return
+  const skins = [0xf0d6b4, 0xe8c8a0, 0xf2d4b0, 0xeab584], hairs = [0x241e1a, 0x2e2620, 0x3a2e22, 0x46371f, 0x8c8c86]
+  const yuk = [0x36568a, 0xeae6da, 0xb5462f, 0x46685a, 0x6a4a78, 0xcf9a3a, 0x4a7a96], jin = [0x2e6b3a, 0x8a4a2e, 0x4a4a52, 0x36568a, 0x6a4a78]
+  const rpick = (a) => a[Math.floor(Math.random() * a.length)]
+  const mkGoer = (group, x, z, faceX, faceZ) => { const child = Math.random() < 0.28, kind = Math.random(), yukata = kind < 0.5
+    const v = makeVillager(x, z, { simple: true, garment: yukata ? 'dress' : (kind < 0.78 ? 'jinbei' : 'tank'), robe: yukata, bodyMap: yukata ? YUKATA_PATTERNS[Math.floor(Math.random() * YUKATA_PATTERNS.length)] : null,
+      boy: !yukata, shirt: yukata ? rpick(yuk) : rpick(jin), skirt: yukata ? rpick(yuk) : rpick(jin), jinTrim: 0xeae3d2, skin: rpick(skins), hair: rpick(hairs), adult: !child, hairStyle: rpick(['short', 'pony', 'bob', 'buzz']), scale: child ? 0.72 : (0.95 + Math.random() * 0.1), info: { name: '', byPhase: { noon: [''] } } })
+    if (yukata) { const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.09, 10), charToon(rpick([0xcc9a3a, 0xb5462f, 0x3a5a8a]))); obi.position.y = PROP.waistY + 0.04; v.add(obi) } // 帯
+    v.position.set(x, heightAtYato(x, z), z); v.rotation.y = Math.atan2(faceX - x, faceZ - z)
+    let uchiwa = null
+    if (Math.random() < 0.5 && v.userData.armR) { const u = new THREE.Group() // うちわ（半分くらい）
+      u.add(new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.12, 5), toon(0xb59a6a)))
+      const fan = new THREE.Mesh(new THREE.CircleGeometry(0.1, 14), new THREE.MeshToonMaterial({ color: rpick([0xeae6da, 0xe05a6a, 0x4a8ad0, 0xf0d24a]), gradientMap: GRAD, side: THREE.DoubleSide })); fan.position.y = 0.11; u.add(fan)
+      u.position.set(0, -(PROP.upperArm + PROP.fore) - 0.02, 0.03); u.rotation.x = -0.4; v.userData.armR.add(u); v.userData.armR.rotation.x = -0.5; uchiwa = u } // 手の先にうちわ＋腕を少し前へ上げて持つ
+    group.add(v); return { v, uchiwa }
+  }
+  for (const job of festSpectatorJobs) { const { group, ox, oz, oy, RR } = job, R = RR || 10
+    // ① 立ち見＝踊りの輪を囲む客。南〜西の弧にゆるく散らし、櫓を向く（一列にしない＝自然な群れ）
+    const ok = (x, z, r) => typeof npcSpotOk !== 'function' || npcSpotOk(x, z, r || 0.6) // 水/建物/道のど真ん中は避ける（どの会場でも刺さらない）
+    const N = 5
+    for (let i = 0; i < N; i++) { const a = 0.7 + (i / (N - 1)) * 2.5 + (Math.random() - 0.5) * 0.28, rad = R + 0.4 + Math.random() * 2.4
+      const x = ox + Math.cos(a) * rad, z = oz + Math.sin(a) * rad
+      if (!ok(x, z)) continue
+      const m = mkGoer(group, x, z, ox, oz)
+      festSpectators.push({ g: m.v, baseY: heightAtYato(x, z), ph: Math.random() * 6, head: m.v.userData.head, uchiwa: m.uchiwa, stroll: null }) }
+    // ② 練り歩く客＝屋台の列(西 ox-10)の前を、ゆっくり南北に行き来する2人（うちわで扇ぎつつ）
+    for (let i = 0; i < 2; i++) { const sx = ox - 8.5 - i * 0.8, z0 = oz - 4 + i * 8, z1 = oz + 8 - i * 6
+      if (!ok(sx, (z0 + z1) / 2, 1.0) || !ok(sx, z0) || !ok(sx, z1)) continue // 往復の両端と中ほどが開けている時だけ
+      const m = mkGoer(group, sx, z0, ox, z0)
+      festSpectators.push({ g: m.v, baseY: heightAtYato(sx, (z0 + z1) / 2), ph: Math.random() * 6, head: m.v.userData.head, uchiwa: m.uchiwa,
+        stroll: { x: sx, z0, z1, legL: m.v.userData.legL, legR: m.v.userData.legR, armL: m.v.userData.armL, armR: m.v.userData.armR, kneeL: m.v.userData.kneeL, kneeR: m.v.userData.kneeR } }) }
+  }
+  festSpectatorJobs.length = 0
+}
+// ※呼び出しは npcSpotOk（npcInWater等のconst）が定義された後で行う（TDZ回避）＝下の addRunGroup 群の近く
 // ラジオ体操の人も主人公級（脚・顔・幼児寄り頭身）に。号令台のリーダー＋3×4の参加者を体操着すがたで建てる
 function populateTaisoFigs() {
   if (!taisoJobs.length) return
@@ -6618,6 +6660,7 @@ addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子
   beside(vSchool, -10, 30, 3.4); beside(vSchool, 11, 27, 3.2) // 校庭＝広いので2組（ユーザーの記憶の核）
   beside(vAt('金井公園'), 14, 16, 3.0)        // 金井公園（2日目の祭り）
   beside(vAt('上の宮中学校'), 16, 16, 3.0) }  // 上の宮中学校のグラウンド（3日目の祭り）
+populateFestSpectators() // 縁日の人だかり＝npcSpotOk(水/建物/道よけ)が使えるここで生成（TDZ回避・上の関数定義は先・呼び出しは後）
 addChatPair(3010, 22, 0.6)   // バス通りぎわ
 addChatPair(2762, -150, 1.9) // 商店街の道
 addChatPair(2960, -330, 0.3) // 谷戸の道
@@ -8079,6 +8122,19 @@ function updateFestival(dt) {
         if (d.style === 1) { d.armL.rotation.x = -1.45 + sw * 0.3; d.armR.rotation.x = -1.45 - sw * 0.3; d.armL.rotation.z = 0; d.armR.rotation.z = 0 } // 両手を上げて
         else if (d.style === 2) { const cl = Math.abs(Math.sin(ft * 3.2 + d.ph)); d.armL.rotation.x = -1.0; d.armR.rotation.x = -1.0; d.armL.rotation.z = 0.5 - cl * 0.35; d.armR.rotation.z = -0.5 + cl * 0.35 } // 手拍子（前で合わせる）
         else { d.armL.rotation.x = -0.5 + sw * 0.95; d.armR.rotation.x = -0.5 - sw * 0.95; d.armL.rotation.z = 0; d.armR.rotation.z = 0 } } // 腕を交互に上下
+    } }
+  // 縁日の人だかり＝立ち見はそっと体重を移しつつ踊りを目で追う／練り歩く客は屋台の前をゆっくり往復。うちわをパタパタ
+  if (festSpectators.length) { const ft = performance.now() * 0.001
+    for (const s of festSpectators) {
+      if (s.stroll) { const S = s.stroll, u = (Math.sin(ft * 0.16 + s.ph) * 0.5 + 0.5), z = S.z0 + (S.z1 - S.z0) * u // ゆっくり往復
+        s.g.position.set(S.x, s.baseY + Math.abs(Math.sin(ft * 2.2 + s.ph)) * 0.028, z)
+        s.g.rotation.y = ((S.z1 - S.z0) * Math.cos(ft * 0.16 + s.ph) >= 0) ? 0 : Math.PI // 進む向き(±z)を向く
+        const sw = Math.sin(ft * 2.2 + s.ph) * 0.5 // ゆっくり歩く脚
+        if (S.legL) S.legL.rotation.x = sw; if (S.legR) S.legR.rotation.x = -sw
+        if (S.armL) S.armL.rotation.x = -sw * 0.6; if (S.armR && !s.uchiwa) S.armR.rotation.x = sw * 0.6 }
+      else { s.g.position.y = s.baseY + Math.abs(Math.sin(ft * 0.8 + s.ph)) * 0.012 // 立ち見＝そっと体重移動
+        if (s.head) s.head.rotation.y = Math.sin(ft * 0.4 + s.ph) * 0.22 } // 踊りを目で追う
+      if (s.uchiwa) s.uchiwa.rotation.x = -0.4 + Math.sin(ft * 2.6 + s.ph) * 0.5 // うちわでパタパタ
     } }
   if (!audioStarted) return
   const out = getFestOut(), ctx = listener.context
