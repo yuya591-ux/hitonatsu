@@ -5482,7 +5482,7 @@ makeBug(9, 2.0, -21.5, 'セミ')
 
 // ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
 // 猫らしさの要＝①すらりと細い胴(犬と差別化) ②大きな三角の立ち耳 ③平たい顔＋小さな鼻面 ④大きなアーモンドの目＋縦長ひとみ ⑤ヒゲ ⑥上に立てた長い尾の先がくるり（ユーザー「全く猫っぽく見えない・大幅刷新を」2026-06-28）
-function makeCat(furCol, creamCol) {
+function makeCat(furCol, creamCol, tabby = true) {
   const g = new THREE.Group()
   const fur = toon(furCol || 0xdf9450), cream = toon(creamCol || 0xf2e4cb) // 毛色＝個体差（茶トラ/サバ/黒白）
   const pink = toon(0xe7a9a4)
@@ -5530,6 +5530,11 @@ function makeCat(furCol, creamCol) {
     cg.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(0.13, -0.028, side * 0.05), q, new THREE.Vector3(1, 1, 1))); whG.push(cg)
   }
   const whisk = new THREE.Mesh(mergeGeometries(whG), new THREE.MeshBasicMaterial({ color: 0xeae3d2, fog: true })); whG.forEach((q) => q.dispose()); whisk.userData.noOutline = true; headG.add(whisk)
+  if (tabby) { // 茶トラ/サバ＝タビーのしま模様＝背に弧を架ける薄い濃色の帯（腹側は空ける半弧・1メッシュに統合・輪郭なし）。一色の塊を割って一気に「茶トラ」らしく
+    const sg = [], scol = new THREE.Color(furCol || 0xdf9450).multiplyScalar(0.6)
+    for (const sx of [0.17, 0.07, -0.03, -0.13, -0.23]) { const t = new THREE.TorusGeometry(0.142, 0.014, 5, 14, Math.PI); t.rotateY(Math.PI / 2); t.translate(sx, 0.4, 0); sg.push(t) } // 背の上に半弧で架かる帯
+    const stripes = new THREE.Mesh(mergeGeometries(sg), toon(scol)); sg.forEach((q) => q.dispose()); stripes.castShadow = false; stripes.userData.noOutline = true; g.add(stripes)
+  }
   g.userData.tail = tail
   scene.add(g)
   return g
@@ -5540,8 +5545,8 @@ cat.position.set(CAT_HOME.x, heightAt(CAT_HOME.x, CAT_HOME.z), CAT_HOME.z)
 Object.assign(cat.userData, { tx: CAT_HOME.x, tz: CAT_HOME.z, rest: 2000, phase: 0, homeX: CAT_HOME.x, homeZ: CAT_HOME.z })
 // 獅子ヶ谷にもう2匹＝毛色ちがいの野良猫（茶トラ/サバ/黒白の3匹＝個体差・C15）。なでられるのは開始地点の猫(cat)、他は気ままに歩くだけ
 const cats = [cat]
-for (const [hx, hz, fc, cc] of [[2758, -150, 0x8a8a80, 0xe2e0d6], [3055, -110, 0x2c2826, 0xf0ece2]]) { // サバ猫(商店街)・黒白猫(核のあたり)
-  const c = makeCat(fc, cc); c.position.set(hx, heightAt(hx, hz), hz); Object.assign(c.userData, { tx: hx, tz: hz, rest: 1500 + Math.random() * 3500, phase: 0, homeX: hx, homeZ: hz }); cats.push(c) }
+for (const [hx, hz, fc, cc, tb] of [[2758, -150, 0x8a8a80, 0xe2e0d6, true], [3055, -110, 0x2c2826, 0xf0ece2, false]]) { // サバ猫(商店街・縞あり)・黒白猫(核のあたり・縞なし＝白黒のタキシード)
+  const c = makeCat(fc, cc, tb); c.position.set(hx, heightAt(hx, hz), hz); Object.assign(c.userData, { tx: hx, tz: hz, rest: 1500 + Math.random() * 3500, phase: 0, homeX: hx, homeZ: hz }); cats.push(c) }
 // ── 番犬（犬小屋のそばで しっぽを振り、たまに吠える垂れ耳の犬）＝住宅街の生活感（鳴き声だけだったのに姿を。B4②・2026-06-26）。繋がれた番犬＝道/水に迷い込まない ──
 function makeDog(furCol, creamCol) {
   const g = new THREE.Group()
