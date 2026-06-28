@@ -49,8 +49,11 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   const style = document.createElement('style')
   style.textContent = `
     #pm-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 104px + env(safe-area-inset-top));z-index:38;appearance:none;border:none;cursor:pointer;
-      width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(74,64,50,0.7);
+      width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(120,92,58,0.72);
       box-shadow:0 3px 10px rgba(20,24,40,0.3);}
+    /* 写真ボタンは「とれる」と気づけるよう、ほかのボタンより少し あたたかい茶＋初回だけ数回そっとパルス（やりすぎない） */
+    #pm-btn.pm-firsttime{animation:pmbtnpulse 1.6s ease-in-out 4;}
+    @keyframes pmbtnpulse{0%,100%{transform:scale(1);box-shadow:0 3px 10px rgba(20,24,40,0.3);}50%{transform:scale(1.12);box-shadow:0 0 0 5px rgba(230,180,120,0.35),0 3px 12px rgba(20,24,40,0.34);}}
     body.titling #pm-btn{display:none !important;}
     body.pm-on #act,body.pm-on #jump,body.pm-on #zin,body.pm-on #zout,body.pm-on #npc,body.pm-on #catch,
     body.pm-on #fish,body.pm-on #go,body.pm-on #look,body.pm-on #lie,body.pm-on #hint,body.pm-on #badge,
@@ -212,7 +215,11 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   function enter() { on = true; document.body.classList.add('pm-on'); finder.classList.add('on'); bar.classList.add('on') }
   function exit() { on = false; document.body.classList.remove('pm-on'); finder.classList.remove('on'); bar.classList.remove('on') }
 
-  btn.addEventListener('click', enter)
+  // 初回だけ：写真ボタンに そっとパルス（数回で自然に止まる・一度でも触れたら以降は出さない）
+  let pmSeen = true; try { pmSeen = localStorage.getItem('hn3d_pmbtn_seen') === '1' } catch (e) {}
+  if (!pmSeen) { btn.classList.add('pm-firsttime'); btn.addEventListener('animationend', () => btn.classList.remove('pm-firsttime')) }
+  const markPmSeen = () => { btn.classList.remove('pm-firsttime'); try { localStorage.setItem('hn3d_pmbtn_seen', '1') } catch (e) {} }
+  btn.addEventListener('click', () => { markPmSeen(); enter() })
   closeBtn.addEventListener('click', exit)
   shutter.addEventListener('click', takePhoto)
   finder.querySelector('#pm-quality').addEventListener('click', () => applyPreset(presetIdx + 1))

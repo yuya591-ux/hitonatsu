@@ -3424,6 +3424,13 @@ function buildShishigaya() {
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
 buildShishigaya()
+// ── 道しるべ（素朴な木の標識）＝開始地点(サンライズ前)で「どっちへ行こう」の手がかりに。
+//   実在の地物の方角へそっと示すだけ。クエストにはしない。makeSignpost(x,z,rot,文字)は placeProp→heightAt で接地し、
+//   板の文字面は rot=0 で +z(北)向き／rot=Math.PI で -z(南)向き＝歩いてくる人に正対させる。道の舗装の上は避けて路肩に立てる（_signposts で点検）。
+makeSignpost(3017.5, 17, 0, '↓ 小学校・神社')   // 本通りの東肩。南へ下る道＝小学校→神明社。北(spawn側)から来る人へ正対
+makeSignpost(3010, 9.5, 0, '↓ ふたつ池')        // 入口前の南。さらに下ると谷底のふたつ池。北から来る人へ正対
+makeSignpost(3022, 18, 0, '見晴らし（屋上）↑')   // バス停の少し南。すぐ西のサンライズの屋上は街を一望できる。本通りを来る人へ正対
+makeSignpost(3034, 51.5, Math.PI, '横溝やしき・田んぼ →') // 東西の通りの北肩。北の谷口に横溝屋敷と谷戸田。南(spawn側)から来る人へ正対
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
 {
   const wingMat = () => new THREE.MeshToonMaterial({ color: 0xeaf2f6, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
@@ -9337,7 +9344,12 @@ function buildDiaryEntry() {
     body.push(day === 1 ? 'まだ 夏は はじまった ばかり。あした なにを しようかな。'
       : left <= 1 ? 'あした で、ながい 夏休みも おわり。…なんだか さびしいな。'
       : left <= 3 ? 'もうすぐ おまつり。…夏は、あっという間だなあ。'
-      : 'まだまだ 夏は つづく。あした は どこへ いこうかな。') }
+      : 'まだまだ 夏は つづく。あした は どこへ いこうかな。')
+    // 翌日の時間帯のヒントを1行（祭り/花火/打ち水が“時間で起きる”のを偶然頼みにしない。指図でなく そっと予感を渡す）
+    const nextFest = (day % 3) + 1 // 翌日(day+1)の祭り会場の開催ローテ＝festDay。1=夜どこかで盆踊り＋花火／2=別の会場で盆踊り
+    body.push(nextFest === 1 ? 'あしたの ゆうがたは、どこかで おまつりが あるらしい。夜には 花火も あがるとか。'
+      : nextFest === 2 ? 'あしたの ゆうがたも、どこかで 盆踊りが あるみたい。お囃子を たどって みよう。'
+      : 'あついひる さがりには、どこかで 打ち水を する 人が いるかもしれない。') }
   return { title, body }
 }
 function openDiary() {
@@ -9362,7 +9374,7 @@ function nextDay() {
   day = day >= TOTAL_DAYS ? 1 : day + 1 // ひと夏(7日)のあとは1日目へ（また来年の夏）
   for (const k in todayFlags) todayFlags[k] = false
   tday = 0.18; dayAuto = true; setTimeOfDay(tday)
-  dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false
+  dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false; dayEvents.sleep = false
   try { localStorage.setItem('hn3d_day', day) } catch (e) {}
   saveState() // 新しい日（フラグはリセット済・累計は維持）を保存
   refreshBadge()
@@ -9722,14 +9734,17 @@ const bikeEl = document.getElementById('bike')
 tapBtn(bikeEl, () => { if (mode !== 'walk') return; riding = !riding; bikeEl.classList.toggle('on', riding); document.body.classList.toggle('riding', riding); if (riding) { startAudio(); playBikeBell() } if (riding && floatMode) { floatExiting = true } }) // 自転車に乗る/降りる（乗った瞬間チャリン♪・浮遊中なら降りる）
 const floatEl = document.getElementById('float')
 tapBtn(floatEl, () => { if (mode !== 'walk') return
-  if (!floatMode) { floatMode = true; floatExiting = false; riding = false; if (bikeEl) bikeEl.classList.remove('on'); document.body.classList.remove('riding'); floatVel.set(0, 3, 0); document.body.classList.add('floating'); floatEl.classList.add('on') } // ふわり浮く
+  if (!floatMode) { floatMode = true; floatExiting = false; riding = false; if (bikeEl) bikeEl.classList.remove('on'); document.body.classList.remove('riding'); floatVel.set(0, 3, 0); document.body.classList.add('floating'); floatEl.classList.add('on'); lookHint.style.display = 'none' } // ふわり浮く（主観の戻りピルが出ていたら隠す）
   else if (!floatExiting) { floatExiting = true; floatEl.classList.remove('on') } }) // もう一度＝ゆっくり降りる
 { const hold = (id, set) => { const el = document.getElementById(id); if (!el) return; el.addEventListener('pointerdown', (e) => { e.preventDefault(); set(1) }); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.addEventListener(ev, () => set(0)) }
   hold('fl-up', (v) => { floatUp = v }); hold('fl-down', (v) => { floatDown = v }) } // ▲うく/▼おりる（押している間だけ）
 // 主観視点トグルを全ボタン同期（ワンボタン切替・ユーザー要望2026-06-26）
 const fpvBtnEl = document.getElementById('fpvbtn')
 function syncFpvBtns() { if (fpvBtnEl) fpvBtnEl.classList.toggle('on', fpv); const sb = document.getElementById('set-fpv'); if (sb) { sb.classList.toggle('on', fpv); sb.textContent = fpv ? 'ON' : 'OFF' } const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.toggle('on', fpv) }
-function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04; syncFpvBtns() } // ONで視線を水平（少しだけ下＝足元の道が見える）
+function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04; syncFpvBtns()
+  // 主観の間は「もどり方」をそっと常設（消えない小さなピル）＝初見の「もどせない不安」を解消。歩き始めると邪魔なので歩いていない時だけ出す
+  if (fpv && !floatMode) { lookHint.textContent = 'スワイプで 見わたす ・ 🔭を もう一度で もどる'; lookHint.style.display = 'block' }
+  else if (!fpv && mode === 'walk') { lookHint.style.display = 'none'; lookHint.textContent = 'スワイプで見回す ・ もう一度タップで立つ' } } // ONで視線を水平（少しだけ下＝足元の道が見える）／OFFで通常文へ戻す
 tapBtn(fpvBtnEl, () => { if (mode === 'walk') toggleFpv() }) // ねころぶ列の🔭＝主観視点ワンボタン（📷は本物のカメラ#pm-btnに専任、視点トグルは🔭「見わたす」へ・👁は怖いと却下→🔭・2026-06-26）
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
 tapBtn(zinEl, () => zoomStep(0.8))
@@ -9780,7 +9795,7 @@ function enterLieView() { // 一人称で空を見る視点へ（カメラは追
   boy.visible = false
   seatLook.yaw = boy.rotation.y; seatLook.pitch = 1.2
   camera.fov = 62; camera.updateProjectionMatrix() // ★B5：寝ころんだら画角を広げて空を大きく＝夏空への没入（standUpでBASE_FOVへ戻す）
-  lookHint.style.display = 'block'
+  lookHint.textContent = 'スワイプで見回す ・ もう一度タップで立つ'; lookHint.style.display = 'block' // 主観で文を変えていても、座る/寝ころぶの戻り文へ必ず戻す
   // 空を見上げた“間”に そっと一言（毎回ランダムに・押し付けない短さ）
   const lines = ['そらが おおきいなあ。くもが ゆっくり ながれていく。', 'ねころんで みあげる なつの そらは、どこまでも たかい。', 'くもが かたちを かえながら、とおくへ いく。', 'かぜが ほっぺを なでていく。むねの おくが しずかに なる。']
   setTimeout(() => { if (mode === 'lie') showToast(lines[Math.floor(Math.random() * lines.length)]) }, 900) // 横になりきってから
@@ -9862,7 +9877,7 @@ function sitDown(which) {
   camera.userData._look = camera.userData._look || new THREE.Vector3()
   camera.userData._look.set(eye.x + Math.sin(yaw) * cp, eye.y + Math.sin(seatLook.pitch), eye.z + Math.cos(yaw) * cp)
   actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
-  lookHint.style.display = 'block'
+  lookHint.textContent = 'スワイプで見回す ・ もう一度タップで立つ'; lookHint.style.display = 'block' // 主観で文を変えていても、座るの戻り文へ必ず戻す
   // B1：座ると、その時間の景色をしみじみ味わう一言（夕暮れは夕焼けの移ろいへ誘う＝座っている間は時間が速く流れる）
   const nf0 = nightFactor(tday), dusk = tday > 0.5 && tday < 0.76
   setTimeout(() => { if (mode !== 'sit') return // 立ち上がっていたら出さない
@@ -9977,7 +9992,8 @@ function update(dt) {
     if (!dayEvents.dinner && prev < 0.7 && tday >= 0.7) { dayEvents.dinner = true; showToast('「ごはんよー」と よばれた。') }
     // D3：おまつりのある日(1・2日目)は夕方にお囃子に気づくひとこと＝音をたどって盆踊りへ。最終日(3日目)は会場が無く、静かな宵が“最後の日”の手ざわりになる
     if (!dayEvents.fest && tday > 0.5 && typeof activeVenue === 'function' && activeVenue()) { dayEvents.fest = true; showToast('どこかで おまつりの おはやしが きこえる。') }
-    if (prev < 0.9 && tday >= 0.9 && !diaryOpen) showToast('そろそろ ねる じかんだ…')
+    if (!dayEvents.sleep && tday >= 0.9 && !diaryOpen) { dayEvents.sleep = true; showToast('そろそろ ねよう。きょうの えにっきを かこう。') // 夜＝一日を終える手だて(🌙ねる→えにっき→つぎの日)に そっと気づけるように（その晩1回だけ）
+      if (sleepEl) { sleepEl.classList.add('glow'); sleepEl.addEventListener('animationend', () => sleepEl.classList.remove('glow'), { once: true }) } } // 🌙ねるボタンを一度だけ そっと光らせる
   }
   // 空・太陽・星・月を主人公/カメラに追従（遠くの街エリアでも空が正しく回り、影も届く）
   skyDome.position.copy(camera.position)
@@ -10812,6 +10828,8 @@ function update(dt) {
     const speedNow = Math.hypot(vel.x, vel.z)
     playerSpeed = speedNow // B2：移動ビネット等で参照（vigブロックは別スコープなのでモジュールレベルに保持）
     moving = speedNow > 0.25
+    // 走りの気づき（1回だけ）：スティックを大きく倒すと はやく歩ける隠し仕様を、初めて全力に近づいた時にそっと教える（自転車/浮遊/往来中は除く）
+    if (mag > 0.9 && !riding && !floatMode && !autoWalk && mode === 'walk') onceHint('run', '指を 大きく うごかすと、はやく あるけるよ。')
     boy.position.x += vel.x * dt
     boy.position.z += vel.z * dt
     // エリアの外（霧の何もない空間）へ迷い込まないように境界で止める
@@ -10978,6 +10996,10 @@ function update(dt) {
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
     // やわらかい誘導（1回だけ）：谷戸で、まだ女の子に会っていない時、すこし近づいたらそっと向かわせる一言（クエストにはしない）
     if ((area === 'yato' || onYato) && !todayFlags.metGirl && !gotOmamori) { const gdd = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z); if (gdd < 16 && gdd > 3.5) onceHint('girl', '草はらに、麦わら帽子の 女の子が いるね。') }
+    // やわらかい誘導（1回だけ）：開始地点(サンライズ前)で少し歩いたら、坂の下＝小学校や池のある方へ そっと気づきを渡す（指図でなく“あっちに何かありそう”だけ）
+    if (area === 'yato' && mode === 'walk' && moving && boy.position.z < 24 && boy.position.x > 2960 && boy.position.x < 3060) onceHint('wander-down', '坂の 下のほうに、なにか ありそう。道しるべを たどって みよう。')
+    // 写真の気づき（1回だけ）：最初の誘導のあと、昼間に少し離れて歩いていたら「📷で 夏の しゃしんが とれるよ」（左上の📷ボタンへ気づけるように）
+    if (area === 'yato' && mode === 'walk' && moving && seenHints['wander-down'] && tday > 0.2 && tday < 0.78) onceHint('photo', '左上の 📷で、夏の しゃしんが とれるよ。')
     if (window.__senkoBtn) window.__senkoBtn.style.display = (!dialogue && (tday > 0.8 || tday < 0.06) && !senko.active) ? 'block' : 'none' // H4：夜だけ線香花火ボタンを出す
     const nearCat = area === 'yato' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2 // 猫は獅子ヶ谷(サンライズ前)に居る＝撫でられる
     const nearVending = area === 'town' && Math.hypot(boy.position.x - VENDING.x, boy.position.z - VENDING.z) < 2.8
@@ -12016,6 +12038,10 @@ window.__proto3d = {
     }
     return n
   },
+  _signposts() { // 検証用：道しるべ（auditProps kind='sign'）の位置・高さ・道の舗装に刺さっていないか
+    if (typeof auditProps === 'undefined') return []
+    return auditProps.filter((p) => p.kind === 'sign').map((p) => ({ x: Math.round(p.x), z: Math.round(p.z), y: +heightAt(p.x, p.z).toFixed(2), onRoad: typeof onYatoRoadCore === 'function' ? onYatoRoadCore(p.x, p.z) : null })) },
+  _probe(x, z) { return { x, z, y: +heightAt(x, z).toFixed(2), onRoad: typeof onYatoRoadCore === 'function' ? onYatoRoadCore(x, z) : null } }, // 検証用：その地点の歩行面の高さ＋道の舗装の上か
 }
 
 // ── ばしょマップ（開発中だけの“場所をつたえる”道具・ユーザー要望。アプリ完成後に撤去する想定）──
