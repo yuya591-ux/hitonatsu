@@ -6483,18 +6483,32 @@ function updateFishers(dt) {
 // ── 走り回る子（追いかけっこ）と立ち話＝公園/校庭/道の賑わい（賑わいPhase2・2026-06-27）──
 //   既存の歩行スイング(line8635)を速く・大きくし前傾＝走り。立ち話は2人が向き合い身振り/うなずき。時間帯＋距離でゲート。
 const runGroups = [], chatPairs = []
-function makePlayKid(x, z, hue, sk, hr) {
+function makePlayKid(x, z, hue, sk, hr, penCol) {
   const g = makeVillager(x, z, { shirt: hue, skirt: 0x3a4a6a, skin: sk, hair: hr, boy: true, simple: false, adult: false, hat: Math.random() < 0.4, hairStyle: 'short', garment: 'shorts', build: 0.9 + Math.random() * 0.1, scale: 0.8 + Math.random() * 0.08, shoe: 0xcfcabd, face: 0, info: { name: '', byPhase: { noon: [''] } } })
-  g.rotation.order = 'YXZ'; g.visible = false; return g // YXZ＝yaw後にpitch(前傾)を正しくかける
+  g.rotation.order = 'YXZ'; g.visible = false // YXZ＝yaw後にpitch(前傾)を正しくかける
+  if (penCol && g.userData.elbowR) { // 夜のペンライト＝手に持つ蛍光色の光る棒（お祭りの晩の追いかけっこ・ユーザーの実体験2026-06-28）。走ると腕の振りで一緒に振れる
+    const pen = new THREE.Group()
+    pen.add(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.2, 6), new THREE.MeshBasicMaterial({ color: penCol }))) // 棒の本体（蛍光色そのもの＝明るい）
+    pen.add(new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.26, 8), new THREE.MeshBasicMaterial({ color: penCol, fog: false, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }))) // 棒まわりの蛍光のにじみ
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshBasicMaterial({ color: penCol, fog: false, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); halo.position.y = 0.1; pen.add(halo) // 先端のふんわりした蛍光の光のたま（夜に遠くからでも色が分かる）
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })); core.position.y = 0.11; pen.add(core) // 芯＝小さく白い点（色は周りのhaloで出す）
+    pen.position.set(0, -PROP.fore - 0.02, 0.03); pen.rotation.x = -0.7; g.userData.elbowR.add(pen) // 手の先から斜め前へ持つ
+  }
+  return g
 }
-function addRunGroup(cx, cz, r) {
+const PENLIGHT_COLS = [0xff5aa0, 0x6affc0, 0x5ab0ff, 0xffd23a, 0xff8a3a, 0xb06aff] // ペンライトの蛍光色（桃/緑/青/黄/橙/紫）
+function addRunGroup(cx, cz, r, opt) {
+  opt = opt || {}
   const p = placeNPCOnLand(cx, cz, r + 1.2, 55); if (!p) { console.warn('runGroup配置不可(水/建物)', cx, cz); return } // 輪ごと開けた地面に乗る所へ
   cx = p.x; cz = p.z
-  runGroups.push({ a: makePlayKid(cx, cz, 0xe07a4a, 0xf0c49c, 0x2a2218), b: makePlayKid(cx, cz, 0x4f86b0, 0xeab584, 0x35291c), cx, cz, r, ph: Math.random() * 6 })
+  const pk = (a) => PENLIGHT_COLS[Math.floor(Math.random() * PENLIGHT_COLS.length)]
+  const pa = opt.penlight ? pk() : null, pb = opt.penlight ? pk() : null // 夜のペンライト＝二人で別々の色
+  runGroups.push({ a: makePlayKid(cx, cz, 0xe07a4a, 0xf0c49c, 0x2a2218, pa), b: makePlayKid(cx, cz, 0x4f86b0, 0xeab584, 0x35291c, pb), cx, cz, r, ph: Math.random() * 6, night: !!opt.night, venue: opt.venue || null })
 }
 function updateRunKids(dt) {
-  const active = onYato && tday > 0.12 && tday < 0.6 // 昼に駆け回る
   for (const G of runGroups) {
+    // 夜のペンライト組＝お祭りの会場が出ている晩（その会場グループが見えている＝開催日の夕〜夜）だけ。それ以外の組は昼に駆け回る
+    const active = G.night ? (onYato && tday > 0.6 && tday < 0.99 && (!G.venue || G.venue.g.visible)) : (onYato && tday > 0.12 && tday < 0.6)
     const vis = active && Math.hypot(boy.position.x - G.cx, boy.position.z - G.cz) < 140
     if (G.a.visible !== vis) { G.a.visible = vis; G.b.visible = vis }
     if (!vis) continue
@@ -6596,6 +6610,13 @@ function updateChores(dt) {
 // 配置：公園/校庭の開けた所で走り回る子＋道沿いの立ち話（既知の平らな場所）
 addRunGroup(3112, -188, 4.2) // 校庭（広い土の校庭で駆け回る）。広場はkidsCatchが居るので密集を避けここだけ
 addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子）＝公園を賑やかに（ユーザー要望）
+// ── 夜のお祭りの傍：会場のすぐ脇の空いたスペースで、子らがペンライトを持って追いかけっこ（ユーザーの実体験＝祭り会場の傍の校庭でペンライト鬼ごっこ・2026-06-28）。会場が出ている晩だけ現れる ──
+{ const vAt = (n) => FEST_VENUES.find((v) => v.name === n)
+  const beside = (v, ox, oz, r) => { if (v) addRunGroup(v.pos.x + ox, v.pos.y + oz, r, { penlight: true, night: true, venue: v }) }
+  const vSchool = vAt('校庭')
+  beside(vSchool, -14, 14, 3.0); beside(vSchool, 16, 12, 3.2) // 校庭＝広いので2組（ユーザーの記憶の核）。会場の南がわ＝ラジオ体操と同じ平らな開けた所
+  beside(vAt('金井公園'), 13, 11, 3.0)        // 金井公園（2日目の祭り）
+  beside(vAt('上の宮中学校'), 15, 13, 3.0) }  // 上の宮中学校のグラウンド（3日目の祭り）
 addChatPair(3010, 22, 0.6)   // バス通りぎわ
 addChatPair(2762, -150, 1.9) // 商店街の道
 addChatPair(2960, -330, 0.3) // 谷戸の道
