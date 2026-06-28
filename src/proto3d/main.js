@@ -1693,8 +1693,19 @@ let yatoRiceShader = null // 谷戸田の稲を夏風でしならせるシェー
 let yatoReedShader = null // 水際の葦を夏風でしならせるシェーダ（同上）
 // まばたき＝顔を生きているように。目のメッシュ(白目/瞳/きらり)をY方向に一瞬つぶす。主人公/村人/通行人に共通（C1・2026-06-25）
 const blinkers = []
-const registerBlinker = (eyeMeshes) => blinkers.push({ eyes: eyeMeshes.map((m) => ({ m, by: m.scale.y })), timer: 1.2 + Math.random() * 4, blinkT: 0 })
+// 計算LODの効きめを測る毎フレームのカウンタ（検証用）。「重いアニメ計算を実際に回した数」と「距離/可視で省いた数」を要素ごとに集計。__proto3d._perfAnim で取り出す
+const _perfAnim = { ped: { ran: 0, skip: 0 }, fest: { ran: 0, skip: 0 }, spec: { ran: 0, skip: 0 }, sway: { ran: 0, skip: 0 }, bug: { ran: 0, skip: 0 }, blink: { ran: 0, skip: 0 }, folk: { ran: 0, skip: 0 } }
+const _perfReset = () => { for (const k in _perfAnim) { _perfAnim[k].ran = 0; _perfAnim[k].skip = 0 } }
+// 計算LODのしきい値（見た目は減らさず＝visibleは触らず、距離があると気づかない重い計算だけ間引く）。二乗で比較しsqrtを避ける
+const LOD_PERSON2 = 60 * 60 // 人型（通行人/踊り手/見物客/立ち話）＝約60mで骨格アニメ計算を停止（その場の最後のポーズで静止して立つ・visibleはtrueのまま）
+const LOD_SWAY2 = 90 * 90 // 草木の揺れ＝約90m以遠は揺らさない（揺れは遠いと知覚できない・メッシュは静止表示）
+const LOD_BUG2 = 90 * 90 // とんぼ/蝶のyato個体＝約90m以遠は heightAt と移動の計算を省く（虫は小さく遠いと止まっても気づかない）
+const LOD_BLINK2 = 35 * 35 // まばたき＝数mで見えなくなる所作。約35m以遠 or 非表示は早期スキップ
+const registerBlinker = (eyeMeshes, owner) => blinkers.push({ eyes: eyeMeshes.map((m) => ({ m, by: m.scale.y })), timer: 1.2 + Math.random() * 4, blinkT: 0, owner: owner || null }) // owner＝顔の持ち主の素体（可視/距離ゲート用・無ければ常時更新＝主人公など）
 function updateBlinks(dt) { for (const b of blinkers) {
+  // ★性能：まばたきは数m離れると見えない＝対象が非表示/遠いなら骨格スケール更新を省く（owner.positionはワールドXZ近似・visibleはここでは触らない）
+  if (b.owner) { if (!b.owner.visible) { _perfAnim.blink.skip++; continue } const ddx = boy.position.x - b.owner.position.x, ddz = boy.position.z - b.owner.position.z; if (ddx * ddx + ddz * ddz > LOD_BLINK2) { _perfAnim.blink.skip++; continue } }
+  _perfAnim.blink.ran++
   if (b.blinkT > 0) { b.blinkT -= dt; const p = b.blinkT / 0.13, k = 0.12 + 0.88 * Math.min(1, Math.abs(p - 0.5) * 2); for (const e of b.eyes) e.m.scale.y = e.by * (b.blinkT > 0 ? k : 1) } // 閉じ→開き（中間で細い線＝まばたき）
   else { b.timer -= dt; if (b.timer <= 0) { b.blinkT = 0.13; b.timer = 2.2 + Math.random() * 4.5 } } } } // 数秒ごとにランダムでまばたき（個体ごとに位相ずれ）
 const suikawari = new THREE.Group(); suikawari.visible = false; scene.add(suikawari) // すいか割り（夏の昼下がり、原っぱで＝夏休みの定番）。updateSuikaで動かす
@@ -1715,7 +1726,7 @@ function makePerson(shirt, pants, kid) { const g = new THREE.Group(), sc = kid ?
     pEyes.push(w, ir)
   }
   const mo = new THREE.Mesh(new THREE.TorusGeometry(0.02 * sc, 0.005 * sc, 6, 10, Math.PI * 0.9), fEye); mo.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mo.position.set(0, 1.472 * sc, 0.188 * sc); g.add(mo)
-  registerBlinker(pEyes)
+  registerBlinker(pEyes, g) // owner=この人型の素体（可視/距離でまばたき計算を間引く）
   const arm = (s) => { const a = new THREE.Group(); a.position.set(s * 0.28 * sc, 1.3 * sc, 0); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * sc, 0.06 * sc, 0.62 * sc, 6), toon(shirt)); m.position.y = -0.3 * sc; a.add(m); g.add(a); return a }
   const armL = arm(-1), armR = arm(1); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); return { g, armL, armR } }
 // 浴衣の柄＝グレースケールの繰り返しテクスチャ4種を1度だけ作って全踊り手で共有（浴衣の色でtintして柄に）。縞/水玉/格子/波
@@ -6004,7 +6015,7 @@ function makeVillager(x, z, opt) {
     if (opt.adult || opt.brow) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.011, 0.018), new THREE.MeshBasicMaterial({ color: opt.hair || 0x5a4636 })); brow.position.set(ex, P.eyeY + 0.05 + (opt.browY || 0), P.eyeZ + 0.01); brow.rotation.z = (ex > 0 ? 0.08 : -0.08) * (opt.browTilt || 1); head.add(brow) } // 眉（大人＋希望者）＝太さ/角度/高さで個体差
     npcEyes.push(sclera, iris, hi)
   }
-  registerBlinker(npcEyes) // 村人/通行人もまばたき
+  registerBlinker(npcEyes, g) // 村人/通行人もまばたき（owner=素体＝可視/距離で計算を間引く）
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 6, 12, Math.PI * 0.9), eyeMat); mouth.rotation.z = Math.PI + (Math.PI - Math.PI * 0.9) / 2; mouth.position.set(0, -0.058, P.eyeZ + 0.008); mouth.userData.by = mouth.scale.y; head.add(mouth) // C1：口パク用に口を保持
   addContactShadow(g, 0.6)
   g.userData = { info: opt.info, baseY: heightAt(x, z), legL, legR, kneeL, kneeR, armL, armR, elbowL, elbowR, head, mouth, talk: 0, wph: 0, wave: 0, waveCd: 2 + Math.random() * 4, adult: !!opt.adult, char: true, garment: opt.garment || (opt.boy ? 'shorts' : 'skirt') } // char:true＝細棒除外の対象外
@@ -8633,6 +8644,9 @@ function updateFestival(dt) {
   if (festFigs.length) { const ft = performance.now() * 0.001
     for (const d of festFigs) {
       if (d.g.parent && !d.g.parent.visible) continue // ★性能：見えていない会場(昼/開催日でない/遠い)の踊り手は動かさない＝約115体を毎フレーム計算していた無駄を省く（密度は維持・見える会場だけ動く・2026-06-28）
+      // ★性能（計算LOD）：会場は見えていても約60m以遠の踊り手は腕/脚/旋回の計算を停止＝その場の最後のポーズで静止して立つ。visibleはtrueのまま＝70mでも踊り手は消えず立っている（cx/czは輪の中心のワールド座標・会場内は近接して一斉に切替＝境界線は出ない・2026-06-29）
+      { const fdx = boy.position.x - d.cx, fdz = boy.position.z - d.cz; if (fdx * fdx + fdz * fdz > LOD_PERSON2) { _perfAnim.fest.skip++; continue } }
+      _perfAnim.fest.ran++
       if (d.beat) { const b = Math.sin(ft * 7.0); d.g.position.set(d.cx, d.baseY, d.cz); d.g.rotation.y = 0; d.armL.rotation.x = -1.5 + b * 0.5; d.armR.rotation.x = -1.5 - b * 0.5; if (d.elbowL) { d.elbowL.rotation.x = -0.85 + b * 0.25; d.elbowR.rotation.x = -0.85 - b * 0.25 } } // 太鼓打ち＝腕を速く上下＋肘を曲げてバチを振る
       else if (d.roam) { const wx = d.cx + Math.sin(ft * 0.5 + d.ph) * d.r, wz = d.cz + Math.cos(ft * 0.41 + d.ph * 1.3) * d.r // 子どもが走り回る（リサージュのふらふら歩き）
         d.g.position.set(wx, d.baseY + Math.abs(Math.sin(ft * 5.5 + d.ph)) * 0.13, wz)
@@ -8651,6 +8665,9 @@ function updateFestival(dt) {
   if (festSpectators.length) { const ft = performance.now() * 0.001
     for (const s of festSpectators) {
       if (s.g.parent && !s.g.parent.visible) continue // ★性能：見えていない会場の見物客は動かさない（密度は維持・2026-06-28）
+      // ★性能（計算LOD）：約60m以遠の見物客は体重移動/練り歩き/うちわの計算を停止＝最後のポーズで静止して立つ。visibleはtrueのまま＝消えない（s.g.positionはワールド座標・2026-06-29）
+      { const sdx = boy.position.x - s.g.position.x, sdz = boy.position.z - s.g.position.z; if (sdx * sdx + sdz * sdz > LOD_PERSON2) { _perfAnim.spec.skip++; continue } }
+      _perfAnim.spec.ran++
       if (s.stroll) { const S = s.stroll, u = (Math.sin(ft * 0.16 + s.ph) * 0.5 + 0.5), z = S.z0 + (S.z1 - S.z0) * u // ゆっくり往復
         s.g.position.set(S.x, s.baseY + Math.abs(Math.sin(ft * 2.2 + s.ph)) * 0.028, z)
         s.g.rotation.y = ((S.z1 - S.z0) * Math.cos(ft * 0.16 + s.ph) >= 0) ? 0 : Math.PI // 進む向き(±z)を向く
@@ -9734,6 +9751,7 @@ const camRight = new THREE.Vector3()
 const sunProj = new THREE.Vector3()
 
 function update(dt) {
+  _perfReset() // 計算LODの効きめを測るカウンタを毎フレーム頭でゼロに（検証用）
   // ジャンプ・ズームボタンは歩いている時だけ表示（座る/寝る/会話/絵日記の時は隠す）
   const walkUI = mode === 'walk' && !dialogue && !diaryOpen
   if (jumpEl) jumpEl.style.display = walkUI ? 'block' : 'none'
@@ -9778,7 +9796,11 @@ function update(dt) {
   const tsec = clock.elapsedTime
   // 統一された「風」：ゆるやかなそよ風＋時おりの突風。これで草・木・風鈴・のぼりが一斉に揺れて世界が呼吸する
   wind = THREE.MathUtils.clamp(0.42 + 0.3 * Math.sin(tsec * 0.21) + 0.22 * Math.sin(tsec * 0.55 + 1.4) + 0.12 * Math.sin(tsec * 1.27 + 0.4), 0.05, 1.25) // モジュールレベルwind＝updateWindFluff等の別関数からも参照できる（B3）
-  for (const s of swayables) s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp * (0.5 + wind)
+  // ★性能（計算LOD）：草木の揺れは約90m以遠だと知覚できない＝近傍だけ揺らし、遠くは最後の角度のまま静止表示（メッシュはそのまま＝visibleは触らない・消えない）。90mは十分遠いので揺れる/止まるの境界線は見えない（2026-06-29）
+  { const bx = boy.position.x, bz = boy.position.z
+    for (const s of swayables) { const sx = s.obj.position.x - bx, sz = s.obj.position.z - bz
+      if (sx * sx + sz * sz > LOD_SWAY2) { _perfAnim.sway.skip++; continue }
+      s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp * (0.5 + wind); _perfAnim.sway.ran++ } }
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
   if (yatoTreeShader) { yatoTreeShader.uniforms.uTime.value = tsec; yatoTreeShader.uniforms.uWind.value = wind } // 樹冠も夏の風でそよぐ
@@ -10121,6 +10143,9 @@ function update(dt) {
     p.visible = out; if (!out) continue
     if (u.net) u.net.visible = rushM > 0.25 // 夏休みの朝だけ虫取り網（出かける子）
     if (u.bag) u.bag.visible = rushE > 0.25 // 夕方だけ買い物袋（家路）
+    // ★性能（計算LOD）：約60m以遠の通行人は歩行/立ち止まり/接地の重い計算を停止＝その場の最後のポーズで静止して立つ。visibleはtrueのまま＝消えない（中距離で人が消えるポップを出さない）。fog farは約470mで中距離でもはっきり見えるので“立ち止まる”だけ＝距離があれば気づかない（2026-06-29）
+    { const pdx = boy.position.x - p.position.x, pdz = boy.position.z - p.position.z; if (pdx * pdx + pdz * pdz > LOD_PERSON2) { _perfAnim.ped.skip++; continue } }
+    _perfAnim.ped.ran++
     u.timer -= dt
     if (u.timer <= 0) {
       if (u.state === 'pause') { u.state = 'walk'; u.timer = 3 + Math.random() * 7 } // 歩き出す
@@ -10313,6 +10338,9 @@ function update(dt) {
   }
   // 獅子ヶ谷（yato）の立ち話す住人：息づかい＋ふだんは見回し、近づくと気づいてこちらを向く（townLady と同じ作法。yato でだけ動かす）
   if (area === 'yato' || onYato) for (const n of yatoFolk) {
+    // ★性能（計算LOD）：約60m以遠の立ち話の人は息づかい/見回し/腕の計算を停止＝最後のポーズで静止して立つ。visibleはtrueのまま＝消えない（2026-06-29）
+    { const ndx = boy.position.x - n.position.x, ndz = boy.position.z - n.position.z; if (ndx * ndx + ndz * ndz > LOD_PERSON2) { _perfAnim.folk.skip++; continue } }
+    _perfAnim.folk.ran++
     n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
     const pd = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z)
     const near = pd < 4.5
@@ -10363,8 +10391,12 @@ function update(dt) {
     u.body.opacity = eveningF; u.wing.opacity = eveningF * 0.5; if (u.eye) u.eye.opacity = eveningF
     d.visible = eveningF > 0.02
   }
-  // 新エリア『獅子ヶ谷』の生き物（気配）＝area判定に依存せず常時アニメ（夜は消える）
+  // 新エリア『獅子ヶ谷』の生き物（気配）＝夜は消える。★性能（計算LOD）：1個ごとに heightAt を無条件で呼んでいた＝谷戸の外(町)や約90m以遠は heightAt と移動の計算を省く。虫は小さく遠いと止まって浮いていても気づかない。夜/エリア外の非表示だけは安く保つ（2026-06-29）
+  const bugNear = onYato // 谷戸の外（町など）に居る時は谷戸の虫は遠すぎる＝全部スキップ
   for (const c of yatoBugs) {
+    if (!bugNear) { _perfAnim.bug.skip++; continue } // 谷戸の外＝虫は1000m超の彼方。可視は前フレームのまま（エリア外では描画されない＝問題なし）
+    { const cdx = boy.position.x - c.cx, cdz = boy.position.z - c.cz; if (cdx * cdx + cdz * cdz > LOD_BUG2) { c.obj.visible = nf < 0.96; _perfAnim.bug.skip++; continue } } // 約90m以遠＝夜/エリアの可視だけ安く更新し、heightAt と羽ばたきは省く
+    _perfAnim.bug.ran++
     const a = tsec * (c.sp || 0.6) + (c.ph || 0)
     if (c.kind === 'tombo') {
       if (c.dusk) { const gf = THREE.MathUtils.smoothstep(tday, 0.55, 0.66) * (1 - THREE.MathUtils.smoothstep(tday, 0.80, 0.92)); c.obj.visible = gf > 0.04; if (!c.obj.visible) continue } // 赤とんぼ＝夕暮れだけ群れて舞う
@@ -11614,6 +11646,8 @@ window.__proto3d = {
     return out }, // 検証用：全NPCの足元が 水中/道路上/建物内/地面OK のどれか（漏れ把握）
   _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); else if (k === 'call') farCall(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
+  _festFigVis() { let total = 0, vis = 0, parentVis = 0, near = 0, minD = 1e9, maxD = 0; for (const d of festFigs) { total++; if (d.g.visible) vis++; if (d.g.parent && d.g.parent.visible) { parentVis++; const dx = boy.position.x - d.cx, dz = boy.position.z - d.cz, dd = Math.sqrt(dx * dx + dz * dz); if (dd < 60) near++; if (dd < minD) minD = dd; if (dd > maxD) maxD = dd } } return { total, selfVisible: vis, inVisibleVenue: parentVis, within60m: near, minD: +minD.toFixed(1), maxD: +maxD.toFixed(1) } }, // 検証用：踊り手のvisible数＋計算LODの60m内訳（静止しても消えていないこと＝inVisibleVenue分は描画される）
+  _boyPos() { return { x: +boy.position.x.toFixed(1), y: +boy.position.y.toFixed(2), z: +boy.position.z.toFixed(1) } }, // 検証用：主人公の現在地
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
   _dayInfo() { return { day, total: TOTAL_DAYS, festDay: festDay(), arc: arcStage(), venuesToday: FEST_VENUES.filter((v) => v.days.indexOf(festDay()) >= 0).map((v) => v.name) } }, // 検証用：H1 ひと夏の日数・祭り会場
   _setDayNum(n) { day = Math.max(1, Math.min(TOTAL_DAYS, n | 0)); refreshBadge() }, // 検証用：日数を設定
@@ -11706,6 +11740,7 @@ window.__proto3d = {
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
   _windInfo() { return windGain ? { started: windStarted, gain: +windGain.gain.value.toFixed(4), freq: windLP ? Math.round(windLP.frequency.value) : 0 } : { started: windStarted } }, // 検証用：風の音ノードの状態
   _perfCounts() { const cnt = (a) => (typeof a !== 'undefined' && a) ? a.length : -1; return { swayables: cnt(swayables), yatoBugs: cnt(typeof yatoBugs !== 'undefined' ? yatoBugs : null), blinkers: cnt(blinkers), festFigs: cnt(festFigs), festSpectators: cnt(festSpectators), pedestrians: cnt(pedestrians), cats: cnt(cats), dogs: cnt(dogs) } }, // 検証用：毎フレーム回す配列の要素数（性能調査）
+  _perfAnim() { const o = {}; for (const k in _perfAnim) o[k] = { ran: _perfAnim[k].ran, skip: _perfAnim[k].skip }; return o }, // 検証用：直前フレームで「重いアニメ計算を実際に回した数(ran)／距離・可視で省いた数(skip)」を要素ごとに。計算LODの効きめのbefore/after比較用（2026-06-29）
   _rooster() { let threw = null; try { roosterCrow(listener.context.currentTime + 0.05) } catch (e) { threw = String(e) }; return { ok: !threw, started: audioStarted, state: listener.context ? listener.context.state : null, err: threw } }, // 検証用：雄鶏の鳴き声の音グラフが例外なく組めるか（音は耳で確認）
   _info() { // 検証用：シーン1回描画の実コスト
     renderer.info.autoReset = false; renderer.info.reset()
