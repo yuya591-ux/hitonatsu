@@ -5606,7 +5606,11 @@ const PROP = {
   hair: 0x6e4d34, hairTop: 0.37, hairExtent: 0.32, hairY: 0.0, hairTilt: -0.05, // 髪：色・帯の開始(髪の上端をつばより下に＝つばのひさしが隠す＝クラウンから突き出ない)・帯の長さ・高さ・ごく控えめな後傾
   hatBrim: 0.27, hatBrimY: 0.096, hatCap: 0.15, hatCapY: 0.096, hatCapExtent: 0.6, // 麦わら帽子：つば半径/高さ・クラウン半径/中心高さ/平たさ(y縮尺。平たいドームを髪の上に乗せる＝皿/くり抜きを回避)。つばを少し上げ前髪の居場所を作る
 }
-function limbCap(r, len, mat) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.012, len - r * 2), 8, 14), mat) } // まっすぐ細い手足用
+const _limbGeoCache = new Map() // 手足のカプセル形状を寸法(r,len)ごとに共有＝村人を増やしてもgeometryが増えない（関節追加でも予算を圧迫しない・2026-06-28）
+function limbCap(r, len, mat) { const L = Math.max(0.012, len - r * 2), key = r.toFixed(4) + ':' + L.toFixed(4)
+  let geo = _limbGeoCache.get(key); if (!geo) { geo = new THREE.CapsuleGeometry(r, L, 8, 14); _limbGeoCache.set(key, geo) }
+  return new THREE.Mesh(geo, mat) } // まっすぐ細い手足用（形状は共有・材質だけ個体ごと）
+const SHOE_GEO = new THREE.BoxGeometry(0.085, 0.055, 0.16), HAND_GEO = new THREE.SphereGeometry(0.047, 8, 6) // 靴/手の形状も全村人で共有（材質だけ個体ごと）
 const CHAR_SHOULDER_GEO = new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 10, 8) // 簡易figure(通行人/踊り手/見物客)の肩＝首の付け根を隠して「首が異様に長い」を解消（2026-06-28・ユーザー指摘）。1個を共有して描画予算を節約
 const NET_REST = -0.85 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る。肩にちゃんと乗る角度に（浮き解消）
 function makeBoy() {
@@ -5843,11 +5847,14 @@ function makeVillager(x, z, opt) {
       const knee = new THREE.Group(); knee.position.y = -PROP.thigh; hip.add(knee)
       const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(PROP.legR * 0.96, 8, 6), skin); knee.add(kneeCap)
       const shin = limbCap(PROP.legR * 0.88, PROP.shin, skin); shin.position.y = -PROP.shin / 2; knee.add(shin)
-      const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.055, 0.16), toon(opt.shoe || 0x5a4a38)); shoe.position.set(0, -PROP.shin - 0.03, 0.03); knee.add(shoe)
+      const shoe = new THREE.Mesh(SHOE_GEO, toon(opt.shoe || 0x5a4a38)); shoe.position.set(0, -PROP.shin - 0.03, 0.03); knee.add(shoe)
       return { hip, knee }
     }
-    const leg = limbCap(PROP.legR, PROP.thigh + PROP.shin, skin); leg.position.y = -(PROP.thigh + PROP.shin) / 2; hip.add(leg)
-    return { hip, knee: null }
+    // simple も膝＋足の関節ありに格上げ＝1本の棒脚をやめる（ユーザー「手足の関節が1つもないの気持ち悪い・棒人間」2026-06-28）。輪郭ハルだけ付けない＝描画予算を守りつつ“人らしく曲がる脚”に
+    const thigh = limbCap(PROP.legR, PROP.thigh, skin); thigh.position.y = -PROP.thigh / 2; hip.add(thigh)
+    const knee = new THREE.Group(); knee.position.y = -PROP.thigh; hip.add(knee)
+    const shin = limbCap(PROP.legR * 0.92, PROP.shin + 0.05, skin); shin.position.y = -(PROP.shin + 0.05) / 2; knee.add(shin) // すねは足先まで少し伸ばす＝靴を別メッシュにせず描画予算を節約しつつ脚先を作る
+    return { hip, knee }
   }
   const LL = makeLeg(-1), LR = makeLeg(1)
   const legL = LL.hip, legR = LR.hip; kneeL = LL.knee; kneeR = LR.knee
@@ -5929,11 +5936,14 @@ function makeVillager(x, z, opt) {
       const upper = limbCap(PROP.armR, PROP.upperArm, skin); upper.position.y = -PROP.upperArm / 2 - 0.04; sh.add(upper)
       const elbow = new THREE.Group(); elbow.position.y = -PROP.upperArm; elbow.rotation.x = -0.16; sh.add(elbow) // 肘を軽く曲げて自然に
       const fore = limbCap(PROP.armR * 0.9, PROP.fore, skin); fore.position.y = -PROP.fore / 2; elbow.add(fore)
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.048, 9, 8), skin); hand.scale.set(0.92, 1.06, 0.7); hand.position.y = -PROP.fore - 0.005; elbow.add(hand)
+      const hand = new THREE.Mesh(HAND_GEO, skin); hand.scale.set(0.92, 1.06, 0.7); hand.position.y = -PROP.fore - 0.005; elbow.add(hand)
       return { sh, elbow }
     }
-    const arm = limbCap(PROP.armR, PROP.upperArm + PROP.fore, skin); arm.position.y = -(PROP.upperArm + PROP.fore) / 2 - 0.04; sh.add(arm)
-    return { sh, elbow: null }
+    // simple も肘＋手の関節ありに格上げ（棒腕をやめる・ユーザー要望2026-06-28）。輪郭ハルは付けない＝予算内で“人らしく曲がる腕”に
+    const upper = limbCap(PROP.armR, PROP.upperArm, skin); upper.position.y = -PROP.upperArm / 2 - 0.04; sh.add(upper)
+    const elbow = new THREE.Group(); elbow.position.y = -PROP.upperArm; elbow.rotation.x = -0.16; sh.add(elbow)
+    const fore = limbCap(PROP.armR * 0.92, PROP.fore + 0.03, skin); fore.position.y = -(PROP.fore + 0.03) / 2; elbow.add(fore) // 前腕は手先まで少し伸ばす＝手を別メッシュにせず予算節約
+    return { sh, elbow }
   }
   const AL = makeArm(-1), AR = makeArm(1)
   const armL = AL.sh, armR = AR.sh; elbowL = AL.elbow; elbowR = AR.elbow
@@ -5955,10 +5965,10 @@ function makeVillager(x, z, opt) {
   // ※主人公と同じ繊細で素朴な作りに統一（小さめの目＋きらり1つ・眉なし・ふんわり頬）＝同じ世界の住人に
   const P = PROP, npcEyes = [], es = opt.eyeSc || 1, eR = P.eyeR * es // es=瞳の大きさの個体差（C5★）
   for (const ex of [-P.eyeX, P.eyeX]) {
-    if (opt.simple) { // 背景の通行人＝白目＋瞳＋きらり（軽量・主人公と同じ繊細さ）
+    if (opt.simple) { // 背景の通行人＝白目＋瞳（きらりは省略＝関節を足したぶんの描画予算を確保。きらりは数m先の背景figureでは見えない。手足の関節のほうが見た目に効く・2026-06-28）
       const sc = new THREE.Mesh(new THREE.SphereGeometry(eR, 10, 8), hiMat); sc.scale.set(0.9, 1.1, 0.4); sc.position.set(ex, P.eyeY, P.eyeZ); head.add(sc)
       const ir = new THREE.Mesh(new THREE.SphereGeometry(eR * P.irisRatio, 10, 8), eyeMat); ir.scale.set(0.96, 1, 0.42); ir.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(ir)
-      const h0 = new THREE.Mesh(new THREE.SphereGeometry(eR * 0.3, 6, 6), hiMat); h0.position.set(ex + 0.011, P.eyeY + 0.014, P.eyeZ + 0.02); head.add(h0); npcEyes.push(sc, ir, h0); continue
+      npcEyes.push(sc, ir); continue
     }
     const sclera = new THREE.Mesh(new THREE.SphereGeometry(eR, 16, 14), hiMat); sclera.scale.set(0.92, 1.12, 0.4); sclera.position.set(ex, P.eyeY, P.eyeZ); head.add(sclera)
     const iris = new THREE.Mesh(new THREE.SphereGeometry(eR * P.irisRatio, 16, 14), eyeMat); iris.scale.set(0.98, 1.04, 0.42); iris.position.set(ex, P.eyeY - 0.003, P.eyeZ + 0.012); head.add(iris)
@@ -10930,7 +10940,8 @@ renderer.setAnimationLoop(() => { try {
   // 俯瞰では細い輪郭線も足元のボケも不要なので見た目の損失はほぼ無い。
   const aerial = floatMode || flying
   inkPass.enabled = !aerial && !!(settings && settings.ink) && !(settings && settings.light)
-  dofPass.enabled = !aerial && !(settings && settings.light)
+  // 被写界深度(奥行きのボケ)：歩いている時だけ＝主人公にピントが寄って没入。★主観視点(fpv)/座って眺める(sit)/寝ころぶ(lie)では切る＝景色を味わう場面で遠景までくっきり見える（ユーザー要望「池を眺めると奥がぼやけて景色が見えない」2026-06-28）
+  dofPass.enabled = !aerial && !fpv && mode !== 'sit' && mode !== 'lie' && !(settings && settings.light)
   const camMoved = camera.position.distanceToSquared(_prevCamPos) > 1e-5 || Math.abs(camera.quaternion.dot(_prevCamQuat)) < 0.999995 || mode !== 'walk' || moving
   _prevCamPos.copy(camera.position); _prevCamQuat.copy(camera.quaternion)
   if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick & 1))) { // 動いている時は毎フレーム、静止中だけ半分の頻度＝残像なし＋静止時は発熱を抑える
@@ -11186,7 +11197,7 @@ if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !setti
   if (!settingsEl) return
   const wrap = document.createElement('div'); wrap.id = 'set-vols'
   wrap.innerHTML = '<div class="set-vol-h">おとの おおきさ</div>'
-  for (const [key, label] of [['volCicada', 'せみ'], ['volBgm', 'BGM'], ['volAmb', 'かんきょう'], ['volLife', 'こえ']]) {
+  for (const [key, label] of [['volCicada', 'せみ'], ['volBgm', 'おんがく'], ['volAmb', 'かぜ・雨・川'], ['volLife', 'こえ・生活']]) { // ラベルを直感的に＝「かぜ」で風の音もここで下げられると分かる（ユーザー「風の音量を下げられない」2026-06-28）
     const row = document.createElement('div'); row.className = 'set-vol-row'
     const lab = document.createElement('span'); lab.className = 'set-vol-lab'; lab.textContent = label
     const sl = document.createElement('input'); sl.type = 'range'; sl.min = 0; sl.max = 150; sl.step = 10; sl.value = Math.round((settings[key] ?? 1) * 100); sl.setAttribute('aria-label', label + 'の おおきさ')
@@ -11205,7 +11216,7 @@ if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !setti
   const s = document.createElement('style'); s.textContent = `#set-vols{margin:0.7em 0;padding:0.6em 0;border-top:1px solid rgba(120,108,86,0.22);}
     .set-vol-h{font-size:13px;color:#7a6a4a;margin:0 0 0.45em;letter-spacing:0.06em;}
     .set-vol-row{display:flex;align-items:center;gap:10px;margin:0.4em 0;}
-    .set-vol-lab{width:5.5em;font-size:14px;color:#3b3024;}
+    .set-vol-lab{width:6.4em;font-size:13.5px;color:#3b3024;white-space:nowrap;}
     .set-vol-row input[type=range]{flex:1;accent-color:#c98a4a;height:22px;}`
   document.head.appendChild(s)
 })()
