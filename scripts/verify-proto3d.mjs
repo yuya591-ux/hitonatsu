@@ -102,6 +102,11 @@ try {
     await new Promise((r) => setTimeout(r, 400))
     await page.screenshot({ path: join(outDir, 'proto3d-smoke.png') })
     console.log('撮影: .verify/proto3d-smoke.png')
+    // 道の上の小物（電柱/ゴミ集積所/鉢/自転車）が無いか＝交差点の真ん中に物が立つ不具合の再発を止める（ユーザー指摘2026-06-28）
+    try { const op = await page.evaluate(() => window.__proto3d._propsOnRoad ? window.__proto3d._propsOnRoad() : null)
+      if (op) { console.log(`  道の上の小物: ${op.length}${op.length ? '  ← 道路上に小物' : ' ✓'}`)
+        if (op.length) errors.push(`道の上に小物 ${op.length}件（例:${JSON.stringify(op.slice(0, 4))}）＝電柱/ゴミ等が道路の上`) }
+    } catch (e) {}
   }
   await page.close()
 } finally { await browser.close(); server.close() }

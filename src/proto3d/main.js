@@ -2869,11 +2869,12 @@ function buildShishigaya() {
         for (let t = (k === 0 ? 8 : 0); t < l && poleP.length <= 420; t += 28) { const px = x0 + ux * t + nx * (rd.w / 2 + 1.4), pz = z0 + uz * t + nz * (rd.w / 2 + 1.4)
           if (Math.hypot(px - 3008, pz + 8) < 46) { prev = null; continue } // サンライズの建物まわりは空ける
           if (inWater(px, pz) || heightAtYato(px, pz) < 3) { prev = null; continue }
+          if (onYatoRoadCore(px, pz)) { prev = null; continue } // 別の交差する道の舗装の上に立つ電柱を排除（交差点の真ん中に電柱が立つ不具合・ユーザー指摘2026-06-28）。電柱は電線つき＝後で動かせないので置く時点で道を避ける
           const y = heightAtYato(px, pz), top = new THREE.Vector3(px, y + 8.2, pz); poleP.push([px, pz, y])
           if (prev && prev.distanceTo(top) < 55) for (let w = 0; w < 5; w++) wireSeg.push(catPt(prev, top, w / 5, 1.1), catPt(prev, top, (w + 1) / 5, 1.1)) // 電線＝たるみ(catenary)つき
           prev = top } } }
     if (poleP.length) { const m4 = new THREE.Matrix4()
-      const pI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.24, 9, 6), toon(0x9a958c), poleP.length); pI.castShadow = true
+      const pI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.24, 9, 6), toon(0x9a958c), poleP.length); pI.castShadow = true; pI.userData.propKind = 'pole' // 道点検用のタグ
       const aI = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 0.16, 0.16), toon(0x6a5a44), poleP.length) // 上の腕金
       const aI2 = new THREE.InstancedMesh(new THREE.BoxGeometry(1.7, 0.14, 0.14), toon(0x6a5a44), poleP.length) // 下の腕金（2段＝昭和の電柱らしさ・F3・2026-06-25）
       const transP = poleP.filter(([px, pz]) => (Math.abs(Math.round(px) * 7 + Math.round(pz) * 5) % 3) === 0) // 約1/3に柱上変圧器
@@ -2985,13 +2986,22 @@ function buildShishigaya() {
         for (let t = 4; t < l - 4; t += 8) for (const sd of [1, -1]) { const px = x0 + ux * t + nx * sd * (hw + 1.5), pz = z0 + uz * t + nz * sd * (hw + 1.5)
           if (!occAt(px + nx * sd * 2.5, pz + nz * sd * 2.5)) continue // 家の前
           if (Math.hypot(px - 3008, pz + 8) < 46 || inWater(px, pz) || heightAtYato(px, pz) < 3) continue
+          if (onYatoRoadCore(px, pz)) continue // 交差点など別の道の上は避ける（鉢/自転車も道に置かない・2026-06-28）
           const seed = Math.abs(Math.round(px) * 3 + Math.round(pz) * 7); if (seed % 3 === 0) bikeP.push([px, pz, ang + 1.5708]); else potP.push([px, pz]) } } }
-    // ゴミ集積所＝主要道の角（始点）に点々と
-    for (const rd of rds) { if (gomiP.length >= 6) break; const a = rd.p[0]; if (occAt(a[0] + 4, a[1]) || occAt(a[0] - 4, a[1])) { if (Math.hypot(a[0] - 3008, a[1] + 8) > 46 && heightAtYato(a[0], a[1]) > 3) gomiP.push([a[0], a[1], Math.atan2(3010 - a[0], -60 - a[1])]) } }
-    const mkInst = (geo, mat, arr, useRot) => { if (!arr.length) return; const im = new THREE.InstancedMesh(geo, mat, arr.length); im.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); arr.forEach((a, i) => { e.set(0, useRot ? (a[2] || 0) : 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]), a[1]), q, s); im.setMatrixAt(i, m4) }); scene.add(im) }
-    mkInst(POT_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), potP, false)
-    mkInst(BIKE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), bikeP, true)
-    mkInst(GOMI_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), gomiP, true)
+    // ゴミ集積所＝道の脇（家のある側の路肩）に点々と。道の中心や交差点には絶対に置かない（2.3×1.5の足元を6点で判定・ユーザー指摘2026-06-28「道の真ん中にゴミ捨て場」）
+    for (const rd of rds) { if (gomiP.length >= 6) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2); let placed = false
+      for (let k = 0; k < p.length - 1 && !placed; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+        for (let t = 6; t < l - 4 && !placed; t += 7) for (const sd of [1, -1]) {
+          const gx = x0 + ux * t + nx * sd * (hw + 2.0), gz = z0 + uz * t + nz * sd * (hw + 2.0)
+          if (!occAt(gx + nx * sd * 2.5, gz + nz * sd * 2.5)) continue // 家のある側だけ＝路肩らしさ
+          if (Math.hypot(gx - 3008, gz + 8) < 46 || heightAtYato(gx, gz) < 3 || inWater(gx, gz)) continue
+          let onR = false; for (const tt of [-1.2, 0, 1.2]) for (const ss of [-0.8, 0.8]) if (onYatoRoadCore(gx + ux * tt + nx * ss, gz + uz * tt + nz * ss)) { onR = true; break } // 足元(2.3×1.5)のどこかが道に乗るなら置かない＝交差点/路上を完全回避
+          if (onR) continue
+          gomiP.push([gx, gz, Math.atan2(-uz, ux)]); placed = true; break } } }
+    const mkInst = (geo, mat, arr, useRot, kind) => { if (!arr.length) return; const im = new THREE.InstancedMesh(geo, mat, arr.length); im.castShadow = true; if (kind) im.userData.propKind = kind; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); arr.forEach((a, i) => { e.set(0, useRot ? (a[2] || 0) : 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]), a[1]), q, s); im.setMatrixAt(i, m4) }); scene.add(im) }
+    mkInst(POT_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), potP, false, 'pot')
+    mkInst(BIKE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), bikeP, true, 'bike')
+    mkInst(GOMI_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), gomiP, true, 'gomi')
     if (gomiP.length) { const ntex = netTex.clone(); ntex.repeat.set(3, 1.5); ntex.needsUpdate = true; const nI = new THREE.InstancedMesh(new THREE.BoxGeometry(2.3, 1.1, 1.5), new THREE.MeshBasicMaterial({ map: ntex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.6, color: 0x6f8a5a }), gomiP.length); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); nI.layers.set(1); gomiP.forEach((a, i) => { e.set(0, a[2] || 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]) + 0.6, a[1]), q, s); nI.setMatrixAt(i, m4) }); scene.add(nI) } // ゴミにかけるネット
     console.log('[shishigaya] 植木鉢', potP.length, '自転車', bikeP.length, 'ゴミ集積所', gomiP.length) }
   // ⑧ 側溝（U字溝のフタ）＋マンホール＝道の足元のディテール。どちらも平らで軽い（ユーザー要望2026-06-22）
@@ -10789,6 +10799,11 @@ window.__proto3d = {
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
   _toro() { return { on: toroNagashi.visible, lanterns: toroList.length, watchers: toroWatchers.map((w) => ({ x: +w.g.position.x.toFixed(1), y: +w.g.position.y.toFixed(2), z: +w.g.position.z.toFixed(1), rot: +w.g.rotation.y.toFixed(2), child: w.child })) } }, // 検証用：灯籠流しの灯籠数＋岸辺で見送る人の位置
+  _propsOnRoad() { // 検証用：ヤト(x>2200)の小物（電柱/ゴミ集積所/鉢/自転車などpropKindタグ付き＋auditProps）が道の舗装の上に立っていないか全数点検。空配列＝道の上に小物なし。地面の草/花などのグラウンドカバーは対象外
+    const out = [], m4 = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3()
+    scene.traverse((o) => { if (o.isInstancedMesh && o.userData && o.userData.propKind) { for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m4); m4.decompose(p, q, s); if (p.x > 2200 && onYatoRoadCore(p.x, p.z)) out.push({ x: Math.round(p.x), z: Math.round(p.z), t: o.userData.propKind }) } } })
+    if (typeof auditProps !== 'undefined') for (const pr of auditProps) { if (pr.x > 2200 && onYatoRoadCore(pr.x, pr.z)) out.push({ x: Math.round(pr.x), z: Math.round(pr.z), t: pr.kind }) }
+    return out },
   _chores() { initChores(); return chores.map((c) => ({ x: +c.cx.toFixed(1), z: +c.cz.toFixed(1), kind: c.kind })) }, // 検証用：C3 静かなしぐさの位置と種類
   _chatMouths() { const out = []; for (const C of chatPairs) for (const g of [C.a, C.b]) { const m = g.userData.mouth; if (m) out.push({ vis: g.visible, sy: +m.scale.y.toFixed(3), by: +m.userData.by.toFixed(3) }) } return out }, // 検証用：C1 会話ペアの口の開き（sy>byなら口パク中）
   _roadDefects() { const out = []
