@@ -3462,9 +3462,11 @@ function buildShishigaya() {
     // 2層：近い稜線=やや緑がかる／遠い稜線=青くかすむ（空気遠近）。色は霧色(noon fog≈0xdee9ee)へ寄せて溶けやすく
     // ★半径は屋上のカメラ遠方面(far≈1260m＝round((fog1200+60)/20)*20)の“内側”に収める＝屋上/飛行で稜線がクリップされて消えない。
     //   地上(far≈680)では稜線は遠方面の外＝自然に見えない（谷の霞の向こう＝正しい）。
+    // ★陰影の出ないMeshBasic＋淡い霞色＝太陽の向き/時刻で黒い面が出ない（“黒い角張った壁”を構造的に断つ・ユーザー指摘2026-06-29）。
+    //   近い層はなだらかな雑木林の丘らしく低く・淡く・外周へ（飛行高度で黒い峰がそびえないように）。遠い層は青くかすむ世界の縁。
     const layers = [
-      { col: 0x6f8a78, ring: 760, jit: 80, n: 28, hLo: 78, hHi: 132, radLo: 150, radHi: 235, sink: 22 }, // 近い山なみ（夏の緑青・霞は薄め＝稜線がはっきり）
-      { col: 0x8ba2b2, ring: 940, jit: 80, n: 24, hLo: 104, hHi: 176, radLo: 195, radHi: 300, sink: 30 } // 遠い山なみ（青くかすむ・ぐっと高く＝町の屋根越しにそびえる）
+      { col: 0xa6b6ab, ring: 860, jit: 90, n: 22, hLo: 40, hHi: 72, radLo: 175, radHi: 260, sink: 30 }, // 近い山なみ＝なだらかな丘・淡い緑青・低め（黒い壁にしない）
+      { col: 0xb3c0c9, ring: 1010, jit: 90, n: 22, hLo: 84, hHi: 142, radLo: 215, radHi: 315, sink: 36 } // 遠い山なみ＝青くかすむ・町の屋根越しに（淡く高め）
     ]
     let li = 0
     for (const Lr of layers) {
@@ -3489,7 +3491,7 @@ function buildShishigaya() {
       hg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
       hg.setAttribute('color', new THREE.Float32BufferAttribute(arr, 3))
       hg.computeVertexNormals()
-      const hm = new THREE.Mesh(hg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, fog: true })) // fog:true＝霞に溶ける。トゥーンで空気感
+      const hm = new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true })) // ★陰影なし(Basic)＝太陽の向きで黒い面が出ない＝遠景の山は常に淡い霞のシルエット（黒い角張った壁を断つ）。fog:true＝霞に溶ける
       hm.name = 'yatoFarHills' + (li++); hm.castShadow = false; hm.receiveShadow = false
       hm.userData.noChunk = true // ★チャンク距離カリングの対象外＝屋上/飛行でも消えない（常に地平に見える）
       hm.layers.set(1) // 空ドームと同じくインク線パスから除外＝遠景の稜線に黒い縁取りが暴れない（“板”っぽさを避ける）。メイン描画はlayer0+1なので見える
