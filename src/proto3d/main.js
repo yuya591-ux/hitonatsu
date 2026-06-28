@@ -6587,6 +6587,87 @@ function updateFishers(dt) {
       else f.u.head.rotation.y *= 0.93 }
   }
 }
+// ── 打ち水（夕方、家の前で桶の水を路面にまいて涼をとる＝昭和の夏のいちばんの所作・C14）。距離＋時間ゲートで負荷ゼロ運用 ──
+const uchimizu = []
+let uchimizuInit = false
+const okeMat = toon(0x9a7a4c), okeWaterMat = new THREE.MeshBasicMaterial({ color: 0x4a6a7a, transparent: true, opacity: 0.82 })
+const dropGeo = new THREE.SphereGeometry(0.06, 6, 5), dropMat = new THREE.MeshBasicMaterial({ color: 0xe2f2fc, transparent: true, opacity: 0.97, fog: true }) // 水滴＝小さな玉(InstancedMeshで1ドロー)。Pointsはソフト描画で映らないためメッシュに
+const _dropHide = new THREE.Matrix4().makeScale(0, 0, 0), _dropM = new THREE.Matrix4()
+function makeUchimizu(px, pz, ry) {
+  const fpick = (a) => a[Math.floor(Math.random() * a.length)]
+  const g = makeVillager(px, pz, { shirt: fpick([0xb56a6a, 0x6a7a9a, 0x8a9a6a, 0xcaa45a]), skirt: fpick([0x6a6a66, 0x4a5a6a, 0x7a6a5a]), skin: fpick([0xf0c49c, 0xe8b890, 0xeab584]), hair: fpick([0x3a2e22, 0x4a3a2e, 0x8c8c86]), boy: false, simple: true, adult: true, garment: 'dress', apron: fpick([0xe8e2d4, 0x9aa0a8, 0xd8c0b0]), hairStyle: 'bob', build: 1.0 + Math.random() * 0.15, scale: 1.12 + Math.random() * 0.08, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  g.position.set(px, heightAtYato(px, pz), pz); g.rotation.y = ry
+  const u = g.userData
+  { const tn = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), charToon(fpick([0xe8e2d4, 0xd8d0c2, 0xeceadc]))); tn.scale.set(1.02, 0.72, 1.05); tn.position.y = (u.head ? u.head.position.y : 1.4) + 0.03; tn.castShadow = false; g.add(tn) } // 手ぬぐい（頭の折り布＝昭和の主婦）
+  const oke = new THREE.Group() // 桶（左腕で抱える木の洗面器）
+  oke.add(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.16, 14, 1, true), okeMat))
+  { const bot = new THREE.Mesh(new THREE.CircleGeometry(0.13, 14), okeMat); bot.rotation.x = -Math.PI / 2; bot.position.y = -0.08; oke.add(bot) }
+  { const wat = new THREE.Mesh(new THREE.CircleGeometry(0.155, 14), okeWaterMat); wat.rotation.x = -Math.PI / 2; wat.position.y = 0.03; oke.add(wat) }
+  oke.traverse((o) => { if (o.isMesh) o.castShadow = false }); oke.position.set(-0.05, 0.84, 0.26); g.add(oke)
+  if (u.armL) u.armL.rotation.x = -1.2 // 左腕で桶を抱える
+  const N = 50, pos = new Float32Array(N * 3).fill(-9999), vel = []
+  for (let i = 0; i < N; i++) vel.push({ x: 0, y: 0, z: 0, life: 0 })
+  const drops = new THREE.InstancedMesh(dropGeo, dropMat, N); drops.instanceMatrix.setUsage(THREE.DynamicDrawUsage); drops.frustumCulled = false; drops.layers.set(1) // 水しぶき（InstancedMesh＝1ドロー・layer1＝インク法線パス除外）
+  for (let i = 0; i < N; i++) drops.setMatrixAt(i, _dropHide); drops.instanceMatrix.needsUpdate = true; scene.add(drops)
+  const fwd = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry))
+  const wx = px + fwd.x * 1.3, wz = pz + fwd.z * 1.3
+  const wet = new THREE.Mesh(new THREE.CircleGeometry(1.5, 20), new THREE.MeshBasicMaterial({ color: 0x2b2730, transparent: true, opacity: 0, depthWrite: false })); wet.rotation.x = -Math.PI / 2; wet.position.set(wx, heightAtYato(wx, wz) + 0.03, wz); wet.layers.set(1); wet.renderOrder = 2; scene.add(wet) // 濡れた路面（打つたび濃く・少し冷たい色へ・ゆっくり乾く）
+  g.visible = false; drops.visible = false; wet.visible = false
+  return { g, u, oke, drops, pos, vel, wet, fwd, fling: 0, released: false, timer: 1.5 + Math.random() * 3, ph: Math.random() * 6 }
+}
+function initUchimizu() {
+  if (uchimizuInit) return; uchimizuInit = true
+  const fwdOk = (fx, fz) => !npcInWater(fx, fz) && !npcInCollider(fx, fz) // まく先＝水/建物でなければOK（路面=道はむしろ正しい）
+  for (const [cx, cz] of [[3030, 18], [2958, -70], [3082, -158], [2772, -138], [3120, -70]]) {
+    if (uchimizu.length >= 3) break
+    const spot = placeNPCOnLand(cx, cz, 1.0, 16); if (!spot) continue
+    if (uchimizu.some((m) => Math.hypot(m.g.position.x - spot.x, m.g.position.z - spot.z) < 22)) continue
+    let ry = null
+    for (let k = 0; k < 8; k++) { const a = k * 0.7854, fx = spot.x + Math.sin(a) * 2.4, fz = spot.z + Math.cos(a) * 2.4; if (fwdOk(fx, fz) && fwdOk(spot.x + Math.sin(a) * 1.2, spot.z + Math.cos(a) * 1.2)) { ry = a; break } }
+    if (ry === null) continue
+    uchimizu.push(makeUchimizu(spot.x, spot.z, ry))
+  }
+}
+function spawnUchimizuDrops(m) {
+  const hand = new THREE.Vector3(0.18, 1.0, 0.46); m.g.localToWorld(hand) // 右手のあたり（g-local→world）
+  const f = m.fwd, side = new THREE.Vector3(f.z, 0, -f.x)
+  let k = 0
+  for (let i = 0; i < m.vel.length && k < 42; i++) { const v = m.vel[i]; if (v.life > 0) continue
+    const ix = i * 3; m.pos[ix] = hand.x + side.x * (Math.random() - 0.5) * 0.15; m.pos[ix + 1] = hand.y; m.pos[ix + 2] = hand.z + side.z * (Math.random() - 0.5) * 0.15
+    const sp = 2.6 + Math.random() * 2.0, sd = (Math.random() - 0.5) * 1.4 // 前へ・やや横に広がる＝低く扇状にまく水のシート
+    v.x = f.x * sp + side.x * sd; v.y = 1.0 + Math.random() * 1.2; v.z = f.z * sp + side.z * sd; v.life = 1.7; k++
+  }
+  m.wet.material.opacity = 0.42 // 路面がさっと濡れる
+}
+function updateUchimizu(dt) {
+  initUchimizu(); if (!uchimizu.length) return
+  const active = onYato && tday > 0.42 && tday < 0.74 // 夕方（暑さの残る夕暮れに打ち水）
+  for (const m of uchimizu) {
+    const vis = active && Math.hypot(boy.position.x - m.g.position.x, boy.position.z - m.g.position.z) < 60 // 近接時だけ描画（負荷）
+    if (m.g.visible !== vis) { m.g.visible = vis; m.drops.visible = vis; m.wet.visible = vis }
+    if (!vis) continue
+    m.ph += dt; m.timer -= dt
+    if (m.fling <= 0 && m.timer <= 0) { m.fling = 0.95; m.timer = 3.5 + Math.random() * 3; m.released = false }
+    let armX = -0.5 + Math.sin(m.ph * 0.6) * 0.04, armZ = 0 // ふだんは桶をのぞくくらい
+    if (m.fling > 0) { m.fling -= dt; const p = 1 - m.fling / 0.95 // 0→1
+      if (p < 0.4) { armX = -0.4 - p * 1.0; armZ = 0.2 } // 桶へ手を下ろしてすくう
+      else if (p < 0.72) { const q = (p - 0.4) / 0.32; armX = -0.8 - q * 1.3; armZ = 0.2 - q * 1.5 } // 振り上げて外へまく
+      else { const q = (p - 0.72) / 0.28; armX = -2.1 + q * 1.6; armZ = -1.3 + q * 1.3 } // 戻す
+      if (!m.released && p >= 0.6) { m.released = true; spawnUchimizuDrops(m) } // まく瞬間に水を放つ＋路面を濡らす
+    }
+    if (m.u.armR) { m.u.armR.rotation.x = armX; m.u.armR.rotation.z = armZ }
+    let dirty = false
+    for (let i = 0; i < m.vel.length; i++) { const v = m.vel[i]; if (v.life <= 0) continue
+      v.life -= dt; v.y -= 9.0 * dt; const ix = i * 3; m.pos[ix] += v.x * dt; m.pos[ix + 1] += v.y * dt; m.pos[ix + 2] += v.z * dt
+      if (v.life <= 0 || m.pos[ix + 1] < heightAtYato(m.pos[ix], m.pos[ix + 2]) + 0.02) { v.life = 0; m.drops.setMatrixAt(i, _dropHide) } // 着地で消す
+      else m.drops.setMatrixAt(i, _dropM.makeTranslation(m.pos[ix], m.pos[ix + 1], m.pos[ix + 2]))
+      dirty = true }
+    if (dirty) m.drops.instanceMatrix.needsUpdate = true
+    m.wet.material.opacity = Math.max(0, m.wet.material.opacity - dt * 0.045) // ゆっくり乾く
+    if (m.u.head) { const bx = boy.position.x - m.g.position.x, bz = boy.position.z - m.g.position.z
+      if (Math.hypot(bx, bz) < 8) { let ha = Math.atan2(bx, bz) - m.g.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832; m.u.head.rotation.y += (THREE.MathUtils.clamp(ha, -1, 1) - m.u.head.rotation.y) * Math.min(1, dt * 3) } else m.u.head.rotation.y *= 0.94 } // 近づくと顔をこちらへ
+  }
+}
 // ── 走り回る子（追いかけっこ）と立ち話＝公園/校庭/道の賑わい（賑わいPhase2・2026-06-27）──
 //   既存の歩行スイング(line8635)を速く・大きくし前傾＝走り。立ち話は2人が向き合い身振り/うなずき。時間帯＋距離でゲート。
 const runGroups = [], chatPairs = []
@@ -9400,6 +9481,7 @@ function update(dt) {
   updateContrail(dt) // 飛行機雲（夏の空に一機）
   updateChimneys(tsec) // 夕餉の煙（夕方に家々から）
   updateFishers(dt) // 釣り人（二ツ池・三ツ池の岸・朝〜昼下がり・近接時のみ）
+  updateUchimizu(dt) // 打ち水（夕方・家の前・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
@@ -11096,6 +11178,7 @@ window.__proto3d = {
   get day() { return day },
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
+  _uchimizu() { initUchimizu(); return uchimizu.map((m) => { let sx = null, sy = null, sz = null; for (let i = 0; i < m.vel.length; i++) { if (m.vel[i].life > 0) { sx = +m.pos[i * 3].toFixed(1); sy = +m.pos[i * 3 + 1].toFixed(1); sz = +m.pos[i * 3 + 2].toFixed(1); break } } return { x: +m.g.position.x.toFixed(0), z: +m.g.position.z.toFixed(0), ry: +m.g.rotation.y.toFixed(2), vis: m.drops.visible, live: m.vel.filter((v) => v.life > 0).length, wet: +m.wet.material.opacity.toFixed(2), drop: sx === null ? null : [sx, sy, sz] } }) }, // 検証用：打ち水の人の位置・飛んでる水滴数/サンプル座標・路面の濡れ
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
   _toro() { return { on: toroNagashi.visible, lanterns: toroList.length, watchers: toroWatchers.map((w) => ({ x: +w.g.position.x.toFixed(1), y: +w.g.position.y.toFixed(2), z: +w.g.position.z.toFixed(1), rot: +w.g.rotation.y.toFixed(2), child: w.child })) } }, // 検証用：灯籠流しの灯籠数＋岸辺で見送る人の位置
   _lamps() { return (typeof lampBugs !== 'undefined' ? lampBugs : []).map((b) => ({ x: +b.cx.toFixed(1), z: +b.cz.toFixed(1), y: +b.cy.toFixed(1) })) }, // 検証用：夜の街灯（電球）の実位置（路肩スナップ後）
