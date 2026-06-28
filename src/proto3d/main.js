@@ -6694,6 +6694,8 @@ addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子
   beside(vAt('上の宮中学校'), 16, 16, 3.0) }  // 上の宮中学校のグラウンド（3日目の祭り）
 populateFestSpectators() // 縁日の人だかり＝npcSpotOk(水/建物/道よけ)が使えるここで生成（TDZ回避・上の関数定義は先・呼び出しは後）
 // ── 夜の街灯（昭和の田舎道の角＝コンクリ柱＋小さなかさ＋暖色の灯り＋空気中のやわらかい光のコーン＋地面の光だまり）。夜の道のあかり＝最強の夜エモ（2026-06-28）。道のど真ん中は避け、近ければ少し脇へ寄せる ──
+const lampBugs = [] // 街灯に集まる夜の虫（蛾・羽虫）＝夏の夜のあかりに集まる虫。updateで灯りのまわりを舞う
+const lampBugTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); const gr = x.createRadialGradient(8, 8, 0, 8, 8, 8); gr.addColorStop(0, 'rgba(255,250,235,1)'); gr.addColorStop(0.5, 'rgba(245,235,210,0.5)'); gr.addColorStop(1, 'rgba(245,235,210,0)'); x.fillStyle = gr; x.beginPath(); x.arc(8, 8, 8, 0, 6.283); x.fill(); return new THREE.CanvasTexture(c) })()
 function makeYatoLamp(x, z) {
   if (onYatoRoadCore(x, z)) { let moved = false; for (let r = 1.5; r <= 5 && !moved; r += 1.0) for (let a = 0; a < 6.28; a += 0.7) { const nx = x + Math.cos(a) * r, nz = z + Math.sin(a) * r; if (!onYatoRoadCore(nx, nz) && !npcInWater(nx, nz)) { x = nx; z = nz; moved = true; break } } }
   const gy = heightAtYato(x, z)
@@ -6703,6 +6705,12 @@ function makeYatoLamp(x, z) {
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a0, fog: false, transparent: true, opacity: 0 })); bulb.position.set(x - 0.56, gy + 3.97, z); scene.add(bulb); townNightLights.push({ m: bulb, base: 1.0, ph: Math.random() * 6, flame: true })
   const cone = new THREE.Mesh(new THREE.ConeGeometry(1.45, 3.5, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd890, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); cone.position.set(x - 0.56, gy + 2.15, z); cone.layers.set(1); scene.add(cone); townNightLights.push({ m: cone, base: 0.06, ph: Math.random() * 6, fa: 0.05 }) // 空気中の光のコーン（加算・ごく淡く）
   const pool = new THREE.Mesh(new THREE.CircleGeometry(2.5, 18), new THREE.MeshBasicMaterial({ color: 0xffce84, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); pool.rotation.x = -Math.PI / 2; pool.position.set(x - 0.56, gy + 0.05, z); scene.add(pool); townNightLights.push({ m: pool, base: 0.2, ph: Math.random() * 6 }) // 地面の光だまり
+  // 灯りに集まる夜の虫（蛾・羽虫）＝夏の夜のあかりに群がる虫。灯りのまわりを不規則に舞う
+  const NB = 7, bp = new Float32Array(NB * 3), bcx = x - 0.56, bcy = gy + 3.95, bcz = z
+  for (let i = 0; i < NB; i++) { bp[i * 3] = bcx; bp[i * 3 + 1] = bcy; bp[i * 3 + 2] = bcz }
+  const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.BufferAttribute(bp, 3))
+  const bpts = new THREE.Points(bgeo, new THREE.PointsMaterial({ color: 0xefe6cc, size: 0.1, map: lampBugTex, transparent: true, opacity: 0, depthWrite: false, fog: true, blending: THREE.AdditiveBlending }))
+  scene.add(bpts); lampBugs.push({ pts: bpts, cx: bcx, cy: bcy, cz: bcz, n: NB, seed: Math.random() * 100 })
 }
 for (const [lx, lz] of [[3016, 14], [3012, -2], [2966, -88], [2933, -52], [2770, -148], [2756, -138], [3060, -118], [3852, -700]]) makeYatoLamp(lx, lz) // 開始位置/家並み/ビスコ前/商店街/谷戸の道/三ツ池
 addChatPair(3010, 22, 0.6)   // バス通りぎわ
@@ -9592,6 +9600,16 @@ function update(dt) {
     // flame=お祭りの紙提灯＝ろうそく/裸電球らしい有機的なゆらぎ（多周波の重ね＝56〜100%でちらちら息づく）。それ以外は従来の控えめな一定ゆらぎ
     const fl = L.flame ? (0.8 + 0.2 * (0.55 * Math.sin(tsec * 2.6 + L.ph) + 0.27 * Math.sin(tsec * 6.3 + L.ph * 1.7) + 0.18 * Math.sin(tsec * 11.1 + L.ph * 0.6))) : (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph))
     L.m.material.opacity = wl * L.base * fl } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
+  // 街灯に集まる夜の虫（蛾・羽虫）＝灯りのまわりを不規則に舞う（夜だけ・近くだけ更新＝軽く）
+  if (lampBugs.length && winLit > 0.05) { const bt = tsec
+    for (const B of lampBugs) {
+      if ((boy.position.x - B.cx) ** 2 + (boy.position.z - B.cz) ** 2 > 3600) { if (B.pts.material.opacity !== 0) B.pts.material.opacity = 0; continue } // 60m以遠は消して更新もしない
+      const pos = B.pts.geometry.attributes.position.array
+      for (let i = 0; i < B.n; i++) { const ph = B.seed + i * 1.7, a = bt * (1.1 + (i % 3) * 0.4) + ph
+        pos[i * 3] = B.cx + Math.cos(a) * (0.35 + 0.18 * Math.sin(bt * 2.3 + ph)) + Math.sin(bt * 5.1 + ph) * 0.06
+        pos[i * 3 + 1] = B.cy + Math.sin(bt * 1.7 + ph) * 0.3 + Math.cos(bt * 4.3 + ph * 1.3) * 0.08
+        pos[i * 3 + 2] = B.cz + Math.sin(a * 0.9) * (0.35 + 0.18 * Math.cos(bt * 2.1 + ph)) + Math.cos(bt * 4.7 + ph) * 0.06 }
+      B.pts.geometry.attributes.position.needsUpdate = true; B.pts.material.opacity = winLit * 0.85 } }
   // 蛍：夕暮れ(0.55)〜夜に灯り、低くふわふわ漂う。明るい時間は更新を止めて軽くする
   if (fireflies) { const fg = THREE.MathUtils.smoothstep(tday, 0.55, 0.70); fireflies.mat.uniforms.uGlow.value = fg; fireflies.mat.uniforms.uTime.value = tsec
     if (fg > 0.02) { const P = fireflies.pos, A = fireflies.anchor, S = fireflies.seed, n = fireflies.count
