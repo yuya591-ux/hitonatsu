@@ -5996,22 +5996,22 @@ function populateFestDancers() {
       shirt: col, skirt: col, jinTrim: 0xeae3d2, skin: rpick(skins), hair: rpick(hairs), boy: !!drummer, adult: !child, hairStyle: rpick(styles), scale: child ? 0.7 : (0.96 + Math.random() * 0.08), info: { name: '', byPhase: { noon: [''] } } })
     if (!drummer) { const obi = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.09, 10), charToon(rpick([0xcc9a3a, 0xb5462f, 0x3a5a8a]))); obi.position.y = PROP.waistY + 0.04; obi.castShadow = true; v.add(obi) } // 帯
     group.add(v) // sceneから会場グループへ付け替え（開催日だけ見える）
-    return { g: v, armL: v.userData.armL, armR: v.userData.armR }
+    return { g: v, armL: v.userData.armL, armR: v.userData.armR, elbowL: v.userData.elbowL, elbowR: v.userData.elbowR, kneeL: v.userData.kneeL, kneeR: v.userData.kneeR }
   }
   for (const job of festDancerJobs) {
     const { group, ox, oz, oy } = job, RD = Math.min(6.0, (job.RR || 10) - 3.5), N1 = 6, N2 = 6 // 内輪6＋外輪6＋太鼓打ち1（主人公級なので数は控えめ＝質で賑わい）
     for (let i = 0; i < N1; i++) { const a = (i / N1) * 6.283, d = mk(group, ox + Math.cos(a) * RD, oz + Math.sin(a) * RD, yukataCols[i % yukataCols.length], i, i === 2, false)
-      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, cx: ox, cz: oz, r: RD, a0: a, ph: i * 0.73, baseY: oy, beat: false, style: i % 3 }) }
+      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, elbowL: d.elbowL, elbowR: d.elbowR, kneeL: d.kneeL, kneeR: d.kneeR, cx: ox, cz: oz, r: RD, a0: a, ph: i * 0.73, baseY: oy, beat: false, style: i % 3 }) }
     const RD2 = RD + 3.0
     for (let i = 0; i < N2; i++) { const a = (i / N2) * 6.283 + 0.26, d = mk(group, ox + Math.cos(a) * RD2, oz + Math.sin(a) * RD2, yukataCols[(i + 3) % yukataCols.length], i + 2, i === 4, false)
-      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, cx: ox, cz: oz, r: RD2, a0: a, ph: i * 0.61 + 1.0, baseY: oy, beat: false, style: (i + 1) % 3 }) }
-    const dr = mk(group, ox, oz, 0xeae6da, 0, false, true); festFigs.push({ g: dr.g, armL: dr.armL, armR: dr.armR, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.82, beat: true }) // 櫓の上で太鼓を打つ人（甚平）
+      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, elbowL: d.elbowL, elbowR: d.elbowR, kneeL: d.kneeL, kneeR: d.kneeR, cx: ox, cz: oz, r: RD2, a0: a, ph: i * 0.61 + 1.0, baseY: oy, beat: false, style: (i + 1) % 3 }) }
+    const dr = mk(group, ox, oz, 0xeae6da, 0, false, true); festFigs.push({ g: dr.g, armL: dr.armL, armR: dr.armR, elbowL: dr.elbowL, elbowR: dr.elbowR, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.82, beat: true }) // 櫓の上で太鼓を打つ人（甚平）
     for (let i = 0; i < 3; i++) { const d = mk(group, ox - 8 + i * 6, oz + 9, [0xe06a8a, 0x4a9ad0, 0xf0c84a][i], i + 1, true, false) // 走り回る子ども（浴衣・小柄）
       const it = new THREE.Group()
       if (i === 0) { const bag = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 7), new THREE.MeshToonMaterial({ color: 0xcfe8f0, gradientMap: GRAD, transparent: true, opacity: 0.82 })); bag.scale.y = 1.25; it.add(bag); const fish = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), toon(0xe0622a)); fish.position.y = -0.015; it.add(fish) } // 金魚袋
       else { const yo = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 7), toon([0xe03a5a, 0x3a8ad0, 0xf0c020][i % 3])); it.add(yo) } // ヨーヨー
       it.position.set(0.2, 0.82, 0.16); d.g.add(it)
-      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, cx: ox - 8 + i * 6, cz: oz + 9, r: 3.5 + i, ph: i * 2.1, baseY: oy, roam: true }) }
+      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, elbowL: d.elbowL, elbowR: d.elbowR, kneeL: d.kneeL, kneeR: d.kneeR, cx: ox - 8 + i * 6, cz: oz + 9, r: 3.5 + i, ph: i * 2.1, baseY: oy, roam: true }) }
   }
   festDancerJobs.length = 0
 }
@@ -8561,17 +8561,19 @@ function updateFestival(dt) {
   if (festFigs.length) { const ft = performance.now() * 0.001
     for (const d of festFigs) {
       if (d.g.parent && !d.g.parent.visible) continue // ★性能：見えていない会場(昼/開催日でない/遠い)の踊り手は動かさない＝約115体を毎フレーム計算していた無駄を省く（密度は維持・見える会場だけ動く・2026-06-28）
-      if (d.beat) { const b = Math.sin(ft * 7.0); d.g.position.set(d.cx, d.baseY, d.cz); d.g.rotation.y = 0; d.armL.rotation.x = -1.5 + b * 0.5; d.armR.rotation.x = -1.5 - b * 0.5 } // 太鼓打ち＝腕を速く上下
+      if (d.beat) { const b = Math.sin(ft * 7.0); d.g.position.set(d.cx, d.baseY, d.cz); d.g.rotation.y = 0; d.armL.rotation.x = -1.5 + b * 0.5; d.armR.rotation.x = -1.5 - b * 0.5; if (d.elbowL) { d.elbowL.rotation.x = -0.85 + b * 0.25; d.elbowR.rotation.x = -0.85 - b * 0.25 } } // 太鼓打ち＝腕を速く上下＋肘を曲げてバチを振る
       else if (d.roam) { const wx = d.cx + Math.sin(ft * 0.5 + d.ph) * d.r, wz = d.cz + Math.cos(ft * 0.41 + d.ph * 1.3) * d.r // 子どもが走り回る（リサージュのふらふら歩き）
         d.g.position.set(wx, d.baseY + Math.abs(Math.sin(ft * 5.5 + d.ph)) * 0.13, wz)
         d.g.rotation.y = Math.atan2(Math.cos(ft * 0.5 + d.ph), -Math.sin(ft * 0.41 + d.ph * 1.3)) // 進行方向を向く
-        const rs = Math.sin(ft * 6 + d.ph); d.armL.rotation.x = rs * 1.1; d.armR.rotation.x = -rs * 1.1 } // 走る腕振り
+        const rs = Math.sin(ft * 6 + d.ph); d.armL.rotation.x = rs * 1.1; d.armR.rotation.x = -rs * 1.1
+        if (d.kneeL) { d.kneeL.rotation.x = Math.max(0, Math.sin(ft * 6 + d.ph + 1.6)) * 1.0; d.kneeR.rotation.x = Math.max(0, Math.sin(ft * 6 + d.ph + 1.6 + Math.PI)) * 1.0 } // 走る＝振り出す側の膝を高く上げる
+        if (d.elbowL) { d.elbowL.rotation.x = -1.0; d.elbowR.rotation.x = -1.0 } } // 肘を曲げて腕を振る
       else { const a = d.a0 + ft * 0.085, sw = Math.sin(ft * 1.9 + d.ph) // ゆっくり輪が回る
         d.g.position.set(d.cx + Math.cos(a) * d.r, d.baseY + Math.abs(Math.sin(ft * 1.9 + d.ph)) * 0.07, d.cz + Math.sin(a) * d.r)
         d.g.rotation.y = -a + Math.PI / 2 // 進行方向（接線）を向く＝輪に沿って踊る
-        if (d.style === 1) { d.armL.rotation.x = -1.45 + sw * 0.3; d.armR.rotation.x = -1.45 - sw * 0.3; d.armL.rotation.z = 0; d.armR.rotation.z = 0 } // 両手を上げて
-        else if (d.style === 2) { const cl = Math.abs(Math.sin(ft * 3.2 + d.ph)); d.armL.rotation.x = -1.0; d.armR.rotation.x = -1.0; d.armL.rotation.z = 0.5 - cl * 0.35; d.armR.rotation.z = -0.5 + cl * 0.35 } // 手拍子（前で合わせる）
-        else { d.armL.rotation.x = -0.5 + sw * 0.95; d.armR.rotation.x = -0.5 - sw * 0.95; d.armL.rotation.z = 0; d.armR.rotation.z = 0 } } // 腕を交互に上下
+        if (d.style === 1) { d.armL.rotation.x = -1.45 + sw * 0.3; d.armR.rotation.x = -1.45 - sw * 0.3; d.armL.rotation.z = 0; d.armR.rotation.z = 0; if (d.elbowL) { d.elbowL.rotation.x = -0.7 + sw * 0.25; d.elbowR.rotation.x = -0.7 - sw * 0.25 } } // 両手を上げて（肘も曲げてしなやかに）
+        else if (d.style === 2) { const cl = Math.abs(Math.sin(ft * 3.2 + d.ph)); d.armL.rotation.x = -1.0; d.armR.rotation.x = -1.0; d.armL.rotation.z = 0.5 - cl * 0.35; d.armR.rotation.z = -0.5 + cl * 0.35; if (d.elbowL) { d.elbowL.rotation.x = -1.0 - cl * 0.3; d.elbowR.rotation.x = -1.0 - cl * 0.3 } } // 手拍子（前で肘を曲げて合わせる）
+        else { d.armL.rotation.x = -0.5 + sw * 0.95; d.armR.rotation.x = -0.5 - sw * 0.95; d.armL.rotation.z = 0; d.armR.rotation.z = 0; if (d.elbowL) { d.elbowL.rotation.x = -0.5 + sw * 0.2; d.elbowR.rotation.x = -0.5 - sw * 0.2 } } } // 腕を交互に上下（肘も連動）
     } }
   // 縁日の人だかり＝立ち見はそっと体重を移しつつ踊りを目で追う／練り歩く客は屋台の前をゆっくり往復。うちわをパタパタ
   if (festSpectators.length) { const ft = performance.now() * 0.001
