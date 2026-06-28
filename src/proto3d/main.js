@@ -6614,9 +6614,10 @@ addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子
 { const vAt = (n) => FEST_VENUES.find((v) => v.name === n)
   const beside = (v, ox, oz, r) => { if (v) addRunGroup(v.pos.x + ox, v.pos.y + oz, r, { penlight: true, night: true, venue: v }) }
   const vSchool = vAt('校庭')
-  beside(vSchool, -14, 14, 3.0); beside(vSchool, 16, 12, 3.2) // 校庭＝広いので2組（ユーザーの記憶の核）。会場の南がわ＝ラジオ体操と同じ平らな開けた所
-  beside(vAt('金井公園'), 13, 11, 3.0)        // 金井公園（2日目の祭り）
-  beside(vAt('上の宮中学校'), 15, 13, 3.0) }  // 上の宮中学校のグラウンド（3日目の祭り）
+  // 会場から十分離して、広い校庭の空いたスペースの真ん中あたりへ（ユーザー指摘2026-06-28「お祭り会場に近すぎる・もっと手前の真ん中に」）。校庭は z[-237..-135] と広いので会場(z-186)の手前(南)の開けた中ほどに置く
+  beside(vSchool, -10, 30, 3.4); beside(vSchool, 11, 27, 3.2) // 校庭＝広いので2組（ユーザーの記憶の核）
+  beside(vAt('金井公園'), 14, 16, 3.0)        // 金井公園（2日目の祭り）
+  beside(vAt('上の宮中学校'), 16, 16, 3.0) }  // 上の宮中学校のグラウンド（3日目の祭り）
 addChatPair(3010, 22, 0.6)   // バス通りぎわ
 addChatPair(2762, -150, 1.9) // 商店街の道
 addChatPair(2960, -330, 0.3) // 谷戸の道
