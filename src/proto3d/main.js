@@ -9801,24 +9801,32 @@ function update(dt) {
   for (const dg of dogs) { const u = dg.userData
     u.bark -= dt; if (u.bark <= 0) { u.bark = 7 + Math.random() * 11; u.barkT = 0.7 } // 数秒おきに一吠え
     const barking = u.barkT > 0; if (barking) u.barkT -= dt
-    // うろつき（pace）：数秒おきに「前後にうろうろ」と「立ち止まり」を切り替える。吠えてる間は止まる
+    // 主人公が近いと気づいて喜ぶ／いなければ犬小屋のそばを前後にうろつく（pace）。吠えてる間は止まる
+    const gd = Math.hypot(dg.position.x - boy.position.x, dg.position.z - boy.position.z)
+    const greet = (area === 'yato' || onYato) && gd < 6 && !barking // そばに来たら気づいて反応
+    u.exc = THREE.MathUtils.clamp((u.exc || 0) + (greet ? dt * 3 : -dt * 2), 0, 1) // 興奮度（なめらかに上下）
     u.paceTimer -= dt
     if (u.paceTimer <= 0) { u.pacing = !u.pacing; u.paceTimer = u.pacing ? 3 + Math.random() * 3 : 5 + Math.random() * 6 }
-    if (u.pacing && !barking) {
+    if (greet) { // 主人公に気づいて喜ぶ＝こちらを向き、尾を激しく振り、軽く弾む（番犬の生活感・2026-06-28）
+      u.dmoving = false
+      const tr = Math.atan2(-(boy.position.z - dg.position.z), boy.position.x - dg.position.x); let da = tr - dg.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; dg.rotation.y += da * Math.min(1, dt * 5)
+      dg.position.y = heightAt(dg.position.x, dg.position.z) + Math.abs(Math.sin(tsec * 7)) * 0.035 * u.exc // うれしくて軽く弾む
+    } else if (u.pacing && !barking) {
       u.paceProg += dt * 0.42 * u.paceDir; if (u.paceProg >= 1) { u.paceProg = 1; u.paceDir = -1 } else if (u.paceProg <= 0) { u.paceProg = 0; u.paceDir = 1 } // 0〜1を往復
       const dist = u.paceProg * 1.3, nx = Math.cos(u.ry0), nz = -Math.sin(u.ry0) // 犬の鼻向き(+x)に沿って前後（最大1.3m）
       dg.position.set(u.hx + nx * dist, heightAt(u.hx + nx * dist, u.hz + nz * dist) + Math.abs(Math.sin(u.gphase)) * 0.02, u.hz + nz * dist)
       const tr = u.paceDir > 0 ? u.ry0 : u.ry0 + Math.PI; let da = tr - dg.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; dg.rotation.y += da * Math.min(1, dt * 6) // 進む向きへ（戻る時は反転）＝後ずさりでなく向きを変えて歩く
       u.gphase += dt * 8; u.dmoving = true
-    } else { u.dmoving = false; if (dg.position.x !== u.hx || dg.position.z !== u.hz) { /* 立ち止まり位置はそのまま */ } let da = u.ry0 - dg.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; if (u.paceProg < 0.05) dg.rotation.y += da * Math.min(1, dt * 3) } // 巣の前で元の向きへ
+    } else { u.dmoving = false; let da = u.ry0 - dg.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; if (u.paceProg < 0.05) dg.rotation.y += da * Math.min(1, dt * 3) } // 巣の前で元の向きへ
     if (u.legs) { const sw = u.dmoving ? Math.sin(u.gphase) * 0.55 : 0 // 4足歩行＝対角の足が同じ向きに前後
       u.legs[0].rotation.z = sw; u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
     const up = barking ? Math.sin((1 - u.barkT / 0.7) * Math.PI) : 0 // 0→1→0で頭を上げて戻す
-    if (u.head) { // 頭の動き＝吠える時は鼻面を上げる／歩くと小さく上下＋左右／立ち止まると たまに地面をくんくん（より犬らしく・2026-06-28）
+    if (u.head) { // 頭の動き＝吠える時は鼻面を上げる／喜ぶ時は顔を上げてこちらを見る／歩くと小さく上下＋左右／立ち止まると たまに地面をくんくん（より犬らしく・2026-06-28）
       if (barking) { u.head.rotation.z = 0.5 * up; u.head.rotation.y = 0 }
+      else if (greet) { u.head.rotation.z += (0.22 - u.head.rotation.z) * Math.min(1, dt * 5); u.head.rotation.y += (0 - u.head.rotation.y) * Math.min(1, dt * 5) } // 顔を上げて主人公を見る
       else if (u.dmoving) { u.head.rotation.z = Math.sin(u.gphase) * 0.05; u.head.rotation.y = Math.sin(u.gphase * 0.5) * 0.06 }
       else { const sn = Math.max(0, Math.sin(tsec * 0.5 + u.ph)); u.head.rotation.z = -0.5 * sn * sn; u.head.rotation.y = 0 } }
-    if (u.tail) u.tail.rotation.z = 1.0 + Math.sin(tsec * (barking ? 16 : 6) + u.ph) * (barking ? 0.5 : 0.35) // 吠える時はしっぽ激しく・普段もぶんぶん
+    if (u.tail) u.tail.rotation.z = 1.0 + Math.sin(tsec * (barking ? 16 : 6 + u.exc * 12) + u.ph) * (barking ? 0.5 : 0.35 + u.exc * 0.45) // 吠える時/喜ぶ時はしっぽ激しく・普段もぶんぶん
   }
   // 女の子の生活リズム（時間帯の居場所へゆっくり歩く・会話中は止まる）
   if (!dialogue) {
