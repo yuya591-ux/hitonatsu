@@ -5494,10 +5494,14 @@ function makeCat(furCol, creamCol) {
     const ein = new THREE.Mesh(new THREE.ConeGeometry(0.036, 0.085, 5), toon(0xe6a8a4)); ein.position.set(0.485, 0.79, ez); g.add(ein) // 耳の中のピンク
   }
   const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.026, 0.62, 6), fur); tail.geometry.translate(0, 0.31, 0); tail.position.set(-0.46, 0.44, 0); tail.rotation.z = -1.0; g.add(tail) // 根元支点で振るしなやかな尾
+  const legs = [] // 4本の脚を股ピボット化＝歩く時に交互に振る（4足歩行・ユーザー要望2026-06-28）。並び＝前左/前右/後左/後右
   for (const [lx, lz] of [[0.25, 0.12], [0.25, -0.12], [-0.27, 0.12], [-0.27, -0.12]]) {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.038, 0.42, 6), fur); leg.position.set(lx, 0.21, lz); g.add(leg) // 細め・少し長めの脚（棒立ちの塊感をなくす）
-    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.058, 8, 6), cream); paw.scale.set(1, 0.72, 1.25); paw.position.set(lx + 0.02, 0.03, lz); g.add(paw) // 白い足先（前へ少し）
+    const hip = new THREE.Group(); hip.position.set(lx, 0.42, lz); g.add(hip) // 脚の付け根（ここを支点に前後へ振る）
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.038, 0.42, 6), fur); leg.position.y = -0.21; hip.add(leg) // 付け根からぶら下がる細め・少し長めの脚
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.058, 8, 6), cream); paw.scale.set(1, 0.72, 1.25); paw.position.set(0.02, -0.4, 0); hip.add(paw) // 白い足先
+    legs.push(hip)
   }
+  g.userData.legs = legs
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く猫も残像防止で影マップへ焼かない
   outlineObj(g, 0.02); addContactShadow(g, 0.62)
   // 顔（輪郭線の後・フチ無し）：目・鼻
@@ -5534,11 +5538,15 @@ function makeDog(furCol, creamCol) {
   { const sn = new THREE.Mesh(new THREE.SphereGeometry(0.135, 12, 10), cream); sn.scale.set(1.3, 0.82, 0.85); sn.position.set(0.24, -0.05, 0); head.add(sn) } // 鼻面（前へ）
   for (const ez of [-0.17, 0.17]) { const ear = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), fur); ear.scale.set(0.5, 1.2, 0.85); ear.position.set(-0.04, 0.03, ez); ear.rotation.x = ez > 0 ? 0.22 : -0.22; head.add(ear) } // 垂れ耳
   const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.032, 0.5, 6), fur); tail.geometry.translate(0, 0.25, 0); tail.position.set(-0.5, 0.6, 0); tail.rotation.z = 1.0; g.add(tail); g.userData.tail = tail // 上向きのしっぽ（根元支点で振る）
+  const dlegs = [] // 4本の脚を股ピボット化＝歩く時に交互に振る（4足歩行・ユーザー要望2026-06-28）。並び＝前左/前右/後左/後右
   for (const [lx, lz, back] of [[0.34, 0.18, 0], [0.34, -0.18, 0], [-0.34, 0.18, 1], [-0.34, -0.18, 1]]) {
-    if (back) { const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), fur); thigh.scale.set(0.86, 1.12, 0.86); thigh.position.set(lx + 0.03, 0.34, lz); g.add(thigh) } // 後ろ脚の腿のふくらみ＝犬らしさ
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.52, 6), fur); leg.position.set(lx, 0.26, lz); g.add(leg) // 細め・少し長めの脚
-    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.072, 8, 6), cream); paw.scale.set(1, 0.72, 1.25); paw.position.set(lx + 0.02, 0.03, lz); g.add(paw)
+    const hip = new THREE.Group(); hip.position.set(lx, 0.52, lz); g.add(hip) // 脚の付け根（ここを支点に前後へ振る）
+    if (back) { const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), fur); thigh.scale.set(0.86, 1.12, 0.86); thigh.position.set(0.03, -0.18, 0); hip.add(thigh) } // 後ろ脚の腿のふくらみ
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.52, 6), fur); leg.position.y = -0.26; hip.add(leg) // 付け根からぶら下がる細め・少し長めの脚
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.072, 8, 6), cream); paw.scale.set(1, 0.72, 1.25); paw.position.set(0.02, -0.49, 0); hip.add(paw)
+    dlegs.push(hip)
   }
+  g.userData.legs = dlegs
   { const col = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.038, 6, 14), toon(0xb5462f)); col.position.set(0.46, 0.68, 0); col.rotation.y = Math.PI / 2; col.scale.set(1, 0.85, 1); g.add(col) } // 赤い首輪（首のあたり）
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く犬も残像防止
   outlineObj(g, 0.022); addContactShadow(g, 0.78)
@@ -5558,7 +5566,7 @@ const dogs = []
 for (const [dx, dz, rot, fc, cc] of [[2952, -64, 2.2, 0xc89b62, 0xf0e6d2], [3086, -150, -1.0, 0x6b5640, 0xe8ddc8]]) {
   const d = makeDog(fc, cc); const gy = heightAt(dx, dz); d.position.set(dx, gy, dz); d.rotation.y = rot
   makeKennel(dx - Math.cos(rot) * 1.2, dz - Math.sin(rot) * 1.2, rot + Math.PI) // 犬小屋は犬の後ろ
-  Object.assign(d.userData, { bark: 4 + Math.random() * 8, barkT: 0, ph: Math.random() * 6.28 }); dogs.push(d)
+  Object.assign(d.userData, { bark: 4 + Math.random() * 8, barkT: 0, ph: Math.random() * 6.28, hx: dx, hz: dz, ry0: rot, paceProg: 0, paceDir: 1, pacing: false, paceTimer: 4 + Math.random() * 6, gphase: Math.random() * 6.28, dmoving: false }); dogs.push(d) // pace=繋がれた犬が前後にうろうろ歩く（歩行モーション・2026-06-28）
 }
 
 // ── 主人公（丸っこく立体的な少年・麦わら帽子。あどけない頭でっかちの体つき）──
@@ -9734,21 +9742,37 @@ function update(dt) {
   // うろつく猫（縄張りのまわりを気ままに・休む）。獅子ヶ谷に複数匹
   for (let ci = 0; ci < cats.length; ci++) {
     const ct = cats[ci], u = ct.userData, resting = u.rest > 0
-    if (resting) { u.rest -= dt * 1000 } else {
+    if (resting) { u.rest -= dt * 1000; u.moving = false } else {
       const dx = u.tx - ct.position.x, dz = u.tz - ct.position.z; const d = Math.hypot(dx, dz)
-      if (d < 0.3) {
+      if (d < 0.3) { u.moving = false
         if (Math.random() < 0.5) u.rest = 2000 + Math.random() * 4000
         else { u.tx = u.homeX + (Math.random() - 0.5) * 18; u.tz = u.homeZ + (Math.random() - 0.5) * 18 }
-      } else { const s = 1.1 * dt; ct.position.x += (dx / d) * s; ct.position.z += (dz / d) * s; ct.rotation.y = Math.atan2(dx, dz); u.phase += dt * 8 }
+      } else { const s = 1.1 * dt; ct.position.x += (dx / d) * s; ct.position.z += (dz / d) * s // 進む
+        const ta = Math.atan2(-dz, dx); let da = ta - ct.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832
+        ct.rotation.y += da * Math.min(1, dt * 6); u.phase += dt * 9; u.moving = true } // 進む向き（猫の前＝+x）へなめらかに向きを変える＝横すべりを解消
     }
-    ct.position.y = heightAt(ct.position.x, ct.position.z) + (!resting ? Math.abs(Math.sin(u.phase)) * 0.03 : 0)
+    ct.position.y = heightAt(ct.position.x, ct.position.z) + (u.moving ? Math.abs(Math.sin(u.phase)) * 0.025 : 0) // 歩くと軽く上下に弾む
     if (u.body) { const br = resting ? Math.sin(tsec * 1.6 + ci) * 0.045 : 0; u.body.scale.set(1 + br, 1, 1 + br * 0.8) } // 休む間はゆっくり呼吸（胴の girth がふくらむ。bodyは横向きカプセル＝local x/zが胴回り）
+    if (u.legs) { const sw = u.moving ? Math.sin(u.phase) * 0.6 : 0 // 4足歩行＝対角の足が同じ向きに前後（前左+後右／前右+後左）。脚の付け根をlocal zで前後に振る
+      u.legs[0].rotation.z = sw; u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
     if (u.tail) u.tail.rotation.z = -1.0 + Math.sin(tsec * (resting ? 1.4 : 2.5) + ci * 1.3) * (resting ? 0.16 : 0.28) // 休む時は尾もゆっくり・歩く時は元気に
   }
-  // 番犬：その場でしっぽを振り、たまに頭を上げて吠える（繋がれているので動かない・道/水に迷い込まない）
+  // 番犬：犬小屋のそばを前後にゆっくりうろつき（歩行モーション・脚を交互に振る）、立ち止まってしっぽを振り、たまに頭を上げて吠える（繋がれているので遠くへは行かない）
   for (const dg of dogs) { const u = dg.userData
     u.bark -= dt; if (u.bark <= 0) { u.bark = 7 + Math.random() * 11; u.barkT = 0.7 } // 数秒おきに一吠え
     const barking = u.barkT > 0; if (barking) u.barkT -= dt
+    // うろつき（pace）：数秒おきに「前後にうろうろ」と「立ち止まり」を切り替える。吠えてる間は止まる
+    u.paceTimer -= dt
+    if (u.paceTimer <= 0) { u.pacing = !u.pacing; u.paceTimer = u.pacing ? 3 + Math.random() * 3 : 5 + Math.random() * 6 }
+    if (u.pacing && !barking) {
+      u.paceProg += dt * 0.42 * u.paceDir; if (u.paceProg >= 1) { u.paceProg = 1; u.paceDir = -1 } else if (u.paceProg <= 0) { u.paceProg = 0; u.paceDir = 1 } // 0〜1を往復
+      const dist = u.paceProg * 1.3, nx = Math.cos(u.ry0), nz = -Math.sin(u.ry0) // 犬の鼻向き(+x)に沿って前後（最大1.3m）
+      dg.position.set(u.hx + nx * dist, heightAt(u.hx + nx * dist, u.hz + nz * dist) + Math.abs(Math.sin(u.gphase)) * 0.02, u.hz + nz * dist)
+      const tr = u.paceDir > 0 ? u.ry0 : u.ry0 + Math.PI; let da = tr - dg.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; dg.rotation.y += da * Math.min(1, dt * 6) // 進む向きへ（戻る時は反転）＝後ずさりでなく向きを変えて歩く
+      u.gphase += dt * 8; u.dmoving = true
+    } else { u.dmoving = false; if (dg.position.x !== u.hx || dg.position.z !== u.hz) { /* 立ち止まり位置はそのまま */ } let da = u.ry0 - dg.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; if (u.paceProg < 0.05) dg.rotation.y += da * Math.min(1, dt * 3) } // 巣の前で元の向きへ
+    if (u.legs) { const sw = u.dmoving ? Math.sin(u.gphase) * 0.55 : 0 // 4足歩行＝対角の足が同じ向きに前後
+      u.legs[0].rotation.z = sw; u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
     const up = barking ? Math.sin((1 - u.barkT / 0.7) * Math.PI) : 0 // 0→1→0で頭を上げて戻す
     if (u.head) u.head.rotation.z = 0.5 * up // 鼻面を上げて吠える
     if (u.tail) u.tail.rotation.z = 1.0 + Math.sin(tsec * (barking ? 16 : 6) + u.ph) * (barking ? 0.5 : 0.35) // 吠える時はしっぽ激しく・普段もぶんぶん
