@@ -6833,6 +6833,45 @@ function updateChickens(dt) {
     if (u.tail) u.tail.rotation.z = Math.sin(performance.now() * 0.002 + u.peckPh) * 0.05 // 尾羽がぴくぴく
   }
 }
+// ── あめんぼ（夏の池の水面をすいすい滑る＝夏の池の生きもの・C16/C19）。多数を1つのInstancedMeshで1ドロー・距離＋日中ゲート ──
+const STRIDER_N = 14
+let stridersInit = false, striderIM = null
+const striderSt = []
+const _striderM = new THREE.Matrix4(), _striderQ = new THREE.Quaternion(), _striderP = new THREE.Vector3(), _striderS = new THREE.Vector3(1, 1, 1), _striderUp = new THREE.Vector3(0, 1, 0), _striderHide = new THREE.Matrix4().makeScale(0, 0, 0)
+function makeStriderGeo() { // 細長い胴＋水面に広げた6本の細い脚（前2・中2(長い・横へ)・後2）を1ジオメトリに統合
+  const geos = [], b = new THREE.SphereGeometry(0.035, 6, 5); b.scale(2.6, 0.7, 0.95); geos.push(b)
+  for (const [a, c] of [[[0.05, 0, 0.012], [0.13, 0, 0.085]], [[0.05, 0, -0.012], [0.13, 0, -0.085]], [[0, 0, 0.02], [0.04, 0, 0.24]], [[0, 0, -0.02], [0.04, 0, -0.24]], [[-0.05, 0, 0.012], [-0.18, 0, 0.13]], [[-0.05, 0, -0.012], [-0.18, 0, -0.13]]]) {
+    const A = new THREE.Vector3(a[0], a[1], a[2]), d = new THREE.Vector3(c[0] - a[0], c[1] - a[1], c[2] - a[2]), len = d.length() || 0.01
+    const cg = new THREE.CylinderGeometry(0.0035, 0.0028, len, 4); cg.translate(0, len / 2, 0)
+    cg.applyMatrix4(new THREE.Matrix4().compose(A, new THREE.Quaternion().setFromUnitVectors(_striderUp, d.normalize()), _striderS)); geos.push(cg)
+  }
+  const m = mergeGeometries(geos); geos.forEach((g) => g.dispose()); return m
+}
+function initStriders() {
+  if (stridersInit || !YATO_PONDS.length) return; stridersInit = true
+  striderIM = new THREE.InstancedMesh(makeStriderGeo(), new THREE.MeshBasicMaterial({ color: 0x2c2a22, fog: true }), STRIDER_N)
+  striderIM.instanceMatrix.setUsage(THREE.DynamicDrawUsage); striderIM.frustumCulled = false; striderIM.castShadow = false; striderIM.layers.set(1); scene.add(striderIM)
+  const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3) // 面積上位3つ（二ツ池・三ツ池）
+  for (let i = 0; i < STRIDER_N; i++) { const P = ponds[i % ponds.length]; let x = P.cx, z = P.cz
+    for (let t = 0; t < 14; t++) { const ang = Math.random() * 6.28, r = Math.random() * P.br * 0.7, nx = P.cx + Math.cos(ang) * r, nz = P.cz + Math.sin(ang) * r; if (pip(nx, nz, P.p)) { x = nx; z = nz; break } }
+    striderSt.push({ P, x, z, dir: Math.random() * 6.28, dart: 0, rest: Math.random() * 1.5 }); striderIM.setMatrixAt(i, _striderHide)
+  }
+  striderIM.instanceMatrix.needsUpdate = true
+}
+function updateStriders(dt) {
+  initStriders(); if (!striderIM) return
+  let near = false; for (const P of YATO_PONDS) { if (Math.hypot(boy.position.x - P.cx, boy.position.z - P.cz) < 70) { near = true; break } } // いちばん近い池が近いか
+  const active = onYato && near && tday > 0.1 && tday < 0.82 // 日中・近接時だけ
+  if (striderIM.visible !== active) striderIM.visible = active
+  if (!active) return
+  for (let i = 0; i < striderSt.length; i++) { const s = striderSt[i]
+    if (s.dart > 0) { s.dart -= dt; const sp = 1.6 * dt, nx = s.x + Math.cos(s.dir) * sp, nz = s.z + Math.sin(s.dir) * sp
+      if (pip(nx, nz, s.P.p)) { s.x = nx; s.z = nz } else { s.dir += Math.PI * (0.6 + Math.random() * 0.8); s.dart = 0; s.rest = 0.3 + Math.random() } // 岸で向きを変えて内側へ
+    } else { s.rest -= dt; if (s.rest <= 0) { s.dir += (Math.random() - 0.5) * 2.2; s.dart = 0.12 + Math.random() * 0.16; s.rest = 0.5 + Math.random() * 1.6 } } // ひとかきしては すっと止まる
+    _striderP.set(s.x, heightAtYato(s.x, s.z) + 0.21, s.z); _striderQ.setFromAxisAngle(_striderUp, -s.dir); _striderM.compose(_striderP, _striderQ, _striderS); striderIM.setMatrixAt(i, _striderM)
+  }
+  striderIM.instanceMatrix.needsUpdate = true
+}
 // ── 走り回る子（追いかけっこ）と立ち話＝公園/校庭/道の賑わい（賑わいPhase2・2026-06-27）──
 //   既存の歩行スイング(line8635)を速く・大きくし前傾＝走り。立ち話は2人が向き合い身振り/うなずき。時間帯＋距離でゲート。
 const runGroups = [], chatPairs = []
@@ -9686,6 +9725,7 @@ function update(dt) {
   updateUchimizu(dt) // 打ち水（夕方・家の前・近接時のみ）
   updateDogWalkers(dt) // 犬の散歩（朝夕・住宅街の道・近接時のみ）
   updateChickens(dt) // にわとり（横溝屋敷の前庭・日中・近接時のみ）
+  updateStriders(dt) // あめんぼ（二ツ池/三ツ池の水面・日中・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
@@ -11387,6 +11427,7 @@ window.__proto3d = {
   get day() { return day },
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
+  _striders() { initStriders(); return { n: striderSt.length, vis: striderIM ? striderIM.visible : false, inPond: striderSt.filter((s) => pip(s.x, s.z, s.P.p)).length, sample: striderSt.slice(0, 3).map((s) => ({ x: +s.x.toFixed(0), z: +s.z.toFixed(0) })) } }, // 検証用：あめんぼ数・表示・池内にいる数
   _chickens() { initChickens(); return { yard: yokomizoYard, list: chickens.map((c) => ({ x: +c.position.x.toFixed(1), y: +c.position.y.toFixed(1), z: +c.position.z.toFixed(1), st: c.userData.state, vis: c.visible, hz: +c.userData.head.rotation.z.toFixed(2) })) } }, // 検証用：にわとりの位置・状態・頭の角度
   _dogwalkers() { initDogWalkers(); return dogWalkers.map((w) => ({ px: +w.person.position.x.toFixed(1), py: +w.person.position.y.toFixed(1), pz: +w.person.position.z.toFixed(1), dx: +w.dog.position.x.toFixed(1), dz: +w.dog.position.z.toFixed(1), vis: w.person.visible, gap: +Math.hypot(w.person.position.x - w.dog.position.x, w.person.position.z - w.dog.position.z).toFixed(2) })) }, // 検証用：犬の散歩（人と犬の位置・間隔）
   _uchimizu() { initUchimizu(); return uchimizu.map((m) => { let sx = null, sy = null, sz = null; for (let i = 0; i < m.vel.length; i++) { if (m.vel[i].life > 0) { sx = +m.pos[i * 3].toFixed(1); sy = +m.pos[i * 3 + 1].toFixed(1); sz = +m.pos[i * 3 + 2].toFixed(1); break } } return { x: +m.g.position.x.toFixed(0), z: +m.g.position.z.toFixed(0), ry: +m.g.rotation.y.toFixed(2), vis: m.drops.visible, live: m.vel.filter((v) => v.life > 0).length, wet: +m.wet.material.opacity.toFixed(2), drop: sx === null ? null : [sx, sy, sz] } }) }, // 検証用：打ち水の人の位置・飛んでる水滴数/サンプル座標・路面の濡れ
