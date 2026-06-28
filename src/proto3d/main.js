@@ -1603,6 +1603,7 @@ function makeShop(x, z, rot, opt) {
 const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自販機）。nfで点灯＝夜のエモさ
 const festLights = [] // お祭り会場の暖色の灯り（点光源）＝夜に踊り手と地面を温かく照らす（黒シルエットを解消・ユーザー指摘2026-06-26）
 const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori) // 盆踊り会場（櫓＋提灯）＝小学校の校庭。開催日だけ姿を見せる
+const finalDayProps = new THREE.Group(); finalDayProps.visible = false; scene.add(finalDayProps) // ひと夏の最終日(day>=TOTAL_DAYS)だけ世界が絵日記に呼応＝木の蝉の抜け殻・片付けかけの提灯。updateで day を見て visible 切替（喪失感をそっと）
 // 盆踊りの会場（櫓＋紅白幕＋太鼓＋提灯ガーランド＋屋台）を任意の場所(ox,oy,oz)に建てる。bonOdoriグループに入れ開催日だけ姿を見せ夜に灯る。獅子ヶ谷小学校の校庭(3124,-186)など複数会場で共用（ユーザー要望2026-06-24）
 function buildBonOdori(ox, oy, oz, grp, V) {
   V = V || {} // 会場ごとの個性（提灯/屋根/紅白幕の色・屋台の構成・見物客の装い）。省略時は校庭の既定＝従来の見た目（後方互換）
@@ -3498,6 +3499,28 @@ function buildShishigaya() {
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
 buildShishigaya()
+// ── ひと夏の最終日(day>=TOTAL_DAYS)だけ、世界が絵日記の言葉に呼応する小さな演出（喪失感をそっと）─────────────────
+//   絵日記の最終日テキスト：「せみの ぬけがらが、木に ひとつ のこっていた。なつが、すこし とおく なった。」「夕やけに とけて いった。」に
+//   ① 木に蝉の抜け殻（茶色・実体）② 片付けかけの祭りの名残り（畳んだゴザ＋外した提灯＋木箱）を世界側で実体化。
+//   いずれも finalDayProps（visible=false）に入れ、update で day を見て切替＝最終日だけ出る。夕焼けの濃さは gradePass.golden に最終日係数（別途）。
+;(function buildFinalDayProps() {
+  // 蝉の抜け殻＝飴色の小さな実体（背割れの胴＋頭＋しがみつく脚）。開始の通りの木かげの木(3034,56)の幹と、通りの木(3057,6)に1つずつ。
+  const addShell = (tx, tz, low) => { const g = new THREE.Group(), mat = toon(low ? 0xc89050 : 0xcf9a54) // 飴色（無地・完全オリジナル造形。暗い樹皮に埋もれず“見つけられる”明るめの茶）
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.028, 0.07, 3, 7), mat); body.rotation.x = -0.5; g.add(body) // 胴（背割れの抜け殻）
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.03, 7, 6), mat); head.position.set(0, 0.05, 0.018); g.add(head)
+    for (const s of [-1, 1]) for (const fz of [0.015, -0.02]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.004, 0.045, 4), mat); leg.position.set(s * 0.024, -0.008, fz); leg.rotation.z = s * 0.6; g.add(leg) } // しがみつく脚
+    const ang = (Math.abs(Math.round(tx) * 7 + Math.round(tz) * 3) % 628) / 100, r = 0.34 // 種で安定（幹のまわりの一定の向き）
+    g.position.set(tx + Math.cos(ang) * r, heightAtYato(tx, tz) + (low ? 0.95 : 1.45), tz + Math.sin(ang) * r) // 幹の低い〜中ほど
+    g.rotation.y = ang + Math.PI / 2; g.traverse((o) => { if (o.isMesh) o.castShadow = true }); mergedOutline(g, 0.012); finalDayProps.add(g) } // 背を幹の外へ（GroupなのでmergedOutline）
+  addShell(3034, 56, true); addShell(3036, 54, false) // 木かげの木の低い幹＋すぐ脇の木の枝＝歩いていてふと気づく1〜2個（開けた木かげの一角・建物に当たらない）
+  // 片付けかけの祭りの名残り：畳んで積んだゴザ＋外して地面に転がした赤提灯＋しまいかけの木箱。お祭り会場の内部は触らず、開始の通りの空き地の隅にそっと。
+  // 1グループにまとめて mergedOutline 1枚＝輪郭の追加ドローを最小化（密な核に近いので描画予算に配慮）。
+  { const tx = 3022, tz = 50, ty = heightAtYato(tx, tz), cleanup = new THREE.Group() // 開始の通りの木かげそばの空き地（建物/道に当たらない開けた一角・clearMargin≈13m）
+    for (let i = 0; i < 3; i++) { const goza = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.06, 0.7), toon(0xc7b079)); goza.position.set(tx + (i % 2) * 0.06, ty + 0.04 + i * 0.07, tz + i * 0.04); goza.rotation.y = 0.08 * i; goza.castShadow = true; cleanup.add(goza) } // 畳んで積んだゴザ
+    for (const [ox, oz, rz, ry] of [[1.0, 0.3, 1.35, 0], [1.18, 0.12, 1.5, 0.4]]) { const lan = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.36, 10), toon(0xc23a2a)); lan.position.set(tx + ox, ty + 0.16, tz + oz); lan.rotation.z = rz; lan.rotation.y = ry; lan.castShadow = true; cleanup.add(lan) } // 外して地面に転がした赤提灯（横倒し2つ）
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.5), toonMap(0x8a6a44, woodTex)); crate.position.set(tx - 0.9, ty + 0.21, tz - 0.2); crate.castShadow = true; cleanup.add(crate) // 屋台の木箱（道具をしまいかけ）
+    mergedOutline(cleanup, 0.012); finalDayProps.add(cleanup) }
+})()
 // ── 静的ワールドの空間チャンク化（性能・2026-06-29）─────────────────────────────────────
 //   問題：谷戸の町並み/樹林/地面は「全域に渡る1枚の巨大メッシュ」（merge済み or InstancedMesh）で作られている。
 //   これらは bounding sphere がワールド全体（約2500m四方）を覆うため Three.js のフラスタムカリングが一切効かず、
@@ -6188,6 +6211,10 @@ function makeVillager(x, z, opt) {
   let neckH = 0.11, neckCy = PROP.neckY, neckR2 = 0.05
   if (opt.adult) { const headBottom = PROP.headY + headRaise - PROP.headR * 0.95, top = headBottom + 0.016, base = 1.285; neckH = top - base; neckCy = (top + base) / 2; neckR2 = 0.056 }
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, neckR2, neckH, 14), skin); neck.position.y = neckCy; g.add(neck)
+  // 首手ぬぐい（昭和の夏＝汗ふきを首にかける年配・畑帰り）。首まわりの帯＋胸前に垂れる2本。無地（ロゴ無し）。共有ジオメトリは使わず小メッシュ3つ＝geom微増
+  if (opt.tenugui) { const tw = charToon(opt.tenuguiCol || 0xeae2cc), ny = neckCy + neckH / 2 - 0.01
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.018, 5, 12), tw); band.rotation.x = Math.PI / 2; band.position.set(0, ny, -0.01); g.add(band) // 首にかかる帯
+    for (const sx of [-1, 1]) { const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.02), tw); tail.position.set(sx * 0.045, ny - 0.09, 0.05); tail.rotation.z = sx * 0.1; g.add(tail) } } // 胸前に垂れる2本
   // あたま＝小さめ（主人公と同じ小学生の頭身に統一）。大人はさらに小さめ＝大人びた頭身
   const head = new THREE.Mesh(new THREE.SphereGeometry(PROP.headR, 18, 16), skin); if (opt.adult) { head.scale.set(0.89, 0.95, 0.87); head.position.y = PROP.headY + headRaise } else { head.scale.set(PROP.headSX, PROP.headSY, PROP.headSZ); head.position.y = PROP.headY } if (opt.headW) { head.scale.x *= opt.headW; head.scale.z *= opt.headW } g.add(head) // 大人は頭をさらに小さく＝高い頭身で大人らしく（ユーザー要望2026-06-25）。opt.headW=顔の幅の個体差（C5★）
   // 髪＝頭頂〜後頭部〜サイドを覆う“帽子状”のキャップ。顔（額〜目）は開けて、髪が顔に垂れて真っ黒に見えるのを防ぐ。
@@ -6583,12 +6610,16 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     const bag = false // 買い物袋は「夕方だけ出す時刻プロップ」へ移行（常時持ちはやめ、下で付ける）
     const hairStyle = hat ? undefined : rpick(boyP ? ['short', 'short', 'buzz'] : ['short', 'pony', 'bob']) // 髪型＝帽子なしの人に個体差
     // 服の型＝時代考証（昭和の夏）。女性/女の子＝ワンピース、男性＝甚平、年配の男性＝ランニングシャツ。子ども中心（C5★Step2＋時代考証2026-06-25）
-    let garment, apron = false, shirt = rpick(yPal), skirt = rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a])
+    let garment, apron = false, shirt = rpick(yPal), skirt = rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a]), tenugui = false, plainBoy = false
     if (!boyP) { if (Math.random() < 0.42) { garment = 'dress'; apron = adult && Math.random() < 0.5 } } // 女性/女の子
     else { const gr = Math.random()
-      if (adult && gr < 0.42) { garment = 'tank'; shirt = rpick([0xf0ece0, 0xe8e4d6, 0xeceadc]); skirt = rpick([0x4a4a52, 0x6a6256, 0x3a4250]) } // 年配の男性＝ランニングシャツ＋作業ズボン
-      else if (gr < 0.5) { garment = 'jinbei'; shirt = rpick([0x36506e, 0x2e3a52, 0x4a5a6a, 0x556070, 0x6a4248, 0x445a52]) } } // 甚平（藍/紺/鼠/えんじ/苔）
-    const p = makeVillager(seg.ax, seg.az, { shirt, skirt, skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, hat: garment === 'tank' && Math.random() < 0.55 ? 'straw' : hat, band: rpick(yPal), hairStyle, garment, apron, build: adult ? 0.95 + Math.random() * 0.33 : 0.9 + Math.random() * 0.18, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）
+      if (adult && gr < 0.34) { garment = 'tank'; shirt = rpick([0xf0ece0, 0xe8e4d6, 0xeceadc]); skirt = rpick([0x4a4a52, 0x6a6256, 0x3a4250]); tenugui = Math.random() < 0.5 } // 年配の男性＝ランニングシャツ＋作業ズボン＋首手ぬぐい（昭和の夏の汗ふき）
+      else if (gr < 0.46) { garment = 'jinbei'; shirt = rpick([0x36506e, 0x2e3a52, 0x4a5a6a, 0x556070, 0x6a4248, 0x445a52]) } // 甚平（藍/紺/鼠/えんじ/苔）
+      else if (gr < 0.74) { plainBoy = true; shirt = rpick([0xf4f0e8, 0xeeeae0, 0xf0ece2, 0xe8e8de]); skirt = rpick([0x46412f, 0x3a4250, 0x5a4a3a, 0x6a5a44, 0x2e3a52]) } // ★昭和の男児の普段着＝無地の白T＋カーキ/紺の半ズボン（ロゴ無し）。女児ワンピース偏重のバランス調整
+    }
+    if (adult && !boyP && Math.random() < 0.18) tenugui = true // 年配の女性も畑帰りに首手ぬぐい（控えめ）
+    const rubberZori = plainBoy && Math.random() < 0.6 // 白T半ズボンの子はゴム草履率を高く
+    const p = makeVillager(seg.ax, seg.az, { shirt, skirt, skin: rpick([0xf0c49c, 0xe8b890, 0xf2d4b0, 0xeab584, 0xd8a878]), hair, boy: boyP, simple: false, adult, bag, tenugui, hat: garment === 'tank' && Math.random() < 0.55 ? 'straw' : (plainBoy && !hat && Math.random() < 0.3 ? 'cap' : hat), band: rpick(yPal), hairStyle: plainBoy && !hat ? rpick(['short', 'buzz']) : hairStyle, garment, apron, build: adult ? 0.95 + Math.random() * 0.33 : 0.9 + Math.random() * 0.18, headW: 0.93 + Math.random() * 0.14, eyeSc: 0.86 + Math.random() * 0.26, brow: !adult && Math.random() < 0.3, browTilt: 0.5 + Math.random() * 1.3, browY: (Math.random() - 0.5) * 0.012, shoe: rubberZori ? rpick([0x9a3a3a, 0x3a5a8a, 0x3a7a4a, 0x6a6a64]) : rpick([0x5a4a38, 0x3a3a40, 0x8a4040, 0xcfcabd]), scale: adult ? 1.13 + Math.random() * 0.12 : 0.84 + Math.random() * 0.14, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 主人公同等の作り(simple:false)＋一人ひとり別人の個体差（C5★）。ゴム草履＝原色のサンダル色
     const t0 = Math.random()
     p.userData.ped = { sp: 0.85 + Math.random() * 0.4, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
     p.position.set(seg.ax + (seg.bx - seg.ax) * t0, p.position.y, seg.az + (seg.bz - seg.az) * t0)
@@ -7365,6 +7396,54 @@ function updateChores(dt) {
 // 配置：公園/校庭の開けた所で走り回る子＋道沿いの立ち話（既知の平らな場所）
 addRunGroup(3112, -188, 4.2) // 校庭（広い土の校庭で駆け回る）。広場はkidsCatchが居るので密集を避けここだけ
 addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子）＝公園を賑やかに（ユーザー要望）
+// ── 公園の遊具を有人化：祭りでない日も“ブランコに乗る子・砂場で遊ぶ子”を各公園に1〜2人（誰も遊ばない遊具の虚無感を解消・ユーザー要望）。
+//    遊具はPLAYGROUND_GEOを各公園にインスタンシング（向き=seed%4の90°回転）。同じ式でブランコ席/砂場の世界座標を割り出し、子をそこへ紐づける。
+//    LOD：60m以内だけアニメ（揺れ/しゃがみ）、遠くはvisibleのまま静止＝遠景で重くしない。──
+const parkKids = []
+function addParkKids(px, pz) {
+  const seed = Math.abs(Math.round(px) + Math.round(pz) * 3), a = (seed % 4) * (Math.PI / 2), ca = Math.cos(a), sa = Math.sin(a) // インスタンシングと同じ向き
+  const gy = heightAtYato(px, pz)
+  // ローカル座標→世界（Three の +Y 回転：x'=x·cos+z·sin, z'=-x·sin+z·cos）。PLAYGROUND_GEO はブランコ席が x≈-4.5（席は±0.8）、砂場が (4,4)
+  const toWorld = (lx, lz) => [px + lx * ca + lz * sa, pz - lx * sa + lz * ca]
+  const cpick = (arr) => arr[Math.floor(Math.random() * arr.length)]
+  const skins = [0xf0c49c, 0xe8b890, 0xeab584, 0xd8a878], hairs = [0x2a2218, 0x35291c, 0x46371f]
+  // ブランコに乗る子（席のひとつ＝local(-4.5+0.8,*,0)）。席top y≈1.0。上のバー y≈2.55 が支点。
+  { const [sx, sz] = toWorld(-4.5 + 0.8, 0), pivot = gy + 2.55, seatTop = gy + 1.0
+    const boyP = Math.random() < 0.6
+    const g = makeVillager(sx, sz, { simple: true, garment: boyP ? 'shorts' : 'dress', boy: boyP, shirt: boyP ? cpick([0xf0ece0, 0xe8e4d6, 0x6a7a9a, 0xb56a6a]) : cpick([0xd05a4a, 0x4a9a6a, 0xe0a838, 0xd8a0b8]), skirt: boyP ? cpick([0x46412f, 0x3a4250, 0x5a4a3a]) : cpick([0xd05a4a, 0x4a9a6a, 0xe0a838]), skin: cpick(skins), hair: cpick(hairs), adult: false, hairStyle: boyP ? 'short' : cpick(['bob', 'pony']), shoe: cpick([0x9a3a3a, 0x3a5a8a, 0x3a7a4a]), scale: 0.8, info: { name: '', byPhase: { noon: [''] } } })
+    const u = g.userData; if (u.kneeL) u.kneeL.rotation.x = 1.4; if (u.kneeR) u.kneeR.rotation.x = 1.4 // ひざを曲げて腰かける
+    if (u.legL) u.legL.rotation.x = -0.55; if (u.legR) u.legR.rotation.x = -0.55
+    if (u.armL) u.armL.rotation.x = -0.5; if (u.armR) u.armR.rotation.x = -0.5 // 鎖をつかむ腕
+    g.rotation.y = a // ブランコの面（前後の振り）を向く
+    g.visible = false; g.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(g)
+    parkKids.push({ g, kind: 'swing', cx: sx, cz: sz, px: sx, pz: sz, pivot, seatTop, ca: Math.cos(a + Math.PI / 2), sa: Math.sin(a + Math.PI / 2), ph: Math.random() * 6 }) } // ca/sa=振りの水平方向（ブランコの面の前後＝local z方向）
+  // 砂場でしゃがんで遊ぶ子（約4割の公園に＝全部には置かず点々と）
+  if (seed % 5 < 2) { const [bx, bz] = toWorld(4 + (Math.random() - 0.5) * 1.6, 4 + (Math.random() - 0.5) * 1.6)
+    const g = makeVillager(bx, bz, { simple: true, garment: 'shorts', boy: Math.random() < 0.5, shirt: cpick([0xf0ece0, 0xd05a4a, 0x4a9a6a, 0xe0a838]), skirt: cpick([0x46412f, 0x3a4250]), skin: cpick(skins), hair: cpick(hairs), adult: false, hairStyle: cpick(['short', 'bob']), shoe: cpick([0x9a3a3a, 0x3a5a8a]), scale: 0.78, info: { name: '', byPhase: { noon: [''] } } })
+    const u = g.userData; g.rotation.x = 0.5 // 前かがみで砂をいじる
+    if (u.kneeL) u.kneeL.rotation.x = 1.5; if (u.kneeR) u.kneeR.rotation.x = 1.5
+    if (u.armL) u.armL.rotation.x = -1.0; if (u.armR) u.armR.rotation.x = -1.05
+    g.position.y = heightAtYato(bx, bz) - 0.12; g.visible = false; g.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(g)
+    parkKids.push({ g, kind: 'sand', cx: bx, cz: bz, baseY: g.position.y, ph: Math.random() * 6 }) }
+}
+// 遊具のある公園へ（マリノスG＝一丁目公園は遊具なしなので除く・三ツ池/校庭は走り回る子が既にいる）。yato本編で歩いてよく寄る公園を中心に
+for (const [px, pz] of [[3059, -14], [2938, -198], [3152, -118], [3412, -330], [3162, 384], [2987, 123], [2952, 190]]) addParkKids(px, pz) // 第三公園/渋沢金井/北寺尾五丁目/馬場第一/獅子ケ谷/一丁目(砂場のみ)/金井公園
+function updateParkKids(dt) {
+  const active = onYato && tday > 0.16 && tday < 0.66 // 日中だけ（夕方以降は家へ）。祭りの有無に関わらず常時
+  for (const K of parkKids) {
+    const near = Math.hypot(boy.position.x - K.cx, boy.position.z - K.cz)
+    const vis = active && near < 150 // 遠くは消す（描画予算）。可視範囲は広めに保ち“公園に子がいる”気配を残す
+    if (K.g.visible !== vis) K.g.visible = vis
+    if (!vis || near > 60) continue // ★60m超はvisibleのまま静止＝アニメをskip（遠くで重くしない）
+    K.ph += dt
+    if (K.kind === 'swing') { const sw = Math.sin(K.ph * 1.7) * 0.5 // 前後の振り（±約0.5rad）
+      const armL = K.pivot - K.seatTop // 支点から席までの腕の長さ
+      const ox = Math.sin(sw) * armL // 振りで席が前後にずれる水平距離（ブランコの面方向）
+      K.g.position.set(K.px + K.ca * ox, K.pivot - Math.cos(sw) * armL, K.pz + K.sa * ox) // 円弧を描いて揺れる（席が上下にも動く）
+      K.g.rotation.x = sw * 0.7 } // 体も振りに合わせて前後に傾く
+    else if (K.kind === 'sand') { K.g.position.y = K.baseY + Math.abs(Math.sin(K.ph * 1.3)) * 0.03; const u = K.g.userData; const f = Math.sin(K.ph * 1.3) * 0.18; if (u.armL) u.armL.rotation.x = -1.0 + f; if (u.armR) u.armR.rotation.x = -1.05 - f } // 砂をいじる手の上下
+  }
+}
 // ── 夜のお祭りの傍：会場のすぐ脇の空いたスペースで、子らがペンライトを持って追いかけっこ（ユーザーの実体験＝祭り会場の傍の校庭でペンライト鬼ごっこ・2026-06-28）。会場が出ている晩だけ現れる ──
 { const vAt = (n) => FEST_VENUES.find((v) => v.name === n)
   const beside = (v, ox, oz, r) => { if (v) addRunGroup(v.pos.x + ox, v.pos.y + oz, r, { penlight: true, night: true, venue: v }) }
@@ -10300,6 +10379,7 @@ function update(dt) {
   updateChickens(dt) // にわとり（横溝屋敷の前庭・日中・近接時のみ）
   updateStriders(dt) // あめんぼ（二ツ池/三ツ池の水面・日中・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
+  updateParkKids(dt) // 公園の遊具で遊ぶ子（ブランコ/砂場・昼・60m以内だけアニメ）＝誰も遊ばない遊具の虚無感を解消
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
   updateFishShadows(dt) // C6：魚影（谷戸の池の水面下をゆっくり回遊・日中・近接時のみ）
@@ -11034,7 +11114,8 @@ function update(dt) {
   godrayPass.uniforms.lightPos.value.set(sunProj.x * 0.5 + 0.5, sunProj.y * 0.5 + 0.5)
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.2 : 0 // 控えめ＝光条であって閃光事故にしない（0.32→0.20＝房バグ対策でさらに弱く・2026-06-27）
-  gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）
+  gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) * (day >= TOTAL_DAYS ? 1.16 : 1.0) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）。最終日だけ一段濃く＝絵日記の「夕やけにとけていった」に呼応（そっと・×1.16）
+  { const fd = onYato && day >= TOTAL_DAYS; if (finalDayProps.visible !== fd) finalDayProps.visible = fd } // 最終日だけ世界が絵日記に呼応（蝉の抜け殻・片付けかけの提灯）。獅子ヶ谷エリアにいる時だけ＝旧プロト町では出さない
   gradePass.uniforms.nightCool.value = nightFactor(tday) * 0.9 // ★A8：夜は月明かりの青を暗部に＝暖色の窓あかりとの対比を強め、夏の夜のしんとした安らぎ
     + THREE.MathUtils.smoothstep(tday, 0.06, 0.18) * (1 - THREE.MathUtils.smoothstep(tday, 0.28, 0.44)) * 0.5 // 黄金の朝（B⑦）＝開始時(0.18)を温かい金色のウォッシュに。夕より柔らかく0.5倍
   gradePass.uniforms.time.value = tsec // 陽炎のアニメ用
