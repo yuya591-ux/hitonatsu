@@ -6146,7 +6146,7 @@ function populateToroWatchers() {
   toroWatcherJobs.length = 0
 }
 populateToroWatchers()
-const villager = makeVillager(13, 9, {
+const villager = makeVillager(3008, 44, { // 物語の女の子＝獅子ヶ谷(谷戸)の開始地点(3004,30)のそば・見晴らしの良い開けた草地。歩いて自然に出会える所へ（以前は旧はらっぱで初見では一生出会えなかった→移設2026-06-29）
   shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, // 麦わら帽子（ピンクのリボン）
   info: {
     name: '女の子',
@@ -6164,12 +6164,12 @@ const villager = makeVillager(13, 9, {
     },
   },
 })
-// 生活リズム：時間帯で居場所が変わる（朝＝池ばた、昼＝木かげ、夕＝家のそば、夜＝縁側）
+// 生活リズム：時間帯で居場所が変わる（谷戸の開始地点まわりの開けた草地を少しずつ移ろう。すべて道/水/建物を避けた歩ける地面＝_spotOkで確認済2026-06-29）
 villager.userData.spots = {
-  morning: new THREE.Vector3(18, 0, 20),
-  noon: new THREE.Vector3(13, 0, 7),
-  evening: new THREE.Vector3(-13, 0, 17),
-  night: new THREE.Vector3(-15.5, 0, 15),
+  morning: new THREE.Vector3(3004, 0, 38), // 朝＝開始地点のそば、朝の光のなか
+  noon: new THREE.Vector3(3008, 0, 44),    // 昼＝見晴らしの良い草地（既定の居場所）
+  evening: new THREE.Vector3(3006, 0, 48), // 夕＝すこし谷の見える方へ
+  night: new THREE.Vector3(3000, 0, 36),   // 夜＝少し奥まった静かな所
 }
 // 街の店のおばさん（商店街の八百屋の前。会話は時間帯で変わる）
 const townLady = makeVillager(TOWN.x - 7.5, TOWN.z - 18, {
@@ -10219,7 +10219,7 @@ function update(dt) {
       villager.position.y = heightAt(villager.position.x, villager.position.z) + Math.abs(Math.sin(tsec * 1.3)) * 0.012 // 息づかい
       vu.legL.rotation.x *= 0.8; vu.legR.rotation.x *= 0.8
       const pd = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z)
-      const near = pd < 4.5 && area === 'field'
+      const near = pd < 4.5 && (area === 'yato' || onYato || area === 'field') // 女の子は谷戸(yato)に居る＝そこでも近づくと気づいてこちらを向く（旧はらっぱfieldでも従来どおり）
       if (near) { // 近づくと気づいてこちらを向く
         let dd2 = Math.atan2(boy.position.x - villager.position.x, boy.position.z - villager.position.z) - villager.rotation.y
         while (dd2 > Math.PI) dd2 -= Math.PI * 2; while (dd2 < -Math.PI) dd2 += Math.PI * 2
@@ -10672,6 +10672,8 @@ function update(dt) {
     // いちばん近い人を話し相手に
     talkTarget = null; let nd = 3
     for (const n of npcs) { const d = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z); if (d < nd) { nd = d; talkTarget = n } }
+    // やわらかい誘導（1回だけ）：谷戸で、まだ女の子に会っていない時、すこし近づいたらそっと向かわせる一言（クエストにはしない）
+    if ((area === 'yato' || onYato) && !todayFlags.metGirl && !gotOmamori) { const gdd = Math.hypot(boy.position.x - villager.position.x, boy.position.z - villager.position.z); if (gdd < 16 && gdd > 3.5) onceHint('girl', '草はらに、麦わら帽子の 女の子が いるね。') }
     if (window.__senkoBtn) window.__senkoBtn.style.display = (!dialogue && (tday > 0.8 || tday < 0.06) && !senko.active) ? 'block' : 'none' // H4：夜だけ線香花火ボタンを出す
     const nearCat = area === 'yato' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2 // 猫は獅子ヶ谷(サンライズ前)に居る＝撫でられる
     const nearVending = area === 'town' && Math.hypot(boy.position.x - VENDING.x, boy.position.z - VENDING.z) < 2.8
@@ -11557,6 +11559,7 @@ window.__proto3d = {
   _suppressWander() { wanderShown = true }, // 検証用：M1の散歩トーストを出さない（朝のひとことと混同しないため）
   get _toast() { return toastEl ? toastEl.textContent : '' }, // 検証用：いま出ているひとこと
   get _omamori() { return gotOmamori }, // 検証用：おまもりを受け取ったか
+  get _metGirl() { return todayFlags.metGirl }, // 検証用：今日 女の子と話したか（出会いが成立するか）
   setGameDay(d) { day = d; refreshBadge() }, // 検証用
   spawnFirework() { spawnFirework() }, // 検証用
   goArea(a) { // 検証用：エリアへ瞬間移動
@@ -11596,6 +11599,7 @@ window.__proto3d = {
   colliders, _collide(x, z) { return pushOutOfColliders(x, z) }, // 検証用：当たり判定（点を外へ押し出す）
   SG, heightAtYato(x, z) { return heightAtYato(x, z) }, // 検証用：獅子ヶ谷の道/建物/水データ＋実標高（道ふさぎの洗い出しに使う）
   _onRoad(x, z) { return onYatoRoadCore(x, z) }, // 検証用：その点が道の描画幅に乗るか（道を横切る塀/物の洗い出しに使う）
+  _spotOk(x, z, r) { return npcSpotOk(x, z, r || 0.6) }, // 検証用：NPCを置ける開けた地面か（水/建物/道のど真ん中でないか）＝女の子/釣り人などの配置確認
   _surf(x, z) { return yatoSurfKind(x, z) }, // 検証用：路面の種類（0=草地/1=舗装/2=土）＝足音の判定確認
   _footSurf(x, z) { const k = yatoSurfKind(x, z); return k === 1 ? 'pave' : k === 2 ? 'dirt' : (onYatoRoad(x, z) ? 'pave' : 'grass') }, // 検証用：実際に足音で使う路面分類
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
