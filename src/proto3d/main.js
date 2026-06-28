@@ -5328,24 +5328,43 @@ for (const [x, z, r] of [[3, -20, 0.7], [-4, -18, 0.5], [12, -2, 0.6]]) {
   scene.add(rock)
 }
 
-// ── 蝶（昼に舞う。夜は消える）──
+// ── 蝶（昼に舞う。夜は消える）。前翅＋後翅のちゃんとした翅の形・翅脈・目玉模様＋胴＋触角＝“しょぼい四角”を脱す（ユーザー要望2026-06-28）──
 const butterflies = []
+const _wingTexCache = new Map()
+function makeWingTex(base, dark, light) { // 片翅（前翅＋後翅）を描いたテクスチャ。内縁(胴側)はx=0寄り
+  const key = base + ',' + dark + ',' + light; if (_wingTexCache.has(key)) return _wingTexCache.get(key)
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), hx = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0')
+  const fore = () => { x.beginPath(); x.moveTo(6, 28); x.bezierCurveTo(46, 2, 122, 2, 122, 40); x.bezierCurveTo(122, 58, 80, 64, 40, 60); x.bezierCurveTo(20, 58, 6, 48, 6, 28); x.closePath() } // 前翅（上・丸い三角）
+  const hind = () => { x.beginPath(); x.moveTo(8, 62); x.bezierCurveTo(54, 58, 114, 70, 104, 104); x.bezierCurveTo(96, 126, 48, 124, 24, 108); x.bezierCurveTo(10, 98, 6, 82, 8, 62); x.closePath() } // 後翅（下・尾状突起ぎみ）
+  x.clearRect(0, 0, 128, 128)
+  x.fillStyle = hx(base); fore(); x.fill(); hind(); x.fill()
+  x.strokeStyle = hx(dark); x.globalAlpha = 0.45; x.lineWidth = 1.4 // 翅脈（内角から放射状）
+  for (const [ex, ey] of [[120, 22], [112, 44], [70, 60], [100, 96], [58, 116], [26, 102]]) { x.beginPath(); x.moveTo(12, 46); x.lineTo(ex, ey); x.stroke() }
+  x.globalAlpha = 1; x.lineWidth = 6; fore(); x.stroke(); hind(); x.stroke() // 外縁の濃い縁取り
+  x.fillStyle = hx(light); for (const [sx, sy, r] of [[96, 26, 7], [98, 92, 8.5], [62, 102, 5]]) { x.beginPath(); x.arc(sx, sy, r, 0, 6.28); x.fill() } // 明色の目玉模様
+  x.strokeStyle = hx(dark); x.lineWidth = 2.4; for (const [sx, sy, r] of [[96, 26, 7], [98, 92, 8.5], [62, 102, 5]]) { x.beginPath(); x.arc(sx, sy, r, 0, 6.28); x.stroke() }
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; _wingTexCache.set(key, t); return t
+}
+const BFLY_WING_GEO = new THREE.PlaneGeometry(0.46, 0.5), BFLY_ANT_GEO = new THREE.CapsuleGeometry(0.0065, 0.09, 3, 5) // 翅/触角の形状は全蝶で共有
 function makeButterfly(cx, cz) {
   const g = new THREE.Group()
-  const col = [0xf2c84a, 0xe8743c, 0xf0f0f0, 0x8a6ed0][Math.floor(Math.random() * 4)]
-  const wmat = new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true })
-  const wmat2 = new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(0.5), side: THREE.DoubleSide, transparent: true }) // 翅の模様（濃い斑）
-  const wing = new THREE.PlaneGeometry(0.34, 0.46), spot = new THREE.CircleGeometry(0.1, 10)
-  const wl = new THREE.Mesh(wing, wmat); wl.position.x = -0.18; g.add(wl)
-  const wr = new THREE.Mesh(wing, wmat); wr.position.x = 0.18; g.add(wr)
-  const sl = new THREE.Mesh(spot, wmat2); sl.position.set(0.03, -0.1, 0.004); wl.add(sl) // 斑は翅にぶら下げて一緒に羽ばたく
-  const sr = new THREE.Mesh(spot, wmat2); sr.position.set(-0.03, -0.1, 0.004); wr.add(sr)
-  g.userData = { wl, wr, cx, cz, r: 4 + Math.random() * 6, ph: Math.random() * 6.28, sp: 0.5 + Math.random() * 0.5, mat: wmat, mat2: wmat2 }
+  const variants = [[0xf2b32e, 0x4a2e10, 0xfff0c0], [0xe8743c, 0x3a1808, 0xffd8b0], [0xf2f0ea, 0x555050, 0xffffff], [0x8a6ed0, 0x2a1a4a, 0xe0d2f4], [0x5a86c0, 0x18243a, 0xd6e6f8]] // 黄揚羽/タテハ/モンシロ/紫/青
+  const [base, dark, light] = variants[(Math.random() * variants.length) | 0]
+  const wmat = new THREE.MeshBasicMaterial({ map: makeWingTex(base, dark, light), side: THREE.DoubleSide, transparent: true, alphaTest: 0.35, depthWrite: false })
+  // 翅＝胴の中心を支点に左右へ広げ、開閉して羽ばたく（前翅＋後翅の形はテクスチャ）
+  const wl = new THREE.Group(); g.add(wl); const wlm = new THREE.Mesh(BFLY_WING_GEO, wmat); wlm.position.x = -0.21; wlm.scale.x = -1; wlm.rotation.x = -Math.PI / 2; wl.add(wlm) // 左翅＝水平に寝かせて模様を上から見せる（テクスチャ左右反転）
+  const wr = new THREE.Group(); g.add(wr); const wrm = new THREE.Mesh(BFLY_WING_GEO, wmat); wrm.position.x = 0.21; wrm.rotation.x = -Math.PI / 2; wr.add(wrm)
+  const bodyM = toon(dark)
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.16, 4, 6), bodyM); body.rotation.x = Math.PI / 2; g.add(body) // 胴＝前後(z)に細長い濃色
+  for (const sx of [-1, 1]) { const an = new THREE.Mesh(BFLY_ANT_GEO, bodyM); an.position.set(sx * 0.018, 0.035, 0.13); an.rotation.set(-0.7, 0, sx * 0.18); g.add(an) } // 触角＝細いカプセル(先が丸まって こん棒状＝1メッシュで触角の玉も兼ねる)
+  g.userData = { wl, wr, cx, cz, r: 4 + Math.random() * 6, ph: Math.random() * 6.28, sp: 0.5 + Math.random() * 0.5, mat: wmat }
   g.traverse((o) => o.layers.set(1)) // 蝶はインク線の法線パスから除外（翅の透明が無視され四角になる）
   scene.add(g)
   butterflies.push(g)
 }
 for (const [x, z] of [[5, 2], [-8, -4], [12, -8]]) makeButterfly(x, z)
+// 獅子ヶ谷(本舞台)にも蝶を舞わせる＝鳥のように生きものを満遍なく（ユーザー要望2026-06-28）。花/庭/原っぱの開けた所に
+for (const [x, z] of [[3018, 42], [2958, -118], [3098, -176], [2766, -148], [2382, -648]]) makeButterfly(x, z)
 if (butterflies[0]) butterflies[0].userData.visitor = true // 立ち止まると寄ってくる一匹（間の演出）
 
 // ── 赤とんぼ（夕方に飛ぶ＝夏の終わりの象徴）──
@@ -10250,9 +10269,10 @@ function update(dt) {
     const bx = u.cx + Math.cos(a) * u.r, bz = u.cz + Math.sin(a) * u.r
     b.position.set(bx, heightAt(bx, bz) + 1.6 + Math.sin(a * 3) * 0.3, bz)
     b.rotation.y = -a + Math.PI / 2
-    const flap = Math.sin(tsec * 14 + u.ph) * 0.9
-    u.wl.rotation.y = flap; u.wr.rotation.y = -flap
-    u.mat.opacity = 1 - nf; if (u.mat2) u.mat2.opacity = 1 - nf // 斑も翅と一緒にフェード
+    const flap = Math.sin(tsec * 13 + u.ph) * 0.62 + 0.32 // 水平の翅を上下に羽ばたく（下-0.3〜上0.94）
+    u.wr.rotation.z = flap; u.wl.rotation.z = -flap
+    u.mat.opacity = 1 - nf // 夜は消える
+    b.rotation.z = Math.sin(tsec * 2.1 + u.ph) * 0.12 // ひらひらと機体が傾く＝蝶のたよりない飛び方
     b.visible = nf < 0.96
   }
   // 赤とんぼ（夕方に飛ぶ）
