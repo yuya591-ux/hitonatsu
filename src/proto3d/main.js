@@ -1205,27 +1205,53 @@ for (const [x, z] of [[14, 6], [-16, 2], [22, -10], [-22, -14], [9, -22], [-10, 
 let puddleMesh = null, wetness = 0 // 雨上がりの水たまり（路面に空を映す。weatherでしっとり→上がってもしばらく残る・2026-06-24）
 
 // ── 昭和の田舎家（縁側・瓦屋根・障子）＝時代の空気の核。麦わら帽子の少年の“おばあちゃんち”的な原風景 ──
+// 和風の一軒家。N1（2026-06-29）：住宅地の「同じ家の色違いが並ぶ」量産感を解消するため、位置(x,z)から決まる擬似乱数で
+//   間口(幅)・障子の枚数(2〜4)・軒の出・壁色・屋根(瓦寄棟／トタン切妻)・離れの有無を振る。同じ場所は毎回同じ姿（種が座標由来）。
+//   ★新しいジオメトリは最小（既存の生成に分岐を足すだけ）・離れは一部の家にだけ＝ドローコールをほぼ増やさない。
+const HOUSE_WALLS = [0xe6dcc4, 0xe0d6bc, 0xd8cbb0, 0xeae2cc, 0xd2c4a4, 0xe4dcc6] // 土壁/モルタルの当時らしい生成色（淡い土色〜灰みのベージュ）
+const HOUSE_ROOFS = [0x586472, 0x6a7a86, 0x7a6850, 0x556070, 0x607060] // 青灰の瓦／燻し瓦／茶瓦
+const HOUSE_TIN = [0x7a5a48, 0x5a6a64, 0x88603e, 0x6a6256] // トタン屋根（赤錆/緑青/茶/灰）＝瓦と混在させて単調さを崩す
 function makeHouse(x, z, rot, roofHex) {
   const g = new THREE.Group()
-  const wall = toonMap(0xe6dcc4, plasterTex), wood = toonMap(0x8a6a44, woodTex), roofC = toonMap(roofHex || 0x586472, roofTex), woodDark = toonMap(0x6a4e30, woodTex)
-  const body = new THREE.Mesh(new THREE.BoxGeometry(7, 3.1, 5), wall); body.position.y = 1.75; g.add(body)
+  const seed = Math.abs(Math.round(x) * 73856093 ^ Math.round(z) * 19349663) >>> 0 // 座標から決まる種＝毎ロード同じ姿
+  const rnd = (n) => (Math.floor(seed / n) % 1000) / 1000 // 0..1（桁ごとに違う擬似乱数）
+  const HW = 3.1 + rnd(7) * 1.0, hw = HW, W = HW * 2 // 間口（幅）を6.2〜8.2でばらす
+  const tin = !roofHex && rnd(31) < 0.42 // 屋根：roofHex指定が無ければ約4割をトタン切妻に（指定ありは従来の瓦色を尊重）
+  const wallHex = HOUSE_WALLS[seed % HOUSE_WALLS.length]
+  const rHex = roofHex || (tin ? HOUSE_TIN[(seed >> 2) % HOUSE_TIN.length] : HOUSE_ROOFS[(seed >> 3) % HOUSE_ROOFS.length])
+  const wall = toonMap(wallHex, plasterTex), wood = toonMap(0x8a6a44, woodTex), roofC = toonMap(rHex, roofTex), woodDark = toonMap(0x6a4e30, woodTex)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(W, 3.1, 5), wall); body.position.y = 1.75; g.add(body)
   // 縁側（前面の木の床）と支柱
-  const engawa = new THREE.Mesh(new THREE.BoxGeometry(7, 0.28, 1.5), wood); engawa.position.set(0, 0.62, 3.2); g.add(engawa)
-  for (const px of [-3.2, 3.2]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.6, 0.18), woodDark); post.position.set(px, 1.9, 3.7); g.add(post) }
-  // 障子（前面の白い格子）
-  for (let i = 0; i < 3; i++) {
-    const sho = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 2.0), new THREE.MeshToonMaterial({ color: 0xf2efe2, gradientMap: GRAD }))
-    sho.position.set(-2.2 + i * 2.2, 1.85, 2.51); g.add(sho)
+  const engawa = new THREE.Mesh(new THREE.BoxGeometry(W, 0.28, 1.5), wood); engawa.position.set(0, 0.62, 3.2); g.add(engawa)
+  for (const px of [-hw + 0.3, hw - 0.3]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.6, 0.18), woodDark); post.position.set(px, 1.9, 3.7); g.add(post) }
+  // 障子（前面の白い格子）＝間口に合わせて2〜4枚（量産感を崩す主役）
+  const nSho = THREE.MathUtils.clamp(Math.round(W / 2.4), 2, 4), sw = (W - 0.7) / nSho - 0.15
+  for (let i = 0; i < nSho; i++) {
+    const sho = new THREE.Mesh(new THREE.PlaneGeometry(sw, 2.0), new THREE.MeshToonMaterial({ color: 0xf2efe2, gradientMap: GRAD }))
+    sho.position.set(-(W - 0.7) / 2 + 0.35 + (i + 0.5) * ((W - 0.7) / nSho), 1.85, 2.51); g.add(sho)
   }
-  // 軒（前面の小庇）
-  const eave = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.16, 1.7), roofC); eave.position.set(0, 3.25, 3.3); eave.rotation.x = -0.12; g.add(eave)
-  // 瓦屋根（寄棟・青灰）
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(6.1, 2.7, 4), roofC); roof.position.y = 4.7; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.76); g.add(roof)
+  // 軒（前面の小庇）＝軒の出を種でばらす
+  const eaveD = 1.5 + rnd(13) * 0.5
+  const eave = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 0.16, eaveD + 0.2), roofC); eave.position.set(0, 3.25, 2.6 + eaveD / 2); eave.rotation.x = -0.12; g.add(eave)
+  if (tin) { // トタン切妻（前後2斜面の薄い屋根）＝瓦寄棟と作り分け
+    const rh = 1.7 + rnd(17) * 0.6
+    for (const sz of [-1, 1]) { const slope = new THREE.Mesh(new THREE.BoxGeometry(W + 0.4, 0.14, 3.1), roofC); slope.position.set(0, 3.55 + rh / 2, sz * 1.35); slope.rotation.x = sz * (0.62 - rnd(11) * 0.1); g.add(slope) }
+    const rg = new THREE.Mesh(new THREE.BoxGeometry(W + 0.5, 0.2, 0.24), toonMap(rHex, roofTex)); rg.position.y = 3.55 + rh; g.add(rg) // 棟
+  } else { // 瓦寄棟（青灰）＝従来
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(hw + 3.0, 2.4 + rnd(19) * 0.6, 4), roofC); roof.position.y = 4.7; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.76); g.add(roof)
+  }
+  // 離れ（小さな付属屋）＝約3割の家に。間口の脇に低い小屋＝「同じ家の並び」を崩す（一部だけ＝ドローコール微増）
+  let annexHW = 0
+  if (rnd(23) < 0.32) { const ax = (hw + 1.6) * (rnd(29) < 0.5 ? -1 : 1), aw = 2.4, ad = 3.2
+    const ann = new THREE.Mesh(new THREE.BoxGeometry(aw, 2.3, ad), wall); ann.position.set(ax, 1.35, -0.6); g.add(ann)
+    const aroof = new THREE.Mesh(new THREE.BoxGeometry(aw + 0.4, 0.14, ad + 0.4), toonMap(rHex, roofTex)); aroof.position.set(ax, 2.55, -0.6); g.add(aroof)
+    annexHW = aw / 2 + 0.2 // 当たり判定の張り出し
+  }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0
   mergedOutline(g, 0.06)
-  addContactShadow(g, 5.2)
-  addBox(x, z, 3.5, 2.5, rot || 0) // 家の本体は箱でしっかり囲う（縁側＝前面+zは外に出るので座れる）
+  addContactShadow(g, Math.max(5.2, W - 1.0))
+  addBox(x, z, hw - 0.2 + annexHW, 2.5, rot || 0) // 家の本体は箱でしっかり囲う（縁側＝前面+zは外に出るので座れる）。間口/離れに合わせて当たり判定も広げる
   scene.add(g)
   return g
 }
@@ -2319,7 +2345,7 @@ function buildShishigaya() {
       signOn(cx, cz - 2.6, 4, gy, 3.7, name, '#2e6b3a'); addCollider(cx + 7, cz, 3.2) } // 社殿に当たり判定（鳥居はくぐれる）
     // 上郷神明社＝獅子ヶ谷の鎮守(1362創建・神明造)を作り込み。木造の神明鳥居→参道(石灯籠)→手水舎/狛犬→拝殿→神明造の本殿(千木・鰹木)。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildShinmei = (cx, cz, name) => { const gy = heightAtYato(cx, cz)
-      const wood = toon(0xa9895f), woodD = toon(0x7d6340), wall = toon(0xd8caa6), roofC = toon(0x5b6b62), stone = toon(0xa8a59a), stoneL = toon(0xcac6ba), gold = toon(0xb79a4a)
+      const wood = toon(0xa9895f), woodD = toon(0x7d6340), wall = toonMap(0xd8caa6, plasterTex), roofC = toon(0x5b6b62), stone = toon(0xa8a59a), stoneL = toon(0xcac6ba), gold = toon(0xb79a4a) // wall=側面/背面も土壁テクスチャ＝回り込んでも単色BOXにならない（N3・2026-06-29）
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m } // X軸回転対応（屋根の勾配/鰹木/千木用）
       groundPatch(grp, cx, cz + 1, 13, 22, 0xccc5b0) // 玉砂利＝神社の敷地を地面の色で区別（ユーザー要望：ここは神社の敷地とわかるように）
       precinctFence(grp, cx, cz + 1, 13, 22, 0xc9b994, 1.0, 's') // 玉垣（敷地境界・南＝鳥居側だけ開ける）
@@ -2361,7 +2387,7 @@ function buildShishigaya() {
       signOn(cx, cz + 12.5, 4, gy, 2.4, name, '#2e6b3a'); addCollider(cx, cz, 3.2) }
     // 旧横溝家住宅（横溝屋敷）＝獅子ヶ谷の名主の屋敷(幕末〜明治)。長屋門→主屋(木造2階・寄棟・茅葺)＋文庫蔵(白漆喰の土蔵)＋穀蔵(板蔵)＋蚕小屋＋生垣。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildYokomizo = (cx, cz, name) => { const gy = gmin4(cx, cz, 20, 20)
-      const wall = toon(0xcabfa2), woodD = toon(0x6a5236), thatch = toon(0x7d6a47), kura = toon(0xe9e5d9), tile = toon(0x595d61), post = toon(0x836a44), board = toon(0x9a7e54)
+      const wall = toonMap(0xcabfa2, plasterTex), woodD = toon(0x6a5236), thatch = toon(0x7d6a47), kura = toonMap(0xe9e5d9, plasterTex), tile = toon(0x595d61), post = toon(0x836a44), board = toonMap(0x9a7e54, woodTex) // wall/kura=土壁・漆喰、board=板壁テクスチャを側面/背面にも回す（N3・2026-06-29）
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
       groundPatch(grp, cx, cz + 3, 34, 32, 0xc3b899) // 前庭（踏み固めた土＝屋敷だと分かる地面色）
       yokomizoYard = { x: cx, z: cz + 5 } // 前庭の中ほど＝にわとりを放す場所（initChickensが使う）
@@ -2391,7 +2417,7 @@ function buildShishigaya() {
       signOn(cx, cz + 15, 10, gy, 3.5, name, '#5a4a2a') }
     // 光明寺＝獅子ヶ谷の天台宗寺院(1356開創・本尊薬師如来)。山門(表門1841)→参道(石灯籠)→本堂(瓦の入母屋大堂)＋庫裡＋鐘楼＋地蔵＋築地塀。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildKomyoji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
-      const wall = toon(0xd9d0c2), woodD = toon(0x6a4f38), woodR = toon(0x7a3b2a), tile = toon(0x59616a), stone = toon(0xa8a59a), stoneL = toon(0xc8c4b8), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3)
+      const wall = toonMap(0xd9d0c2, plasterTex), woodD = toon(0x6a4f38), woodR = toon(0x7a3b2a), tile = toon(0x59616a), stone = toon(0xa8a59a), stoneL = toon(0xc8c4b8), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3) // wall=本堂身舎の側面/背面も土壁テクスチャ（N3・2026-06-29）
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
       const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)) }
       const jizo = (jx, jz) => { const jy = heightAtYato(jx, jz); grp.add(mk(new THREE.BoxGeometry(0.4, 0.3, 0.4), stone, jx, jy + 0.15, jz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.13, 0.16, 0.7, 6), stoneL, jx, jy + 0.65, jz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.15, 8, 6), stoneL, jx, jy + 1.05, jz, 0, true)) } // 地蔵
@@ -2427,7 +2453,7 @@ function buildShishigaya() {
       signOn(cx, cz + 16, 8, gy, 3.5, name, '#5a3a3a') }
     // 真如山成就院本覺寺＝天台宗(1683開基・獅子ヶ谷村名主 横溝五郎兵衛が開基→横溝屋敷と縁)。本堂庫裡は1988再建、観音堂(2018新意匠・神奈川建築コンクール優秀賞)と「本覺寺の森観音霊園」が特徴。本尊=金剛界大日如来。光明寺と同じ天台宗だが六角の観音堂と宝篋印塔で作り分け。南(+z)向き（Web調査2026-06-23）
     const buildHongakuji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
-      const wall = toon(0xd2cab9), woodD = toon(0x6a4f38), woodR = toon(0x84412e), tile = toon(0x52596a), stone = toon(0xa8a59a), stoneL = toon(0xc8c4b8), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3), copper = toon(0x5f7d6a)
+      const wall = toonMap(0xd2cab9, plasterTex), woodD = toon(0x6a4f38), woodR = toon(0x84412e), tile = toon(0x52596a), stone = toon(0xa8a59a), stoneL = toon(0xc8c4b8), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3), copper = toon(0x5f7d6a) // wall=本堂身舎の側面/背面も土壁テクスチャ（N3・2026-06-29）
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
       const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)) }
       const jizo = (jx, jz) => { const jy = heightAtYato(jx, jz); grp.add(mk(new THREE.BoxGeometry(0.4, 0.3, 0.4), stone, jx, jy + 0.15, jz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.13, 0.16, 0.7, 6), stoneL, jx, jy + 0.65, jz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.15, 8, 6), stoneL, jx, jy + 1.05, jz, 0, true)) }
@@ -2472,7 +2498,7 @@ function buildShishigaya() {
       signOn(cx, cz + 16, 8, gy, 3.5, name, '#3a4a5a') }
     // 妙光寺＝日蓮宗(北寺尾)。日蓮宗の寺は門前/参道に必ず「南無妙法蓮華経」を刻んだ題目塔(髭題目)があり一目で日蓮宗とわかる＝これを主役に。山門＋題目塔＋本堂(瓦入母屋・朱の扉に題目額)＋庫裡＋鐘楼＋日蓮聖人像＋築地塀。南(+z)向き（Web調査2026-06-23）
     const buildMyokoji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
-      const wall = toon(0xd9d2c4), woodD = toon(0x5f4632), woodR = toon(0x7a3b2a), tile = toon(0x4f535c), stone = toon(0x9a988e), stoneL = toon(0xcac6ba), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3)
+      const wall = toonMap(0xd9d2c4, plasterTex), woodD = toon(0x5f4632), woodR = toon(0x7a3b2a), tile = toon(0x4f535c), stone = toon(0x9a988e), stoneL = toon(0xcac6ba), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3) // wall=本堂身舎の側面/背面も土壁テクスチャ（N3・2026-06-29）
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
       const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)) }
       const daimokuTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#b8b3a6'; x.fillRect(0, 0, 64, 256); x.fillStyle = '#2a2a28'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; const t = '南無妙法蓮華経'; for (let i = 0; i < t.length; i++) x.fillText(t[i], 32, 22 + i * 33); return new THREE.CanvasTexture(c) })() // 題目（髭題目を簡略化した縦書き）
@@ -2755,19 +2781,23 @@ function buildShishigaya() {
     for (let i = 0; i < 520; i++) { const r = 150 + Math.random() * 55 | 0; x.fillStyle = 'rgba(' + r + ',' + (r - 30) + ',' + (r - 78) + ',' + (0.07 + Math.random() * 0.15).toFixed(2) + ')'; const s = 1 + Math.random() * 2.5; x.fillRect(Math.random() * 64, Math.random() * 64, s, s) } // 細かい土の粒
     x.lineCap = 'round'; for (let i = 0; i < 64; i++) { const px = Math.random() * 64, py = Math.random() * 64, s = 1.3 + Math.random() * 2.0, dark = Math.random() < 0.5; x.globalAlpha = 0.38 + Math.random() * 0.30; x.fillStyle = dark ? '#7a623c' : '#e0cd9e'; x.beginPath(); x.ellipse(px, py, s, s * 0.68, Math.random() * 3.1, 0, 6.283); x.fill() } // 小石（明暗の小粒＝足元の手ざわり）
     x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // 土の道＝黄土＋轍＋小石（のっぺり解消・目線の手ざわり）
-  const buildRoads = (kind, tex, lift, edgeCol) => { const rv = [], ruv = [], ridx = [], ev = [], eidx = [], clv = [], clidx = []; let ro = 0, eo = 0, clo = 0 // clv=中央の白破線（幅広の主要道だけ・F1）
+  const buildRoads = (kind, tex, lift, edgeCol) => { const rv = [], ruv = [], ridx = [], ev = [], eidx = [], clv = [], clidx = [], gv = [], gidx = []; let ro = 0, eo = 0, clo = 0, go = 0 // clv=中央の白破線（幅広の主要道だけ・F1）／gv=側溝のU字溝の細い線（見た目だけ・当たり判定なし・道マスク不変）
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = Math.max(kind === 'path' ? 1.25 : 2.0, rd.w / 2) // 細い道も見える/歩ける最低幅を確保
+      const gutter = kind === 'paved' && rd.w >= 4 // 側溝＝舗装の主要道だけ（昭和の道らしいコンクリのU字溝。細い路地/土道には引かない）
       for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, n = Math.max(2, Math.ceil(l / 4)) // 4m刻み＋中央頂点で地形に沿わせる（埋もれ防止・三角数を抑える）
-        const rb = ro, eb = eo
+        const rb = ro, eb = eo, gb = go
         for (let s = 0; s <= n; s++) { const t = s / n, cx = x0 + dx * t, cz = z0 + dz * t // 中心線に沿って 左/中央/右 の3点を地形高で（中央頂点があるので尾根で地形が路面を突き抜けない＝埋もれ防止）
           for (const sd of [-1, 0, 1]) { const qx = cx + nx * hw * sd, qz = cz + nz * hw * sd; rv.push(qx, heightAtYato(qx, qz) + lift, qz); ruv.push((sd + 1) / 2, l * t / 3) }
-          for (const sd of [-1, 1]) { const ex = cx + nx * (hw + 0.4) * sd, ez = cz + nz * (hw + 0.4) * sd; ev.push(ex, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift - 0.14, ez) } } // 道のふち（少し広い下地）＝路肩。★高さは路面の外端基準−14cm＝横斜面/交差点でも縁が路面より上に出て黒帯(黒いモヤ)になるのを防ぐ（−6cmでは交差点で重なって突き抜けた・ユーザー指摘2026-06-24で深く下げ＋色も路面グレーに）
+          for (const sd of [-1, 1]) { const ex = cx + nx * (hw + 0.4) * sd, ez = cz + nz * (hw + 0.4) * sd; ev.push(ex, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift - 0.14, ez) } // 道のふち（少し広い下地）＝路肩。★高さは路面の外端基準−14cm＝横斜面/交差点でも縁が路面より上に出て黒帯(黒いモヤ)になるのを防ぐ（−6cmでは交差点で重なって突き抜けた・ユーザー指摘2026-06-24で深く下げ＋色も路面グレーに）
+          if (gutter) for (const sd of [-1, 1]) { const i0 = hw - 0.05, i1 = hw + 0.22; for (const ig of [i0, i1]) { const gx = cx + nx * ig * sd, gz = cz + nz * ig * sd; gv.push(gx, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift + 0.015, gz) } } } // 側溝＝路面の外端ぎわ(hw-0.05〜hw+0.22)に細い帯。路面のすぐ脇＝路面の上には乗らない＝歩ける幅は不変。高さは路面+1.5cm＝面が暴れない
         for (let s = 0; s < n; s++) { const a = rb + s * 3; ridx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5); const e = eb + s * 2; eidx.push(e, e + 2, e + 1, e + 1, e + 2, e + 3) }
+        if (gutter) for (let s = 0; s < n; s++) { for (const side of [0, 1]) { const a = gb + s * 4 + side * 2; gidx.push(a, a + 4, a + 1, a + 1, a + 4, a + 5) } } // 左右それぞれ2頂点（内/外）×セグメント＝細い帯
         if (kind === 'paved' && rd.w >= 6) { const ux = dx / l, uz = dz / l // 幅広の主要道だけ中央の白破線（昭和の主要道らしさ・F1・2026-06-25）。狭い生活道路には引かない
           for (let td = 0.4; td < l - 0.4; td += 3.2) { const t2 = Math.min(l - 0.2, td + 1.6), ax = x0 + ux * td, az = z0 + uz * td, bx = x0 + ux * t2, bz = z0 + uz * t2, wl = 0.085
             for (const [px, pz] of [[ax + nx * wl, az + nz * wl], [ax - nx * wl, az - nz * wl], [bx + nx * wl, bz + nz * wl], [bx - nx * wl, bz - nz * wl]]) clv.push(px, heightAtYato(px, pz) + lift + 0.02, pz)
             clidx.push(clo, clo + 2, clo + 1, clo + 1, clo + 2, clo + 3); clo += 4 } }
-        ro += (n + 1) * 3; eo += (n + 1) * 2 } }
+        ro += (n + 1) * 3; eo += (n + 1) * 2; if (gutter) go += (n + 1) * 4 } }
+    if (gv.length) { const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gv, 3)); gg.setIndex(gidx); gg.computeVertexNormals(); const gm = new THREE.Mesh(gg, new THREE.MeshToonMaterial({ color: 0x70726e, gradientMap: GRAD, emissive: new THREE.Color(0x2a2c2c), side: THREE.DoubleSide })); gm.layers.set(1); gm.name = 'yatoGutter'; scene.add(gm) } // 側溝の細い線（全舗装道で1メッシュ＝+1ドローコール・当たり判定/道マスクは不変・インク線から除外）
     if (clv.length) { const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(clv, 3)); cg.setIndex(clidx); cg.computeVertexNormals(); const cm = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0xe6e3d6, side: THREE.DoubleSide })); cm.layers.set(1); scene.add(cm) } // 中央の白破線（インク線から除外＝細線に黒フチを付けない）
     if (!rv.length) return
     if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x40341f : 0x42464d), side: THREE.DoubleSide }))) } // 路肩は路面と同じ明るさ＝突き抜けても黒帯にならない（emissiveも路面と同値）
@@ -3421,6 +3451,50 @@ function buildShishigaya() {
       const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
     console.log('[shishigaya] grass', ng) }
+  // ── 谷を囲む遠景の山並みシルエット（盆地＝下末吉台地の谷戸。歩行範囲のはるか外周に低ポリの稜線を環状に）──
+  //   屋上(far≈1200)/飛行(far≈1250)で「世界の縁」の説得力を出す。地上(far≈470)では霞に半分溶ける高さ。
+  //   ★性能：色ちがい2層＝計2ドローコールに収める（多数のConeを各層1つのmerge済みメッシュへ手で頂点合成）。
+  //   ★重要：静的チャンク化(chunkYatoWorld・fog far超で非表示)に巻き込まれて消えないよう userData.noChunk=true で除外する
+  //     （常に地平に見える＝chunk対象外。merge済みでspanが大きくても触られない）。当たり判定も無し＝近づけないので“板”でも破綻しない。
+  {
+    const cx0 = SG.gx0, cz0 = SG.gz0 // 谷の中心(3000,0)
+    // 2層：近い稜線=やや緑がかる／遠い稜線=青くかすむ（空気遠近）。色は霧色(noon fog≈0xdee9ee)へ寄せて溶けやすく
+    // ★半径は屋上のカメラ遠方面(far≈1260m＝round((fog1200+60)/20)*20)の“内側”に収める＝屋上/飛行で稜線がクリップされて消えない。
+    //   地上(far≈680)では稜線は遠方面の外＝自然に見えない（谷の霞の向こう＝正しい）。
+    const layers = [
+      { col: 0x6f8a78, ring: 760, jit: 80, n: 28, hLo: 78, hHi: 132, radLo: 150, radHi: 235, sink: 22 }, // 近い山なみ（夏の緑青・霞は薄め＝稜線がはっきり）
+      { col: 0x8ba2b2, ring: 940, jit: 80, n: 24, hLo: 104, hHi: 176, radLo: 195, radHi: 300, sink: 30 } // 遠い山なみ（青くかすむ・ぐっと高く＝町の屋根越しにそびえる）
+    ]
+    let li = 0
+    for (const Lr of layers) {
+      const pos = [], col = new THREE.Color(Lr.col), arr = []
+      // 各「山」＝5〜6角錐を1つにmerge。麓は地平より沈め(sink)、稜線だけ見せる
+      for (let i = 0; i < Lr.n; i++) {
+        const a = (i / Lr.n) * Math.PI * 2 + (Math.random() - 0.5) * (1.4 / Lr.n) * Math.PI * 2
+        const r = Lr.ring + (Math.random() - 0.5) * 2 * Lr.jit
+        const mx = cx0 + Math.cos(a) * r, mz = cz0 + Math.sin(a) * r
+        const h = Lr.hLo + Math.random() * (Lr.hHi - Lr.hLo), rad = Lr.radLo + Math.random() * (Lr.radHi - Lr.radLo)
+        const seg = 5 + (Math.floor(Math.random() * 3)) // 5〜7角＝低ポリの稜線
+        const baseY = -Lr.sink, apex = [mx, baseY + h, mz], rot = Math.random() * Math.PI * 2
+        for (let k = 0; k < seg; k++) { // 側面の三角を麓リング→頂点で張る（円錐の側面）
+          const a0 = rot + (k / seg) * Math.PI * 2, a1 = rot + ((k + 1) / seg) * Math.PI * 2
+          const p0 = [mx + Math.cos(a0) * rad, baseY, mz + Math.sin(a0) * rad]
+          const p1 = [mx + Math.cos(a1) * rad, baseY, mz + Math.sin(a1) * rad]
+          pos.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], apex[0], apex[1], apex[2])
+        }
+      }
+      for (let v = 0; v < pos.length / 3; v++) arr.push(col.r, col.g, col.b)
+      const hg = new THREE.BufferGeometry()
+      hg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+      hg.setAttribute('color', new THREE.Float32BufferAttribute(arr, 3))
+      hg.computeVertexNormals()
+      const hm = new THREE.Mesh(hg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, fog: true })) // fog:true＝霞に溶ける。トゥーンで空気感
+      hm.name = 'yatoFarHills' + (li++); hm.castShadow = false; hm.receiveShadow = false
+      hm.userData.noChunk = true // ★チャンク距離カリングの対象外＝屋上/飛行でも消えない（常に地平に見える）
+      hm.layers.set(1) // 空ドームと同じくインク線パスから除外＝遠景の稜線に黒い縁取りが暴れない（“板”っぽさを避ける）。メイン描画はlayer0+1なので見える
+      scene.add(hm)
+    }
+  }
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
 buildShishigaya()
@@ -12184,6 +12258,9 @@ window.__proto3d = {
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
+  _setVista(fogFar, camFar) { window.__freezeCam = true; if (scene.fog) { scene.fog.near = Math.max(60, fogFar * 0.4); scene.fog.far = fogFar } camera.far = camFar; camera.updateProjectionMatrix(); renderer.render(scene, camera) }, // 検証用：屋上/飛行の眺望条件（霧far・カメラfar）を固定して描画＝遠景の山並みの確認
+  _hillStats() { let n = 0, vis = 0; scene.traverse((o) => { if (o.name && o.name.startsWith('yatoFarHills')) { n++; if (o.visible) vis++ } }); return { meshes: n, visible: vis, chunkObjs: yatoChunks.length } }, // 検証用：遠景の山並みメッシュの数/表示状態（チャンクに巻き込まれて消えていないか）
+  _groundY(x, z) { return heightAt(x, z) }, // 検証用：地面の標高（スクショのカメラ高さ合わせ）
   _perfOccl(hx, hz, cgx, cgz) { const t0 = performance.now(); for (let f = 0; f < 60; f++) { for (let s = 0.35; s <= 0.92; s += 0.12) { const px = hx + (cgx - hx) * s, pz = hz + (cgz - hz) * s; let blocked = false; const ci = Math.floor(px / CG_CELL), cj = Math.floor(pz / CG_CELL); for (let di = -1; di <= 1 && !blocked; di++) for (let dj = -1; dj <= 1 && !blocked; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue; for (const idx of a) { const c = colliders[idx]; if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.3 && Math.abs(lz) < c.hd + 0.3) { blocked = true; break } } else { const rr = c.r + 0.3; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } } } } if (blocked) break } } return +(performance.now() - t0).toFixed(2) }, // 検証用：新しいグリッド版カメラ遮蔽の60フレーム所要ms（旧・全コライダー走査との比較）
   _mem() { const m = renderer.info.memory, pm = (performance && performance.memory) ? performance.memory : null; return { geometries: m.geometries, textures: m.textures, heapMB: pm ? +(pm.usedJSHeapSize / 1048576).toFixed(1) : null } }, // P6：常駐メモリ（GPUジオメトリ/テクスチャ＋JSヒープ）＝モバイル生存の予算ゲート用
   get _camYaw() { return camCtl.yaw }, get _facing() { return facing }, // 検証用：カメラ追従
