@@ -6381,6 +6381,51 @@ function placeNPCOnLand(x, z, clearR, maxR) { maxR = maxR || 40
 }
 // 「建物に“深く”埋まっているか」＝壁際(コライダーのパディング内＝自然)は許し、足元のパッド0.6mより内側に入っている物だけを不具合とみなす
 function deepInBuilding(x, z) { for (const c of colliders) { if (c.box) { const dx = x - c.x, dz = z - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw - 0.6 && Math.abs(lz) < c.hd - 0.6) return true } else if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r - 0.6) ** 2) return true } return false }
+// ── 獅子ヶ谷（yato）の「話せる住人」＝商店街のおばさん／花屋のおばさん／軒先の年配の人。──
+//   旧プロト町の townLady と同じ仕組み（makeVillager の info.byPhase ＋ npcs 配列 ＋ startDialogue のフラグ）を再利用。
+//   これで yato 常駐のプレイヤーでも絵日記の metShop / gotOmake が立つ（街まで歩いた wentTown は yato の商店街到達でも立てる）。
+//   配置は placeNPCOnLand で必ず「水/建物/道を避けた開けた地面」へスナップ＝接地（heightAtYato）も確実。道(客)の方を向く。
+const yatoFolk = [] // yato の立ち話す住人（毎フレーム：息づかい＋近づくと気づいてこちらを向く）
+function makeYatoResident(ax, az, faceX, faceZ, opt) {
+  const spot = placeNPCOnLand(ax, az, 0.7, 14) || { x: ax, z: az } // 開けた地面へスナップ（見つからなければ素点）
+  const p = makeVillager(spot.x, spot.z, opt)
+  p.rotation.y = Math.atan2(faceX - spot.x, faceZ - spot.z) // 道(客)＝最寄りの道の方を向く
+  yatoFolk.push(p); return p
+}
+// 八百屋のおばさん（商店街の店先。店番＝主人公級。話すと metShop、夕方は gotOmake でトマトのおまけ）
+const yatoShopLady = makeYatoResident(2732, -119.5, 2731, -121, {
+  scale: 1.16, adult: true, garment: 'dress', apron: 0xe8e2d4, shirt: 0xc9b48c, skirt: 0x8a6a4a, skin: 0xeab584,
+  hair: 0x6a5a48, hairStyle: 'bob', brow: true, browTilt: 0.9,
+  info: { name: '八百屋の おばさん', byPhase: {
+    morning: ['あら、おはよう。トマト、けさ もいだ ばっかりだよ。', 'すいか、よく ひえてるよ。半分でも 売るからね。'],
+    noon: ['いらっしゃい。暑いねえ、日かげに おはいり。', 'きゅうりに 塩、つけて かじると うまいんだ。'],
+    evening: ['そろそろ 店じまいだねえ。…ほら、これ おまけ。', 'ひぐらしが ないとるね。気をつけて お帰り。'],
+    night: ['もう しまっちゃったよ。', '夜は ひえるよ。はやく お帰り。'],
+  } },
+})
+// 花屋のおばさん（商店街の並び。話すと metShop。やさしい花の話）
+const yatoFlowerLady = makeYatoResident(2737, -134, 2731, -134, {
+  scale: 1.14, adult: true, garment: 'dress', apron: 0x9aa0a8, shirt: 0xb8889a, skirt: 0x5a6a7a, skin: 0xf0c49c,
+  hair: 0x4a3a2e, hairStyle: 'pony', brow: true, browTilt: 0.8,
+  info: { name: '花屋の おばさん', byPhase: {
+    morning: ['おはよう。けさは ひまわりが きれいに 咲いたよ。', 'あさがおの 鉢、ひとつ いるかい。'],
+    noon: ['暑いから、花も しおれちゃうねえ。水を やらないと。', 'ほおずき、もう 赤く なってきたよ。'],
+    evening: ['夕がたは すずしくて いいねえ。', 'おうちに ひとつ、花が あると いいもんだよ。'],
+    night: ['もう 店じまいだよ。', '気をつけて お帰り。'],
+  } },
+})
+// 軒先の おじいさん（夕涼み・世間話。商店街の少し北の住宅の軒先。フラグは立てず“気配と交流”のみ）
+const yatoGrandpa = makeYatoResident(2731, -106.5, 2730, -108, {
+  scale: 1.12, adult: true, garment: 'tank', shirt: 0xece8da, skirt: 0x5a564c, skin: 0xddb088,
+  hair: 0x8c8c86, hairStyle: 'short', brow: true, browTilt: 0.6,
+  info: { name: '軒先の おじいさん', byPhase: {
+    morning: ['お、はやいな。朝の うちは すずしくて ええのう。', 'ラジオ体操かい。えらいぞ。'],
+    noon: ['暑いのう。…うちわ、かしてやろうか。', 'この あたりも、むかしは 田んぼ ばっかりでなあ。'],
+    evening: ['夕涼みが いちばんの ごちそうだ。', 'ひぐらしの声を きくと、夏も おわりが 近いのう。'],
+    night: ['まだ 起きとるのか。星が きれいだのう。', '夜ふかしは いかんぞ。早く おやすみ。'],
+  } },
+})
+npcs.push(yatoShopLady, yatoFlowerLady, yatoGrandpa) // 話せる人の輪に加える（townLady と同じ talkTarget 検出に乗る）
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
@@ -8954,6 +8999,9 @@ function startDialogue() {
   if (who === villager && day >= TOTAL_DAYS) { gotOmamori = true; try { localStorage.setItem('hn3d_omamori', '1') } catch (e) {} } // 最終日に会えたら おまもりを受け取る
   if (who === townLady) todayFlags.metShop = true
   if (who === townLady && tday > 0.6 && tday < 0.86 && !todayFlags.gotOmake) { todayFlags.gotOmake = true; showToast('おばさんが トマトを ひとつ おまけして くれた。') } // 夕方の「おまけ」を実際にもらえる
+  // 獅子ヶ谷（yato）の商店街の住人＝旧プロト町の townLady と同じ絵日記フラグを再利用（yato 常駐でも metShop/gotOmake/wentTown が立つ）
+  if (who === yatoShopLady || who === yatoFlowerLady) { todayFlags.metShop = true; todayFlags.wentTown = true } // 商店のおばさんと話した＝商店街まで歩いた証
+  if (who === yatoShopLady && tday > 0.6 && tday < 0.86 && !todayFlags.gotOmake) { todayFlags.gotOmake = true; showToast('おばさんが トマトを ひとつ おまけして くれた。') } // 八百屋のおばさんも夕方は「おまけ」をくれる
   if (who === grandma && tday > 0.3 && tday < 0.62 && !todayFlags.lamune) { todayFlags.lamune = true; showToast('おばあちゃんが ラムネを くれた。よく ひえていた。') } // H3：昼間に縁側のおばあちゃんが冷えたラムネをくれる（絵日記のlamuneに連動）
   who.rotation.y = Math.atan2(boy.position.x - who.position.x, boy.position.z - who.position.z) // こちらを向く
 }
@@ -10262,6 +10310,19 @@ function update(dt) {
       n.userData.head.rotation.x += ((peeking ? 0.42 : 0) - n.userData.head.rotation.x) * Math.min(1, dt * 3)
       n.rotation.x += ((peeking ? 0.18 : 0) - n.rotation.x) * Math.min(1, dt * 3) // 足元を軸に前かがみ
     }
+  }
+  // 獅子ヶ谷（yato）の立ち話す住人：息づかい＋ふだんは見回し、近づくと気づいてこちらを向く（townLady と同じ作法。yato でだけ動かす）
+  if (area === 'yato' || onYato) for (const n of yatoFolk) {
+    n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
+    const pd = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z)
+    const near = pd < 4.5
+    if (near) {
+      let dd = Math.atan2(boy.position.x - n.position.x, boy.position.z - n.position.z) - n.rotation.y
+      while (dd > Math.PI) dd -= Math.PI * 2; while (dd < -Math.PI) dd += Math.PI * 2
+      n.rotation.y += dd * Math.min(1, dt * 4)
+      n.userData.head.rotation.y *= 0.85
+    } else n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
+    npcArms(n, near, dt, tsec)
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
@@ -11636,6 +11697,10 @@ window.__proto3d = {
   _akatombo() { const d = yatoBugs.filter((c) => c.dusk); return { total: d.length, vis: d.filter((c) => c.obj.visible).length, at: d.slice(0, 3).map((c) => [Math.round(c.obj.position.x), Math.round(c.obj.position.z), c.obj.visible]) } }, // 検証用：赤とんぼ(dusk)の数と表示中
   _sparrows() { return sparrows.map((s) => ({ at: [+s.position.x.toFixed(0), +s.position.z.toFixed(0)], area: s.userData.area, state: s.userData.state, y: +s.position.y.toFixed(2), vis: s.visible })) }, // 検証用：スズメの状態（home areaと表示）
   _shopkeepers() { return shopkeepers.map((p) => ({ at: [+p.position.x.toFixed(0), +p.position.z.toFixed(0)], y: +p.position.y.toFixed(1), garment: p.userData.garment, sweep: !!p.userData.sweep, faceX: +Math.sin(p.rotation.y).toFixed(2), faceZ: +Math.cos(p.rotation.y).toFixed(2) })) }, // 検証用：店番の位置・服・掃除か・向き(顔の方向)
+  _yatoFolk() { return yatoFolk.map((p) => ({ name: p.userData.info.name, at: [+p.position.x.toFixed(1), +p.position.z.toFixed(1)], y: +p.position.y.toFixed(2), spotOk: npcSpotOk(p.position.x, p.position.z, 0.7), onRoad: onYatoRoadCore(p.position.x, p.position.z), inNpcs: npcs.includes(p) })) }, // 検証用：yatoの話せる住人（接地/開けた地面/道よけ/npcs登録）
+  get _talkTarget() { return talkTarget ? talkTarget.userData.info.name : null }, // 検証用：いま話しかけられる相手の名前
+  get _flags() { return { ...todayFlags } }, // 検証用：絵日記フラグの現在値
+  _diaryName() { return dlgNameEl.textContent }, // 検証用：いま開いている会話の相手名
   get _shootState() { return { t: +shootStar.t.toFixed(2), op: +shootStar.mat.uniforms.uOpacity.value.toFixed(3), vis: shootStar.pts.visible } }, // 検証用：流れ星の状態
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
