@@ -11239,6 +11239,10 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); 
   const enterFly = () => {
     if (flying) return
     if (mode !== 'walk') standUp() // 座り/寝転び/ブランコ中に飛ぶと操作が死ぬので歩行へ戻してから入る
+    // ★重大修正：浮遊(風船)/自転車のまま飛行に入ると、それらの状態が解除されず残り、飛行を抜けても floatMode が立ちっぱなし＝
+    //   主人公が浮き続ける→高度で霧が開き町全体を毎フレーム描画→「自宅付近で重くなり元に戻らない」フリーズの主因（ユーザー報告2026-06-28）。飛行に入る前に必ず両モードを綺麗に解除する。
+    if (floatMode) { floatMode = false; floatExiting = false; floatVel.set(0, 0, 0); document.body.classList.remove('floating'); if (floatEl) floatEl.classList.remove('on') }
+    if (riding) { riding = false; document.body.classList.remove('riding'); if (bikeEl) bikeEl.classList.remove('on') }
     flying = true
     flyPos.copy(camera.position); flyVel.set(0, 0, 0); flyUp = flyDown = 0
     camera.getWorldDirection(flyTmp)
@@ -11251,6 +11255,10 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); 
   const exitFly = () => {
     if (!flying) return
     flying = false; flyVel.set(0, 0, 0); flyUp = flyDown = 0; endPuni()
+    // ★保険：飛行を抜ける時にも浮遊/自転車が万一残っていたら必ず解除＝モードが混ざって状態が残らない（フリーズ防止・2026-06-28）
+    if (floatMode) { floatMode = false; floatExiting = false; floatVel.set(0, 0, 0); document.body.classList.remove('floating'); if (floatEl) floatEl.classList.remove('on') }
+    if (riding) { riding = false; document.body.classList.remove('riding'); if (bikeEl) bikeEl.classList.remove('on') }
+    boy.userData._cy = null // 着地後の地面追従をリセット（浮いた高さに取り残されない）
     document.body.classList.remove('flying'); if (flyUI) flyUI.classList.remove('on')
     camera.fov = BASE_FOV; camera.updateProjectionMatrix()
   }
