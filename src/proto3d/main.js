@@ -8374,7 +8374,7 @@ const LIFE_SPOTS = [
   { x: 3010, z: 8, kinds: ['murmur', 'dog'], w: [0.5, 0.8] },               // 家並み・夕方の家路（遠い子の声＋犬の遠吠え＝郷愁）
   { x: 2762, z: -150, kinds: ['murmur', 'bell'], w: [0.2, 0.78] },          // 商店街（立ち話のざわめき＋自転車のベル）
 ]
-let lifeGain = null, lifeMurmurCd = 4 + Math.random() * 10, lifeCheerCd = 10 + Math.random() * 24, lifeDogCd = 50 + Math.random() * 70, lifeBellCd = 40 + Math.random() * 70, lifeCallCd = 30 + Math.random() * 50
+let lifeGain = null, lifeMurmurCd = 4 + Math.random() * 10, lifeCheerCd = 10 + Math.random() * 24, lifeDogCd = 50 + Math.random() * 70, lifeBellCd = 40 + Math.random() * 70, lifeCallCd = 30 + Math.random() * 50, lifeRoosterCd = 12 + Math.random() * 30
 function getLifeOut() { const ctx = listener.context; if (lifeGain && lifeGain.context === ctx) return lifeGain
   lifeGain = ctx.createGain(); lifeGain.gain.value = 0
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2300 // 遠い生活音＝やわらかく（輪郭を消す）
@@ -8450,6 +8450,41 @@ function farCall(t0) { if (!audioStarted) return; try {
   o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(out)
   o.start(t0); o.stop(t0 + 2.6)
 } catch (e) {} }
+// 夜明けの雄鶏の「コケコッコー」＝昭和の田舎の朝のいちばんの音（横溝屋敷のにわとり・録音不使用の自前合成）。
+//   遠くから谷をわたって届く一声＝farと同じく低いローパス＋うっすら反響。短い3声＋長くしわがれて落ちる1声。
+function roosterCrow(t0) { if (!audioStarted) return; try {
+  const ctx = listener.context
+  const out = ctx.createGain(); out.gain.value = 1
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2100; lp.Q.value = 0.3 // 遠い鶏＝高域は届きにくいが甲高さは少し残す
+  const dl = ctx.createDelay(); dl.delayTime.value = 0.2; const fb = ctx.createGain(); fb.gain.value = 0.24; const wet = ctx.createGain(); wet.gain.value = 0.42 // 朝の谷にこだまする
+  dl.connect(fb); fb.connect(dl)
+  const pan = lifePan((Math.random() * 2 - 1) * 0.5)
+  out.connect(lp); lp.connect(pan); pan.connect(getMaster()); lp.connect(dl); dl.connect(wet); wet.connect(pan)
+  const base = 560 + Math.random() * 70 // 雄鶏の甲高い声
+  const pk = 0.03 * (AUDIO.lifeVol || 0.4) * (settings.volLife ?? 1) // 控えめ（夜明けの遠い一声）＝G5：声スライダー
+  const o = ctx.createOscillator(); o.type = 'sawtooth' // のこぎり波＝鶏のざらついた声
+  const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 3.5
+  const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 5
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0)
+  o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(out)
+  // 短い3声（コ・ケ・コッ）＝立ち上がりごとに軽く跳ねる
+  for (const [st, du, m] of [[0.0, 0.12, 1.0], [0.17, 0.13, 1.12], [0.33, 0.13, 1.06]]) {
+    o.frequency.setValueAtTime(base * m * 0.92, t0 + st); o.frequency.linearRampToValueAtTime(base * m * 1.06, t0 + st + du * 0.6)
+    g.gain.setValueAtTime(0.0001, t0 + st); g.gain.linearRampToValueAtTime(pk * 0.8, t0 + st + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + st + du)
+    f1.frequency.setValueAtTime(620, t0 + st); f2.frequency.setValueAtTime(1050, t0 + st)
+  }
+  // 長い「コ—ー」＝山なりに上がってから しわがれて落ちる（終いにビブラート＝しわがれ）
+  const ls = 0.5
+  o.frequency.setValueAtTime(base, t0 + ls)
+  o.frequency.linearRampToValueAtTime(base * 1.16, t0 + ls + 0.18)
+  o.frequency.linearRampToValueAtTime(base * 1.08, t0 + ls + 0.6)
+  o.frequency.linearRampToValueAtTime(base * 0.8, t0 + ls + 0.9)
+  const vib = ctx.createOscillator(); vib.frequency.value = 14; const vibg = ctx.createGain(); vibg.gain.value = 22; vib.connect(vibg); vibg.connect(o.frequency); vib.start(t0 + ls + 0.5); vib.stop(t0 + ls + 1.05)
+  g.gain.setValueAtTime(0.0001, t0 + ls); g.gain.linearRampToValueAtTime(pk, t0 + ls + 0.06); g.gain.linearRampToValueAtTime(pk * 0.85, t0 + ls + 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t0 + ls + 0.98)
+  f1.frequency.setValueAtTime(640, t0 + ls); f1.frequency.linearRampToValueAtTime(560, t0 + ls + 0.9)
+  f2.frequency.setValueAtTime(1100, t0 + ls); f2.frequency.linearRampToValueAtTime(900, t0 + ls + 0.9)
+  o.start(t0); o.stop(t0 + ls + 1.1)
+} catch (e) {} }
 function maybeLifeSounds(dt) {
   if (!audioStarted) return
   const ctx = listener.context, out = getLifeOut()
@@ -8461,6 +8496,8 @@ function maybeLifeSounds(dt) {
   out.gain.setTargetAtTime(target, ctx.currentTime, 0.5) // バス音量を距離でなめらかに
   // G2：遠い呼び声（家路の夕方・母音だけの「ごはんよー」感）。近接ゲートとは別に、谷戸の夕方ときどき遠くから漂う。
   lifeCallCd -= dt; if (onYato && tday > 0.48 && tday < 0.72 && lifeCallCd <= 0) { lifeCallCd = 50 + Math.random() * 80; farCall(ctx.currentTime + 0.06) }
+  // 夜明けの雄鶏（横溝屋敷のにわとり）。近接ゲートに縛られず谷をわたって届く＝朝いちばんの音。明け方tday0.02〜0.14にときどき
+  lifeRoosterCd -= dt; if (onYato && tday > 0.02 && tday < 0.14 && lifeRoosterCd <= 0) { lifeRoosterCd = 28 + Math.random() * 45; roosterCrow(ctx.currentTime + 0.06) }
   if (!near || !onYato || target < 0.012) return // 遠い/夜/対象外は鳴らさない
   const at = ctx.currentTime + 0.06, has = (k) => near.kinds.indexOf(k) >= 0
   lifeMurmurCd -= dt; if (lifeMurmurCd <= 0) { lifeMurmurCd = 9 + Math.random() * 15; if (has('murmur')) lifeMurmur(at) }
@@ -11505,6 +11542,7 @@ window.__proto3d = {
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
   _windInfo() { return windGain ? { started: windStarted, gain: +windGain.gain.value.toFixed(4), freq: windLP ? Math.round(windLP.frequency.value) : 0 } : { started: windStarted } }, // 検証用：風の音ノードの状態
+  _rooster() { let threw = null; try { roosterCrow(listener.context.currentTime + 0.05) } catch (e) { threw = String(e) }; return { ok: !threw, started: audioStarted, state: listener.context ? listener.context.state : null, err: threw } }, // 検証用：雄鶏の鳴き声の音グラフが例外なく組めるか（音は耳で確認）
   _info() { // 検証用：シーン1回描画の実コスト
     renderer.info.autoReset = false; renderer.info.reset()
     renderer.render(scene, camera)
