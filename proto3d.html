@@ -104,11 +104,16 @@
       body.floating #jump, body.floating #zin, body.floating #zout, body.floating #lie, body.floating #bike, body.floating #act, body.floating #npc, body.floating #catch, body.floating #fish, body.floating #hint, body.floating #sleep, body.floating #pm-btn { display: none !important; }
       /* ── しばらく操作しないと、画面のボタン類がそっと透明に消える（景色に没入できる・どのモード/視点でも・画面に触れると戻る・ユーザー要望2026-06-23）── */
       #hint, #badge, #act, #jump, #zin, #zout, #look, #dock, #npc, #go, #catch, #fish, #sleep, #set-btn,
-      #fl-up, #fl-down, #fl-zin, #fl-zout, #fl-speed, #fl-fpv, #fl-gauges, #stick { transition: opacity 0.9s ease; }
+      #fl-up, #fl-down, #fl-zin, #fl-zout, #fl-speed, #fl-fpv, #fl-gauges, #stick,
+      #fly-up, #fly-down, #fly-zin, #fly-zout, #fly-speed, #fly-photo, #fly-exit,
+      #fly-cross, #pin-read, #pin-list, #pin-drop, #pin-clear, #pin-copyall { transition: opacity 0.9s ease; }
       body.ui-idle #hint, body.ui-idle #badge, body.ui-idle #act, body.ui-idle #jump, body.ui-idle #zin, body.ui-idle #zout,
       body.ui-idle #look, body.ui-idle #dock, body.ui-idle #npc, body.ui-idle #go, body.ui-idle #catch, body.ui-idle #fish,
       body.ui-idle #sleep, body.ui-idle #set-btn, body.ui-idle #fl-up, body.ui-idle #fl-down, body.ui-idle #fl-zin,
-      body.ui-idle #fl-zout, body.ui-idle #fl-speed, body.ui-idle #fl-fpv, body.ui-idle #fl-gauges, body.ui-idle #stick {
+      body.ui-idle #fl-zout, body.ui-idle #fl-speed, body.ui-idle #fl-fpv, body.ui-idle #fl-gauges, body.ui-idle #stick,
+      body.ui-idle #fly-up, body.ui-idle #fly-down, body.ui-idle #fly-zin, body.ui-idle #fly-zout, body.ui-idle #fly-speed,
+      body.ui-idle #fly-photo, body.ui-idle #fly-exit, body.ui-idle #fly-cross, body.ui-idle #pin-read, body.ui-idle #pin-list,
+      body.ui-idle #pin-drop, body.ui-idle #pin-clear, body.ui-idle #pin-copyall {
         opacity: 0 !important; pointer-events: none !important; }
       /* ただし操作ボタンはフェード中でも押せる＝1タップで効く（消えていても押せて、同時にUIが戻る・ユーザー指摘2026-06-26） */
       body.ui-idle #jump, body.ui-idle #zin, body.ui-idle #zout, body.ui-idle #dock, body.ui-idle #dock > button,
@@ -294,6 +299,9 @@
       #set-fly { background: #6a86c0; }
       #flyui { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 8; }
       #flyui.on { display: block; }
+      /* 開発時(body.dev-on)に浮遊(風船)へ入ると、十字＋座標＋ピン📍/全部コピー📋だけを出す（飛行専用の上昇/速さ/写真/もどるは浮遊の🎈UIと重なるので隠す）。実際に飛ぶのは浮遊なので、ここで座標を拾える・ユーザー要望2026-06-29 */
+      body.dev-float #fly-up, body.dev-float #fly-down, body.dev-float #fly-zin, body.dev-float #fly-zout,
+      body.dev-float #fly-speed, body.dev-float #fly-photo, body.dev-float #fly-exit { display: none !important; }
       body.flying #jump, body.flying #act, body.flying #lie, body.flying #sleep, body.flying #npc,
       body.flying #catch, body.flying #fish, body.flying #go, body.flying #zin, body.flying #zout,
       body.flying #hint, body.flying #look { display: none !important; }
