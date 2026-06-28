@@ -13,6 +13,7 @@
 //   night     … 夜（虫の音・カエル）
 //   windchime … 縁側（風鈴）
 //   river     … 川辺（せせらぎ）
+//   eveningbgm… 夕暮れ〜夜の温かいBGM（任意・CC0のループ曲を置くと自前合成の代わりに鳴る。無ければ自前合成）
 
 const modules = import.meta.glob('../assets/audio/*.{ogg,mp3,wav,m4a}', {
   eager: true,

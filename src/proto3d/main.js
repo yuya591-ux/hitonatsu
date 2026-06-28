@@ -8108,6 +8108,7 @@ function startAudio() {
     initRainAudio()
     initWindAudio() // 風の音（葉ずれ・草原を渡る風）＝突風windで増減・草/木/稲の揺れと同期
     initRainBgm() // 雨のときだけ鳴る神秘的BGM（パッド）を用意
+    initEveningBgm() // 晴れた夕暮れ〜夜にそっと鳴る温かいBGM（パッド）を用意
     unlockIOSAudio() // iOSのミュートスイッチ/画面収録対策
   } catch (e) {}
   try { if (window.__applySound) window.__applySound() } catch (e) {} // 設定で「おとOFF」なら止める
@@ -8199,6 +8200,73 @@ function initRainBgm() {
     rainBgmStarted = true
   } catch (e) {}
 }
+// ── 夕暮れ〜夜の、晴れた日の主役級BGM（自前合成・温かいパッド）。
+//   雨BGM(rainBgm)が「雨の時だけ」鳴るのと対になる存在＝「晴れの夕夜だけ」そっと鳴る。
+//   時代の田舎の夕方の“空気の色”を、長調＋ひとさじの郷愁(add9)で。テンポは無いに等しいドローン。
+//   設計＝アンダーラン厳禁。常時起動オシレータは最小限（音4＋LFO2＝計6本。雨BGMの17本より大幅に少ない）。
+//   ゲインのエンベロープだけで出し入れし、発振器は鳴りっぱなしにしない方針…ではなく“起動本数を絞る”方針＝
+//   rainBgmと同じく開始時に一度だけ起動し、以後はゲインで静かに上下（resume/suspendはおとOFFが司る）。
+let eveBgmGain = null, eveBgmStarted = false, eveBgmLP = null
+function initEveningBgm() {
+  if (eveBgmStarted) return
+  try {
+    const ctx = listener.context
+    eveBgmGain = ctx.createGain(); eveBgmGain.gain.value = 0 // 既定は無音＝updateで時間帯/天気に応じて静かに立ち上げる
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 760; lp.Q.value = 0.6; eveBgmLP = lp // 丸く・やわらかく（夕方は更に閉じて温かく）
+    // 差し替え可能性：src/assets/audio/eveningbgm.* にCC0のループ曲を置けば、自前合成の代わりにそれを鳴らす（出し入れ/ダッキングは同じeveBgmGainで共通）。
+    const evUrl = audioUrls['eveningbgm']
+    if (evUrl) {
+      lp.connect(getMaster()) // ※ファイル版はトレモロLFOを通さず、loop音源をそのままLPF→マスターへ（曲側の表情を尊重）
+      eveBgmGain.connect(lp)
+      new THREE.AudioLoader().load(evUrl, (buf) => {
+        try { const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(eveBgmGain); if (audioStarted) src.start() } catch (e) {}
+      }, undefined, () => {})
+      eveBgmStarted = true
+      return
+    }
+    // フィルタをごくゆっくり開閉＝夕暮れの空気がたゆたう（LFO 1本）
+    const flfo = ctx.createOscillator(); flfo.frequency.value = 0.05; const flg = ctx.createGain(); flg.gain.value = 240
+    flfo.connect(flg); flg.connect(lp.frequency); flfo.start()
+    // 全体にごく弱いトレモロ（LFO 1本・共有）＝呼吸するような揺れ。各音バラバラのLFOは増やさない＝本数を抑えアンダーラン予防
+    const trem = ctx.createOscillator(); trem.frequency.value = 0.13; const tremG = ctx.createGain(); tremG.gain.value = 0.06
+    const tremBase = ctx.createGain(); tremBase.gain.value = 1.0 // 中心1.0±0.06でゆっくり明滅
+    trem.connect(tremG); tremG.connect(tremBase.gain); trem.start()
+    eveBgmGain.connect(tremBase); tremBase.connect(lp); lp.connect(getMaster())
+    // 和音＝Cメジャー add9（C3 G3 E4 ＋ ゆっくり動く上声 D5/add9）。長調の素朴さに、加九度のひとさじの郷愁。
+    //   maj7(B)は甘く/切なくなりすぎるので使わず、add9でやさしく開く。低めの三和音＝夕暮れの落ち着き。
+    const voices = [
+      { f: 130.81, g: 0.10 }, // C3（根）
+      { f: 196.00, g: 0.075 }, // G3（5度）
+      { f: 329.63, g: 0.06 }, // E4（3度）
+      { f: 587.33, g: 0.035 }, // D5（add9・上声＝いちばん上でそっと鳴る）
+    ]
+    for (const v of voices) {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = v.f
+      const og = ctx.createGain(); og.gain.value = v.g
+      o.connect(og); og.connect(eveBgmGain); o.start()
+    }
+    eveBgmStarted = true
+  } catch (e) {}
+}
+// 夕夜BGMの音量を、時間帯・天気・設定・ダッキングから決めて静かに反映（毎フレーム呼ぶ）。
+const EVE_BGM_VOL = 0.12 // 主役級だが控えめ＝環境音や“間”を消さない（迷ったら控えめに）。雨BGM(0.14)と同程度
+function updateEveningBgm(dt) {
+  if (!audioStarted || !eveBgmGain) return
+  const ctx = listener.context
+  // 時間帯ゲート：夕方(0.58)からふわっと立ち上がり、夜にかけて主役へ。深夜(0.9以降)は少し沈静＝眠りへ。
+  const dusk = THREE.MathUtils.smoothstep(tday, 0.58, 0.70) // 夕方の立ち上がり
+  const lateCalm = 1 - THREE.MathUtils.smoothstep(tday, 0.90, 0.99) * 0.45 // 深夜に向けて少し沈静
+  // 天気ゲート：雨が降ったら退場＝雨BGM(rainBgm)に主役を譲る（二重に鳴らさない・排他）
+  const dry = 1 - THREE.MathUtils.smoothstep(weather, 0.10, 0.30)
+  // ダッキング：縁日のお囃子/ラジオ体操が主役級に鳴る時は夕夜BGMも控える（旋律・お囃子と濁らせない）
+  const fest = festGain ? festGain.gain.value : 0
+  const tai = taisoGain ? taisoGain.gain.value : 0
+  const lead = Math.min(1, Math.max(fest / 0.40, tai / 0.30))
+  const duck = 1 - 0.6 * lead
+  const tgt = EVE_BGM_VOL * (settings.volBgm ?? 1) * dusk * lateCalm * dry * duck
+  eveBgmGain.gain.setTargetAtTime(Math.max(0, tgt), ctx.currentTime, 2.2) // 数秒かけてそっとフェード（立ち上げ/退場ともなめらか）
+  if (eveBgmLP) eveBgmLP.frequency.setTargetAtTime(680 + dusk * 220, ctx.currentTime, 1.5) // 夜が深いほど少しだけ閉じて丸く
+}
 // 遠雷＝低いランブル。少し曇ってきたら“夕立の予兆”として遠くで小さくゴロゴロ、本降りで近く大きく。
 function maybeThunder(dt) {
   if (!audioStarted || weather < AUDIO.thunderStart) return // 本降りのときだけ遠雷（薄曇りで紛らわしい低音を出さない）
@@ -8270,8 +8338,11 @@ function updateMusicBox(dt) {
     const fest = festGain ? festGain.gain.value : 0
     const rbg = rainBgmGain ? rainBgmGain.gain.value : 0
     const tai = taisoGain ? taisoGain.gain.value : 0
+    const eve = eveBgmGain ? eveBgmGain.gain.value : 0 // 夕夜BGM(パッド)が立ち上がっている度合い
     const lead = Math.min(1, Math.max(fest / 0.40, rbg / Math.max(0.02, AUDIO.rainBgmVol || 0.2), tai / 0.30))
-    bg.gain.setTargetAtTime(BGM_BASE * (settings.volBgm ?? 1) * (1 - 0.7 * lead), ctx.currentTime, 0.5) // 主役級が鳴るほど最大-70%まで控えめに＋G5：BGMスライダー
+    // 夕夜BGM(パッド)が鳴っている上にメロディ(オルゴール)が重なる時は、メロディを少し控える＝パッドと喧嘩させず役割分離（パッド=空気/オルゴール=点描）
+    const eveDuck = 1 - 0.4 * Math.min(1, eve / EVE_BGM_VOL)
+    bg.gain.setTargetAtTime(BGM_BASE * (settings.volBgm ?? 1) * (1 - 0.7 * lead) * eveDuck, ctx.currentTime, 0.5) // 主役級が鳴るほど最大-70%まで控えめに＋夕夜パッド上では更に控えめ＋G5：BGMスライダー
   }
   bgmWait -= dt
   if (bgmWait > 0) return
@@ -10064,7 +10135,8 @@ function update(dt) {
     }
     if (tday < 0.4) chimeArmed = true
     if (chimeArmed && tday > 0.69) { chimeArmed = false; playChime() }
-    updateMusicBox(dt) // オルゴールBGM（控えめ・まばら）
+    updateEveningBgm(dt) // 晴れた夕暮れ〜夜の温かいBGM（パッド・うっすら常時／雨では退場）
+    updateMusicBox(dt) // オルゴールBGM（控えめ・まばら・設定でON時のみメロディが重なる）
   }
   // 夜の演出
   const nf = nightFactor(tday)
@@ -11714,7 +11786,7 @@ window.__proto3d = {
   _nests() { return yatoNestSpots.slice() }, // 検証用：C6 ツバメの巣の位置一覧
   _fishShadows() { return fishShadows.map((f) => ({ cx: +f.cx.toFixed(0), cz: +f.cz.toFixed(0), vis: f.m.visible })) }, // 検証用：C6 魚影
   _steam() { return { vis: groundSteam.filter((s) => s.s.visible).length, wetness: +wetness.toFixed(2), weather: +weather.toFixed(2) } }, // 検証用：A2 雨上がりの蒸気
-  _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
+  _audioLevels() { return { bgm: bgmGain ? +bgmGain.gain.value.toFixed(3) : -1, rainBgm: rainBgmGain ? +rainBgmGain.gain.value.toFixed(3) : -1, eveBgm: eveBgmGain ? +eveBgmGain.gain.value.toFixed(3) : -1, fest: festGain ? +festGain.gain.value.toFixed(3) : -1, taiso: taisoGain ? +taisoGain.gain.value.toFixed(3) : -1 } }, // 検証用：G1 ダッキングの各バス音量
   _bgmEnable(on) { settings.bgm = !!on; applyBgm() }, // 検証用：オルゴールBGMのON/OFF（既定OFF＝環境音中心。ダッキング確認用）
   doCatch() { doCatch() }, // 検証用
   get caught() { return caught.count },
@@ -11788,6 +11860,10 @@ window.__proto3d = {
   get _rainVol() { return rainGain ? rainGain.gain.value : -1 }, // 検証用：雨音の音量
   get _festVol() { return festGain ? festGain.gain.value : -1 }, // 検証用：縁日の音量（距離で変わる）
   get _rainBgmVol() { return rainBgmGain ? rainBgmGain.gain.value : -1 }, // 検証用：雨のBGMの音量
+  get _eveBgmVol() { return eveBgmGain ? eveBgmGain.gain.value : -1 }, // 検証用：晴れた夕夜BGM(パッド)の音量
+  _eveBgmTick(d) { startAudio(); try { listener.context.resume() } catch (e) {} updateEveningBgm(d || 0.016); return { started: eveBgmStarted, gain: eveBgmGain ? +eveBgmGain.gain.value.toFixed(4) : -1 } }, // 検証用：夕夜BGMの更新を1回回して目標へ近づける（setTargetは時定数2.2sなので複数回呼んで観測）
+  _eveBgmStarted() { return eveBgmStarted }, // 検証用：夕夜BGMの発振器が起動済みか
+  _setVolBgm(v) { settings.volBgm = v }, // 検証用：BGM音量スライダーの値を直接置く（夕夜BGM/オルゴールが従うか）
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
