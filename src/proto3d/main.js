@@ -9760,7 +9760,13 @@ function update(dt) {
   // うろつく猫（縄張りのまわりを気ままに・休む）。獅子ヶ谷に複数匹
   for (let ci = 0; ci < cats.length; ci++) {
     const ct = cats[ci], u = ct.userData, resting = u.rest > 0
-    if (resting) { u.rest -= dt * 1000; u.moving = false } else {
+    if (resting) { u.rest -= dt * 1000; u.moving = false
+      // 休む間の仕草＝ときどき前足をなめる毛づくろい（猫らしさの仕上げ・2026-06-28）。behT切れごとに groom/idle を選ぶ
+      u.behT = (u.behT || 0) - dt
+      if (u.behT <= 0) { u.beh = Math.random() < 0.45 ? 'groom' : 'idle'; u.behT = u.beh === 'groom' ? 2.4 + Math.random() * 2.2 : 2.6 + Math.random() * 3.5; u.behPh = 0 }
+      if (u.beh === 'groom') u.behPh = (u.behPh || 0) + dt
+    } else {
+      u.beh = 'idle'
       const dx = u.tx - ct.position.x, dz = u.tz - ct.position.z; const d = Math.hypot(dx, dz)
       if (d < 0.3) { u.moving = false
         if (Math.random() < 0.5) u.rest = 2000 + Math.random() * 4000
@@ -9769,12 +9775,16 @@ function update(dt) {
         const ta = Math.atan2(-dz, dx); let da = ta - ct.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832
         ct.rotation.y += da * Math.min(1, dt * 6); u.phase += dt * 9; u.moving = true } // 進む向き（猫の前＝+x）へなめらかに向きを変える＝横すべりを解消
     }
+    const grooming = resting && u.beh === 'groom'
+    const gAmt = grooming ? THREE.MathUtils.smoothstep(u.behPh, 0, 0.55) * THREE.MathUtils.smoothstep(u.behT, 0, 0.5) : 0 // 毛づくろいポーズの入り/抜けをなめらかに
     ct.position.y = heightAt(ct.position.x, ct.position.z) + (u.moving ? Math.abs(Math.sin(u.phase)) * 0.025 : 0) // 歩くと軽く上下に弾む
     if (u.body) { const br = resting ? Math.sin(tsec * 1.6 + ci) * 0.045 : 0; u.body.scale.set(1 + br, 1, 1 + br * 0.8) } // 休む間はゆっくり呼吸（胴の girth がふくらむ。bodyは横向きカプセル＝local x/zが胴回り）
     if (u.legs) { const sw = u.moving ? Math.sin(u.phase) * 0.6 : 0 // 4足歩行＝対角の足が同じ向きに前後（前左+後右／前右+後左）。脚の付け根をlocal zで前後に振る
-      u.legs[0].rotation.z = sw; u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
-    if (u.head) { // 頭の動き＝歩くと小さくうなずき＋左右に揺れる／休む間はゆっくり見回す（より猫らしく・2026-06-28）
-      if (u.moving) { u.head.rotation.z = -0.05 + Math.sin(u.phase * 2) * 0.05; u.head.rotation.y = Math.sin(u.phase) * 0.06 }
+      u.legs[0].rotation.z = sw * (1 - gAmt) + 1.5 * gAmt // 毛づくろい中は前左の前足を口元へ持ち上げる
+      u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
+    if (u.head) { // 頭の動き＝毛づくろい中は持ち上げた前足をなめる／歩くと小さくうなずき＋左右に揺れる／休む間はゆっくり見回す（より猫らしく・2026-06-28）
+      if (grooming) { u.head.rotation.z = (-0.58 + Math.sin(u.behPh * 9) * 0.09) * gAmt; u.head.rotation.y = -0.2 * gAmt } // 口元へ持ち上げた前足を小刻みになめる
+      else if (u.moving) { u.head.rotation.z = -0.05 + Math.sin(u.phase * 2) * 0.05; u.head.rotation.y = Math.sin(u.phase) * 0.06 }
       else { u.head.rotation.z += (0 - u.head.rotation.z) * Math.min(1, dt * 3); u.head.rotation.y = Math.sin(tsec * 0.42 + ci * 2.1) * 0.5 } }
     if (u.tail) { u.tail.rotation.y = Math.sin(tsec * (resting ? 1.2 : 2.3) + ci * 1.3) * (resting ? 0.2 : 0.34); u.tail.rotation.z = Math.sin(tsec * (resting ? 0.9 : 1.8) + ci) * 0.07 } // 立てた尾を左右にゆらす（休む時はゆっくり・歩く時は元気に）
   }
