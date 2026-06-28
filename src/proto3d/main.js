@@ -8786,9 +8786,10 @@ tapBtn(npcEl, () => {
 dialogueEl.addEventListener('click', advanceDialogue)
 function petCat() {
   showToast('ねこは ごろごろ いっている。')
-  cat.userData.rest = Math.max(cat.userData.rest, 3000)
-  cat.rotation.y = Math.atan2(boy.position.x - cat.position.x, boy.position.z - cat.position.z)
-  if (cat.userData.tail) cat.userData.tail.rotation.z = -0.4 // しっぽを立てる（うれしい）
+  const u = cat.userData
+  u.rest = Math.max(u.rest, 3000); u.beh = 'idle'; u.behT = Math.max(u.behT || 0, 2.8) // なでてる間は毛づくろいを始めず こちらを見て喜ぶ
+  cat.rotation.y = Math.atan2(-(boy.position.z - cat.position.z), boy.position.x - cat.position.x) // 主人公の方へ向く（猫の前＝+x。新リグの向き規約）
+  u.happy = 2.8 // うれしい余韻＝尾を立てて元気にゆらし・あごを上げて見上げる（updateCatsで反映）
   todayFlags.petCat = true
   playPurr() // ゴロゴロ
 }
@@ -9775,18 +9776,21 @@ function update(dt) {
         const ta = Math.atan2(-dz, dx); let da = ta - ct.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832
         ct.rotation.y += da * Math.min(1, dt * 6); u.phase += dt * 9; u.moving = true } // 進む向き（猫の前＝+x）へなめらかに向きを変える＝横すべりを解消
     }
-    const grooming = resting && u.beh === 'groom'
+    u.happy = Math.max(0, (u.happy || 0) - dt) // なでられた余韻
+    const happy = u.happy > 0
+    const grooming = resting && u.beh === 'groom' && !happy
     const gAmt = grooming ? THREE.MathUtils.smoothstep(u.behPh, 0, 0.55) * THREE.MathUtils.smoothstep(u.behT, 0, 0.5) : 0 // 毛づくろいポーズの入り/抜けをなめらかに
     ct.position.y = heightAt(ct.position.x, ct.position.z) + (u.moving ? Math.abs(Math.sin(u.phase)) * 0.025 : 0) // 歩くと軽く上下に弾む
     if (u.body) { const br = resting ? Math.sin(tsec * 1.6 + ci) * 0.045 : 0; u.body.scale.set(1 + br, 1, 1 + br * 0.8) } // 休む間はゆっくり呼吸（胴の girth がふくらむ。bodyは横向きカプセル＝local x/zが胴回り）
     if (u.legs) { const sw = u.moving ? Math.sin(u.phase) * 0.6 : 0 // 4足歩行＝対角の足が同じ向きに前後（前左+後右／前右+後左）。脚の付け根をlocal zで前後に振る
       u.legs[0].rotation.z = sw * (1 - gAmt) + 1.5 * gAmt // 毛づくろい中は前左の前足を口元へ持ち上げる
       u.legs[3].rotation.z = sw; u.legs[1].rotation.z = -sw; u.legs[2].rotation.z = -sw }
-    if (u.head) { // 頭の動き＝毛づくろい中は持ち上げた前足をなめる／歩くと小さくうなずき＋左右に揺れる／休む間はゆっくり見回す（より猫らしく・2026-06-28）
-      if (grooming) { u.head.rotation.z = (-0.58 + Math.sin(u.behPh * 9) * 0.09) * gAmt; u.head.rotation.y = -0.2 * gAmt } // 口元へ持ち上げた前足を小刻みになめる
+    if (u.head) { // 頭の動き＝なでられた時は見上げて喜ぶ／毛づくろい中は前足をなめる／歩くと小さくうなずき＋左右に揺れる／休む間はゆっくり見回す（より猫らしく・2026-06-28）
+      if (happy) { u.head.rotation.z += (0.13 - u.head.rotation.z) * Math.min(1, dt * 5); u.head.rotation.y += (0 - u.head.rotation.y) * Math.min(1, dt * 5) } // あごを上げて主人公を見上げる
+      else if (grooming) { u.head.rotation.z = (-0.58 + Math.sin(u.behPh * 9) * 0.09) * gAmt; u.head.rotation.y = -0.2 * gAmt } // 口元へ持ち上げた前足を小刻みになめる
       else if (u.moving) { u.head.rotation.z = -0.05 + Math.sin(u.phase * 2) * 0.05; u.head.rotation.y = Math.sin(u.phase) * 0.06 }
       else { u.head.rotation.z += (0 - u.head.rotation.z) * Math.min(1, dt * 3); u.head.rotation.y = Math.sin(tsec * 0.42 + ci * 2.1) * 0.5 } }
-    if (u.tail) { u.tail.rotation.y = Math.sin(tsec * (resting ? 1.2 : 2.3) + ci * 1.3) * (resting ? 0.2 : 0.34); u.tail.rotation.z = Math.sin(tsec * (resting ? 0.9 : 1.8) + ci) * 0.07 } // 立てた尾を左右にゆらす（休む時はゆっくり・歩く時は元気に）
+    if (u.tail) { const amp = happy ? 0.5 : (resting ? 0.2 : 0.34); u.tail.rotation.y = Math.sin(tsec * (happy ? 3.2 : resting ? 1.2 : 2.3) + ci * 1.3) * amp; u.tail.rotation.z = Math.sin(tsec * (resting ? 0.9 : 1.8) + ci) * 0.07 } // 立てた尾を左右にゆらす（なでられた時は元気に・休む時はゆっくり・歩く時は元気に）
   }
   // 番犬：犬小屋のそばを前後にゆっくりうろつき（歩行モーション・脚を交互に振る）、立ち止まってしっぽを振り、たまに頭を上げて吠える（繋がれているので遠くへは行かない）
   for (const dg of dogs) { const u = dg.userData
