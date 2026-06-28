@@ -7917,7 +7917,7 @@ const AUDIO = {
   cicadaVol: 0.48,    // 昼の蝉(アブラゼミ基底)の倍率＝うるさい指摘で更に下げる(0.75→0.48)。F3で他の蝉を層に足すので“ジー”一辺倒の音量を抑える（ユーザー要望2026-06-27）
   nightAmb: 0.34,     // 夜の虫(カエルのような音)の音量倍率＝大きく下げて「眠れる静けさ」に
   morningAmb: 0.85,   // 朝の鳥のさえずりの倍率
-  windVol: 0.2,       // 風の音(葉ずれ・草原を渡る風)の最大音量＝突風(wind)で増減・控えめ（ユーザー「風の音が大きすぎて怖い」2026-06-28で0.34→0.2へ）
+  windVol: 0.14,      // 風の音(葉ずれ・草原を渡る風)の最大音量＝突風(wind)で増減・控えめ（ユーザー要望で0.34→0.2→さらに0.14へ。風が吹いてる時をもう少し小さく・2026-06-28）
   rainStart: 0.1,     // 雨音が鳴り始めるweather。やさしい雨(0.4)もちゃんと聞こえる。低weatherはLPFでやわらかく＝“どしゃどしゃ”でなく癒しのポツポツに
   rainVol: 0.2,       // 雨音の最大音量
   thunderStart: 0.34, // 遠雷が鳴り始めるweather（本降りのときだけ＝紛らわしい低音を出さない）
@@ -10547,6 +10547,8 @@ function update(dt) {
         if (run > 0.66) { boy.userData._pant = (boy.userData._pant || 0) + 1; if (boy.userData._pant % 3 === 0) playPant(0.014 + run * 0.012) } } // 全力で走る時は3歩に1回 弾む息「はっ」（控えめ）
     }
     lastStepS = sw
+    // 一歩ごとに上下に弾む＝走り/歩きの足取りに生気を（今まで主人公だけ上下動が無く“地面を滑る”ように見えていた・ユーザー要望2026-06-28）。歩きは小さく走るほど大きく。地上のみ（屋上/階段/ジャンプ/自転車/浮遊は除く）
+    if (moving && !riding && !floatMode && boy.userData._cy == null && jumpY <= 0.02 && !airborne) boy.position.y += Math.abs(Math.sin(phase)) * (0.02 + run * 0.075)
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     // 腕：歩くと振る／止まると凍りつかず、そっと息づくように下ろす
     const armTL = moving ? (-sw - run * 0.25) : Math.sin(tsec * 1.3) * 0.05
@@ -10564,10 +10566,10 @@ function update(dt) {
     const akR = THREE.MathUtils.clamp(-(boy.userData.legR.rotation.x + boy.userData.kneeR.rotation.x) * 0.85, -0.7, 0.5)
     boy.userData.ankleL.rotation.x += (akL - boy.userData.ankleL.rotation.x) * Math.min(1, dt * 14)
     boy.userData.ankleR.rotation.x += (akR - boy.userData.ankleR.rotation.x) * Math.min(1, dt * 14)
-    const eb = -(0.28 + run * 0.35) // 肘は前へ軽く曲げる
+    const eb = -(0.28 + run * 0.72) // 肘＝歩きは軽く・走るほどしっかり曲げて前後に振る（直腕のスケート走りを解消＝自然な腕の振り・2026-06-28）
     boy.userData.elbowL.rotation.x += (eb - boy.userData.elbowL.rotation.x) * Math.min(1, dt * 10)
     boy.userData.elbowR.rotation.x += (eb - boy.userData.elbowR.rotation.x) * Math.min(1, dt * 10)
-    boy.rotation.x += ((moving ? run * 0.28 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前傾
+    boy.rotation.x += ((moving ? run * 0.34 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前のめりに（前傾を少し強く＝勢いが出る）
     // 自転車：こぐアニメ（上の歩行ポーズを上書き）。クランク/車輪が回り、両脚が交互にペダルを踏む、腕はハンドルへ
     if (riding) { const bd = boy.userData.bike; bd.visible = true; const pp = phase * 1.3 // クランク回転角（歩調=speed連動なので速いほど速くこぐ）
       { const ps = Math.sin(pp); if (moving && ps * (boy.userData._lastPedal || 0) < 0) playPedal(0.014); boy.userData._lastPedal = ps } // ペダルを踏むたび「カチ」（こいでる音・ごく小さく・動いている時だけ）
