@@ -5420,7 +5420,9 @@ function makeFolk() {
   // 首・頭（チビ＝大きめの頭）
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.08, 6), skinM); neck.position.y = 1.25; g.add(neck)
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.155, 12, 10), skinM); head.scale.set(1.05, 1.12, 1.03); head.position.y = 1.41; g.add(head)
-  for (const sx of [-0.058, 0.058]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 7), M(0x2a2420)); eye.position.set(sx, 1.42, 0.128); g.add(eye) } // 目（点目＝主人公と同系統）
+  for (const sx of [-0.058, 0.058]) { // 目＝白目＋瞳（点目をやめ主人公/村人と同じ作りに近づける＝質感を統一・ユーザー指摘2026-06-28）。M()でフェードに乗る
+    const sc = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 7), M(0xf6f4ee)); sc.scale.set(0.9, 1.15, 0.42); sc.position.set(sx, 1.422, 0.116); g.add(sc) // 白目
+    const ir = new THREE.Mesh(new THREE.SphereGeometry(0.017, 8, 7), M(0x352a20)); ir.scale.set(0.98, 1.04, 0.5); ir.position.set(sx, 1.418, 0.132); g.add(ir) } // 瞳
   if (Math.random() < 0.5) { // 麦わら帽子（夏）
     const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.255, 0.028, 14), M(0xd8b46e)); brim.position.y = 1.53; g.add(brim)
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 8, 0, 6.28, 0, 1.25), M(0xe2c178)); cap.position.y = 1.55; g.add(cap)
@@ -9932,7 +9934,7 @@ function update(dt) {
   }
   // 遠くの人影：道沿いをゆっくり歩く（誰かが暮らす気配・近づかず遠くに・夜は家へ帰る）。道は開けているので建物にめり込まない
   if (farFolk.length && (area === 'yato' || onYato)) { const folkF = (1 - THREE.MathUtils.smoothstep(tday, 0.78, 0.93)) * 0.92
-    const pickRoadPt = () => { const ci = Math.floor(boy.position.x / ROADPT_CELL), cj = Math.floor(boy.position.z / ROADPT_CELL), R = Math.ceil(95 / ROADPT_CELL), cand = []; for (let di = -R; di <= R; di++) for (let dj = -R; dj <= R; dj++) { const arr = roadGrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const pt of arr) { const d = Math.hypot(pt[0] - boy.position.x, pt[1] - boy.position.z); if (d > 26 && d < 95) cand.push(pt) } } return cand.length ? cand[(Math.random() * cand.length) | 0] : null } // プレイヤー近くの道の点から選ぶ
+    const pickRoadPt = () => { const ci = Math.floor(boy.position.x / ROADPT_CELL), cj = Math.floor(boy.position.z / ROADPT_CELL), R = Math.ceil(95 / ROADPT_CELL), cand = []; for (let di = -R; di <= R; di++) for (let dj = -R; dj <= R; dj++) { const arr = roadGrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const pt of arr) { const d = Math.hypot(pt[0] - boy.position.x, pt[1] - boy.position.z); if (d > 46 && d < 95) cand.push(pt) } } return cand.length ? cand[(Math.random() * cand.length) | 0] : null } // プレイヤーから十分離れた道の点だけ＝遠くの人影は遠くに（近くは主人公級の通行人が担う・質感の差を見せない・ユーザー指摘2026-06-28）
     for (const f of farFolk) { const u = f.userData
       if (folkF < 0.04) { if (f.visible) f.visible = false; continue }
       if (!u.has) { const p = pickRoadPt(); if (!p) { continue } u.tx = p[0]; u.tz = p[1]; f.position.set(p[0], heightAtYato(p[0], p[1]), p[1]); u.has = true }
@@ -9942,7 +9944,8 @@ function update(dt) {
       else { const s = u.sp * dt; f.position.x += dx / d * s; f.position.z += dz / d * s; u.wph += dt * 7; const sw = Math.sin(u.wph) * 0.5 // 歩行の位相＝手足を前後にスイング
         if (u.legL) { u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw * 0.8; u.armR.rotation.x = sw * 0.8 }
         f.position.y = heightAtYato(f.position.x, f.position.z) + Math.abs(Math.sin(u.wph)) * 0.03; f.rotation.y = Math.atan2(dx, dz) } // とことこ歩く（手足を振る＋わずかな上下）
-      for (const m of u.mats) m.opacity = folkF
+      const fd = Math.hypot(f.position.x - boy.position.x, f.position.z - boy.position.z) // プレイヤーまでの距離で薄める＝近めの人影は淡いシルエット（簡易な質感の差が分からない）。遠いほどしっかり、ごく遠くは霧で消える
+      for (const m of u.mats) m.opacity = folkF * THREE.MathUtils.smoothstep(fd, 40, 64)
     }
   } else for (const f of farFolk) if (f.visible) f.visible = false
   // メダカの群れ：池の中をゆるく回遊し、近づくと さっと散る
