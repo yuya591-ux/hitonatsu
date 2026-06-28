@@ -8550,6 +8550,7 @@ function updateFestival(dt) {
   // 盆踊りの輪を動かす（櫓のまわりをゆっくり回り、腕を交互に振る／櫓上の太鼓打ちは速く打つ）。見えない会場ぶんも計算するが軽い
   if (festFigs.length) { const ft = performance.now() * 0.001
     for (const d of festFigs) {
+      if (d.g.parent && !d.g.parent.visible) continue // ★性能：見えていない会場(昼/開催日でない/遠い)の踊り手は動かさない＝約115体を毎フレーム計算していた無駄を省く（密度は維持・見える会場だけ動く・2026-06-28）
       if (d.beat) { const b = Math.sin(ft * 7.0); d.g.position.set(d.cx, d.baseY, d.cz); d.g.rotation.y = 0; d.armL.rotation.x = -1.5 + b * 0.5; d.armR.rotation.x = -1.5 - b * 0.5 } // 太鼓打ち＝腕を速く上下
       else if (d.roam) { const wx = d.cx + Math.sin(ft * 0.5 + d.ph) * d.r, wz = d.cz + Math.cos(ft * 0.41 + d.ph * 1.3) * d.r // 子どもが走り回る（リサージュのふらふら歩き）
         d.g.position.set(wx, d.baseY + Math.abs(Math.sin(ft * 5.5 + d.ph)) * 0.13, wz)
@@ -8565,6 +8566,7 @@ function updateFestival(dt) {
   // 縁日の人だかり＝立ち見はそっと体重を移しつつ踊りを目で追う／練り歩く客は屋台の前をゆっくり往復。うちわをパタパタ
   if (festSpectators.length) { const ft = performance.now() * 0.001
     for (const s of festSpectators) {
+      if (s.g.parent && !s.g.parent.visible) continue // ★性能：見えていない会場の見物客は動かさない（密度は維持・2026-06-28）
       if (s.stroll) { const S = s.stroll, u = (Math.sin(ft * 0.16 + s.ph) * 0.5 + 0.5), z = S.z0 + (S.z1 - S.z0) * u // ゆっくり往復
         s.g.position.set(S.x, s.baseY + Math.abs(Math.sin(ft * 2.2 + s.ph)) * 0.028, z)
         s.g.rotation.y = ((S.z1 - S.z0) * Math.cos(ft * 0.16 + s.ph) >= 0) ? 0 : Math.PI // 進む向き(±z)を向く
@@ -11591,6 +11593,7 @@ window.__proto3d = {
   _eyesClosed(on) { for (const b of blinkers) for (const e of b.eyes) e.m.scale.y = e.by * (on ? 0.12 : 1) }, // 検証用：まばたきの閉じ目を固定して見る
   _blinkerCount() { return blinkers.length }, // 検証用：まばたき登録数
   _windInfo() { return windGain ? { started: windStarted, gain: +windGain.gain.value.toFixed(4), freq: windLP ? Math.round(windLP.frequency.value) : 0 } : { started: windStarted } }, // 検証用：風の音ノードの状態
+  _perfCounts() { const cnt = (a) => (typeof a !== 'undefined' && a) ? a.length : -1; return { swayables: cnt(swayables), yatoBugs: cnt(typeof yatoBugs !== 'undefined' ? yatoBugs : null), blinkers: cnt(blinkers), festFigs: cnt(festFigs), festSpectators: cnt(festSpectators), pedestrians: cnt(pedestrians), cats: cnt(cats), dogs: cnt(dogs) } }, // 検証用：毎フレーム回す配列の要素数（性能調査）
   _rooster() { let threw = null; try { roosterCrow(listener.context.currentTime + 0.05) } catch (e) { threw = String(e) }; return { ok: !threw, started: audioStarted, state: listener.context ? listener.context.state : null, err: threw } }, // 検証用：雄鶏の鳴き声の音グラフが例外なく組めるか（音は耳で確認）
   _info() { // 検証用：シーン1回描画の実コスト
     renderer.info.autoReset = false; renderer.info.reset()
