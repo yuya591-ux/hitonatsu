@@ -203,6 +203,17 @@
       .set-card { width: min(86vw, 420px); max-height: 90dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
         box-shadow: 0 12px 40px rgba(0,0,0,0.4); text-align: center; }
       .set-card h2 { margin: 0 0 0.8em; font-size: clamp(19px,4.2vw,26px); color: #4a4032; letter-spacing: 0.1em; }
+      /* いまの時刻＝古い柱時計（クリーム面・茶色の枠と針）。本家のように今が何時か分かる */
+      #set-clock { display: flex; flex-direction: column; align-items: center; gap: 0.3em; margin: 0 0 0.9em; }
+      #set-clock-face { width: clamp(82px, 22vw, 104px); height: clamp(82px, 22vw, 104px); }
+      #set-clock .clk-rim { fill: #b89a6a; }
+      #set-clock .clk-face { fill: #fcf7ec; }
+      #set-clock .clk-ticks line { stroke: #7a6a4e; stroke-width: 2; stroke-linecap: round; }
+      #set-clock .clk-hand-h { stroke: #4a4032; stroke-width: 4; stroke-linecap: round; }
+      #set-clock .clk-hand-m { stroke: #5a4f3e; stroke-width: 2.6; stroke-linecap: round; }
+      #set-clock .clk-pin { fill: #c2562f; }
+      #set-clock-label { font-size: clamp(14px,3vw,18px); color: #6a5e48; letter-spacing: 0.06em; }
+      @media (orientation: landscape) and (max-height: 460px) { #set-clock { flex-direction: row; gap: 0.7em; margin-bottom: 0.5em; } #set-clock-face { width: 64px; height: 64px; } }
       /* 開発・実験用＝残すが目立たせない（小さく・薄く・下に。触れば不透明に戻る） */
       .set-dev { margin-top: 1.1em; padding-top: 0.4em; border-top: 1px dashed rgba(150,130,90,0.3); opacity: 0.5; transition: opacity 0.2s; }
       .set-dev:hover, .set-dev:focus-within { opacity: 0.92; }
@@ -405,6 +416,31 @@
       <div class="set-card">
         <button id="set-x" aria-label="とじる">×</button>
         <h2>せってい</h2>
+        <!-- いまの時刻（柱時計）＝本家のように、いつでも今が何時か分かる -->
+        <div id="set-clock" aria-label="いまの時刻">
+          <svg viewBox="0 0 100 100" id="set-clock-face" aria-hidden="true">
+            <circle cx="50" cy="50" r="47" class="clk-rim"/>
+            <circle cx="50" cy="50" r="42" class="clk-face"/>
+            <g class="clk-ticks">
+              <line x1="50" y1="6" x2="50" y2="13" transform="rotate(0 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(30 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(60 50 50)"/>
+              <line x1="50" y1="6" x2="50" y2="13" transform="rotate(90 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(120 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(150 50 50)"/>
+              <line x1="50" y1="6" x2="50" y2="13" transform="rotate(180 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(210 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(240 50 50)"/>
+              <line x1="50" y1="6" x2="50" y2="13" transform="rotate(270 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(300 50 50)"/>
+              <line x1="50" y1="8" x2="50" y2="12" transform="rotate(330 50 50)"/>
+            </g>
+            <line id="clk-h" x1="50" y1="56" x2="50" y2="31" class="clk-hand-h"/>
+            <line id="clk-m" x1="50" y1="58" x2="50" y2="20" class="clk-hand-m"/>
+            <circle cx="50" cy="50" r="3" class="clk-pin"/>
+          </svg>
+          <div id="set-clock-label">—</div>
+        </div>
         <div class="set-row"><span>おと（環境音・効果音）</span><button class="set-toggle" id="set-sound">ON</button></div>
         <div class="set-row"><span>おんがく（オルゴール）</span><button class="set-toggle" id="set-bgm">ON</button></div>
         <div class="set-row"><span>見まわす はやさ</span><button class="set-toggle on" id="set-sens">ふつう</button></div>
