@@ -6684,6 +6684,68 @@ function updateUchimizu(dt) {
       if (Math.hypot(bx, bz) < 8) { let ha = Math.atan2(bx, bz) - m.g.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832; m.u.head.rotation.y += (THREE.MathUtils.clamp(ha, -1, 1) - m.u.head.rotation.y) * Math.min(1, dt * 3) } else m.u.head.rotation.y *= 0.94 } // 近づくと顔をこちらへ
   }
 }
+// ── 犬の散歩（朝夕、人がリードで犬を連れて住宅街の道を歩く＝時刻テーマの締め・C11）。距離＋時間ゲートで負荷を抑える ──
+const dogWalkers = []
+let dogWalkersInit = false
+const leashMat = new THREE.MeshBasicMaterial({ color: 0x5a4a38, fog: true }), LEASH_GEO = new THREE.CylinderGeometry(0.009, 0.009, 1, 4)
+const _wUP = new THREE.Vector3(0, 1, 0), _wA = new THREE.Vector3(), _wB = new THREE.Vector3(), _wD = new THREE.Vector3()
+function makeDogWalker(seg) {
+  const fpick = (a) => a[Math.floor(Math.random() * a.length)], adult = Math.random() < 0.7
+  const person = makeVillager(seg.ax, seg.az, { shirt: fpick([0x6a7a9a, 0x8a9a6a, 0xb56a6a, 0xcfcabd, 0x4a78c0]), skirt: fpick([0x3a4a6a, 0x6a6a66, 0x8a6a4a]), skin: fpick([0xf0c49c, 0xe8b890, 0xeab584]), hair: fpick([0x2a2218, 0x3a2e22, 0x8c8c86]), boy: Math.random() < 0.5, simple: true, adult, hat: Math.random() < 0.3 ? 'cap' : false, hairStyle: 'short', scale: adult ? 1.12 : 0.86, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const dog = makeDog(fpick([0xc89b62, 0x6b5640, 0xd8c098, 0x8a7a5a]), fpick([0xf0e6d2, 0xe8ddc8])); dog.scale.setScalar(0.9)
+  const leash = new THREE.Mesh(LEASH_GEO, leashMat); leash.castShadow = false; leash.layers.set(1); scene.add(leash)
+  person.visible = dog.visible = leash.visible = false
+  const t0 = Math.random(), px0 = seg.ax + (seg.bx - seg.ax) * t0, pz0 = seg.az + (seg.bz - seg.az) * t0
+  person.position.set(px0, heightAtYato(px0, pz0), pz0) // 人の初期位置をt0に合わせる＝犬と離れて始まらない
+  return { person, dog, leash, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ang: Math.atan2(seg.bx - seg.ax, seg.bz - seg.az), t: t0, dir: Math.random() < 0.5 ? 1 : -1, sp: 0.7 + Math.random() * 0.3, wph: Math.random() * 6, dph: Math.random() * 6, dogX: px0, dogZ: pz0, sniff: 0, sniffCd: 3 + Math.random() * 4 }
+}
+function initDogWalkers() {
+  if (dogWalkersInit || !SG.roads) return; dogWalkersInit = true
+  const nseg = (px, pz) => { let best = null, bd = 1e18
+    for (const rd of SG.roads) { if ((rd.w || 2) < 3 || !rd.p || rd.p.length < 2) continue
+      for (let k = 0; k < rd.p.length - 1; k++) { const a = rd.p[k], b = rd.p[k + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 12) continue
+        const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, d = (mx - px) ** 2 + (mz - pz) ** 2; if (d < bd) { bd = d; best = { ax: a[0], az: a[1], bx: b[0], bz: b[1], len } } } }
+    return bd < 90 * 90 ? best : null }
+  for (const [cx, cz] of [[2980, -60], [3060, -135], [2740, -120], [3030, 25]]) { if (dogWalkers.length >= 2) break
+    const seg = nseg(cx, cz); if (!seg) continue
+    if (dogWalkers.some((w) => Math.hypot(w.ax - seg.ax, w.az - seg.az) < 40)) continue
+    dogWalkers.push(makeDogWalker(seg))
+  }
+}
+function updateDogWalkers(dt) {
+  initDogWalkers(); if (!dogWalkers.length) return
+  const active = onYato && ((tday > 0.08 && tday < 0.24) || (tday > 0.55 && tday < 0.80)) // 朝の散歩・夕の散歩
+  for (const w of dogWalkers) {
+    const vis = active && Math.hypot(boy.position.x - w.person.position.x, boy.position.z - w.person.position.z) < 65 // 近接時だけ描画
+    if (w.person.visible !== vis) { w.person.visible = vis; w.dog.visible = vis; w.leash.visible = vis }
+    if (!vis) continue
+    w.t += (w.sp * w.dir * dt) / w.len; if (w.t > 1) { w.t = 1; w.dir = -1 } else if (w.t < 0) { w.t = 0; w.dir = 1 } // 区間を往復
+    const px = w.ax + (w.bx - w.ax) * w.t, pz = w.az + (w.bz - w.az) * w.t, faceY = w.dir > 0 ? w.ang : w.ang + Math.PI
+    const u = w.person.userData; w.wph += dt * (u.adult ? 5 : 6.5)
+    w.person.position.set(px, heightAtYato(px, pz) + Math.abs(Math.sin(w.wph)) * 0.03, pz); w.person.rotation.y = faceY
+    const sw = Math.sin(w.wph) * 0.42; u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw; u.armR.rotation.x = -0.4 // 右手はリードを前へ持つ
+    if (u.head) u.head.rotation.y = Math.sin(w.wph * 0.5) * 0.08
+    // 犬は人の少し前・横を歩き、たまに立ち止まって地面をくんくん
+    const fx = Math.sin(faceY), fz = Math.cos(faceY)
+    w.sniffCd -= dt; if (w.sniff <= 0 && w.sniffCd <= 0) { w.sniff = 1.2 + Math.random() * 1.6; w.sniffCd = 6 + Math.random() * 5 }
+    const sniffing = w.sniff > 0; if (sniffing) w.sniff -= dt
+    let tx = px + fx * 1.5 + fz * 0.5, tz = pz + fz * 1.5 - fx * 0.5 // 前へ1.5m＋横へ0.5m（side=(fz,-fx)）
+    if (sniffing) { tx = w.dogX; tz = w.dogZ } // くんくん中はその場
+    const ddx = tx - w.dogX, ddz = tz - w.dogZ, dd = Math.hypot(ddx, ddz), dmove = dd > 0.06
+    if (dmove) { const s = Math.min(dd, (w.sp + 0.5) * dt); w.dogX += ddx / dd * s; w.dogZ += ddz / dd * s
+      const ta = Math.atan2(-ddz, ddx); let da = ta - w.dog.rotation.y; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; w.dog.rotation.y += da * Math.min(1, dt * 6); w.dph += dt * 9 }
+    w.dog.position.set(w.dogX, heightAtYato(w.dogX, w.dogZ) + (dmove ? Math.abs(Math.sin(w.dph)) * 0.02 : 0), w.dogZ)
+    const du = w.dog.userData
+    if (du.legs) { const dsw = dmove ? Math.sin(w.dph) * 0.5 : 0; du.legs[0].rotation.z = dsw; du.legs[3].rotation.z = dsw; du.legs[1].rotation.z = -dsw; du.legs[2].rotation.z = -dsw }
+    if (du.head) { if (sniffing) { du.head.rotation.z += (-0.55 - du.head.rotation.z) * Math.min(1, dt * 4); du.head.rotation.y = 0 } else { du.head.rotation.z += (0 - du.head.rotation.z) * Math.min(1, dt * 4); du.head.rotation.y = Math.sin(w.dph * 0.5) * 0.05 } }
+    if (du.tail) du.tail.rotation.z = 1.0 + Math.sin(tsec * 7 + w.dph) * 0.3 // しっぽふりふり
+    // リード＝人の手→犬の首輪（毎フレーム両端のワールド座標で細い円柱を張る）
+    w.person.updateMatrixWorld(true); w.dog.updateMatrixWorld(true)
+    _wA.set(0.16, 0.78, 0.26); w.person.localToWorld(_wA); _wB.set(0.46, 0.68, 0); w.dog.localToWorld(_wB)
+    _wD.copy(_wB).sub(_wA); const llen = _wD.length() || 0.01
+    w.leash.position.copy(_wA).add(_wB).multiplyScalar(0.5); w.leash.scale.set(1, llen, 1); w.leash.quaternion.setFromUnitVectors(_wUP, _wD.normalize())
+  }
+}
 // ── 走り回る子（追いかけっこ）と立ち話＝公園/校庭/道の賑わい（賑わいPhase2・2026-06-27）──
 //   既存の歩行スイング(line8635)を速く・大きくし前傾＝走り。立ち話は2人が向き合い身振り/うなずき。時間帯＋距離でゲート。
 const runGroups = [], chatPairs = []
@@ -9498,6 +9560,7 @@ function update(dt) {
   updateChimneys(tsec) // 夕餉の煙（夕方に家々から）
   updateFishers(dt) // 釣り人（二ツ池・三ツ池の岸・朝〜昼下がり・近接時のみ）
   updateUchimizu(dt) // 打ち水（夕方・家の前・近接時のみ）
+  updateDogWalkers(dt) // 犬の散歩（朝夕・住宅街の道・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
   updateChat(dt) // 立ち話（井戸端・昼〜夕・道沿い・近接時のみ）
   updateChores(dt) // C3：静かな夏のしぐさ（畑仕事/打ち水/縁台・日中・民家脇・近接時のみ）
@@ -11196,6 +11259,7 @@ window.__proto3d = {
   get day() { return day },
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
+  _dogwalkers() { initDogWalkers(); return dogWalkers.map((w) => ({ px: +w.person.position.x.toFixed(1), py: +w.person.position.y.toFixed(1), pz: +w.person.position.z.toFixed(1), dx: +w.dog.position.x.toFixed(1), dz: +w.dog.position.z.toFixed(1), vis: w.person.visible, gap: +Math.hypot(w.person.position.x - w.dog.position.x, w.person.position.z - w.dog.position.z).toFixed(2) })) }, // 検証用：犬の散歩（人と犬の位置・間隔）
   _uchimizu() { initUchimizu(); return uchimizu.map((m) => { let sx = null, sy = null, sz = null; for (let i = 0; i < m.vel.length; i++) { if (m.vel[i].life > 0) { sx = +m.pos[i * 3].toFixed(1); sy = +m.pos[i * 3 + 1].toFixed(1); sz = +m.pos[i * 3 + 2].toFixed(1); break } } return { x: +m.g.position.x.toFixed(0), z: +m.g.position.z.toFixed(0), ry: +m.g.rotation.y.toFixed(2), vis: m.drops.visible, live: m.vel.filter((v) => v.life > 0).length, wet: +m.wet.material.opacity.toFixed(2), drop: sx === null ? null : [sx, sy, sz] } }) }, // 検証用：打ち水の人の位置・飛んでる水滴数/サンプル座標・路面の濡れ
   _play() { return { run: runGroups.map((g) => ({ x: g.cx, z: g.cz, r: g.r })), chat: chatPairs.map((c) => ({ x: c.cx, z: c.cz })) } }, // 検証用：走り回る子/立ち話の位置
   _toro() { return { on: toroNagashi.visible, lanterns: toroList.length, watchers: toroWatchers.map((w) => ({ x: +w.g.position.x.toFixed(1), y: +w.g.position.y.toFixed(2), z: +w.g.position.z.toFixed(1), rot: +w.g.rotation.y.toFixed(2), child: w.child })) } }, // 検証用：灯籠流しの灯籠数＋岸辺で見送る人の位置
