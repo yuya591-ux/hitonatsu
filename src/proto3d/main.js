@@ -6248,11 +6248,24 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     return bd < 60 * 60 ? best : null } // 30m以内に歩ける道が無ければ置かない
   const yPal = [0x4a78c0, 0xd05a4a, 0x3a9a6a, 0xe0a838, 0x8a5ab0, 0xc04888, 0x4aa0a0, 0xcfcabd, 0xd8a0b8]
   const rpick = (a) => a[Math.floor(Math.random() * a.length)]
+  // 時刻で変わる持ち物（夏休みの朝＝虫取り網を持った子・夕＝買い物帰りの袋）。geometryは共有してgeom予算を増やさない
+  const NET_POLE = new THREE.CylinderGeometry(0.011, 0.015, 1.1, 5), NET_RING = new THREE.TorusGeometry(0.15, 0.011, 5, 12), NET_BAGG = new THREE.ConeGeometry(0.15, 0.32, 10, 1, true)
+  const netMeshMat = new THREE.MeshBasicMaterial({ color: 0xeef2ea, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false })
+  const makeBugNet = () => { const g = new THREE.Group()
+    g.add(new THREE.Mesh(NET_POLE, toon(0x9a7a48)))
+    { const r = new THREE.Mesh(NET_RING, toon(0xcfcabd)); r.rotation.x = Math.PI / 2; r.position.y = 0.6; g.add(r) }
+    { const n = new THREE.Mesh(NET_BAGG, netMeshMat); n.rotation.x = Math.PI; n.position.y = 0.77; g.add(n) }
+    g.traverse((o) => { if (o.isMesh) o.castShadow = false }); return g }
+  const SHOP_SACK = new THREE.BoxGeometry(0.22, 0.26, 0.12), SHOP_HANDLE = new THREE.TorusGeometry(0.065, 0.012, 4, 10, Math.PI)
+  const makeShopBag = (col) => { const g = new THREE.Group()
+    { const s = new THREE.Mesh(SHOP_SACK, toon(col)); s.position.y = -0.12; g.add(s) }
+    { const h = new THREE.Mesh(SHOP_HANDLE, toon(0x8a6a4a)); h.position.y = 0.02; g.add(h) }
+    g.traverse((o) => { if (o.isMesh) o.castShadow = false }); return g }
   for (const [ax, az] of anchors) { const seg = nearestSeg(ax, az); if (!seg) continue
     const adult = Math.random() < 0.42, boyP = Math.random() < 0.5 // 子ども中心(約6割)＋大人も混ぜる
     const hair = boyP ? rpick([0x2a2218, 0x35291c, 0x46371f]) : rpick([0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86, 0x6a5440]) // 年配は白髪混じり(0x8c8c86)
     const hr = Math.random(), hat = hr < 0.30 ? 'cap' : hr < 0.48 ? (adult ? 'bucket' : 'straw') : false
-    const bag = adult && Math.random() < 0.5 ? rpick([0xc8a060, 0x9a7a5a, 0xb0563f]) : false
+    const bag = false // 買い物袋は「夕方だけ出す時刻プロップ」へ移行（常時持ちはやめ、下で付ける）
     const hairStyle = hat ? undefined : rpick(boyP ? ['short', 'short', 'buzz'] : ['short', 'pony', 'bob']) // 髪型＝帽子なしの人に個体差
     // 服の型＝時代考証（昭和の夏）。女性/女の子＝ワンピース、男性＝甚平、年配の男性＝ランニングシャツ。子ども中心（C5★Step2＋時代考証2026-06-25）
     let garment, apron = false, shirt = rpick(yPal), skirt = rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a, 0x9a4a4a])
@@ -6264,6 +6277,9 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     const t0 = Math.random()
     p.userData.ped = { sp: 0.85 + Math.random() * 0.4, dir: Math.random() < 0.5 ? 1 : -1, t: t0, ax: seg.ax, az: seg.az, bx: seg.bx, bz: seg.bz, len: seg.len, ph: Math.random() * 6, state: 'walk', timer: 2 + Math.random() * 6 }
     p.position.set(seg.ax + (seg.bx - seg.ax) * t0, p.position.y, seg.az + (seg.bz - seg.az) * t0)
+    // 時刻プロップ＝夏休みの朝は子が虫取り網を肩に／夕は大人が買い物袋を提げて家路（updateで時刻ゲート）
+    if (!adult && Math.random() < 0.55) { const net = makeBugNet(); net.position.set(0.2, 0.66, 0.06); net.rotation.set(0.16, 0, -0.12); net.visible = false; p.add(net); p.userData.ped.net = net }
+    else if (adult && Math.random() < 0.62) { const sbag = makeShopBag(rpick([0xc8a060, 0x9a7a5a, 0xb0563f, 0x6a8a9a])); sbag.visible = false; if (p.userData.armR) { sbag.position.set(0, -0.6, 0.03); p.userData.armR.add(sbag) } else { sbag.position.set(0.28, 0.72, 0.05); p.add(sbag) } p.userData.ped.bag = sbag }
     pedestrians.push(p) }
   // 店番＝店先(道側)に立つ人（昼〜夕）。八百屋/花屋/食堂はエプロンのおばさん、酒屋/たばこ屋はおじさん、等
   for (const sf of shopFronts) { if (Math.random() < 0.42) continue // 半分強の店に店番（出払ってる店もある）
@@ -9786,6 +9802,8 @@ function update(dt) {
     const thresh = (u.ph / 6.2832) * 0.85 // この人が“出てくる”人出のしきい値（人ごとに固定・小さい人ほどいつも居る）
     const out = tday > 0.08 && tday < 0.80 + (u.ph / 6) * 0.13 && crowd >= thresh // 朝に出て夕〜宵に帰る＋人出が少ない時刻はまばらに
     p.visible = out; if (!out) continue
+    if (u.net) u.net.visible = rushM > 0.25 // 夏休みの朝だけ虫取り網（出かける子）
+    if (u.bag) u.bag.visible = rushE > 0.25 // 夕方だけ買い物袋（家路）
     u.timer -= dt
     if (u.timer <= 0) {
       if (u.state === 'pause') { u.state = 'walk'; u.timer = 3 + Math.random() * 7 } // 歩き出す
