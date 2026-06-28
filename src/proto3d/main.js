@@ -10491,7 +10491,14 @@ const settingsEl = document.getElementById('settings')
   const dev = /localhost|127\.0\.0\.1/.test(location.hostname) || localStorage.getItem('hn3d_dev') === '1'
   if (dev) document.body.classList.add('dev-on')
   const title = settingsEl && settingsEl.querySelector('h2'); let taps = 0, tapT = 0 // 「せってい」見出しを5回タップ＝開発モードのON/OFF（URL無しでも出せる隠しジェスチャ）
-  if (title) title.addEventListener('click', () => { const now = performance.now(); if (now - tapT > 1200) taps = 0; tapT = now; if (++taps >= 5) { taps = 0; const on = document.body.classList.toggle('dev-on'); localStorage.setItem('hn3d_dev', on ? '1' : '0'); showToast(on ? '開発ツールを表示しました' : '開発ツールを隠しました') } })
+  const toggleDev = (how) => { const on = document.body.classList.toggle('dev-on'); localStorage.setItem('hn3d_dev', on ? '1' : '0'); showToast(on ? '開発ツールを表示しました' : '開発ツールを隠しました'); if (on && navigator.vibrate) { try { navigator.vibrate(18) } catch (e) {} } }
+  if (title) {
+    title.addEventListener('click', () => { const now = performance.now(); if (now - tapT > 1200) taps = 0; tapT = now; if (++taps >= 5) { taps = 0; toggleDev('tap') } })
+    // 「せってい」見出しを長押し(0.8秒)でも開発モードON/OFF＝5連打より確実(モバイル)。世界観を邪魔しない隠しジェスチャ（ユーザー要望2026-06-28＝飛行モードを分かりにくい所に復活）
+    let lpT = null; const lpStart = (e) => { lpT = setTimeout(() => { lpT = null; toggleDev('hold') }, 800) }; const lpEnd = () => { if (lpT) { clearTimeout(lpT); lpT = null } }
+    title.addEventListener('pointerdown', lpStart); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) title.addEventListener(ev, lpEnd)
+    title.style.cursor = 'default'; title.style.userSelect = 'none'; title.style.webkitUserSelect = 'none'
+  }
 } catch (e) {} })()
 const setBtn = document.getElementById('set-btn')
 const setSoundBtn = document.getElementById('set-sound')
