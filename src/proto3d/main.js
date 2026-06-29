@@ -6818,6 +6818,7 @@ const townLady = makeVillager(TOWN.x - 7.5, TOWN.z - 18, {
   shirt: 0xd8c0a0, skirt: 0x9a7a5a, hair: 0x8c8c86, face: Math.PI / 2,
   info: {
     name: '店のおばさん',
+    arcGreet: { 1: 'おや、見ない顔だね。この夏 きたのかい。', 2: 'また 来てくれたね。', 3: 'もう 夏も おわりだね。…来年も おいで。' }, // 初対面→再訪→別れ
     byPhase: {
       morning: ['あら、おはよう。はやいねえ。', 'トマト、いいのが 入ってるよ。', 'きゅうりも とれたて。もってく？', '今日も あつく なりそうだねえ。'],
       noon: ['いらっしゃい。暑いから 気をつけてね。', 'ラムネ、ひやしてあるよ。', 'すいか、ひとつ いかが？ よく ひえてるよ。', '日なたは あぶないよ。日かげを あるきな。'],
@@ -6841,6 +6842,7 @@ const townKid = makeVillager(TOWN.x - 30, TOWN.z + 16, {
   boy: true, shirt: 0x6aa0d8, skirt: 0x3f5a77, hair: 0x3a2e22, face: -0.6, hat: 'straw', band: 0x3a6a9a, // 麦わら帽子（青いリボン）
   info: {
     name: '近所の子',
+    arcGreet: { 1: 'きみ、見ない顔だな。あそびに きたのか？', 2: 'お、また 来たな！', 3: '二学期に なっても、ともだちだよな？' }, // 初対面→再訪→別れ
     byPhase: {
       morning: ['おはよう！ 虫とり 行く？', 'この 土管、ぼくらの ひみつきちなんだ。'],
       noon: ['ここで かくれんぼ するんだ。', 'きみも 入って みる？'],
@@ -6855,6 +6857,7 @@ const farmer = makeVillager(63, 13, {
   shirt: 0x7a936a, skirt: 0x4a4236, hair: 0x5a5048, skin: 0xddb088, face: Math.PI * 0.82, hat: 'straw', band: 0x8a6a4a,
   info: {
     name: 'はたけの おじさん',
+    arcGreet: { 1: 'おや、見かけない子だな。', 2: 'また 会ったな。', 3: 'もう 帰っちまうのか。…来年も 顔を 見せにきな。' }, // 初対面→再訪→別れ
     byPhase: {
       morning: ['お、はやいな。朝の うちが すずしくて 仕事が はかどるんだ。', 'この 田んぼ、もうすぐ 穂が 出るぞ。'],
       noon: ['暑いのう。麦わらぼうし、わすれるなよ。', 'のどが かわいたら、井戸の 水を のんでいきな。'],
@@ -6866,7 +6869,7 @@ const farmer = makeVillager(63, 13, {
 // H3：縁側のおばあちゃん（昭和の田舎家の縁側に腰かけて夏の昼下がりをすごす）。話しかけると駄菓子やラムネをくれる小さな交流
 const grandma = makeVillager(HOUSE.x + Math.sin(0.35) * 3.2, HOUSE.z + Math.cos(0.35) * 3.2, {
   shirt: 0xb8b0a4, skirt: 0x6a6258, skin: 0xe8d0b4, hair: 0xcfcabd, boy: false, adult: true, hairStyle: 'bun', garment: 'dress', scale: 0.98, brow: true,
-  info: { name: 'おばあちゃん', byPhase: {
+  info: { name: 'おばあちゃん', arcGreet: { 1: 'おや、いらっしゃい。よく きたねえ。', 2: 'また 来てくれたのかい。うれしいねえ。', 3: 'もう 帰っちゃうのかい。…来年も、待ってるよ。' }, byPhase: {
     morning: ['おはよう。よく ねむれたかい。', 'すずしい うちに、あそんで おいで。'],
     noon: ['暑いねえ。…ほら、ラムネ。よく ひやしてあるよ。', 'えんがわで すこし やすんで いきな。', 'むかしは ここらも、田んぼ ばっかりでねえ。'],
     evening: ['もう ひぐらしが ないとるね。…一日は、はやいねえ。', 'ごはんが できるよ。おなか、すいたろう。'],
@@ -7041,7 +7044,7 @@ function makeYatoResident(ax, az, faceX, faceZ, opt) {
 const yatoShopLady = makeYatoResident(2732, -116, 2729, -116, {
   scale: 1.16, adult: true, garment: 'dress', apron: 0xe8e2d4, shirt: 0xc9b48c, skirt: 0x8a6a4a, skin: 0xeab584,
   hair: 0x6a5a48, hairStyle: 'bob', brow: true, browTilt: 0.9,
-  info: { name: '八百屋の おばさん', byPhase: {
+  info: { name: '八百屋の おばさん', arcGreet: { 1: 'おや、見ない顔だね。この夏 きたのかい。', 2: 'また 来てくれたね。まいど。', 3: 'もう 夏も おわりだね。…来年も おいで。' }, byPhase: {
     morning: ['あら、おはよう。トマト、けさ もいだ ばっかりだよ。', 'すいか、よく ひえてるよ。半分でも 売るからね。'],
     noon: ['いらっしゃい。暑いねえ、日かげに おはいり。', 'きゅうりに 塩、つけて かじると うまいんだ。'],
     evening: ['そろそろ 店じまいだねえ。…ほら、これ おまけ。', 'ひぐらしが ないとるね。気をつけて お帰り。'],
@@ -7052,7 +7055,7 @@ const yatoShopLady = makeYatoResident(2732, -116, 2729, -116, {
 const yatoFlowerLady = makeYatoResident(2732, -125, 2729, -125, {
   scale: 1.14, adult: true, garment: 'dress', apron: 0x9aa0a8, shirt: 0xb8889a, skirt: 0x5a6a7a, skin: 0xf0c49c,
   hair: 0x4a3a2e, hairStyle: 'pony', brow: true, browTilt: 0.8,
-  info: { name: '花屋の おばさん', byPhase: {
+  info: { name: '花屋の おばさん', arcGreet: { 1: 'あら、はじめての お客さんだね。', 2: 'また 来てくれたの。うれしいねえ。', 3: 'もう 夏も おしまいだね。来年も、花を 見においで。' }, byPhase: {
     morning: ['おはよう。けさは ひまわりが きれいに 咲いたよ。', 'あさがおの 鉢、ひとつ いるかい。'],
     noon: ['暑いから、花も しおれちゃうねえ。水を やらないと。', 'ほおずき、もう 赤く なってきたよ。'],
     evening: ['夕がたは すずしくて いいねえ。', 'おうちに ひとつ、花が あると いいもんだよ。'],
@@ -7063,7 +7066,7 @@ const yatoFlowerLady = makeYatoResident(2732, -125, 2729, -125, {
 const yatoGrandpa = makeYatoResident(2732, -107, 2729, -107, {
   scale: 1.12, adult: true, garment: 'tank', shirt: 0xece8da, skirt: 0x5a564c, skin: 0xddb088,
   hair: 0x8c8c86, hairStyle: 'short', brow: true, browTilt: 0.6,
-  info: { name: '軒先の おじいさん', byPhase: {
+  info: { name: '軒先の おじいさん', arcGreet: { 1: 'はて、見かけん顔だな。この夏 きたのかい。', 2: 'お、また 来たか。まあ すわれ。', 3: 'もう 帰っちまうのか。…来年も 達者で 来いよ。' }, byPhase: {
     morning: ['お、はやいな。朝の うちは すずしくて ええのう。', 'ラジオ体操かい。えらいぞ。'],
     noon: ['暑いのう。…うちわ、かしてやろうか。', 'この あたりも、むかしは 田んぼ ばっかりでなあ。'],
     evening: ['夕涼みが いちばんの ごちそうだ。', 'ひぐらしの声を きくと、夏も おわりが 近いのう。'],
@@ -9957,7 +9960,10 @@ function startDialogue() {
     let pick = pool[Math.floor(Math.random() * pool.length)]
     if (pool.length > 1) { let guard = 0; while (pick === who.userData._lastLine && guard++ < 6) pick = pool[Math.floor(Math.random() * pool.length)] } // 直前と同じ一言は避ける
     who.userData._lastLine = pick
-    lines = [pick]
+    // P2：通算日数で深まる世間話＋初対面vs再訪。その日はじめて話す時だけ、関係の段階(初対面/打ちとけ/別れ)に応じた一言を添えてから世間話へ＝“覚えていてくれる”温かさ
+    const st = arcStage()
+    if (info.arcGreet && info.arcGreet[st] && who.userData._greetedDay !== day) { who.userData._greetedDay = day; lines = [info.arcGreet[st], pick] }
+    else lines = [pick]
   }
   dialogue = { lines, idx: 0 }
   dlgWho = who // カメラが二人を画に収める寄り（止め絵）に使う
