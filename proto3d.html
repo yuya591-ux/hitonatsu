@@ -299,9 +299,22 @@
       #set-fly { background: #6a86c0; }
       #flyui { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 8; }
       #flyui.on { display: block; }
-      /* 開発時(body.dev-on)に浮遊(風船)へ入ると、十字＋座標＋ピン📍/全部コピー📋だけを出す（飛行専用の上昇/速さ/写真/もどるは浮遊の🎈UIと重なるので隠す）。実際に飛ぶのは浮遊なので、ここで座標を拾える・ユーザー要望2026-06-29 */
+      /* 開発時(body.dev-on)に浮遊(風船)へ入ると、飛行専用の上昇/速さ/写真/もどるは浮遊の🎈UIと重なるので隠す（実際に飛ぶのは浮遊の🎈UI） */
       body.dev-float #fly-up, body.dev-float #fly-down, body.dev-float #fly-zin, body.dev-float #fly-zout,
       body.dev-float #fly-speed, body.dev-float #fly-photo, body.dev-float #fly-exit { display: none !important; }
+      /* 開発座標モードのトグル（dev-on＋空中＝浮遊/飛行で出る小さなボタン1つ）。既定は通常UIのまま＝開発UIは出さない。押すとbody.dev-coordが付き座標UIが出る・ユーザー要望2026-06-29 */
+      #devcoord-btn { display: none; }
+      body.dev-aerial #devcoord-btn { display: block; position: fixed; pointer-events: auto; z-index: 10;
+        left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + env(safe-area-inset-top));
+        appearance: none; border: none; cursor: pointer; font-family: inherit; color: #fdf7ec;
+        background: rgba(60,66,98,0.6); border-radius: 12px; padding: 0.4em 0.7em; font-size: 13px; line-height: 1.2; }
+      #devcoord-btn.on { background: rgba(60,90,150,0.92); }
+      body.ui-idle #devcoord-btn { opacity: 0 !important; pointer-events: none !important; }
+      /* 座標UI（十字・座標・ピン・コピー・消す）はトグルON(body.dev-coord)の時だけ出す。OFF＝通常UIのまますっきり（浮遊も飛行も既定はOFF） */
+      #fly-cross, #pin-read, #pin-list, #pin-drop, #pin-clear, #pin-copyall { display: none; }
+      body.dev-coord #fly-cross, body.dev-coord #pin-read,
+      body.dev-coord #pin-drop, body.dev-coord #pin-clear, body.dev-coord #pin-copyall { display: block; }
+      body.dev-coord #pin-list:not(:empty) { display: block; }
       body.flying #jump, body.flying #act, body.flying #lie, body.flying #sleep, body.flying #npc,
       body.flying #catch, body.flying #fish, body.flying #go, body.flying #zin, body.flying #zout,
       body.flying #hint, body.flying #look { display: none !important; }
@@ -415,6 +428,7 @@
       <button id="fly-speed" class="fly-b">速さ<br>ふつう</button>
       <button id="fly-photo" class="fly-b">📷</button>
       <button id="fly-exit" class="fly-b">✕ もどる</button>
+      <button id="devcoord-btn">📐 座標</button>
       <div id="fly-cross"></div>
       <div id="pin-read">＋ ----</div>
       <div id="pin-list"></div>
