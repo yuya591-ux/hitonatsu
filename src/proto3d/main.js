@@ -6568,9 +6568,9 @@ function makeVillager(x, z, opt) {
   if (!hatted) {
     if (opt.hairStyle === 'pony') { const tie = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), hairCol); tie.position.set(0, hy + 0.015, -0.145); g.add(tie); hairParts.push(tie)
       const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.028, 0.3, 8), hairCol); tail.position.set(0, hy - 0.13, -0.17); tail.rotation.x = 0.42; g.add(tail); hairParts.push(tail) } // ポニーテール
-    else if (opt.hairStyle === 'bob') { for (const sx of [-0.145, 0.145]) { const sd = new THREE.Mesh(new THREE.SphereGeometry(0.072, 10, 10), hairCol); sd.scale.set(0.66, 1.5, 0.82); sd.position.set(sx, hy - 0.085, -0.005); g.add(sd); hairParts.push(sd) } // おかっぱ/ボブ＝顔まわりを下まで
-      const back = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.5), hairCol); back.scale.set(1, 1.35, 1); back.position.set(0, hy - 0.055, -0.04); g.add(back); hairParts.push(back) }
-    else if (opt.hairStyle === 'buzz') { hair.scale.set(0.9, 0.8, 0.9); bangs.scale.set(0.7, 0.6, 0.7) } // 短髪/薄め（年配寄り）＝額を広く
+    else if (opt.hairStyle === 'bob') { for (const sx of [-0.152, 0.152]) { const sd = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), hairCol); sd.scale.set(0.48, 0.95, 0.62); sd.position.set(sx, hy - 0.028, -0.004); g.add(sd); hairParts.push(sd) } // おかっぱ＝顔の左右を“こめかみ〜頬上”まで細く枠どるだけ（あごより下へ垂らさない＝頬の2本の暗い帯＝ヒゲ回避・2026-06-29ユーザー指摘）
+      const back = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.42), hairCol); back.scale.set(0.86, 0.9, 0.8); back.position.set(0, hy + 0.01, -0.075); g.add(back); hairParts.push(back) } // 後ろ髪＝後頭部だけ小さく後ろへ。以前は大球(1.35倍縦長)があご下(hy-0.255)まで回り込み“ヒゲ”の正体だった→小さく・上げ・奥へ＝あごの下に出さない
+    else if (opt.hairStyle === 'buzz') { hair.scale.set(1.0, 0.9, 1.0); bangs.scale.set(0.74, 0.62, 0.74) } // 短髪/薄め（年配寄り）＝額を広く。※xzは縮めない＝髪が頭より小さくなって頭頂の地肌が出る“ハゲ”を防ぐ(以前0.9で頭<髪・2026-06-29ユーザー指摘)。短さは前髪を小さく＋やや平たくで表現
   }
   // 髪の輪郭線は細く＝太い背面ハルが帽子のクラウンより上に飛び出して“黒い筋”になるのを防ぐ（全身の0.028輪郭からは除外）。主人公と統一
   if (!opt.simple) for (const hm of hairParts) { hm.userData.noOutline = true; addOutline(hm, 0.011) }
