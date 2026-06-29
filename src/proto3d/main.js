@@ -6319,7 +6319,7 @@ function makeBoy() {
   const bag = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.56, 18, 1, true), netMat); bag.position.y = -0.28; bag.rotation.x = Math.PI; bagPivot.add(bag) // 口=輪(0)／先=下(-0.56)＝垂れ下がる深い網袋
   const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI; bagTip.position.y = -0.54; bagPivot.add(bagTip) // 袋の底（丸み・垂れた先端）
   net.position.set(0.15, 1.27, -0.01); net.rotation.set(NET_REST, 0, -0.06) // 柄の支点を右肩に乗せる＝肩に触れて網は頭の真後ろ上へ（横に飛び出さない・浮き解消）。rotation.xは虫採りアニメがNET_RESTで上書き
-  net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
+  net.traverse((o) => { if (o.isMesh) { o.layers.set(1); o.userData.noOutline = true } }) // 網は細い棒/輪＋透明な袋＝(1)法線パスから除外＋(2)背面法の黒い輪郭ハルも付けない＝透明な網に黒い線が重なってバグって見えるのを解消（後段 outlineObj(boy) が拾わないよう noOutline・2026-06-29 ユーザー指摘）
   g.add(net)
   // 小さな赤いリュック（夏の探検・参考作品のシルエットに寄せる。オリジナル造形）。背中(-z)に
   const pack = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.12), charToon(0xc0463a)); pack.position.set(0, 1.0, -0.16); pack.scale.set(1, 1, 1); g.add(pack)
