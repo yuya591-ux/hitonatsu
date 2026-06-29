@@ -3604,7 +3604,8 @@ function buildShishigaya() {
   //   ★座標系：北=-z／東=+x／南=+z／西=-x（朝日が+x=東から昇るので裏取り済み）。方位は北寺尾(鶴見区)基準の概略。
   {
     const R = 700 // 描画半径(m)。屋上/飛行のcamera.far(≈1200〜1260)の内側＝クリップしない。地上のfog far(470)より外＝地上では霞に完全に溶けて見えない（地平の彼方＝景観破壊なし）。屋上のfog far(1200)では程よく霞んで“それと分かる”。カメラ追従なのでRは“見かけの大きさ”を決めるだけ（近づけはしない）
-    const LMK = 2.6 // ランドマークの見かけ高さの一律倍率。★全ランドマーク共通＝相互の相対サイズ/遠近は実物どおり保つ（ユーザー要望2026-06-29「距離感・大きさは現実の遠近を忠実に」）。実角直径(6〜28kmで数px)では小さすぎるので一律2.6倍だけ拡大＝ランドマークタワー(近6km)>プリンス>スカイツリー>東京タワー(遠20km)の見かけ順は現実どおり。一律拡大なので相互比は保たれる。屋上から霞んでも“それと分かる”大きさへ（2.2→2.6・タワー以外がほぼ見えなかった対応2026-06-29）。山は実寸のまま
+    const LMK = 2.6 // 近景ランドマーク（ランドマークタワー6km/プリンス4km）の見かけ高さ倍率。実角直径(数px)では小さすぎるので拡大＝“しっかり見える”。山は実寸のまま
+    const LMK_FAR = 1.5 // ★遠景ランドマーク（東京タワー20km/スカイツリー28km）専用の小さめ倍率。実距離どおり「ずっと遠くにちょこんと」見せる＝近(LMK)とのメリハリ（ユーザー要望2026-06-29「東京タワー/スカイツリーはもっと小さく薄く」。2.6→1.5）。LMTとプリンスは従来どおり大きく、この遠い2本だけ縮小
     farBackdrop = new THREE.Group(); farBackdrop.name = 'farBackdrop'; farBackdrop.userData.noChunk = true // チャンク距離カリング対象外（常に地平に見える）
     // 方位（コンパス方位°＝北0/東90/南180/西270）→ Group内の方向ベクトル：北=-z なので dz=-cos(θ)、東=+x なので dx=+sin(θ)
     const dirOf = (deg) => { const t = deg * Math.PI / 180; return [Math.sin(t), -Math.cos(t)] }
@@ -3692,25 +3693,52 @@ function buildShishigaya() {
       geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
       return geo
     }
-    const lmMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }) // 全ランドマーク共通（色は頂点カラーで個別・陰影なしで黒面ゼロ）
-    const addLM = (deg, geo, name, ry) => { const [dx, dz] = dirOf(deg); const m = new THREE.Mesh(geo, lmMat)
+    const lmMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }) // 近景ランドマーク共通（不透明・色は頂点カラーで個別・陰影なしで黒面ゼロ）
+    // 遠景の2本(東京タワー/スカイツリー)専用＝わずかに透過させて“遠くにぼんやり”薄める（存在感を下げる・ユーザー要望2026-06-29）
+    const lmMatFaint = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, transparent: true, opacity: 0.78, depthWrite: false })
+    const addLM = (deg, geo, name, ry, mat) => { const [dx, dz] = dirOf(deg); const m = new THREE.Mesh(geo, mat || lmMat)
       m.position.set(dx * R, 0, dz * R); if (ry != null) m.rotation.y = ry; m.name = name; m.castShadow = m.receiveShadow = false; m.layers.set(1); m.userData.noChunk = true; farBackdrop.add(m); return m }
     // 地平の下へ伸びる裾（足元の切れ目を消す細い角柱／円柱）。本体の最下部と同断面で下へ。見下ろしでも“霞へ続く”
     const skirtBox = (w, d) => { const g = new THREE.BoxGeometry(w, SKIRT, d); g.translate(0, -SKIRT / 2, 0); return g }
     const skirtCyl = (r, seg) => { const g = new THREE.CylinderGeometry(r, r, SKIRT, seg); g.translate(0, -SKIRT / 2, 0); return g }
+    // 四隅を面取りした正方形断面（八角柱寄り）の角柱を作る。ランドマークタワーの「角張ったBOXでない・四隅がカット」シルエット用。
+    //   half=下端の半幅 / topHalf=上端の半幅(テーパー) / chamf=面取り率(0=正方形,0.30程度で角がカット) / h=高さ / y0=底のローカルY。
+    //   CylinderGeometry(8角)を回転で「面が正面を向く」向きにし、軸X/Zスケールで正方形寄り(角がカットされた八角)にする。
+    const chamferPrism = (half, topHalf, chamf, h, y0) => {
+      // 8角柱を作り、半径r=1基準。45°回転で平らな面が±X/±Zに来る＝正方形に近い断面。chamfで角の出っ張りを抑える。
+      const g = new THREE.CylinderGeometry(topHalf, half, h, 8, 1)
+      g.rotateY(Math.PI / 8) // 8角形の平らな面を軸方向へ向ける（角ばったBOXでなく八角＝四隅がカットされて見える）
+      // 八角の外接半径(=指定half)に対し、面取りを強くするほど“正方形+小さなカット”に近づくよう、わずかに角(対角方向)を内側へ寄せる効果はCylinderの正八角で十分近似。
+      g.translate(0, y0 + h / 2, 0)
+      return g
+    }
 
-    // ── 横浜ランドマークタワー（296m・70F・約6km・SW=225°）。Hugh Stubbins設計。ほぼ正方形断面の超高層が頂部へ向け四隅をセットバックで段状に絞り、最上部に冠状の段。色＝銀青のガラス（淡い青白）。
-    //    出典：ja.wikipedia「横浜ランドマークタワー」(296.33m/70F/Hugh Stubbins)。一番近い6km＝見かけ最大。
+    // ── 横浜ランドマークタワー（296m・70F・約6km・SW=225°）。Hugh Stubbins基本設計／三菱地所。一番近い6km＝見かけ最大。
+    //    ★実物のシルエット（Web調査2026-06-29）：
+    //      ・平面はほぼ正方形だが【四隅が面取り(チャンファ)】され八角形寄り＝角張ったBOXではない。基壇から頂部へつながる強調された四隅のコーナー柱が象徴。
+    //      ・下から上へ【わずかに先細り(テーパー)】。
+    //      ・上部で【四隅が段状にセットバックして絞られ】、頂部へ階段状に細くなる特徴的な冠。最頂部は平ら＋小さな塔屋。
+    //    出典：ja.wikipedia「横浜ランドマークタワー」(296.33m/70F/塔屋3階/Hugh Stubbins+三菱地所)、yokohama-landmark.jp/about、検索要約「基壇部より頂上までつながる強調された四隅のコーナー柱がダイナミックなシルエット」。
+    //    低ポリ構成：①面取り八角の本体(下→上わずかに細る)②③上部の段絞り2段(各段も面取り八角で“四隅が絞られる”)④冠の平頂部⑤小さな塔屋＋地平下の裾。
     {
       const H = appH(296, 6000, LMK), parts = []
-      const w0 = H * 0.215 // 平面≒73m角→約1:4（細い棒にしない・スラブとして読める）
-      const shaft = new THREE.BoxGeometry(w0, H * 0.74, w0 * 0.9); shaft.translate(0, H * 0.37, 0); parts.push(shaft) // 本体（わずかに矩形）
-      const set1 = new THREE.BoxGeometry(w0 * 0.78, H * 0.11, w0 * 0.66); set1.translate(0, H * 0.795, 0); parts.push(set1) // 1段目セットバック（四隅が絞られる）
-      const set2 = new THREE.BoxGeometry(w0 * 0.56, H * 0.09, w0 * 0.47); set2.translate(0, H * 0.895, 0); parts.push(set2) // 2段目セットバック
-      const crown = new THREE.BoxGeometry(w0 * 0.34, H * 0.07, w0 * 0.28); crown.translate(0, H * 0.975, 0); parts.push(crown) // 冠状の頂部
-      parts.push(skirtBox(w0, w0 * 0.9)) // 地平下へ伸びる裾
+      const hw = H * 0.125 // 本体の半幅（平面≒73m角／296m。across-flats≒0.23H＝ずんぐりせず細すぎない実物比）。針にしない
+      const chamf = 0.30 // 四隅の面取り率（八角断面）
+      // ① 本体：面取り八角・下端hw→上端 0.92hw のわずかな先細り。高さは全体の約0.72（肩から上の段絞りに尺を割く）
+      parts.push(chamferPrism(hw, hw * 0.92, chamf, H * 0.72, 0))
+      // ② 肩の1段目セットバック：四隅がはっきり絞られる（幅を一段落とす・段を高めに取り遠景でも“肩”が読める）
+      parts.push(chamferPrism(hw * 0.74, hw * 0.68, chamf, H * 0.11, H * 0.72))
+      // ③ 2段目セットバック：さらに絞る＝階段状の冠
+      parts.push(chamferPrism(hw * 0.55, hw * 0.49, chamf, H * 0.10, H * 0.83))
+      // ④ 3段目セットバック：冠の上段
+      parts.push(chamferPrism(hw * 0.40, hw * 0.35, chamf, H * 0.08, H * 0.93))
+      // ⑤ 冠の頂部（ほぼ平頂の薄い段）
+      parts.push(chamferPrism(hw * 0.28, hw * 0.25, chamf, H * 0.04, H * 1.01))
+      // ⑥ 塔屋：頂部に乗る小さな箱（機械室/ヘリポート相当のアクセント）
+      const ph = new THREE.BoxGeometry(hw * 0.20, H * 0.022, hw * 0.20); ph.translate(0, H * 1.06, 0); parts.push(ph)
+      parts.push(skirtBox(hw * 1.4, hw * 1.4)) // 地平下へ伸びる裾（足元の切れ目を消す・面取り八角の外接幅に合わせ気持ち広め）
       const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
-      addLM(225, bakeHaze(g, 0xaec4d6, 0, H, 0.30), 'lmLandmarkTower', Math.PI / 4) // 角をSWへ＝四隅のセットバックが効く。近いので霞控えめ
+      addLM(225, bakeHaze(g, 0xaec4d6, 0, H, 0.30), 'lmLandmarkTower', Math.PI / 4) // 角をSWへ＝面取りした四隅がSWを向き“八角＋段絞り”が効く。近いので霞控えめ
     }
     // ── 新横浜プリンスホテル（149m・42F・約4km・W=270°）。円柱型超高層では日本一の純円筒。頂部でわずかに絞る。色＝白〜銀。
     //    出典：ja.wikipedia「新横浜プリンスホテル」(円柱型・42F・1992)。約4km＝二番目に大きく見える。
@@ -3726,7 +3754,7 @@ function buildShishigaya() {
     // ── 東京タワー（333m・約20km・NE=45°）。4本脚が裾で大きく広がる三角錐の鉄塔（脚間隔88m）＋メインデッキ(約150m・2層の箱)＋トップデッキ(約250m)＋頂部の筒型アンテナ。色＝インターナショナルオレンジと白（遠景＝霞んだ淡赤茶＋白段）。
     //    出典：ja.wikipedia「東京タワー」(333m/塔脚88m/メインデッキ約150m/トップデッキ223.55m/筒型アンテナ)。20km＝小さく霞む。
     {
-      const H = appH(333, 20000, LMK), parts = []
+      const H = appH(333, 20000, LMK_FAR), parts = [] // ★遠景専用倍率LMK_FARで一段小さく（20km＝ずっと遠く）
       const legR = H * 0.26 // 裾の広がり（脚間隔88m/333m≒0.26）
       const deckY = H * 0.45 // メインデッキ高（約150m/333m）
       // 下半：脚が大きく広がる四角錐（下太く上細い・4角柱で鉄塔のシルエット）。デッキで一旦くびれる
@@ -3738,13 +3766,13 @@ function buildShishigaya() {
       const ant = new THREE.CylinderGeometry(H * 0.012, H * 0.018, H * 0.25, 6); ant.translate(0, deckY + H * 0.30 + H * 0.125, 0); parts.push(ant) // 頂部の筒型アンテナ
       parts.push(skirtCyl(legR * 0.5, 4)) // 裾（脚の下・地平下へ）
       const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
-      // 赤白：縦グラデで霞ませつつ、赤茶(0xc99a8f)を基調に。白段の表現は遠景では潰れるので赤茶一色＋強めの霞で“赤みが分かる”程度に
-      addLM(45, bakeHaze(g, 0xc99a8f, 0, H, 0.40), 'lmTokyoTower')
+      // 赤白：縦グラデで強く霞ませ“言われれば分かる”赤み程度に（hazeMix 0.40→0.55＝より空気色寄り）。faint材で透過＝遠くに薄く
+      addLM(45, bakeHaze(g, 0xc99a8f, 0, H, 0.55), 'lmTokyoTower', null, lmMatFaint)
     }
     // ── 東京スカイツリー（634m・約28km・NE=40°）。根元は正三角形(一辺68m)→地上315mで円に変化する細い塔(稜線にそり/むくり)＋天望デッキ(350m・円盤)＋天望回廊(450m)＋頂部の細い円筒ゲイン塔。色＝スカイツリーホワイト（淡い青白）。
     //    出典：tokyo-skytree.jp/about/design 公式＋ja.wikipedia（断面が三角→315mで円・天望デッキ350m/天望回廊450m・円筒ゲイン塔）。28km＝最小だが最高634mで地平に立つ。
     {
-      const H = appH(634, 28000, LMK), parts = []
+      const H = appH(634, 28000, LMK_FAR), parts = [] // ★遠景専用倍率LMK_FARで一段小さく（28km＝最遠・ちょこんと）
       const baseR = H * 0.085 // 根元の広がり（68m/634m≒0.107だが遠景で細く見せ過ぎぬよう少し抑え）
       // 下部：三角形断面で広がる（3角柱）→ 中部：円形へ。低ポリで「下が三角・上が円」を2段で近似
       const tri = new THREE.CylinderGeometry(H * 0.045, baseR, H * 0.50, 3); tri.translate(0, H * 0.25, 0); parts.push(tri) // 下半＝三脚状（三角）
@@ -3754,7 +3782,7 @@ function buildShishigaya() {
       const gain = new THREE.CylinderGeometry(H * 0.006, H * 0.02, H * 0.27, 8); gain.translate(0, H * 0.72 + H * 0.135, 0); parts.push(gain) // 頂部の円筒ゲイン塔（細い針）
       parts.push(skirtCyl(baseR * 0.6, 3))
       const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
-      addLM(40, bakeHaze(g, 0xbcccdb, 0, H, 0.42), 'lmSkytree') // スカイツリーホワイト（淡い青白・最も霞ませる）
+      addLM(40, bakeHaze(g, 0xbcccdb, 0, H, 0.58), 'lmSkytree', null, lmMatFaint) // スカイツリーホワイト（淡い青白・最も霞ませる0.42→0.58＋faint材で透過＝最遠・最も薄く）
     }
     scene.add(farBackdrop)
   }
