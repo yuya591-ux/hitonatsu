@@ -10164,7 +10164,7 @@ canvas.addEventListener('pointermove', (e) => {
     if (lookIds.size >= 2) { // 2本指ピンチ＝ズーム（飛行中は画角ズーム）
       const a = [...lookIds].map((id) => pointers.get(id)).filter(Boolean)
       if (a.length === 2) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y)
-        if (pinchD > 0 && d > 0) { if (flying) fly.fov = THREE.MathUtils.clamp(fly.fov * (pinchD / d), 24, 88); else if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * (d / pinchD), 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（広げる指=ズームイン=画角小）
+        if (pinchD > 0 && d > 0) { if (flying) fly.fov = THREE.MathUtils.clamp(fly.fov * (pinchD / d), 24, 88); else if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * (d / pinchD), 11, 95); else if (mode === 'sit' || mode === 'lie') { camera.fov = THREE.MathUtils.clamp(camera.fov * (pinchD / d), 22, 92); camera.updateProjectionMatrix() } else camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist) } // 主観視点/座寝も画角でズーム（範囲を大幅拡大・座寝は広げる指=ズームイン）
         pinchD = d }
     } else if (flying) { // 飛行：見回す（上下とも広く＝上を向いて進めば上昇）
       fly.yaw -= (e.clientX - prevX) * 0.006 * lookSens
@@ -10243,7 +10243,9 @@ function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04
   if (fpv && !floatMode) { lookHint.textContent = 'スワイプで 見わたす ・ 🔭を もう一度で もどる'; lookHint.style.display = 'block' }
   else if (!fpv && mode === 'walk') { lookHint.style.display = 'none'; lookHint.textContent = 'スワイプで見回す ・ もう一度タップで立つ' } } // ONで視線を水平（少しだけ下＝足元の道が見える）／OFFで通常文へ戻す
 tapBtn(fpvBtnEl, () => { if (mode === 'walk') toggleFpv() }) // ねころぶ列の🔭＝主観視点ワンボタン（📷は本物のカメラ#pm-btnに専任、視点トグルは🔭「見わたす」へ・👁は怖いと却下→🔭・2026-06-26）
-const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 26, 78); else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観視点は画角でズーム（f<1=ズームイン）
+const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 11, 95) // 主観視点：寄り(11)〜引き(95)を大幅拡大＝望遠で覗ける＋広く見わたせる（ユーザー要望2026-06-29・旧26〜78）
+  else if (mode === 'sit' || mode === 'lie') { camera.fov = THREE.MathUtils.clamp(camera.fov * f, 22, 92); camera.updateProjectionMatrix() } // 座る/寝ころぶ時もズームできる（f<1=寄る・空や景色を大きく/広く）
+  else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観/座寝は画角でズーム（f<1=ズームイン）
 tapBtn(zinEl, () => zoomStep(0.8))
 tapBtn(zoutEl, () => zoomStep(1.25))
 // ── 風船飛行のUI：ズーム＋−／速さ3段／主観視点トグル（飛行中だけ出る） ──
@@ -10256,7 +10258,7 @@ tapBtn(zoutEl, () => zoomStep(1.25))
   tapBtn(flFpv, () => { toggleFpv() }) // 飛行中の主観視点トグル（全ボタン同期＝toggleFpv）
   window.__updFlightHud = () => { // 毎フレーム：高度/速さ/ズームのメーターを更新
     const alt = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / floatMaxH, 0, 1)
-    const zoomN = fpv ? (78 - fpvFov) / 52 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
+    const zoomN = fpv ? (95 - fpvFov) / 84 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
     const ea = document.getElementById('flg-alt'), es = document.getElementById('flg-spd'), ez = document.getElementById('flg-zoom')
     if (ea) ea.style.transform = 'scaleY(' + alt.toFixed(3) + ')'
     if (es) es.style.transform = 'scaleY(' + ((floatSpeedI + 1) / FLOAT_SPEEDS.length).toFixed(3) + ')'
