@@ -7912,6 +7912,7 @@ const rainbow = new THREE.Group()
 let rainbowTimer = 0, rainbowF = 0
 // ── 蛍（ホタル）：夏の夕暮れ〜夜、水辺と田んぼのほとりを ぽっ…ぽっ…と低く舞う。きれいな水辺に棲むので池/川のほとりに置く＝「ぼくの夏休み」的ノスタルジーの象徴（2026-06-26）──
 let fireflies = null
+let fireflyChkT = 0 // 「…ホタルだ。」の初遭遇チェックの間引きタイマー（毎フレーム全個体走査を避ける）
 {
   const inW = (x, z) => SG.waters.some((q) => q.p && q.p.length >= 3 && pip(x, z, q.p))
   const cands = []
@@ -11062,7 +11063,12 @@ function update(dt) {
         P[i * 3] = A[i * 3] + Math.sin(tsec * 0.5 + ph) * 1.5 + Math.cos(tsec * 0.22 + ph * 2.0) * 0.8
         P[i * 3 + 2] = A[i * 3 + 2] + Math.cos(tsec * 0.41 + ph * 1.3) * 1.5 + Math.sin(tsec * 0.18 + ph) * 0.8
         P[i * 3 + 1] = A[i * 3 + 1] + 0.55 + Math.sin(tsec * 0.6 + ph * 1.7) * 0.5 } // 地面すれすれ〜1mを ゆっくり漂う
-      fireflies.geo.attributes.position.needsUpdate = true } }
+      fireflies.geo.attributes.position.needsUpdate = true }
+    // はじめてホタルに出会う“…ホタルだ。”（一番星と同じ一度きりの気づき）。近づいた時だけ・全個体走査は0.4秒ごと＋間引きで軽く
+    if (fg > 0.35 && !seenHints['hotaru'] && seenGuide && !activePond) { fireflyChkT -= dt; if (fireflyChkT <= 0) { fireflyChkT = 0.4 // 池のそば(釣りヒントと競合)は避け、散歩道の群れで“…ホタルだ。”が確実に出るように
+      const A = fireflies.anchor; let near = false
+      for (let i = 0; i < fireflies.count; i += 9) { const dx = boy.position.x - A[i * 3], dz = boy.position.z - A[i * 3 + 2]; if (dx * dx + dz * dz < 15 * 15) { near = true; break } }
+      if (near) onceHint('hotaru', '…ホタルだ。') } } }
   { const fb = 0.6 * Math.sin(tsec * 2.6) + 0.4 * Math.sin(tsec * 5.3 + 1.1) // お祭りの暖色光＝提灯と同じ有機的なゆらぎで会場ぜんたいが温かく息づく（光を厚く・2026-06-28）
     for (const L of festLights) L.light.intensity = nf * L.base * (0.86 + 0.14 * fb) } // 不可視会場のライトは描画されない＝開催日だけ灯る
   if (tvGlowMesh) { const flick = THREE.MathUtils.clamp(0.62 + 0.42 * Math.sin(tsec * 6.8) * Math.sin(tsec * 11.4 + 0.6), 0.22, 1) // ブラウン管TVの不規則な明滅（速い2波の積＝チラチラ）
