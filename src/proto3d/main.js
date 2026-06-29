@@ -3724,17 +3724,17 @@ function buildShishigaya() {
       const H = appH(296, 6000, LMK), parts = []
       const hw = H * 0.125 // 本体の半幅（平面≒73m角／296m。across-flats≒0.23H＝ずんぐりせず細すぎない実物比）。針にしない
       const chamf = 0.30 // 四隅の面取り率（八角断面）
-      // ① 本体：面取り八角・下端hw→上端 0.95hw のごくわずかな先細り。広い本体が高さの大半(0.82)を占める＝実物は「どっしりした広い塔」
-      parts.push(chamferPrism(hw, hw * 0.95, chamf, H * 0.82, 0))
-      // ②〜 上部18%だけ【なめらかに内側へ湾曲して絞る】＝実物ランドマークタワーの象徴的な“曲線の肩/冠”。先細りの針にせず、頂部は本体の約半幅の平頂で止める（ユーザー実写2026-06-29）。
-      const cY0 = H * 0.82, cH = H * 0.165, NC = 6, wTop = 0.50
-      const wAt = (t) => hw * (0.95 - (0.95 - wTop) * Math.pow(t, 1.5)) // 半幅 0.95hw→0.50hw。pow>1＝肩は緩やかに丸く、上で絞れる湾曲（点にはしない）
-      for (let i = 0; i < NC; i++) { const t0 = i / NC, t1 = (i + 1) / NC
-        parts.push(chamferPrism(wAt(t0), wAt(t1), chamf, cH / NC * 1.18, cY0 + t0 * cH)) } // 段を少し重ねて連続した曲面に見せる
-      // ⑥ 冠の平頂部＋塔屋＋細いマスト（最頂部のアクセント）
-      const cap = chamferPrism(hw * wTop, hw * (wTop - 0.04), chamf, H * 0.018, cY0 + cH); parts.push(cap) // 平らな頂部（半幅で止める）
-      const ph = new THREE.BoxGeometry(hw * 0.30, H * 0.018, hw * 0.30); ph.translate(0, cY0 + cH + H * 0.027, 0); parts.push(ph) // 塔屋
-      const mast = new THREE.CylinderGeometry(hw * 0.015, hw * 0.025, H * 0.05, 5); mast.translate(0, cY0 + cH + H * 0.05, 0); parts.push(mast)
+      // ① 本体：面取り八角・ほぼ垂直(hw→0.96hw)で高さの大半(0.86)を占める広い塔。
+      parts.push(chamferPrism(hw, hw * 0.96, chamf, H * 0.86, 0))
+      // ② 頂部はわずかな段差で少しだけ絞るが【広いまま・平頂】。実物は先細りでなく平らな頂部（ユーザー実写2026-06-29）
+      parts.push(chamferPrism(hw * 0.88, hw * 0.84, chamf, H * 0.10, H * 0.86))
+      const roofY = H * 0.96
+      parts.push(chamferPrism(hw * 0.84, hw * 0.84, chamf, H * 0.012, roofY)) // ③ 平らな屋根スラブ
+      // ④【四隅が若干高い】＝平らな屋根の四隅に小さな角柱(コーナー塔)を立て中央より高く＝実物の象徴「四隅のコーナー柱」の頂部
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const cp = new THREE.BoxGeometry(hw * 0.16, H * 0.052, hw * 0.16); cp.translate(sx * hw * 0.60, roofY + H * 0.026, sz * hw * 0.60); parts.push(cp) }
+      // ⑤ 中央は低い塔屋＋細いマスト（四隅より低い＝中央がくぼんで四隅が立つシルエット）
+      const ph = new THREE.BoxGeometry(hw * 0.34, H * 0.02, hw * 0.34); ph.translate(0, roofY + H * 0.01, 0); parts.push(ph)
+      const mast = new THREE.CylinderGeometry(hw * 0.011, hw * 0.02, H * 0.05, 5); mast.translate(0, roofY + H * 0.038, 0); parts.push(mast)
       parts.push(skirtBox(hw * 1.4, hw * 1.4)) // 地平下へ伸びる裾（足元の切れ目を消す・面取り八角の外接幅に合わせ気持ち広め）
       const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
       addLM(225, bakeHaze(g, 0xaec4d6, 0, H, 0.30), 'lmLandmarkTower', Math.PI / 4) // 角をSWへ＝面取りした四隅がSWを向き“八角＋段絞り”が効く。近いので霞控えめ
