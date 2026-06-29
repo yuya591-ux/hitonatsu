@@ -1623,6 +1623,14 @@ function buildBonOdori(ox, oy, oz, grp, V) {
   const roof = new THREE.Mesh(new THREE.ConeGeometry(S * 1.95, 1.0, 4), toon(roofCol)); roof.rotation.y = Math.PI / 4; roof.position.y = 3.55; yag.add(roof) // 屋根（会場ごとの色）
   yag.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(yag, 0.04); bonOdori.add(yag)
   const NP = 6, RR = 10 // 提灯ガーランド（櫓のてっぺん→周囲のポールへ放射状。赤い紙提灯＝昼も見え夜に灯る）
+  // ── 幟旗（のぼり）＝櫓の手前を挟む高い縦長の布旗。昭和の夏祭りの“ここでやってる”の象徴（文字は鏡像/著作権の罠なので入れず、布の色だけで雰囲気を出す）。静止＝後段のmergeVenueStaticsで統合され軽い ──
+  { const woodN = woodD, cloth = toon(makuB), band = toon(makuA) // のぼりの竿は焦茶、布は紅白幕の濃い色＋上下の白帯
+    for (const nx of [-2.6, 2.6]) { const px = ox + nx, pz = oz + (RR - 1.5), py = heightAt(px, pz) // 参道側（櫓の手前=+z寄り）に左右1本ずつ
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 4.2, 6), woodN); pole.position.set(px, py + 2.1, pz); bonOdori.add(pole)
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.62, 5), woodN); arm.rotation.z = Math.PI / 2; arm.position.set(px + 0.28, py + 3.85, pz); bonOdori.add(arm) // 上の横竿（チチを吊る）
+      const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 2.7), cloth); flag.position.set(px + 0.31, py + 2.5, pz + 0.01); flag.rotation.y = Math.PI; bonOdori.add(flag) // 縦長の布（櫓向き）
+      const flagB = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 2.7), cloth); flagB.position.set(px + 0.31, py + 2.5, pz - 0.01); bonOdori.add(flagB) // 裏面（両面見える）
+      for (const ty of [3.78, 1.24]) { const hem = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.14, 0.03), band); hem.position.set(px + 0.31, py + ty, pz); bonOdori.add(hem) } } } // 上下の白帯（のぼりらしい縁取り）
   for (let i = 0; i < NP; i++) {
     const a = (i / NP) * Math.PI * 2 + 0.4, ex = ox + Math.sin(a) * RR, ez = oz + Math.cos(a) * RR, ey = heightAt(ex, ez)
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.9, 6), woodD); pole.position.set(ex, ey + 1.45, ez); addOutline(pole, 0.02); bonOdori.add(pole)
@@ -1650,6 +1658,10 @@ function buildBonOdori(ox, oy, oz, grp, V) {
     for (const dx of [-1.05, 1.05]) for (const dz of [-0.4, 0.4]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.0, 6), woodD); post.position.set(dx, 1.3, dz); st.add(post) }
     const sroof = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.12, 1.3), toon(col)); sroof.position.y = 2.3; st.add(sroof)
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({ map: textTex(label, '#fdf3da', '#b03a2e', false), transparent: true })); sign.position.set(0, 1.98, 0.66); st.add(sign)
+    // 屋台の暖簾（水引幕）＝屋根の前縁から下がる短い布。店ごとの色＋クリームの帯で“飾りつけた縁日の店”らしく（昭和の夜店の賑わい・静止＝後段のmergeVenueStaticsで統合され軽い）
+    { const valance = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.34, 0.03), toon(col)); valance.position.set(0, 2.07, 0.66); st.add(valance) // 庇の幕（店の色）
+      const vband = new THREE.Mesh(new THREE.BoxGeometry(2.62, 0.07, 0.035), toon(0xf2ead4)); vband.position.set(0, 2.2, 0.66); st.add(vband) // 上のクリームの帯
+      for (const tx of [-0.86, 0, 0.86]) { const tab = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.03), toon(0xf2ead4)); tab.position.set(tx, 1.86, 0.665); tab.rotation.z = Math.PI / 4; st.add(tab) } } // 幕の裾の三角（ぎざぎざ＝水引幕らしさ）
     if (kind === 'kingyo') { const tub = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.4, 0.7), toon(0x2a6a9a)); tub.position.set(0, 0.55, 0.95); st.add(tub); const wsf = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.6), new THREE.MeshToonMaterial({ color: 0x8fd0e8, gradientMap: GRAD, transparent: true, opacity: 0.8 })); wsf.rotation.x = -Math.PI / 2; wsf.position.set(0, 0.76, 0.95); st.add(wsf); for (let q = 0; q < 8; q++) { const fish = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), toon(q % 4 ? 0xe0622a : 0xe0e0e0)); fish.position.set(-0.8 + Math.random() * 1.6, 0.78, 0.7 + Math.random() * 0.5); st.add(fish) } } // 金魚すくいの水槽＋金魚
     else if (kind === 'omen') { const omenC = [0xe03a3a, 0xf0c020, 0x3a6ad0, 0xf0f0f0]; for (let q = 0; q < 5; q++) { const m = new THREE.Mesh(new THREE.CircleGeometry(0.18, 12), new THREE.MeshBasicMaterial({ color: omenC[q % 4], side: THREE.DoubleSide })); m.position.set(-0.9 + q * 0.45, 1.5, 0.42); st.add(m) } } // 吊り下げたお面（ヒーロー/きつね/おかめ風の色）
     else if (kind === 'shateki') { for (let q = 0; q < 6; q++) { const pr = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.18), toon([0xd03a4a, 0x3a8ad0, 0xf0c030][q % 3])); pr.position.set(-0.8 + (q % 3) * 0.8, 1.0 + Math.floor(q / 3) * 0.45, 0.2); st.add(pr) } } // 射的の景品の段
@@ -1699,7 +1711,56 @@ function buildBonOdori(ox, oy, oz, grp, V) {
           const lan = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.34, 8), toon(lanCol)); lan.position.set(px, py + 2.45, pz); bonOdori.add(lan) // 提灯（会場ごとの色・昼も見える）
           const gl = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), new THREE.MeshBasicMaterial({ color: lanGlow, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); gl.position.set(px, py + 2.45, pz); bonOdori.add(gl) // 夜の灯り
           townNightLights.push({ m: gl, base: 1.1, ph: i * 0.5 + (s > 0 ? 0 : 3), flame: true }) } } } } // 参道の赤提灯＝ちらちら灯る
+  mergeVenueStatics(bonOdori) // ★性能：会場の静止構造（柱/提灯の紙/ぼんぼり/屋台/櫓…）を材質ごとに1メッシュへ統合＝draw callを大幅削減（見た目は不変・夜に灯るglowは個別のまま＝ゆらぎ維持）2026-06-29
   return bonOdori
+}
+// 会場の静止メッシュ（柱・提灯の紙・ぼんぼり・屋台の本体/景品・櫓…）を「材質ごと」に1つの統合メッシュへまとめ、draw callを削る。
+// 動かす人（踊り手/見物客/店番）はまだ生成前なので巻き込まない（buildBonOdori末尾＝populate前に呼ぶ）。
+// 夜の灯り(glow＝加算ブレンド)も「色ごと」に1つへ統合する：加算は順不同で結果が同じ＝見た目は不変。flickerは色グループ単位の有機的ゆらぎに（提灯の連なりが温かく息づく感じは維持）。
+// 見た目は不変：各メッシュのbonOdori基準の合成行列を焼き込んでから統合し、輪郭ハル(OUTLINE_MAT)も材質単位でまとめる。
+function mergeVenueStatics(grp) {
+  const groups = new Map() // material.uuid → { mat, geos[] }（toon/輪郭の静止構造）
+  const glowGroups = new Map() // 色hex → { mat, geos[], base }（夜の加算glow）
+  const toRemove = []
+  const matrixOf = (m) => { const chain = new THREE.Matrix4().identity(); let cur = m; while (cur && cur !== grp) { cur.updateMatrix(); chain.premultiply(cur.matrix); cur = cur.parent } return chain }
+  grp.traverse((m) => {
+    if (!m.isMesh || m === grp) return
+    const mat = m.material
+    if (!mat || Array.isArray(mat)) return // マルチマテリアルは触らない（この会場には無い）
+    if (mat.isMeshBasicMaterial && mat.blending === THREE.AdditiveBlending) {
+      // 夜の灯り＝色ごとに1メッシュへ。flickerするので townNightLights の参照を後で差し替える
+      const tl = townNightLights.find((e) => e.m === m); if (!tl) return // 想定外のglowは残す
+      const g = m.geometry.clone().toNonIndexed(); g.deleteAttribute('normal'); g.deleteAttribute('uv'); g.deleteAttribute('color'); g.applyMatrix4(matrixOf(m))
+      const hex = mat.color.getHex(); let b = glowGroups.get(hex); if (!b) { b = { color: hex, geos: [], base: 0 }; glowGroups.set(hex, b) }
+      b.geos.push(g); b.base = Math.max(b.base, tl.base || 1) // 同色は最大baseで代表（提灯どうしは明るさが近い）
+      tl._merged = true; toRemove.push(m); return
+    }
+    if (mat.map && mat.transparent && !mat.gradientMap) return // 屋台の看板など文字テクスチャ（PlaneGeometry・透明）は個別のまま（UV/向きの破綻回避）
+    const g = m.geometry.clone().toNonIndexed()
+    g.deleteAttribute('uv'); g.deleteAttribute('color') // toon/輪郭は色は材質側＝uv/colorは捨てて統合可能に（map付き材質はここに来ない）
+    if (mat === OUTLINE_MAT) g.deleteAttribute('normal') // 輪郭ハルはpositionだけ
+    g.applyMatrix4(matrixOf(m))
+    let bucket = groups.get(mat.uuid); if (!bucket) { bucket = { mat, geos: [] }; groups.set(mat.uuid, bucket) }
+    bucket.geos.push(g); toRemove.push(m)
+  })
+  if (!groups.size && !glowGroups.size) return
+  for (const m of toRemove) { if (m.parent) m.parent.remove(m) } // 元メッシュを外す（light/people/看板は残る）
+  for (let i = townNightLights.length - 1; i >= 0; i--) if (townNightLights[i]._merged) townNightLights.splice(i, 1) // 統合したglowの個別ゆらぎ登録を外す
+  for (const { mat, geos } of groups.values()) {
+    if (!geos.length) continue
+    const merged = mergeGeometries(geos, false); geos.forEach((g) => g.dispose()); if (!merged) continue
+    const mesh = new THREE.Mesh(merged, mat); mesh.castShadow = false; mesh.receiveShadow = false
+    if (mat === OUTLINE_MAT) mesh.layers.set(1) // 輪郭ハルは法線/深度パスから除外（元と同じ）
+    grp.add(mesh)
+  }
+  let gi = 0
+  for (const { color, geos, base } of glowGroups.values()) {
+    if (!geos.length) continue
+    const merged = mergeGeometries(geos, false); geos.forEach((g) => g.dispose()); if (!merged) continue
+    const gm = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ color, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }))
+    gm.castShadow = false; gm.frustumCulled = false; grp.add(gm)
+    townNightLights.push({ m: gm, base, ph: gi * 1.7, flame: true }); gi++ // 色グループごとに位相をずらす＝連なりが一斉でなく温かく息づく
+  }
 }
 // 夏祭りの会場一覧（会場ごとに別の開催日＝音をたどると今夜の会場へ）。buildBonOdoriの戻り値グループ・位置・開催日。updateFestival/spawnFireworkが参照
 const FEST_VENUES = []
@@ -12350,6 +12411,7 @@ window.__proto3d = {
   _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); else if (k === 'call') farCall(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _festFigVis() { let total = 0, vis = 0, parentVis = 0, near = 0, minD = 1e9, maxD = 0; for (const d of festFigs) { total++; if (d.g.visible) vis++; if (d.g.parent && d.g.parent.visible) { parentVis++; const dx = boy.position.x - d.cx, dz = boy.position.z - d.cz, dd = Math.sqrt(dx * dx + dz * dz); if (dd < 60) near++; if (dd < minD) minD = dd; if (dd > maxD) maxD = dd } } return { total, selfVisible: vis, inVisibleVenue: parentVis, within60m: near, minD: +minD.toFixed(1), maxD: +maxD.toFixed(1) } }, // 検証用：踊り手のvisible数＋計算LODの60m内訳（静止しても消えていないこと＝inVisibleVenue分は描画される）
+  _festMeshStats() { return FEST_VENUES.map((v) => { let meshes = 0, outlines = 0, glows = 0, lights = 0, points = 0, tris = 0, figMeshes = 0, staticMeshes = 0; const isFig = (o) => { let c = o; while (c && c !== v.g) { if (c.userData && c.userData.head) return true; c = c.parent } return false }; v.g.traverse((o) => { if (o.isPoints) points++; if (o.isLight) lights++; if (!o.isMesh) return; meshes++; if (isFig(o)) figMeshes++; else staticMeshes++; if (o.material === OUTLINE_MAT) outlines++; else if (o.material && o.material.isMeshBasicMaterial && o.material.blending === THREE.AdditiveBlending) glows++; const g = o.geometry; if (g && g.index) tris += g.index.count / 3; else if (g && g.attributes && g.attributes.position) tris += g.attributes.position.count / 3 }); return { name: v.name, meshes, figMeshes, staticMeshes, outlines, glows, lights, points, tris: Math.round(tris), children: v.g.children.length } }) }, // 検証用：各会場グループのメッシュ内訳（軽量化の的を絞る・figMeshes=人/staticMeshes=構造物）
   _boyPos() { return { x: +boy.position.x.toFixed(1), y: +boy.position.y.toFixed(2), z: +boy.position.z.toFixed(1) } }, // 検証用：主人公の現在地
   _resetDayEvents() { dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false }, // 検証用：日課フラグを戻す
   _dayInfo() { return { day, total: TOTAL_DAYS, festDay: festDay(), arc: arcStage(), venuesToday: FEST_VENUES.filter((v) => v.days.indexOf(festDay()) >= 0).map((v) => v.name) } }, // 検証用：H1 ひと夏の日数・祭り会場
