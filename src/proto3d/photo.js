@@ -41,7 +41,7 @@ export const PHOTO_PRESETS = {
   '強': { saturation: 0.66, contrast: 0.85, brightness: 1.06, softBlurPx: 1.05, wbR: 1.1, wbG: 1.0, wbB: 0.85, warmAdd: 11, vignette: 0.46, grain: 34 },
 }
 
-export function initPhotoMode({ renderer, getDay, playShutter }) {
+export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
   const cfg = PHOTO_CFG
   const $ = (tag, css, parent) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e }
 
@@ -103,6 +103,8 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
       background:rgba(10,12,20,0.92);padding:4vw;}
     #pm-view.on{display:flex;}
     #pm-view img{max-width:94vw;max-height:80vh;border:6px solid #fff;border-radius:3px;box-shadow:0 8px 30px rgba(0,0,0,0.6);}
+    /* 写真の下にそっと一行＝アルバムを“絵の束”から“思い出”へ（いつ・どこで撮ったか） */
+    #pm-view-cap{position:fixed;bottom:13vh;left:0;right:0;text-align:center;color:#fdf3e0;font-size:15px;letter-spacing:0.06em;text-shadow:0 1px 4px rgba(0,0,0,0.7);font-family:inherit;pointer-events:none;}
     #pm-view-bar{position:fixed;bottom:5vh;left:0;right:0;display:flex;justify-content:center;gap:6vw;}
     #pm-view-bar button{appearance:none;border:none;cursor:pointer;padding:0.5em 1.6em;font-size:16px;font-family:inherit;
       color:#3b3024;background:rgba(255,250,240,0.92);border-radius:999px;}
@@ -123,6 +125,7 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   const grid = album.querySelector('#pm-grid')
   const view = $('div', '', document.body); view.id = 'pm-view'
   const viewImg = $('img', '', view)
+  const viewCap = $('div', '', view); viewCap.id = 'pm-view-cap' // 写真の下の一行（いつ・どこで）
   const viewBar = $('div', '', document.body); viewBar.id = 'pm-view-bar'; view.appendChild(viewBar)
   const viewClose = $('button', '', viewBar); viewClose.textContent = 'とじる'
   const viewDel = $('button', '', viewBar); viewDel.textContent = 'けす'
@@ -204,7 +207,7 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
     requestAnimationFrame(() => {
       const url = processRetro(renderer.domElement)
       if (!url) return
-      const rec = { url, day: (getDay && getDay()) || 1, t: Date.now() }
+      const rec = { url, day: (getDay && getDay()) || 1, t: Date.now(), caption: (getCaption && getCaption()) || '' } // J:いつ・どこで撮ったかの一行（思い出装置）
       if (idbOk) idbAdd(rec).then((id) => { rec.id = id }).catch(() => { idbOk = false }) // IndexedDBへ非同期保存（同期ブロックしない・失敗してもメモリには残る）
       photos.push(rec); while (photos.length > cfg.maxPhotos) { const old = photos.shift(); if (old && old.id != null && idbOk) idbDel(old.id) } // 上限超過は古いものから消す（IDBからも）
       newCount++ // その日の絵日記に使えるよう「新しく撮った枚数」を数える
@@ -226,7 +229,7 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
     album.classList.add('on')
   }
   let viewIdx = -1
-  function openView(i) { viewIdx = i; viewImg.src = photos[i].url; view.classList.add('on') }
+  function openView(i) { viewIdx = i; viewImg.src = photos[i].url; viewCap.textContent = photos[i].caption || ''; view.classList.add('on') }
 
   // ── モード切替 ──
   let on = false

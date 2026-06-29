@@ -12201,7 +12201,22 @@ function markTitleReady() {
 setTimeout(() => { if (!titleReady) { titleReady = true; markTitleReady() } }, 8000) // 保険：8秒で必ず押せるように
 
 // 写真モード（平成レトロ画質）を起動。既存には触れず、上に乗せるだけ。
-const photoMode = initPhotoMode({ renderer, getDay: () => day, playShutter })
+// P2：撮った写真に「いつ・どこで」の一行を添える＝アルバムが“絵の束”から“思い出”に。最寄りの名所（70m以内）を素朴に添える
+function photoCaption() {
+  const tw = timeWord(tday)
+  let place = ''
+  if (area === 'yato' || onYato) {
+    const bx = boy.position.x, bz = boy.position.z
+    const spots = [[3008, -489, '二ツ池のあたり'], [3124, -186, '小学校のそば'], [3008, 44, 'はらっぱ'], [3018, 24, '朝の通り']]
+    let bd = 70
+    for (const s of spots) { const d = Math.hypot(bx - s[0], bz - s[1]); if (d < bd) { bd = d; place = s[2] } }
+    if (!place) place = '夏の谷戸'
+    if (boy.userData && boy.userData._high) place = '屋上から' // サンライズ屋上の眺め
+  } else if (area === 'shrine') place = '神社のあたり'
+  else if (area === 'town') place = '町なか'
+  return place ? `${day}にちめ ・ ${tw} ― ${place}` : `${day}にちめ ・ ${tw}`
+}
+const photoMode = initPhotoMode({ renderer, getDay: () => day, playShutter, getCaption: photoCaption })
 window.__photo = photoMode // 検証用
 
 // ── I1/H2：おもいで帳（えにっき・しゃしん・むしさかな図鑑をひとつに）。いつでも開いて夏をふり返れる。──
