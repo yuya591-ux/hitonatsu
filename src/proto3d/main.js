@@ -9872,19 +9872,21 @@ const npcEl = document.getElementById('npc')
 const dialogueEl = document.getElementById('dialogue')
 const dlgNameEl = document.getElementById('dlg-name')
 const dlgTextEl = document.getElementById('dlg-text')
+const dlgMoreEl = document.getElementById('dlg-more') // 「▼ つづきはタップ」の合図
 let dialogue = null // { lines, idx }
 let dlgWho = null // 会話の相手（カメラの“二人を収める”寄り＝止め絵に使う・2026-06-29）
 // 台詞は1文字ずつ そっと現れる（間をつくる＝情緒）。表示途中にタップすると全部出る→もう一度タップで次へ（2026-06-29）
 let dlgType = null // { full, n, timer }
 function showDlgLine(text) {
   if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null }
-  if (reduceMotion) { dlgTextEl.textContent = text; dlgType = { full: text, n: text.length, timer: null }; return } // 酔い対策ONなら一気に表示
+  if (dlgMoreEl) dlgMoreEl.style.opacity = '0' // 表示中は「▼」を隠す
+  if (reduceMotion) { dlgTextEl.textContent = text; dlgType = { full: text, n: text.length, timer: null }; if (dlgMoreEl) dlgMoreEl.style.opacity = '1'; return } // 酔い対策ONなら一気に表示
   dlgType = { full: text, n: 0, timer: null }
   dlgTextEl.textContent = ''
   dlgType.timer = setInterval(() => {
     dlgType.n = Math.min(dlgType.full.length, dlgType.n + 1)
     dlgTextEl.textContent = dlgType.full.slice(0, dlgType.n)
-    if (dlgType.n >= dlgType.full.length) { clearInterval(dlgType.timer); dlgType.timer = null }
+    if (dlgType.n >= dlgType.full.length) { clearInterval(dlgType.timer); dlgType.timer = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '1' } // 出切ったら「▼ つづきはタップ」を出す
   }, 40) // 1文字あたり約40ms＝ゆっくり読める速さ
 }
 const phaseOf = (t) => (t < 0.18 ? 'morning' : t < 0.5 ? 'noon' : t < 0.78 ? 'evening' : 'night')
@@ -10100,9 +10102,9 @@ function travel() {
 tapBtn(goEl, travel)
 function advanceDialogue() {
   if (!dialogue) return
-  if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null; dlgType.n = dlgType.full.length; dlgTextEl.textContent = dlgType.full; return } // 表示途中なら、まず全部出す（早送り）
+  if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null; dlgType.n = dlgType.full.length; dlgTextEl.textContent = dlgType.full; if (dlgMoreEl) dlgMoreEl.style.opacity = '1'; return } // 表示途中なら、まず全部出す（早送り）＋「▼」を出す
   dialogue.idx++
-  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dlgWho = null; dialogueEl.classList.remove('show'); document.body.classList.remove('talking'); setTimeout(() => { if (!dialogue) dialogueEl.style.display = 'none' }, 320); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } } // ふわっとフェードアウトしてから隠す
+  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dlgWho = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '0'; dialogueEl.classList.remove('show'); document.body.classList.remove('talking'); setTimeout(() => { if (!dialogue) dialogueEl.style.display = 'none' }, 320); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } } // ふわっとフェードアウトしてから隠す
   else showDlgLine(dialogue.lines[dialogue.idx])
 }
 tapBtn(npcEl, () => {
