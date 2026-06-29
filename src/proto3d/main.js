@@ -9076,6 +9076,33 @@ function playChime(echo) {
     if (!echo) setTimeout(() => { try { playChime(true) } catch (e) {} }, 3400) // 遠くから返ってくる山びこ
   } catch (e) {}
 }
+// 発見の“きらり”音：絵日記フラグがその日はじめて立つ瞬間に、小さく澄んだ2音（鈴のような非整数倍音）。鐘より小さく希少＝昭和の子の“小さな宝物”の手ざわり（情緒/サウンド提案2026-06-30）
+function playFound() {
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, t0 = ctx.currentTime, out = getSfxOut()
+    ;[1318.5, 1760.0].forEach((f, i) => { // E6→A6（ペンタの澄んだ跳躍）
+      const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = f
+      const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 2.01 // わずかに非整数の倍音＝鈴の煌めき
+      const g = ctx.createGain(); const t = t0 + i * 0.085
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5)
+      const g2 = ctx.createGain(); g2.gain.value = 0.25
+      o.connect(g); o2.connect(g2); g2.connect(g); g.connect(out)
+      o.start(t); o2.start(t); o.stop(t + 0.55); o2.stop(t + 0.55)
+    })
+  } catch (e) {}
+}
+// 会話の文字送り音：1文字ごとのやわらかい木琴のような短い丸い音。話者ごとにピッチ＝声色＝台詞が“生き物の声”に（サウンド提案2026-06-30）
+function playDlgBlip(pitch) {
+  if (!audioStarted) return
+  try {
+    const ctx = listener.context, t0 = ctx.currentTime, out = getSfxOut()
+    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = pitch
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.04, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07)
+    o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.09)
+  } catch (e) {}
+}
 // ── 効果音の自前合成（外部素材ゼロ。AudioContextで都度つくる）──
 let noiseBuf = null
 // SFX用マスターバス：ゆるいローパス＋リミッタ（コンプレッサ）で、効果音の耳ざわりなピーク/
@@ -9410,7 +9437,7 @@ function maybeLifeSounds(dt) {
   for (const s of LIFE_SPOTS) { if (tday < s.w[0] || tday > s.w[1]) continue; const d = Math.hypot(boy.position.x - s.x, boy.position.z - s.z); if (d < nd) { nd = d; near = s } }
   const swell = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() * 0.00012)) // ゆっくりした賑わいのうねり
   let target = 0
-  if (near && onYato) { const da = THREE.MathUtils.clamp((85 - nd) / (85 - 10), 0, 1); target = Math.pow(da, 1.4) * AUDIO.lifeVol * swell * worldBreathFactor * (settings.volLife ?? 1) } // G6：世界の凪／G5：声(生活音)スライダー
+  if (near && onYato) { const da = THREE.MathUtils.clamp((85 - nd) / (85 - 10), 0, 1); target = Math.pow(da, 1.4) * AUDIO.lifeVol * swell * worldBreathFactor * convoDuckF * (settings.volLife ?? 1) } // G6：世界の凪／P1：会話・止め絵でそっと引く／G5：声(生活音)スライダー
   out.gain.setTargetAtTime(target, ctx.currentTime, 0.5) // バス音量を距離でなめらかに
   // G2：遠い呼び声（家路の夕方・母音だけの「ごはんよー」感）。近接ゲートとは別に、谷戸の夕方ときどき遠くから漂う。
   lifeCallCd -= dt; if (onYato && tday > 0.48 && tday < 0.72 && lifeCallCd <= 0) { lifeCallCd = 50 + Math.random() * 80; farCall(ctx.currentTime + 0.06) }
@@ -9570,6 +9597,10 @@ let cricketCd = 1
 let cicBreathCd = 80 + Math.random() * 70, cicBreathT = 0 // M2：蝉の息継ぎ＝数分に一度、数秒だけ蝉がすっと静まる“間”（最も郷愁を誘う瞬間）
 let cicHushCd = 60 + Math.random() * 120, cicHushT = 0, cicHushFactor = 1 // 蝉の“ふっと鳴き止む”near-silence（息継ぎとは別の、稀だが深い静寂・非対称＝速く止みゆっくり戻る・2役エージェント協議2026-06-27）。cicHushFactorは風を持ち上げるのに使う（1フレーム遅延OK）
 let worldBreathCd = 120 + Math.random() * 120, worldBreathT = 0, worldBreathFactor = 1 // G6 無音の設計：たまに“世界全体がふっと凪ぐ”長い間。蝉ハッシュ(速い・蝉だけ)とは別に、環境音と生活音が一緒にゆっくり引いて戻る集合的な静けさ
+let convoDuckF = 1 // P1配線：会話・止め絵(座る/寝ころぶ)の“間”を音で支える＝環境音と生活音がそっと一歩引く（worldBreathと同じ乗算で適用・風鈴/川は引かない）
+let idleCicF = 1   // P1配線：立ち止まると蝉しぐれがすっと引いて“真昼の静寂”に（idleTime連動・歩き出すとじわり戻る）
+let foundSndCd = 0 // P1配線：発見の“きらり”音の連投ガード
+const flagPrev = {} // 絵日記フラグの前フレーム値（その日はじめて立つ瞬間＝鳴らす）
 function maybeCricket(dt) {
   if (!audioStarted) return
   const nf = nightFactor(tday)
@@ -9899,11 +9930,14 @@ function showDlgLine(text) {
   if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null }
   if (dlgMoreEl) dlgMoreEl.style.opacity = '0' // 表示中は「▼」を隠す
   if (reduceMotion) { dlgTextEl.textContent = text; dlgType = { full: text, n: text.length, timer: null }; if (dlgMoreEl) dlgMoreEl.style.opacity = '1'; return } // 酔い対策ONなら一気に表示
+  const vp = dlgWho ? 196 + (dlgWho.id % 7) * 22 : 240 // 話者ごとにピッチを変える＝声色（文字送り音）
   dlgType = { full: text, n: 0, timer: null }
   dlgTextEl.textContent = ''
   dlgType.timer = setInterval(() => {
     dlgType.n = Math.min(dlgType.full.length, dlgType.n + 1)
     dlgTextEl.textContent = dlgType.full.slice(0, dlgType.n)
+    const ch = dlgType.full[dlgType.n - 1] // 1文字ごとにやわらかい音＝台詞が“生き物の声”に（空白・約物は鳴らさない）
+    if (ch && !/[\s、。「」（）！？…ー　]/.test(ch) && Math.random() < 0.55) playDlgBlip(vp)
     if (dlgType.n >= dlgType.full.length) { clearInterval(dlgType.timer); dlgType.timer = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '1' } // 出切ったら「▼ つづきはタップ」を出す
   }, 40) // 1文字あたり約40ms＝ゆっくり読める速さ
 }
@@ -10982,9 +11016,15 @@ function update(dt) {
     worldBreathCd -= dt; if (worldBreathCd <= 0 && worldBreathT <= 0) { worldBreathCd = 150 + Math.random() * 150; worldBreathT = 9 }
     if (worldBreathT > 0) worldBreathT -= dt
     worldBreathFactor = worldBreathT > 0 ? 1 - 0.35 * Math.sin(Math.PI * Math.min(1, (9 - worldBreathT) / 9)) : 1 // 9秒の山なり（中央が谷0.65）
+    // P1配線：会話・止め絵(座る/寝ころぶ)の“間”を音で支える＝環境音と生活音がそっと一歩引く（−30%・ゆっくり出入り）。風鈴/川(立体音響)は引かない＝癒しの主役は残す
+    const duckTarget = ((dialogue && dlgWho) || mode === 'sit' || mode === 'lie') ? 0.7 : 1
+    convoDuckF += (duckTarget - convoDuckF) * Math.min(1, dt * 1.5)
+    // P1配線：立ち止まると蝉しぐれがすっと引いて“真昼の静寂”に（idleTime連動・歩き出すとじわり戻る）＝最も昭和の夏らしい郷愁の落差
+    const idleCicTarget = 1 - THREE.MathUtils.clamp((idleTime - 2.0) / 3.5, 0, 1) * 0.42
+    idleCicF += (idleCicTarget - idleCicF) * Math.min(1, dt * 1.2)
     const swellBase = 0.52 + 0.34 * (0.5 + 0.5 * Math.sin(tsec * 0.105)) + 0.10 * Math.sin(tsec * 0.061 + 1.3) + 0.05 * Math.sin(tsec * 0.31 + 2.1) // 底0.52・互いに素な3周期＝数分間ループしない
     // 基底の“ジー”は完全に0へは落とさず床0.12を残す＝「近くの蝉が黙り遠くの蝉だけ残る」奥行き（無音は“音が壊れた”不安になる・ノスタルジー演出ディレクター指摘）
-    const cicadaSwell = Math.max(0.12, swellBase * (1 - weather * 0.75) * cicBreath * cicHush)
+    const cicadaSwell = Math.max(0.12, swellBase * (1 - weather * 0.75) * cicBreath * cicHush * idleCicF)
     // エリアで音の表情を変える：神社の杜は静けさ際立つ／町は蝉が控えめ（生活音の気配）。場所の個性＝散策の没入。
     const areaAmb = area === 'shrine' ? { cicada: 1.18, higurashi: 1.18, morning: 1.3, night: 1.12 }
                   : area === 'town' ? { cicada: 0.62, higurashi: 0.72, morning: 0.85, night: 0.92 }
@@ -10992,7 +11032,7 @@ function update(dt) {
                   : null
     for (const id in ambients) {
       const a = ambients[id]; if (!a.buffer) continue
-      let v = Math.min(1, w[id] || 0) * AUDIO.ambMaster * worldBreathFactor * (settings.volAmb ?? 1) // G6：世界の凪で環境音もいっしょに引く／G5：環境スライダー
+      let v = Math.min(1, w[id] || 0) * AUDIO.ambMaster * worldBreathFactor * convoDuckF * (settings.volAmb ?? 1) // G6：世界の凪で環境音もいっしょに引く／P1：会話・止め絵でそっと引く／G5：環境スライダー
       if (id === 'cicada' || id === 'higurashi') v *= cicadaSwell
       if (id === 'cicada') v *= AUDIO.cicadaVol * (settings.volCicada ?? 1)      // 昼の蝉を少し控えめに＋G5：蝉スライダー
       if (id === 'night') v *= AUDIO.nightAmb       // 夜の虫(カエルのような音)を大きく下げる＝眠れる静けさ
@@ -11002,6 +11042,9 @@ function update(dt) {
       // P5：ごく低速のオートパン（±0.32）＝idごとに位相をずらし“面”の環境音が頭の中でなく四方からに（素材はモノのまま広がりだけ付与）
       const pn = ambientPan[id]; if (pn) { const ph = { cicada: 0, higurashi: 2.1, morning: 4.2, night: 1.0 }[id] || 0; pn.pan.value = Math.sin(tsec * 0.05 + ph) * 0.32 }
     }
+    // P1配線：発見の“きらり”音＝絵日記フラグがその日はじめて立つ瞬間に小さく鳴らす（連投ガード0.6s）。蝉の抜け殻・初めての池・おまけをもらった…“小さな宝物”の手ざわり
+    foundSndCd -= dt
+    for (const fk in todayFlags) { if (todayFlags[fk] && !flagPrev[fk] && foundSndCd <= 0) { playFound(); foundSndCd = 0.6 } flagPrev[fk] = todayFlags[fk] }
     if (tday < 0.4) chimeArmed = true
     if (chimeArmed && tday > 0.69) { chimeArmed = false; playChime() }
     updateEveningBgm(dt) // 晴れた夕暮れ〜夜の温かいBGM（パッド・うっすら常時／雨では退場）
