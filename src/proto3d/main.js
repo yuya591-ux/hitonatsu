@@ -3666,52 +3666,95 @@ function buildShishigaya() {
       farBackdrop.add(fm)
     }
 
-    // ③ 都市ランドマーク（“それと分かる”低ポリのシルエット。実在ロゴは付けない＝形だけ）。各1〜数メッシュ。
-    //    色は遠景らしく淡く・霞色寄り。MeshBasicで陰影なし＝黒い面が出ない。各メッシュ farBackdrop に足す（カメラ追従でまとめて地平に留まる）。
-    // 遠景のビルは“淡い青灰のシルエット”。ただし空(≈0xcfe8f0)/霧色に近すぎると溶けて見えないので、やや濃いめの青灰にして地平に芯を残す（霞の中でも「それと分かる」）。
-    // ★ランドマークは fog:false ＝強い霞(屋上fog far≈1280)で消えないように（カメラ追従で常に地平の彼方＝近づけないので fog で隠す必要がない）。
-    //   色は遠景らしい淡い青灰だが、屋上から「しっかり分かる」コントラストに（ユーザー要望2026-06-29＝前回は霞みすぎて見えなかった）。
-    const lmGray = new THREE.MeshBasicMaterial({ color: 0x556c83, fog: false }) // 遠くのビル/スカイツリー/プリンスの青灰（淡い空に溶けないよう一段濃く＝霞の中でも芯が残る・2026-06-29）
-    const lmTower = new THREE.MeshBasicMaterial({ color: 0x4e6781, fog: false }) // ランドマークタワー（淡い青灰だが地平にくっきり・一段濃く）
-    const lmRed = new THREE.MeshBasicMaterial({ color: 0x9a5b50, fog: false }) // 東京タワーの赤茶（遠景でも赤みが分かる・一段濃く）
-    const addLM = (deg, geo, mat, yOff, ry) => { const [dx, dz] = dirOf(deg); const m = new THREE.Mesh(geo, mat)
-      m.position.set(dx * R, yOff || 0, dz * R); if (ry != null) m.rotation.y = ry; m.castShadow = m.receiveShadow = false; m.layers.set(1); farBackdrop.add(m); return m }
+    // ③ 都市ランドマーク（“それと分かる”低ポリのシルエット。実在ロゴは付けない＝形だけ）。各1〜数メッシュにmerge。
+    //   ★全面刷新2026-06-29＝「空中に浮いた黒いモノリス」を「遠くに霞んで立つ、それと分かる名建築」に。
+    //   ──浮き対策──：従来は各塔のローカル足元Y=0で、update側 bdY が群全体を目線高へ持ち上げ＝風船で見下ろすと足元が空中に浮いた。
+    //     対策＝(a)各塔に「地平の下へ深く伸びる裾(skirt)」を足し、足元の切れ目を作らない（見下ろしても“地中/霞へ続く”）。
+    //          (b)update側で群を“目線のずっと下(地平のさらに下)”に置き、塔は山(hills)の稜線の向こうからそびえる形にする（下記10670付近）。
+    //   ──黒塊対策──：空気遠近で「淡く霞む」。頂点カラーで下ほど明るい霞色→上ほど建物色がほのかに残る縦グラデ＝真っ黒シルエットにしない。
+    //     MeshBasic(陰影なし)＋fog:false（強い屋上fogで消えないよう）＝太陽の向きで黒面が出ない。色は淡い青白/淡赤白で“やわらかい”。
+    //   方角：北=-z/東=+x。LMT=SW(225°)・プリンス=W(270°)・東京タワー=NE(45°)・スカイツリー=NE(40°)。
+    const SKIRT = 220 // 地平の下へ伸ばす裾の深さ(m)。見下ろしても足元に切れ目を作らない＝塔が霞/地中へ続く（浮かない）
+    // 縦グラデの頂点カラーを焼き込むヘルパ：merge済みジオメトリのworldローカルYに応じて baseCol(建物色)↔hazeCol(空気色)を補間。
+    //   y0(足元/裾)=ほぼ hazeCol（最も霞む）→ yTop(頂部)=baseColへ近づく（芯が残る）。距離が遠い塔ほど hazeMix を上げて全体を霞ませる。
+    const HAZE = new THREE.Color(0xc4d3e0) // 遠景の空気色（淡い青白＝空に溶ける霞）。これに各建物色を上ほど混ぜる
+    const bakeHaze = (geo, baseHex, y0, yTop, hazeMix) => {
+      const base = new THREE.Color(baseHex), pos = geo.attributes.position, col = []
+      const span = Math.max(1, yTop - y0), tmp = new THREE.Color()
+      for (let i = 0; i < pos.count; i++) {
+        const y = pos.getY(i)
+        let t = THREE.MathUtils.clamp((y - y0) / span, 0, 1) // 足元0→頂部1
+        // 下ほど霞(=0)・上ほど建物色(=1)。さらに全体の距離霞hazeMixで建物色側を弱める（遠い塔ほど淡く）
+        const m = THREE.MathUtils.lerp(0.30, 1 - hazeMix, t * t) // 裾も建物色を残しつつ霞ませ(0.30)、上は (1-hazeMix) まで建物色＝足元が空に溶けて消えない
+        tmp.copy(HAZE).lerp(base, m)
+        col.push(tmp.r, tmp.g, tmp.b)
+      }
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
+      return geo
+    }
+    const lmMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }) // 全ランドマーク共通（色は頂点カラーで個別・陰影なしで黒面ゼロ）
+    const addLM = (deg, geo, name, ry) => { const [dx, dz] = dirOf(deg); const m = new THREE.Mesh(geo, lmMat)
+      m.position.set(dx * R, 0, dz * R); if (ry != null) m.rotation.y = ry; m.name = name; m.castShadow = m.receiveShadow = false; m.layers.set(1); m.userData.noChunk = true; farBackdrop.add(m); return m }
+    // 地平の下へ伸びる裾（足元の切れ目を消す細い角柱／円柱）。本体の最下部と同断面で下へ。見下ろしでも“霞へ続く”
+    const skirtBox = (w, d) => { const g = new THREE.BoxGeometry(w, SKIRT, d); g.translate(0, -SKIRT / 2, 0); return g }
+    const skirtCyl = (r, seg) => { const g = new THREE.CylinderGeometry(r, r, SKIRT, seg); g.translate(0, -SKIRT / 2, 0); return g }
 
-    // 横浜ランドマークタワー（みなとみらい・296m・約6km・南西SW=225°）。先細りで頂部が段状に絞られる超高層＝1番大きく見える。
+    // ── 横浜ランドマークタワー（296m・70F・約6km・SW=225°）。Hugh Stubbins設計。ほぼ正方形断面の超高層が頂部へ向け四隅をセットバックで段状に絞り、最上部に冠状の段。色＝銀青のガラス（淡い青白）。
+    //    出典：ja.wikipedia「横浜ランドマークタワー」(296.33m/70F/Hugh Stubbins)。一番近い6km＝見かけ最大。
     {
-      const H = appH(296, 6000, LMK) // 一番近い6km＝相対的に一番大きく見える（共通倍率で実物の遠近を保つ）
-      const w0 = H * 0.22, parts = [] // 幅≒実物比(73m/296m≈1:4)＝細すぎる棒にしない（霞でもスラブとして読める）
-      const shaft = new THREE.BoxGeometry(w0, H * 0.78, w0 * 0.86); shaft.translate(0, H * 0.39, 0); parts.push(shaft) // 本体（わずかに矩形断面）
-      const step1 = new THREE.BoxGeometry(w0 * 0.74, H * 0.13, w0 * 0.62); step1.translate(0, H * 0.78 + H * 0.065, 0); parts.push(step1) // 頂部の段（セットバック）
-      const step2 = new THREE.BoxGeometry(w0 * 0.5, H * 0.1, w0 * 0.42); step2.translate(0, H * 0.91 + H * 0.05, 0); parts.push(step2) // さらに絞る冠
-      addLM(225, mergeGeometries(parts), lmTower, 0, Math.PI / 4) // 角をSWへ向ける＝四隅のコーナー柱が効いた“それらしい”見え
+      const H = appH(296, 6000, LMK), parts = []
+      const w0 = H * 0.215 // 平面≒73m角→約1:4（細い棒にしない・スラブとして読める）
+      const shaft = new THREE.BoxGeometry(w0, H * 0.74, w0 * 0.9); shaft.translate(0, H * 0.37, 0); parts.push(shaft) // 本体（わずかに矩形）
+      const set1 = new THREE.BoxGeometry(w0 * 0.78, H * 0.11, w0 * 0.66); set1.translate(0, H * 0.795, 0); parts.push(set1) // 1段目セットバック（四隅が絞られる）
+      const set2 = new THREE.BoxGeometry(w0 * 0.56, H * 0.09, w0 * 0.47); set2.translate(0, H * 0.895, 0); parts.push(set2) // 2段目セットバック
+      const crown = new THREE.BoxGeometry(w0 * 0.34, H * 0.07, w0 * 0.28); crown.translate(0, H * 0.975, 0); parts.push(crown) // 冠状の頂部
+      parts.push(skirtBox(w0, w0 * 0.9)) // 地平下へ伸びる裾
+      const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
+      addLM(225, bakeHaze(g, 0xaec4d6, 0, H, 0.30), 'lmLandmarkTower', Math.PI / 4) // 角をSWへ＝四隅のセットバックが効く。近いので霞控えめ
     }
-    // 新横浜プリンスホテル（150m・約4km・西W=270°）。細い円筒形の高層ホテル（丸い塔）。
+    // ── 新横浜プリンスホテル（149m・42F・約4km・W=270°）。円柱型超高層では日本一の純円筒。頂部でわずかに絞る。色＝白〜銀。
+    //    出典：ja.wikipedia「新横浜プリンスホテル」(円柱型・42F・1992)。約4km＝二番目に大きく見える。
     {
-      const H = appH(150, 4000, LMK) // 約4km＝相対サイズも実物どおり（円筒の高層ホテル）
-      const cyl = new THREE.CylinderGeometry(H * 0.085, H * 0.092, H, 14); cyl.translate(0, H / 2, 0)
-      addLM(270, cyl, lmGray, 0)
+      const H = appH(149, 4000, LMK), parts = []
+      const r = H * 0.13 // 円筒の半径（実物≒38m径/149m≒1:3.9＝ずんぐりの太い円柱。細い棒にしない）
+      const body = new THREE.CylinderGeometry(r * 0.9, r, H * 0.92, 16); body.translate(0, H * 0.46, 0); parts.push(body) // 上でわずかに絞る円筒
+      const cap = new THREE.CylinderGeometry(r * 0.74, r * 0.9, H * 0.08, 16); cap.translate(0, H * 0.96, 0); parts.push(cap) // 頂部の段
+      parts.push(skirtCyl(r, 16))
+      const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
+      addLM(270, bakeHaze(g, 0xc6d2dd, 0, H, 0.34), 'lmPrinceHotel') // 白〜銀の円筒（やや霞ませる）
     }
-    // 東京タワー（333m・約20km・北東NE=45°）。赤白の鉄塔＝裾広がりの四角錐＋上部の展望台。小さく霞む。
+    // ── 東京タワー（333m・約20km・NE=45°）。4本脚が裾で大きく広がる三角錐の鉄塔（脚間隔88m）＋メインデッキ(約150m・2層の箱)＋トップデッキ(約250m)＋頂部の筒型アンテナ。色＝インターナショナルオレンジと白（遠景＝霞んだ淡赤茶＋白段）。
+    //    出典：ja.wikipedia「東京タワー」(333m/塔脚88m/メインデッキ約150m/トップデッキ223.55m/筒型アンテナ)。20km＝小さく霞む。
     {
-      const H = appH(333, 20000, LMK) // 遠い20km＝共通倍率で実物どおり小さく霞む（ユーザー許容の小ささ）
-      const parts = []
-      const legR = H * 0.22 // 裾の広がり
-      // 裾広がりの鉄塔（細い四角錐を近似＝下太く上細い角錐）＋展望台の小箱
-      const tower = new THREE.CylinderGeometry(H * 0.02, legR, H * 0.62, 4); tower.rotateY(Math.PI / 4); tower.translate(0, H * 0.31, 0); parts.push(tower)
-      const spire = new THREE.CylinderGeometry(H * 0.004, H * 0.02, H * 0.38, 4); spire.rotateY(Math.PI / 4); spire.translate(0, H * 0.62 + H * 0.19, 0); parts.push(spire) // 上部の細いアンテナ部
-      const obs = new THREE.BoxGeometry(H * 0.11, H * 0.05, H * 0.11); obs.rotateY(Math.PI / 4); obs.translate(0, H * 0.5, 0); parts.push(obs) // 大展望台
-      addLM(45, mergeGeometries(parts), lmRed, 0)
+      const H = appH(333, 20000, LMK), parts = []
+      const legR = H * 0.26 // 裾の広がり（脚間隔88m/333m≒0.26）
+      const deckY = H * 0.45 // メインデッキ高（約150m/333m）
+      // 下半：脚が大きく広がる四角錐（下太く上細い・4角柱で鉄塔のシルエット）。デッキで一旦くびれる
+      const lower = new THREE.CylinderGeometry(H * 0.07, legR, deckY, 4); lower.rotateY(Math.PI / 4); lower.translate(0, deckY / 2, 0); parts.push(lower)
+      const deck = new THREE.BoxGeometry(H * 0.16, H * 0.055, H * 0.16); deck.rotateY(Math.PI / 4); deck.translate(0, deckY, 0); parts.push(deck) // メインデッキ（2層の箱・幅広）
+      // 上半：デッキから細くすぼまる四角錐＋トップデッキ＋筒型アンテナ
+      const upper = new THREE.CylinderGeometry(H * 0.02, H * 0.06, H * 0.30, 4); upper.rotateY(Math.PI / 4); upper.translate(0, deckY + H * 0.15, 0); parts.push(upper)
+      const top = new THREE.BoxGeometry(H * 0.07, H * 0.03, H * 0.07); top.rotateY(Math.PI / 4); top.translate(0, deckY + H * 0.30, 0); parts.push(top) // トップデッキ（小箱）
+      const ant = new THREE.CylinderGeometry(H * 0.012, H * 0.018, H * 0.25, 6); ant.translate(0, deckY + H * 0.30 + H * 0.125, 0); parts.push(ant) // 頂部の筒型アンテナ
+      parts.push(skirtCyl(legR * 0.5, 4)) // 裾（脚の下・地平下へ）
+      const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
+      // 赤白：縦グラデで霞ませつつ、赤茶(0xc99a8f)を基調に。白段の表現は遠景では潰れるので赤茶一色＋強めの霞で“赤みが分かる”程度に
+      addLM(45, bakeHaze(g, 0xc99a8f, 0, H, 0.40), 'lmTokyoTower')
     }
-    // 東京スカイツリー（634m・約28km・北東NE=40°＝東京タワーよりやや北/東）。非常に細く高い塔＋2つの展望台。一番小さいが一番高いので見える。
+    // ── 東京スカイツリー（634m・約28km・NE=40°）。根元は正三角形(一辺68m)→地上315mで円に変化する細い塔(稜線にそり/むくり)＋天望デッキ(350m・円盤)＋天望回廊(450m)＋頂部の細い円筒ゲイン塔。色＝スカイツリーホワイト（淡い青白）。
+    //    出典：tokyo-skytree.jp/about/design 公式＋ja.wikipedia（断面が三角→315mで円・天望デッキ350m/天望回廊450m・円筒ゲイン塔）。28km＝最小だが最高634mで地平に立つ。
     {
-      const H = appH(634, 28000, LMK) // 一番遠い28kmだが一番高い634m＝共通倍率で実物どおり（東京タワーよりやや高く・細く地平に）
-      const parts = []
-      const shaft = new THREE.CylinderGeometry(H * 0.022, H * 0.075, H * 0.7, 7); shaft.translate(0, H * 0.35, 0); parts.push(shaft) // 細く高い塔（下わずかに広い三脚状を円錐で近似・遠景でサブピクセルに消えないよう少し太く）
-      const gain = new THREE.CylinderGeometry(H * 0.008, H * 0.022, H * 0.3, 6); gain.translate(0, H * 0.7 + H * 0.15, 0); parts.push(gain) // 上部のゲイン塔（アンテナ・少し太く）
-      const obs1 = new THREE.CylinderGeometry(H * 0.035, H * 0.035, H * 0.035, 8); obs1.translate(0, H * 0.5, 0); parts.push(obs1) // 第1展望台
-      const obs2 = new THREE.CylinderGeometry(H * 0.022, H * 0.022, H * 0.025, 8); obs2.translate(0, H * 0.66, 0); parts.push(obs2) // 第2展望台
-      addLM(40, mergeGeometries(parts), lmGray, 0)
+      const H = appH(634, 28000, LMK), parts = []
+      const baseR = H * 0.085 // 根元の広がり（68m/634m≒0.107だが遠景で細く見せ過ぎぬよう少し抑え）
+      // 下部：三角形断面で広がる（3角柱）→ 中部：円形へ。低ポリで「下が三角・上が円」を2段で近似
+      const tri = new THREE.CylinderGeometry(H * 0.045, baseR, H * 0.50, 3); tri.translate(0, H * 0.25, 0); parts.push(tri) // 下半＝三脚状（三角）
+      const cir = new THREE.CylinderGeometry(H * 0.022, H * 0.045, H * 0.22, 10); cir.translate(0, H * 0.61, 0); parts.push(cir) // 中部＝円へ変化（細い円錐）
+      const deck = new THREE.CylinderGeometry(H * 0.045, H * 0.045, H * 0.03, 12); deck.translate(0, H * 0.55, 0); parts.push(deck) // 天望デッキ（350m・円盤）
+      const gall = new THREE.CylinderGeometry(H * 0.03, H * 0.03, H * 0.022, 12); gall.translate(0, H * 0.71, 0); parts.push(gall) // 天望回廊（450m）
+      const gain = new THREE.CylinderGeometry(H * 0.006, H * 0.02, H * 0.27, 8); gain.translate(0, H * 0.72 + H * 0.135, 0); parts.push(gain) // 頂部の円筒ゲイン塔（細い針）
+      parts.push(skirtCyl(baseR * 0.6, 3))
+      const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
+      addLM(40, bakeHaze(g, 0xbcccdb, 0, H, 0.42), 'lmSkytree') // スカイツリーホワイト（淡い青白・最も霞ませる）
     }
     scene.add(farBackdrop)
   }
@@ -10666,14 +10709,17 @@ function update(dt) {
     t.position.y = u.baseY
   }
   // 遠景バックドロップ（地平の山＋都市ランドマーク）：カメラのX/Zへ即追従＝飛んでも近づけない・常に地平の彼方（雲と違い視差は出さない＝「世界の縁」は動かない）。
-  //   Yは“見る人の目線の地平”に合わせて持ち上げる：高所(屋上/飛行/浮遊)では目線が高く、Y=0固定だと遠景が地平の下に沈んで手すり(パラペット)に隠れて見えない。視点の高さぶんだけ遠景全体を持ち上げると、ランドマークが地平線上にちゃんと現れる（ユーザー要望2026-06-29「屋上から遠景が見えない」）。地上は約0＝従来どおり（地上はfog farでクリップされ見えない）。
+  //   ★Y設計を全面修正(2026-06-29)＝「風船で見下ろすとタワーが空中に浮く」不具合の根治。
+  //     旧：足元(local Y=0)を目線高 boy.y-8 へ持ち上げ → 見下ろすと足元が眼の高さ＝空中に浮いた（黒いモノリス化の主因）。
+  //     新：足元(local Y=0)を「プレイヤー直下の地面標高」に置く＝塔はプレイヤーと同じ地平面に立つ。
+  //         eye は必ず地面より上なので、見下ろし時も足元は目線より下＝絶対に空に浮かない（裾skirtでさらに霞/地中へ続け切れ目を消す）。
+  //         屋上/飛行/浮遊で目線が高くても、塔は十分高い(146〜90m)ので山(hills)の稜線越しにそびえ、地平の彼方に立って見える。
   if (farBackdrop) {
     farBackdrop.position.x = camera.position.x; farBackdrop.position.z = camera.position.z; farBackdrop.visible = true
-    // 高所(屋上/飛行/浮遊)では目線の“地平線”がそのまま見る人の目の高さ＝Y0固定だと遠景が地平の下に沈んでパラペット(手すり)に隠れて見えない。
-    // 高い時は遠景の足元(local Y=0)を目線の高さ付近に持ち上げ、ランドマークが地平線上にちゃんと顔を出すようにする。地上は0（fog farでクリップされ見えないので影響なし）。
-    const eyeAlt = boy.position.y - heightAt(boy.position.x, boy.position.z) // 真下の地面からの目線の高さ（屋上で約14m＝獅子ヶ谷は地面標高が高い）
-    const hiF = THREE.MathUtils.clamp((eyeAlt - 6) / 8, 0, 1) // 地面より6m超で高所＝徐々に持ち上げ開始（屋上/飛行/浮遊で発火）
-    const bdY = (boy.position.y - 8) * hiF // 足元を目線のやや下(約8m下)へ＝塔の根元は地平の少し下・上部はパラペット越しに見える
+    const groundY = heightAt(boy.position.x, boy.position.z) // プレイヤー直下の地面標高
+    // 足元＝直下の地面標高に置く（プレイヤーと同じ地平面に立つ）。屋上/飛行/浮遊でも eye>地面 なので足元は必ず目線の下＝浮かない。
+    // ごく僅かだけ持ち上げて(+4)、地上(fog farでクリップ)以外で山の手前に沈み込み過ぎないようにする。eyeとの差より遥かに小さい＝浮きは起きない。
+    const bdY = groundY + 4
     farBackdrop.position.y += (bdY - farBackdrop.position.y) * Math.min(1, dt * 4) // なめらかに追従＝登る/降りるで遠景がカクつかない
   }
   // 夕立：時おり通り雨。空が陰り→雨→すぐ晴れる
