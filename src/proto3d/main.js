@@ -7729,25 +7729,44 @@ for (const off of [-1.15, 1.15]) {
 // 夏の夜の花火（夜に空へ開く。3日目はおまつりで多め）
 const fireworksGroup = new THREE.Group(); scene.add(fireworksGroup)
 let fwTimer = 3
+// 花火の“星”＝小さな低ポリ球（共有ジオメトリ＝1発をInstancedMeshで描く＝数ドロー。点ではなく球なのでヘッドレスでも映りBloomで光る・GC無し）。
+const FW_STAR_GEO = new THREE.IcosahedronGeometry(0.5, 0)
+// 更新ループ用の使い回しオブジェクト（毎フレームnewしない＝GC厳禁）
+const _fwM = new THREE.Matrix4(), _fwQ = new THREE.Quaternion(), _fwS = new THREE.Vector3(), _fwP = new THREE.Vector3()
+// 加算合成のトゥーン外の“光”素材は花火ごとに opacity を動かすので個別生成。MeshBasic＋instanceColor＝星ごとに芯/外周の色・きらめき
 function spawnFirework() {
-  // ★花火は“今夜のお祭り会場の上空”に大きく開く（会場ごとに別の日）。型を出し分け＝牡丹/柳(しだれ)/二色/輪
+  // ★花火は“今夜のお祭り会場の上空”に大きく開く（会場ごとに別の日）。型を出し分け＝牡丹/柳(しだれ)/二色/菊(二段咲き)/輪
   const ven = (typeof activeVenue === 'function' && activeVenue()) || FEST_VENUES[0], fx = ven ? ven.pos.x : 3124, fz = ven ? ven.pos.y : -186
   const oy0 = heightAt(fx, fz), cx = fx + (Math.random() - 0.5) * 74, cy = oy0 + 44 + Math.random() * 26, cz = fz + (Math.random() - 0.5) * 64 // 会場の上空。高台ぶん持ち上げ
-  const type = ['botan', 'botan', 'yanagi', 'twin', 'ring'][Math.floor(Math.random() * 5)], N = type === 'ring' ? 110 : 190
-  const hue = Math.random(), c1 = new THREE.Color().setHSL(hue, 0.82, 0.62), c2 = new THREE.Color().setHSL((hue + 0.34 + Math.random() * 0.32) % 1, 0.82, 0.62), gold = new THREE.Color(0xffcf86)
-  const pos = new Float32Array(N * 3), colA = new Float32Array(N * 3), vel = []
-  for (let i = 0; i < N; i++) { pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
+  const type = ['botan', 'botan', 'kiku', 'yanagi', 'twin', 'ring'][Math.floor(Math.random() * 6)], N = type === 'ring' ? 120 : 210
+  // 色＝和火っぽい暖色〜寒色。芯(c1)と外周(c2)で色が変わる/二段咲きで複数色＝1発の中に表情を作る
+  const hue = Math.random(), c1 = new THREE.Color().setHSL(hue, 0.85, 0.6), c2 = new THREE.Color().setHSL((hue + 0.34 + Math.random() * 0.32) % 1, 0.85, 0.6), gold = new THREE.Color(0xffcf86), white = new THREE.Color(0xfff0d8)
+  const star = new THREE.InstancedMesh(FW_STAR_GEO, new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: false, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }), N)
+  star.instanceMatrix.setUsage(THREE.DynamicDrawUsage); star.frustumCulled = false; star.layers.set(1) // layer1＝インク法線パス除外（球の加算光に黒フチを付けない）
+  const vel = [], baseCol = [], tw = new Float32Array(N), pos = new Float32Array(N * 3), m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), s4 = new THREE.Vector3(), p4 = new THREE.Vector3()
+  for (let i = 0; i < N; i++) {
     let dir, speed, col
-    if (type === 'ring') { const a = (i / N) * Math.PI * 2; dir = new THREE.Vector3(Math.cos(a), (Math.random() - 0.5) * 0.14, Math.sin(a)); speed = 14 + Math.random() * 3; col = c1 } // 平たい輪（型物）
-    else { dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(); speed = (type === 'yanagi' ? 8 : 12) + Math.random() * (type === 'yanagi' ? 3 : 8); col = type === 'twin' ? (i % 2 ? c1 : c2) : (type === 'yanagi' ? gold : c1) } // 柳=しだれ落ち・二色=交互・牡丹=単色の球
-    vel.push(dir.multiplyScalar(speed)); colA[i * 3] = col.r; colA[i * 3 + 1] = col.g; colA[i * 3 + 2] = col.b }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(colA, 3))
-  const mat = new THREE.PointsMaterial({ size: type === 'yanagi' ? 1.35 : 1.7, vertexColors: true, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })
-  const pts = new THREE.Points(geo, mat); pts.userData = { vel, age: 0, grav: type === 'yanagi' ? 6.0 : 2.2, drag: type === 'yanagi' ? 0.97 : 0.95, life: type === 'yanagi' ? 3.6 : 2.6 } // 柳は重力強め・抵抗弱め・長寿命＝しだれて消える
-  fireworksGroup.add(pts)
-  // 開いた瞬間の大きな閃光（“ぱっ”と一目で分かる・空を見渡せば必ず気づく）
-  const flash = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 0.5, 0.88), transparent: true, opacity: 0.95, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
-  flash.position.set(cx, cy, cz); flash.userData = { flash: true, age: 0 }; fireworksGroup.add(flash)
+    if (type === 'ring') { const a = (i / N) * Math.PI * 2; dir = new THREE.Vector3(Math.cos(a), (Math.random() - 0.5) * 0.12, Math.sin(a)); speed = 14 + Math.random() * 3; col = c1 } // 平たい輪（型物）
+    else {
+      // 球状に等方分布（牡丹/菊）。柳は上向きを抑えてしだれ落ち
+      dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()
+      const r = type === 'kiku' ? Math.cbrt(Math.random()) : 1 // 菊は中まで詰まった球（芯が明るい）
+      speed = ((type === 'yanagi' ? 8 : 12) + Math.random() * (type === 'yanagi' ? 3 : 8)) * (type === 'kiku' ? r : 1)
+      if (type === 'twin') col = i % 2 ? c1 : c2 // 二色＝交互
+      else if (type === 'yanagi') col = gold // 柳＝金
+      else if (type === 'kiku') col = r < 0.5 ? white : c1 // 菊＝芯が白く外周が色＝二段に見える
+      else col = i % 7 === 0 ? white : c1 // 牡丹＝色の中にきらめく白星を点在
+    }
+    vel.push(dir.multiplyScalar(speed)); baseCol.push(col); tw[i] = Math.random() * 6.283 // きらめきの初期位相（星ごとにずらす）
+    pos[i * 3] = cx; pos[i * 3 + 1] = cy; pos[i * 3 + 2] = cz
+    s4.setScalar(type === 'yanagi' ? 0.7 : 0.85); m4.compose(p4.set(cx, cy, cz), q4, s4); star.setMatrixAt(i, m4); star.setColorAt(i, col)
+  }
+  star.instanceMatrix.needsUpdate = true; if (star.instanceColor) star.instanceColor.needsUpdate = true
+  star.userData = { fw: true, vel, baseCol, tw, pos, age: 0, grav: type === 'yanagi' ? 6.0 : 2.0, drag: type === 'yanagi' ? 0.975 : 0.945, life: type === 'yanagi' ? 3.8 : 2.8, bscale: type === 'yanagi' ? 0.7 : 0.85, _c: new THREE.Color() } // 柳=重力強め/抵抗弱め/長寿命＝しだれて消える
+  fireworksGroup.add(star)
+  // 開いた瞬間の大きな閃光（“ぱっ”と一目で分かる・空を見渡せば必ず気づく）。Bloomで純白に滲む
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(2.8, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 0.45, 0.92), transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
+  flash.layers.set(1); flash.position.set(cx, cy, cz); flash.userData = { flash: true, age: 0 }; fireworksGroup.add(flash)
   // 近くの水面に花火が映り込む＝二ツ池のほとり(やまゆり等)で最高にエモい。会場の近く(140m以内)に水があれば、その水面を花火の色で薄くゆらめかせる
   let bw = null, bwd = 140 * 140
   for (const w of SG.waters) { if (w.p.length < 3) continue; let wx = 0, wz = 0; for (const q of w.p) { wx += q[0]; wz += q[1] } wx /= w.p.length; wz /= w.p.length; const dd = (wx - fx) * (wx - fx) + (wz - fz) * (wz - fz); if (dd < bwd) { bwd = dd; bw = [wx, wz] } }
@@ -10765,17 +10784,28 @@ function update(dt) {
   }
   for (const pts of [...fireworksGroup.children]) {
     const u = pts.userData; u.age += dt
-    if (u.flash) { const k = u.age / 0.42; pts.scale.setScalar(1 + k * 3.2); pts.material.opacity = Math.max(0, 0.95 * (1 - k)); if (u.age > 0.42) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 中心フラッシュ＝ぱっと開いてすぐ消える
+    if (u.flash) { const k = u.age / 0.42; pts.scale.setScalar(1 + k * 3.2); pts.material.opacity = Math.max(0, 1 - k); if (u.age > 0.42) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 中心フラッシュ＝ぱっと開いてすぐ消える
     if (u.water) { pts.material.opacity = Math.max(0, 0.5 * (1 - u.age / 1.5)); if (u.age > 1.5) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 水面の映り込み＝広がらずゆっくり消える
-    const pa = pts.geometry.attributes.position, grav = u.grav || 2.2, drag = u.drag || 0.95, life = u.life || 2.6
-    for (let i = 0; i < u.vel.length; i++) {
-      const v = u.vel[i]
-      pa.setXYZ(i, pa.getX(i) + v.x * dt, pa.getY(i) + v.y * dt - grav * dt, pa.getZ(i) + v.z * dt)
-      v.multiplyScalar(drag)
+    if (!u.fw) continue
+    // 星をInstancedMeshで動かす＝重力で落ち・抵抗で減速・きらめき(明滅)しながら細く小さくフェード→ふっと消える“余韻”
+    const grav = u.grav, drag = u.drag, life = u.life, vel = u.vel, P = u.pos, tw = u.tw, c = u._c
+    const fade = Math.max(0, 1 - u.age / life), bsc = u.bscale
+    const tail = THREE.MathUtils.smoothstep(u.age, life * 0.45, life) // 後半ほど星を細く小さく＝尾を引いて消える気配
+    const sc = bsc * (1 - 0.55 * tail) * (0.85 + 0.15 * fade)
+    const dragF = Math.pow(drag, dt * 60) // フレーム非依存の抵抗
+    for (let i = 0; i < vel.length; i++) {
+      const v = vel[i]
+      P[i * 3] += v.x * dt; P[i * 3 + 1] += v.y * dt - grav * dt; P[i * 3 + 2] += v.z * dt
+      v.x *= dragF; v.y *= dragF; v.z *= dragF
+      _fwS.setScalar(sc); _fwQ.identity(); _fwM.compose(_fwP.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]), _fwQ, _fwS); pts.setMatrixAt(i, _fwM)
+      // きらめき＝星ごとに明度を小刻みに明滅（菊/牡丹の星のチカチカ）。フェードと掛け合わせて余韻まで瞬く
+      const flick = 0.62 + 0.38 * Math.sin(u.age * 26 + tw[i])
+      const b = (0.55 + 0.45 * fade) * flick; const bc = u.baseCol[i]
+      c.setRGB(bc.r * b, bc.g * b, bc.b * b); pts.setColorAt(i, c)
     }
-    pa.needsUpdate = true
-    pts.material.opacity = Math.max(0, 1 - u.age / life)
-    if (u.age > life) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }
+    pts.instanceMatrix.needsUpdate = true; if (pts.instanceColor) pts.instanceColor.needsUpdate = true
+    pts.material.opacity = Math.max(0, fade < 0.25 ? fade / 0.25 : 1) // 最後の四半生だけ全体をすっと引く
+    if (u.age > life) { fireworksGroup.remove(pts); pts.dispose(); pts.material.dispose() } // ★共有FW_STAR_GEOはdisposeしない＝InstancedMesh.dispose()でinstanceMatrix/Colorだけ破棄＋materialを破棄（geomは再利用・リーク無し）
   }
   // C2：時刻で人出が変わる。朝の登校/出勤と夕の家路はにぎやか・昼はほどほど・朝晩は静か（時刻全体に対し1度だけ算出）
   const rushM = THREE.MathUtils.smoothstep(tday, 0.10, 0.15) * (1 - THREE.MathUtils.smoothstep(tday, 0.20, 0.28))
@@ -12486,6 +12516,7 @@ window.__proto3d = {
     if (typeof auditProps === 'undefined') return []
     return auditProps.filter((p) => p.kind === 'sign').map((p) => ({ x: Math.round(p.x), z: Math.round(p.z), y: +heightAt(p.x, p.z).toFixed(2), onRoad: typeof onYatoRoadCore === 'function' ? onYatoRoadCore(p.x, p.z) : null })) },
   _probe(x, z) { return { x, z, y: +heightAt(x, z).toFixed(2), onRoad: typeof onYatoRoadCore === 'function' ? onYatoRoadCore(x, z) : null } }, // 検証用：その地点の歩行面の高さ＋道の舗装の上か
+  _fwCount() { return fireworksGroup.children.length }, // 検証用：花火の現存オブジェクト数（余韻が消えたら0＝リーク無し）
 }
 
 // ── ばしょマップ（開発中だけの“場所をつたえる”道具・ユーザー要望。アプリ完成後に撤去する想定）──
