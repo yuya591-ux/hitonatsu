@@ -6047,7 +6047,7 @@ function spawnDust(x, y, z) {
 let lastStepS = 0
 
 // ── 虫採り（つかまえる遊び）：蝶・カブトムシ・セミ ──
-const caught = { count: 0, kinds: {} }
+const caught = { count: 0, kinds: {}, first: {} } // first[種]＝はじめて出会った{day,tw,place}＝ずかんを“数”でなく“思い出”に（P2・後方互換で追加）
 const catchables = []
 for (const b of butterflies) catchables.push({ obj: b, kind: 'チョウ', done: false })
 // 蝉の胴と翅を「全個体で共有する1個ずつの合成ジオメトリ」に焼き込む（蝶BFLY_WING_GEO/とんぼDRF_WING_GEOと同じ思想＝個体ごとにジオメトリ/draw callを増やさない）
@@ -10260,6 +10260,7 @@ function doCatch() {
   catchTarget.done = true
   catchTarget.obj.visible = false
   catchTarget.obj.userData.done = true
+  if (!caught.kinds[catchTarget.kind]) caught.first[catchTarget.kind] = { day, tw: timeWord(tday), place: nearPlace() } // はじめて出会った日・時刻・場所
   caught.count += 1
   caught.kinds[catchTarget.kind] = (caught.kinds[catchTarget.kind] || 0) + 1
   showToast(`${catchTarget.kind}を つかまえた！`)
@@ -10268,10 +10269,25 @@ function doCatch() {
 }
 tapBtn(catchEl, doCatch)
 
+// P2：いま居る場所のやさしい名前（ずかんの“はじめて出会った場所”用・70m以内の名所を拾う）。photoCaptionは別の言い回しを持つので独立
+function nearPlace() {
+  if (boy.userData && boy.userData._high) return '屋上'
+  if (area === 'yato' || onYato) {
+    const bx = boy.position.x, bz = boy.position.z
+    const spots = [[3008, -489, '二ツ池'], [3124, -186, '小学校のそば'], [3008, 44, 'はらっぱ'], [3018, 24, '朝の通り']]
+    let bd = 70, p = ''
+    for (const s of spots) { const d = Math.hypot(bx - s[0], bz - s[1]); if (d < bd) { bd = d; p = s[2] } }
+    return p || '谷戸'
+  }
+  if (area === 'shrine') return '神社'
+  if (area === 'town') return '町なか'
+  return ''
+}
+
 // ── 釣り（池）──
 const fishEl = document.getElementById('fish')
 const FISH_NAMES = ['フナ', 'メダカ', 'ザリガニ', 'ナマズ', 'おたまじゃくし']
-const fish = { count: 0, kinds: {} }
+const fish = { count: 0, kinds: {}, first: {} } // first[種]＝はじめて釣った{day,tw,place}（P2・後方互換で追加）
 let fishState = 'idle'
 let fishTimer = null
 const FIELD_POND = { cx: POND.x, cz: POND.z, br: POND.r, y: WATER_Y + 0.15, yato: false } // はらっぱの円い池
@@ -10313,8 +10329,8 @@ try {
   const st = JSON.parse(localStorage.getItem('hn3d_state') || 'null')
   if (st && (st.v == null || st.v === SAVE_VER)) { // 旧データ(v無し)は従来通り。版が違えば読まない（壊れた形を当てはめない）
 
-    if (st.caught && typeof st.caught.count === 'number') { caught.count = st.caught.count; caught.kinds = st.caught.kinds || {} }
-    if (st.fish && typeof st.fish.count === 'number') { fish.count = st.fish.count; fish.kinds = st.fish.kinds || {} }
+    if (st.caught && typeof st.caught.count === 'number') { caught.count = st.caught.count; caught.kinds = st.caught.kinds || {}; caught.first = st.caught.first || {} }
+    if (st.fish && typeof st.fish.count === 'number') { fish.count = st.fish.count; fish.kinds = st.fish.kinds || {}; fish.first = st.fish.first || {} }
     if (st.day === day && st.flags) Object.assign(todayFlags, st.flags) // 同じ日だけ「見たこと」を引き継ぐ
   }
 } catch (e) {}
@@ -10349,6 +10365,7 @@ function castLine() {
 function reel() {
   if (fishState === 'bite') {
     const name = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]
+    if (!fish.kinds[name]) fish.first[name] = { day, tw: timeWord(tday), place: nearPlace() } // はじめて釣った日・時刻・場所
     fish.count++; fish.kinds[name] = (fish.kinds[name] || 0) + 1
     playPlop(); spawnRipple(floatMesh.position.x, floatMesh.position.z) // 釣り上げる「ぴちゃっ」
     showToast(`${name}が つれた！`); endFishing()
@@ -12319,7 +12336,9 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     let html = '<h4>むし・さかな ずかん</h4><div id="mb-zukan">'
     for (const [grp, isFish] of [['むし', false], ['さかな', true]]) for (const c of CREATURES[grp]) {
       const n = got(c.k, isFish), has = n > 0
-      html += `<div class="mb-cre ${has ? 'got' : 'no'}"><div class="em"><img src="${c.e}"></div><div class="nm">${has ? c.k : '？？？'}</div>` + (has ? `<div class="ds">${c.d}</div><div class="ct">${n}ひき</div>` : '<div class="ds">まだ つかまえていない</div>') + '</div>'
+      const f = has ? (isFish ? fish.first : caught.first)[c.k] : null // はじめて出会った思い出（あれば添える）
+      const fstHtml = f ? `<div class="ct" style="opacity:.78;font-size:.82em">はじめて：${f.day}にちめ ${f.tw}${f.place ? '・' + f.place + 'で' : ''}</div>` : ''
+      html += `<div class="mb-cre ${has ? 'got' : 'no'}"><div class="em"><img src="${c.e}"></div><div class="nm">${has ? c.k : '？？？'}</div>` + (has ? `<div class="ds">${c.d}</div><div class="ct">${n}ひき</div>${fstHtml}` : '<div class="ds">まだ つかまえていない</div>') + '</div>'
     }
     bodyEl.innerHTML = html + '</div>'
   }
