@@ -3604,66 +3604,77 @@ function buildShishigaya() {
   //   ★座標系：北=-z／東=+x／南=+z／西=-x（朝日が+x=東から昇るので裏取り済み）。方位は北寺尾(鶴見区)基準の概略。
   {
     const R = 700 // 描画半径(m)。屋上/飛行のcamera.far(≈1200〜1260)の内側＝クリップしない。地上のfog far(470)より外＝地上では霞に完全に溶けて見えない（地平の彼方＝景観破壊なし）。屋上のfog far(1200)では程よく霞んで“それと分かる”。カメラ追従なのでRは“見かけの大きさ”を決めるだけ（近づけはしない）
-    const LMK = 2.6 // 近景ランドマーク（ランドマークタワー6km/プリンス4km）の見かけ高さ倍率。実角直径(数px)では小さすぎるので拡大＝“しっかり見える”。山は実寸のまま
-    const LMK_FAR = 1.5 // ★遠景ランドマーク（東京タワー20km/スカイツリー28km）専用の小さめ倍率。実距離どおり「ずっと遠くにちょこんと」見せる＝近(LMK)とのメリハリ（ユーザー要望2026-06-29「東京タワー/スカイツリーはもっと小さく薄く」。2.6→1.5）。LMTとプリンスは従来どおり大きく、この遠い2本だけ縮小
+    // ★実距離で逆算した本来の遠近に（ユーザー実写の不満2026-06-29「近すぎ・大きすぎ・あべこべ」を根治）。
+    //   見かけ高さ = 実高/実距離 × R。LMK=1.0で“実物の角直径そのまま”＝6kmのLMTは小さく・28kmのスカイツリーはさらに小さく＝正しい遠近。
+    //   1.1は「言われれば分かる」最小限の上乗せ（角直径数pxでは小さすぎるため）。近景/遠景で倍率を変えない＝距離どおりの大小関係を素直に出す（旧LMK_FARの恣意的縮小を廃止）。
+    //   参考(R=700,LMK=1.1)：LMT≒38m / プリンス≒29m / 東京タワー≒13m / スカイツリー≒17m。十分小さく遠い。
+    const LMK = 1.1 // 全ランドマーク共通の見かけ高さ倍率。1.0=実角そのまま／1.1=ごく僅か上乗せ。これ以上大きくしない（実物の遠近を守る）
+    const LMK_FAR = LMK // 遠景も近景と同じ倍率＝距離どおりに自然と小さくなる（恣意的な縮小をしない）
     farBackdrop = new THREE.Group(); farBackdrop.name = 'farBackdrop'; farBackdrop.userData.noChunk = true // チャンク距離カリング対象外（常に地平に見える）
     // 方位（コンパス方位°＝北0/東90/南180/西270）→ Group内の方向ベクトル：北=-z なので dz=-cos(θ)、東=+x なので dx=+sin(θ)
     const dirOf = (deg) => { const t = deg * Math.PI / 180; return [Math.sin(t), -Math.cos(t)] }
     // 角直径から見かけ高さ：realH[m] / realDist[m] × R。山は実寸、ランドマークは×LMK（それと分かる大きさへ・相対比は保つ）
     const appH = (realH, realDistM, mul) => realH / realDistM * R * (mul || 1)
 
-    // ① 地平の低い山並み（鶴見/北寺尾は大きな山に囲まれていない＝低くなだらか・控えめ・霞ませる）。
-    //    西〜南の遠景は丹沢/多摩丘陵の低い稜線、その他は近郊の低い丘。主役は谷の生活なので“そっと地平に”。
+    // ① 地平の低い遠景市街シルエット帯（鶴見/北寺尾は“山に囲まれた地”ではなく市街地の連なる台地。山は出さない＝ユーザー実写2026-06-29「山もないし距離も近くてあべこべ」）。
+    //    ★旧・角張った装飾の山(yatoFarHills0/角錐リング)を撤去。代わりに「ごく低い建物群の連なりが霞に溶ける」帯を全方位にそっと。
+    //    実装＝地平のすぐ上に、低くてランダムな幅・高さの“箱の連なり”を1周ぶん。高さは小さく(8〜28m相当)・上ほど霞へ溶ける。角張った緑の山には絶対しない。
     {
-      const pos = [], col = [], baseCol = new THREE.Color(0xa9bbc4) // 青くかすむ遠山の色（霧色へ寄せて溶けやすく）
-      const n = 30
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * (1.0 / n) * Math.PI * 2
-        const dx = Math.cos(a), dz = Math.sin(a)
-        const mx = dx * R, mz = dz * R
-        // 西〜南西(WSW≈-x,+z寄り)は丹沢の連なりでやや高め、それ以外は低い丘
-        const westish = (dx < -0.2) ? 1 : 0
-        const h = (westish ? 46 : 26) + Math.random() * (westish ? 34 : 22)
-        const rad = (140 + Math.random() * 120) // 麓の半径（角錐の裾）
-        const seg = 5 + (Math.floor(Math.random() * 3)) // 5〜7角＝低ポリの稜線
-        const sink = 60, baseY = -sink, apex = [mx, baseY + h, mz], rot = Math.random() * Math.PI * 2 // 麓を地平の下に沈め稜線だけ見せる（黒い裾を出さない）
-        const shade = 0.92 + Math.random() * 0.12, c = baseCol.clone().multiplyScalar(shade)
-        for (let k = 0; k < seg; k++) {
-          const a0 = rot + (k / seg) * Math.PI * 2, a1 = rot + ((k + 1) / seg) * Math.PI * 2
-          const p0 = [mx + Math.cos(a0) * rad, baseY, mz + Math.sin(a0) * rad]
-          const p1 = [mx + Math.cos(a1) * rad, baseY, mz + Math.sin(a1) * rad]
-          pos.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], apex[0], apex[1], apex[2])
-          for (let v = 0; v < 3; v++) col.push(c.r, c.g, c.b)
-        }
+      const pos = [], col = []
+      const skyCol = new THREE.Color(0xbfcdd9) // 上端＝空に溶ける霞色
+      const cityCol = new THREE.Color(0xa7b6c4) // 足元＝わずかに濃い市街のシルエット色（青灰・無彩寄り）
+      const baseY = -10 // 麓を僅かに地平の下へ沈め、足元の切れ目を作らない
+      const n = 120 // 1周を細かく区切った“建物の連なり”。低ポリだが帯なのでドローは1メッシュ
+      const quad = (x0, z0, x1, z1, h, jit) => { // 地平に立つ薄い板1枚（隣と少しずつ高さが変わり“街のギザギザ”に）
+        const yTop = baseY + h
+        // 4頂点（下2・上2）を2三角で。色は下=cityCol×jit, 上=skyColへ寄せる縦グラデ
+        const cLoR = cityCol.r * jit, cLoG = cityCol.g * jit, cLoB = cityCol.b * jit
+        pos.push(x0, baseY, z0, x1, baseY, z1, x1, yTop, z1)
+        col.push(cLoR, cLoG, cLoB, cLoR, cLoG, cLoB, skyCol.r, skyCol.g, skyCol.b)
+        pos.push(x0, baseY, z0, x1, yTop, z1, x0, yTop, z0)
+        col.push(cLoR, cLoG, cLoB, skyCol.r, skyCol.g, skyCol.b, skyCol.r, skyCol.g, skyCol.b)
       }
-      const hg = new THREE.BufferGeometry()
-      hg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-      hg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
-      hg.computeVertexNormals()
-      const hm = new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }))
-      hm.name = 'yatoFarHills0'; hm.castShadow = hm.receiveShadow = false; hm.layers.set(1); hm.userData.noChunk = true
-      farBackdrop.add(hm)
+      let prevH = 16
+      for (let i = 0; i < n; i++) {
+        const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2
+        // 半径を僅かに揺らし“奥行きの重なり”を出す（手前/奥の街並みが少し前後する）
+        const r0 = R * (0.98 + Math.random() * 0.05), r1 = R * (0.98 + Math.random() * 0.05)
+        const x0 = Math.cos(a0) * r0, z0 = Math.sin(a0) * r0, x1 = Math.cos(a1) * r1, z1 = Math.sin(a1) * r1
+        // 高さは隣と緩やかに連動しつつ低くばらつく（8〜28m）。たまに少し高いビル。山のように高く尖らせない
+        let h = THREE.MathUtils.clamp(prevH + (Math.random() - 0.5) * 16, 8, 28)
+        if (Math.random() < 0.08) h = 28 + Math.random() * 14 // ごく稀に少し高い建物（最大42m＝なお低い街並み）
+        prevH = Math.min(h, 28)
+        quad(x0, z0, x1, z1, h, 0.9 + Math.random() * 0.18)
+      }
+      const cg = new THREE.BufferGeometry()
+      cg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+      cg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
+      const cm = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true, side: THREE.DoubleSide }))
+      cm.name = 'yatoFarCity'; cm.castShadow = cm.receiveShadow = false; cm.layers.set(1); cm.userData.noChunk = true
+      farBackdrop.add(cm)
     }
 
-    // ② 夏の富士＋丹沢（西〜南西WSW）。夏は冠雪なし＝青黒い裾広がりの稜線にとどめる（季節の忠実性）。やりすぎない・最も霞ませる。
+    // ② 夏の富士（西南西WSW・約80km）。実際に晴れた日へ“ごく小さく霞んで見える”分だけ。夏は冠雪なし＝青黒い裾広がりの稜線のみ。やりすぎない・最も霞ませる・1つだけ。
+    //    ★角張った緑の山は出さない。これは「実際に見える物」＝遠い富士の薄いシルエット限定。市街シルエットより僅かに高い程度に抑える。
     {
-      const [dx, dz] = dirOf(250) // WSW
-      const fH = appH(3776, 85000) // 富士≈85km＝R=950で約42m（一番遠いが一番高いので地平にうっすら）
-      const mx = dx * R, mz = dz * R, baseY = -40
-      const fujiCol = new THREE.Color(0x9fb1c4).multiplyScalar(0.96) // 夏富士＝青黒くかすむ（雪なし）
-      const pos = [], col = [], rad = 230, seg = 7, rot = 0.2, apex = [mx, baseY + fH, mz]
-      for (let k = 0; k < seg; k++) { // ゆるい裾広がりの円錐（富士の象徴的シルエットだが控えめ）
+      const [dx, dz] = dirOf(248) // WSW（北寺尾→富士の方角）
+      const fH = appH(3776, 80000, 1.0) // 80km＝R700で約33m。実角どおり小さく（市街帯28mより僅かに高い遠い稜線）
+      const mx = dx * R, mz = dz * R, baseY = -8
+      const fujiLo = new THREE.Color(0x93a6bb).multiplyScalar(0.97) // 夏富士＝青黒くかすむ裾（雪なし）
+      const fujiHi = new THREE.Color(0xbfcdd9) // 頂は空へ溶ける（黒い三角にしない）
+      const pos = [], col = [], rad = 150, seg = 16, rot = 0.0, apex = [mx, baseY + fH, mz] // segを増やしなめらかな裾＝角張らせない
+      for (let k = 0; k < seg; k++) {
         const a0 = rot + (k / seg) * Math.PI * 2, a1 = rot + ((k + 1) / seg) * Math.PI * 2
         const p0 = [mx + Math.cos(a0) * rad, baseY, mz + Math.sin(a0) * rad]
         const p1 = [mx + Math.cos(a1) * rad, baseY, mz + Math.sin(a1) * rad]
         pos.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], apex[0], apex[1], apex[2])
-        for (let v = 0; v < 3; v++) col.push(fujiCol.r, fujiCol.g, fujiCol.b)
+        col.push(fujiLo.r, fujiLo.g, fujiLo.b, fujiLo.r, fujiLo.g, fujiLo.b, fujiHi.r, fujiHi.g, fujiHi.b) // 裾=青黒/頂=霞へ
       }
       const fg = new THREE.BufferGeometry()
       fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
       fg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); fg.computeVertexNormals()
       const fm = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }))
-      fm.name = 'yatoFarHills1'; fm.castShadow = fm.receiveShadow = false; fm.layers.set(1); fm.userData.noChunk = true
+      fm.name = 'yatoFarFuji'; fm.castShadow = fm.receiveShadow = false; fm.layers.set(1); fm.userData.noChunk = true
       farBackdrop.add(fm)
     }
 
@@ -12719,7 +12730,7 @@ window.__proto3d = {
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
   _setVista(fogFar, camFar) { window.__freezeCam = true; if (scene.fog) { scene.fog.near = Math.max(60, fogFar * 0.4); scene.fog.far = fogFar } camera.far = camFar; camera.updateProjectionMatrix(); renderer.render(scene, camera) }, // 検証用：屋上/飛行の眺望条件（霧far・カメラfar）を固定して描画＝遠景の山並みの確認
-  _hillStats() { let n = 0, vis = 0; scene.traverse((o) => { if (o.name && o.name.startsWith('yatoFarHills')) { n++; if (o.visible) vis++ } }); return { meshes: n, visible: vis, chunkObjs: yatoChunks.length } }, // 検証用：遠景の山並みメッシュの数/表示状態（チャンクに巻き込まれて消えていないか）
+  _hillStats() { let n = 0, vis = 0; scene.traverse((o) => { if (o.name && (o.name === 'yatoFarCity' || o.name === 'yatoFarFuji' || o.name.startsWith('yatoFarHills'))) { n++; if (o.visible) vis++ } }); return { meshes: n, visible: vis, chunkObjs: yatoChunks.length } }, // 検証用：遠景の市街シルエット帯/富士メッシュの数/表示状態（チャンクに巻き込まれて消えていないか。旧yatoFarHillsは撤去済）
   _groundY(x, z) { return heightAt(x, z) }, // 検証用：地面の標高（スクショのカメラ高さ合わせ）
   _perfOccl(hx, hz, cgx, cgz) { const t0 = performance.now(); for (let f = 0; f < 60; f++) { for (let s = 0.35; s <= 0.92; s += 0.12) { const px = hx + (cgx - hx) * s, pz = hz + (cgz - hz) * s; let blocked = false; const ci = Math.floor(px / CG_CELL), cj = Math.floor(pz / CG_CELL); for (let di = -1; di <= 1 && !blocked; di++) for (let dj = -1; dj <= 1 && !blocked; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue; for (const idx of a) { const c = colliders[idx]; if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.3 && Math.abs(lz) < c.hd + 0.3) { blocked = true; break } } else { const rr = c.r + 0.3; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } } } } if (blocked) break } } return +(performance.now() - t0).toFixed(2) }, // 検証用：新しいグリッド版カメラ遮蔽の60フレーム所要ms（旧・全コライダー走査との比較）
   _mem() { const m = renderer.info.memory, pm = (performance && performance.memory) ? performance.memory : null; return { geometries: m.geometries, textures: m.textures, heapMB: pm ? +(pm.usedJSHeapSize / 1048576).toFixed(1) : null } }, // P6：常駐メモリ（GPUジオメトリ/テクスチャ＋JSヒープ）＝モバイル生存の予算ゲート用
