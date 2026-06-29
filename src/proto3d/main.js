@@ -11707,8 +11707,16 @@ function update(dt) {
       boy.userData.armL.rotation.z = 0.2; boy.userData.armR.rotation.z = -0.2
       boy.userData.elbowL.rotation.x = -0.25; boy.userData.elbowR.rotation.x = -0.25
       boy.rotation.x = 0.02
-      const bd = boy.userData.balloons; bd.visible = true; for (const b of bd.userData.bRefs) { b.bg.position.y = b.by + Math.sin(tsec * 1.1 + b.ph) * 0.06; b.bg.rotation.z = Math.sin(tsec * 0.8 + b.ph) * 0.12 } } // 風船ふわふわ
-    else { if (boy.userData.balloons.visible) boy.userData.balloons.visible = false; boy.userData.armL.rotation.z += (-0.05 - boy.userData.armL.rotation.z) * Math.min(1, dt * 8); boy.userData.armR.rotation.z += (0.05 - boy.userData.armR.rotation.z) * Math.min(1, dt * 8) } // 浮遊を解いたら風船を消し腕を戻す
+      const bd = boy.userData.balloons; bd.visible = true
+      // 風船クラスタが進む向きと逆へ やさしくなびく（動くほど後ろへ傾く＝夢のような浮遊感）。
+      //   ★紐は手元に集まっているので、足元でなく「手元(py)」を支点に振る＝紐が手から外れない（rotation.x＋位置補正で支点を固定）。
+      const fwd = vel.x * Math.sin(facing) + vel.z * Math.cos(facing) // boyローカル前進速度（浮遊中は進行方向を向くのでほぼ総速度）
+      bd.userData.tlx = (bd.userData.tlx || 0) + (THREE.MathUtils.clamp(-fwd * 0.02, -0.32, 0.32) - (bd.userData.tlx || 0)) * Math.min(1, dt * 2.2) // なめらかに追従＝急に傾かない
+      const py = 1.35, tlx = bd.userData.tlx // py＝紐が集まる手元あたりの高さ（支点）
+      bd.rotation.x = tlx; bd.rotation.z = 0
+      bd.position.y = py * (1 - Math.cos(tlx)); bd.position.z = -py * Math.sin(tlx) // 支点(0,py,0)を固定したまま上部だけ振れる
+      for (const b of bd.userData.bRefs) { b.bg.position.y = b.by + Math.sin(tsec * 1.1 + b.ph) * 0.06; b.bg.rotation.z = Math.sin(tsec * 0.8 + b.ph) * 0.12 } } // 風船ふわふわ
+    else { const bd = boy.userData.balloons; if (bd.visible) { bd.visible = false; bd.rotation.x = 0; bd.position.set(0, 0, 0); bd.userData.tlx = 0 } boy.userData.armL.rotation.z += (-0.05 - boy.userData.armL.rotation.z) * Math.min(1, dt * 8); boy.userData.armR.rotation.z += (0.05 - boy.userData.armR.rotation.z) * Math.min(1, dt * 8) } // 浮遊を解いたら風船を消し腕を戻す＋なびきをリセット
 
     // “間”：立ち止まると idleTime が伸び、少し空を見上げ、カメラが引いて構図化
     idleTime = moving ? 0 : idleTime + dt
