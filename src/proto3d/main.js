@@ -2246,23 +2246,18 @@ function buildShishigaya() {
       for (let i = 0; i < 6; i++) sadd(new THREE.BoxGeometry(len - 0.2, 0.1, 0.46), toon(0x7a818a), 0, 0.5 + i * 0.5, 0.05) // 横桟
       sadd(new THREE.BoxGeometry(len + 1.5, 0.3, 4.5), toon(0x9a9a92), 0, 0.04, 3.0) // 車路の舗装スロープ（前に張り出す）
       addBox(mx, mz, len / 2, 0.4, Math.atan2(-(bz - az), bx - ax), 0.3) } // シャッター壁の当たり判定
-    // ───── (4) バス停「獅子ヶ谷」＝サンライズ前のバス通り（実在・徒歩2分・ユーザー指摘）。上屋＋ベンチ＋丸看板＋時刻表。開始位置のすぐ東＝歩き出してすぐ目に入る ─────
-    { const busSignTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#f4f4ee'; x.beginPath(); x.arc(64, 64, 60, 0, 6.283); x.fill(); x.lineWidth = 8; x.strokeStyle = '#2a5aa0'; x.stroke(); x.fillStyle = '#2a5aa0'; x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('バス', 64, 38); x.font = 'bold 24px sans-serif'; x.fillText('獅子ヶ谷', 64, 82); return new THREE.CanvasTexture(c) })()
-      const bx = 3018, bz = 24, by = heightAtYato(bx, bz), post = toon(0x8a8d90)
-      for (const dz of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.07, 0.07, 2.5, 6), post, bx + 0.7, by + 1.25, bz + dz, true)) // 上屋の2柱（背側=東）
-      grp.add(mk(new THREE.BoxGeometry(1.9, 0.12, 3.3), toon(0xcfd2d4), bx + 0.15, by + 2.5, bz, true)) // 屋根
-      grp.add(mk(new THREE.BoxGeometry(0.12, 1.7, 3.1), toon(0xe0e3e5), bx + 1.05, by + 1.45, bz, true)) // 背板（東）
-      grp.add(mk(new THREE.BoxGeometry(1.0, 0.1, 2.7), toon(0x9c7a4a), bx + 0.45, by + 0.5, bz, true)) // ベンチ
-      for (const dz of [-1.1, 1.1]) grp.add(mk(new THREE.BoxGeometry(0.8, 0.46, 0.12), toon(0x8a6f48), bx + 0.45, by + 0.25, bz + dz)) // ベンチ脚
+    // ───── (4) サンライズ前の路傍の生活感（旧バス停を撤去・2026-06-29）：実際にはバス停は無かったというユーザー指摘で、上屋/丸看板/時刻表/標識ポールを全撤去。
+    //   座って眺められる所だけは残したいので、バス停の代わりに素朴な木のベンチを1脚だけ路肩に置く（YATO_SEATS の「木かげで すずむ／通りで すわる」がここを使う）。
+    { const bx = 3018, bz = 24, by = heightAtYato(bx, bz)
+      grp.add(mk(new THREE.BoxGeometry(1.0, 0.1, 2.0), toon(0x9c7a4a), bx + 0.45, by + 0.5, bz, true)) // ベンチ座面
+      for (const dz of [-0.8, 0.8]) grp.add(mk(new THREE.BoxGeometry(0.8, 0.46, 0.12), toon(0x8a6f48), bx + 0.45, by + 0.25, bz + dz)) // ベンチ脚
+      grp.add(mk(new THREE.BoxGeometry(1.0, 0.5, 0.1), toon(0x9c7a4a), bx + 0.93, by + 0.78, bz, true)) // 背もたれ（東＝座ると西の通りを向く）
       // ベンチに置き忘れたラムネ瓶（ついさっきまで誰かが居た＝開始地点の生活感・2026-06-24）
-      { const ramune = new THREE.MeshToonMaterial({ color: 0x79c6c1, gradientMap: GRAD, transparent: true, opacity: 0.84 }), rbx = bx + 0.45, rbz = bz + 0.95, rby = by + 0.55
+      { const ramune = new THREE.MeshToonMaterial({ color: 0x79c6c1, gradientMap: GRAD, transparent: true, opacity: 0.84 }), rbx = bx + 0.45, rbz = bz + 0.7, rby = by + 0.55
         grp.add(mk(new THREE.CylinderGeometry(0.045, 0.05, 0.16, 10), ramune, rbx, rby + 0.08, rbz, true)) // 胴
         grp.add(mk(new THREE.CylinderGeometry(0.026, 0.045, 0.06, 10), ramune, rbx, rby + 0.19, rbz)) // 首
         grp.add(mk(new THREE.SphereGeometry(0.02, 8, 6), toon(0xe6e6e6), rbx, rby + 0.225, rbz)) } // ビー玉/口
-      grp.add(mk(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 6), post, bx - 1.2, by + 1.7, bz - 1.4, true)) // 標識ポール（道側=西）
-      const sgn = mk(new THREE.CircleGeometry(0.5, 20), new THREE.MeshBasicMaterial({ map: busSignTex, side: THREE.DoubleSide }), bx - 1.2, by + 3.3, bz - 1.4); sgn.rotation.y = -Math.PI / 2; grp.add(sgn) // 丸看板（西＝道を向く）
-      const ttp = mk(new THREE.PlaneGeometry(0.5, 0.7), new THREE.MeshBasicMaterial({ color: 0xf0f0e8, side: THREE.DoubleSide }), bx + 0.98, by + 1.5, bz + 1.2); ttp.rotation.y = -Math.PI / 2; grp.add(ttp) // 時刻表
-      addCollider(bx + 0.7, bz, 1.3) } } // 上屋に当たり判定
+      addCollider(bx + 0.45, bz, 0.7) } } // ベンチに当たり判定（旧上屋より小さく）
   // ───── 周辺の実ランドマーク：獅子ヶ谷小学校(実位置3074,155)・橘学苑(実位置3123,-42＝裏山は地形の頂)・マリノスのグラウンド(前面・位置は要確認) ─────
   const parkPos = [] // 公園の位置（遊具/柵を後でまとめて配置）。柵はcellOf定義後に置くため外側スコープで保持
   { const grp = new THREE.Group(); grp.name = 'landmarks2'; scene.add(grp)
@@ -2310,7 +2305,8 @@ function buildShishigaya() {
       { const gx = cx, gz = cz + 19, gg = heightAtYato(gx, gz) // 低いカラフルな門＋園名
         for (const sx of [-3.2, 3.2]) grp.add(mk(new THREE.CylinderGeometry(0.18, 0.2, 2.3, 8), toon(0xe07a3a), gx + sx, gg + 1.15, gz, 0, true))
         grp.add(mk(new THREE.BoxGeometry(7.0, 0.45, 0.45), toon(0xf2b03a), gx, gg + 2.3, gz, 0, true))
-        grp.add(mk(new THREE.PlaneGeometry(5.2, 0.95), new THREE.MeshBasicMaterial({ map: signTex(name, '#e07a2e', '#fff8e8'), side: THREE.DoubleSide }), gx, gg + 1.5, gz + 0.05, 0)) } }
+        // 園名看板は最寄りの道に正対させる＝歩く側から正しく読める。道が園の南にある場合に裏向き(鏡文字)になっていた不具合の修正（やよいケ丘幼稚園で確認・2026-06-29）。他の幼稚園は道が北側なのでfaceRoad≒0で従来どおり
+        const ksy = faceRoad(gx, gz); grp.add(mk(new THREE.PlaneGeometry(5.2, 0.95), new THREE.MeshBasicMaterial({ map: signTex(name, '#e07a2e', '#fff8e8'), side: THREE.DoubleSide }), gx + Math.sin(ksy) * 0.05, gg + 1.5, gz + Math.cos(ksy) * 0.05, ksy)) } }
     // 名前看板（業種色）。サンライズ向きに立てる
     const signTex = (name, bg, fg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, 64); x.fillStyle = fg; x.font = 'bold ' + (name.length > 6 ? 30 : 38) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, 128, 34); return new THREE.CanvasTexture(c) }
     const signOn = (cx, cz, w, gy, yy, name, bg) => { const ry = faceRoad(cx, cz); grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.95, 7), 1.7), new THREE.MeshBasicMaterial({ map: signTex(name, bg || '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + yy, cz, ry)) }
@@ -2775,7 +2771,7 @@ function buildShishigaya() {
       grp.add(mk(new THREE.BoxGeometry(12, 4, 9), toon(0xc8bda0), cx, gy + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(9, 3.2, 4), toon(0x4a4a50), cx, gy + 5.6, cz, Math.PI / 4, true)) // 本堂
       grp.add(mk(new THREE.BoxGeometry(5, 2.6, 2.2), toon(0x8a6a44), cx, gy + 1.3, cz - 8, 0, true)); grp.add(mk(new THREE.ConeGeometry(2.6, 1.5, 4), toon(0x4a4a50), cx, gy + 3.4, cz - 8, Math.PI / 4, true)) // 山門
       signOn(cx, cz - 11, 8, gy, 4, name, '#5a3a3a') }
-    const buildParkSign = (cx, cz, name) => { const gy = heightAtYato(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, faceRoad(cx, cz))) } // 公園のなまえ看板（既存の緑地に立てる・道に正対）
+    const buildParkSign = (cx, cz, name, forceRy) => { const gy = heightAtYato(cx, cz); const pry = forceRy != null ? forceRy : faceRoad(cx, cz); grp.add(mk(new THREE.CylinderGeometry(0.09, 0.11, 1.7, 5), toon(0x6a5a44), cx, gy + 0.85, cz)); grp.add(mk(new THREE.PlaneGeometry(Math.min(name.length * 0.85 + 1, 6.5), 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2e6b3a', '#fff8e8'), side: THREE.DoubleSide }), cx, gy + 2.0, cz, pry)) } // 公園のなまえ看板（既存の緑地に立てる・道に正対。forceRyで歩行路向きを明示＝faceRoadがOSM道しか知らず手描きの抜け道に背を向ける時の上書き）
     // ───── 師岡町公園（もろおか・港北区師岡町401-2・面積13,000㎡）：丘の頂部の平らな遊具広場＋松林に囲まれた斜面。実在に忠実（Web調査2026-06-29）─────
     //   実在の特徴：①丘の上の小公園で最後に急坂を登る ②園地は高台で開けて見晴らしが良い ③金属製のガケ滑り台が崖の縁を下る（園内一の眺め）④円盤型のユニーク遊具で“UFO公園”の通称 ⑤複合遊具×2・ブランコ・砂場 ⑥トイレ/水飲み場/ベンチ ⑦周囲は松などの樹林地
     const buildMorookaPark = (cx, cz, name) => { const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
@@ -2814,7 +2810,7 @@ function buildShishigaya() {
       if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else if (name === '渋沢稲荷神社') buildInari(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
       else if (type === 'park') { if (name === '師岡町公園') { buildMorookaPark(x, z, name) } // 師岡町公園＝丘の上の専用公園（複合遊具/ガケ滑り台/円盤遊具/松林）。汎用の遊具/柵は付けない（buildParkSign/parkPosに入れない）
-        else { buildParkSign(x, z, name); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } } // 一丁目公園はマリノスのグラウンドなので遊具なし
+        else { const pfr = name === '獅子ヶ谷第三公園' ? Math.atan2(3004 - x, 30 - z) : null; buildParkSign(x, z, name, pfr); if (name !== '獅子ヶ谷一丁目公園') parkPos.push([x, z]) } } // 一丁目公園はマリノスのグラウンドなので遊具なし。第三公園は開始地点(3004,30)の抜け道へ正対＝faceRoadが東のOSM道を拾い鏡文字になっていた修正(2026-06-29)
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); FEST_VENUES.push({ name: '校庭', pos: new THREE.Vector2(3124, -186), days: [1], g: buildBonOdori(3124, heightAtYato(3124, -186), -186, null, FEST_VARIANTS['校庭']) }) } // 校庭(3124,-186)に夏の盆踊り会場＝開催日は1日目。お囃子/花火もこの会場（2026-06-24 ユーザー要望）
         else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a'); if (name === '上の宮中学校') FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22, null, FEST_VARIANTS['上の宮中学校']) }) } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
@@ -3292,7 +3288,7 @@ function buildShishigaya() {
       const hb = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.42, 5), toon(0x3a3a3a)); hb.rotation.z = Math.PI / 2; hb.position.set(0, 0.72, 0.46); bg.add(hb)
       const bk = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.36), toon(0x6a5a3a)); bk.position.set(0, 0.62, -0.5); bg.add(bk) // 荷台のカゴ
       bg.rotation.z = 0.13; g.add(bg); placeProp(g, x, z, rot, 0.025, 0.5) } // スタンドで少し傾けて駐輪
-    // 止め置き自転車（開始の通り/バス停/マンション前/第三公園への抜け道に点々）
+    // 止め置き自転車（開始の通り/路肩のベンチ前/マンション前/第三公園への抜け道に点々）
     parkedBike(3022, 27.5, Math.PI / 2, 0x9a2f2f); parkedBike(2998.5, 26.5, 0.2, 0x2f6a3a); parkedBike(3056, 13, -Math.PI / 2, 0x2f4a8a); parkedBike(3033, 47, Math.PI / 4 + Math.PI, 0xb0902a)
     // 軒先の鉢を開始地点の家に追加（既存の自動配置に、最も長く見る開始の通りだけ手で厚みを足す）
     hachi(3009, 33, Math.PI / 4); hachi(3027, 31, -Math.PI / 2); hachi(3038, 44, Math.PI)
@@ -3319,7 +3315,7 @@ function buildShishigaya() {
       PM(g, new THREE.BoxGeometry(1.92, 0.1, 0.42), toon(0x5a4632), 0, 1.8, 0.07).rotation.x = -0.18 // 小さな庇
       for (let i = 0; i < 4; i++) PM(g, new THREE.PlaneGeometry(0.3 + Math.random() * 0.08, 0.22 + Math.random() * 0.08), new THREE.MeshToonMaterial({ color: [0xf4f0e4, 0xf0e2c4, 0xe6eef4][i % 3], gradientMap: GRAD, side: THREE.DoubleSide }), -0.52 + (i % 2) * 0.58, 1.42 - (i >> 1) * 0.34, 0.05) // 貼り紙
       placeProp(g, x, z, rot || 0, 0.02, 1.0) }
-    makePhoneBox(3024, 18.5, -0.5); makePhoneBox(2958, -512, 0.6) // バス停わき＋二ツ池の道
+    makePhoneBox(3024, 18.5, -0.5); makePhoneBox(2958, -512, 0.6) // 開始の通りの路肩＋二ツ池の道
     makeBoard(3013, 41, 0.1); makeBoard(2968, -455, -0.4); makeBoard(3046, -55, 1.0) // 開始地点の道・二ツ池・核
     makeVending(3010, -205, 0.3, 0xc23a2c); makeVending(2972, -360, -0.5, 0x2a7ab0) // 追加の自販機
     { const g = new THREE.Group(), red = toon(0xc0392b); PM(g, new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red, 0, 1.05, 0); PM(g, new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red, 0, 2.1, 0); placeProp(g, 3038, -178, 0, 0.04, 0.7) } } // 追加の丸ポスト
@@ -3944,10 +3940,9 @@ function cullYatoChunks() {
 // ── 道しるべ（素朴な木の標識）＝開始地点(サンライズ前)で「どっちへ行こう」の手がかりに。
 //   実在の地物の方角へそっと示すだけ。クエストにはしない。makeSignpost(x,z,rot,文字)は placeProp→heightAt で接地し、
 //   板の文字面は rot=0 で +z(北)向き／rot=Math.PI で -z(南)向き＝歩いてくる人に正対させる。道の舗装の上は避けて路肩に立てる（_signposts で点検）。
-makeSignpost(3017.5, 17, 0, '↓ 小学校・神社')   // 本通りの東肩。南へ下る道＝小学校→神明社。北(spawn側)から来る人へ正対
-makeSignpost(3015, 19, 0, '↓ ふたつ池')          // 開始地点のすぐ南の路肩（旧位置3010,9.5はサンライズの壁を背に文字が壁に溶けて読めなかった→壁から離し開けた路肩へ・2026-06-29）。北から来る人へ正対
-makeSignpost(3022, 18, 0, '見晴らし（屋上）↑')   // バス停の少し南。すぐ西のサンライズの屋上は街を一望できる。本通りを来る人へ正対
-makeSignpost(3030, 49, Math.PI, '横溝やしき・田んぼ →') // 北の谷口に横溝屋敷と谷戸田。旧位置3034,51.5は真ん前の木で文字が隠れた→木を避け開けた路肩へ寄せた・2026-06-29。南(spawn側)から来る人へ正対
+// マンション(サンライズ)正面に観光案内板のように林立していたのを解消＝本数を4→2に減らし、実際に道が分かれる地点へさりげなく散らす（ユーザー指摘2026-06-29「マンションの前にいろんな場所の道標が固まって不自然」）。
+makeSignpost(3017.5, 17, 0, '↓ 小学校・ふたつ池') // 南へ下る道の肩＝小学校/神社/ふたつ池はみな南。1本にまとめて北(spawn側)から来る人へ正対。マンション前庭ではなく南の分岐点に置く
+makeSignpost(3030, 49, Math.PI, '横溝やしき・田んぼ →') // 北の谷口の分岐＝横溝屋敷と谷戸田。マンション正面から十分北へ離れた路肩。南(spawn側)から来る人へ正対
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
 {
   const wingMat = () => new THREE.MeshToonMaterial({ color: 0xeaf2f6, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
@@ -10495,12 +10490,12 @@ MOUNT_SEAT.y = heightAt(MOUNT_SEAT.x, MOUNT_SEAT.z)
 // P2（2026-06-27）：スポーンエリア(yato)で「座って見回す」＝本作の核を体験できるように座れる場所を用意。
 // 従来この所作は field/town 限定で、最初に降り立つ yato では1つも発火しなかった（QA指摘）。
 const YATO_SEATS = [
-  { x: 3018, z: 24, yaw: -Math.PI / 2, pitch: -0.02, label: 'バス停で すわる' },   // バス停のベンチ＝開始のすぐそば。西へ伸びるバス通りを眺めてバスを待つ（北東はマンションの壁で抜けないため西向きに）
+  { x: 3018, z: 24, yaw: -Math.PI / 2, pitch: -0.02, label: '通りで すわる' },   // 路肩のベンチ＝開始のすぐそば（旧バス停を撤去し木のベンチだけ残した・2026-06-29）。西へ伸びる朝の通りを眺める（北東はマンションの壁で抜けないため西向きに）
   { x: 3008, z: -489, yaw: Math.PI, pitch: -0.07, label: '池を ながめる', bench: true },  // 二ツ池の北岸＝南へ水面(B⑨の水鏡)を見渡す止め絵
   { x: 3034, z: 56, yaw: 0.32, pitch: -0.02, label: '木かげで すずむ', bench: true, shade: true }, // N2：開始の通りぞいの木かげのベンチ＝“間”の滞留ポイント。夏の日かげで村の通りを眺める
 ]
 let activeYatoSeat = null // いま近い yato のベンチ（actBtn→sitDown('yatoseat')で使う）
-// ベンチが要る座り場所に木のベンチを建てる（二ツ池の畔／通りの木かげ）。バス停側は既存のベンチを使う
+// ベンチが要る座り場所に木のベンチを建てる（二ツ池の畔／通りの木かげ）。開始の通り側(3018,24)は上のランドマーク区画で建てた路傍ベンチを使う
 for (const s of YATO_SEATS) { if (!s.bench) continue
   const g = new THREE.Group(), w = toon(0x9a6a3a)
   const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.13, 0.66), w); top.position.y = 0.5; g.add(top)
