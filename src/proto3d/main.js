@@ -6230,6 +6230,11 @@ function limbCap(r, len, mat) { const L = Math.max(0.012, len - r * 2), key = r.
   return new THREE.Mesh(geo, mat) } // まっすぐ細い手足用（形状は共有・材質だけ個体ごと）
 const SHOE_GEO = new THREE.BoxGeometry(0.085, 0.055, 0.16), HAND_GEO = new THREE.SphereGeometry(0.047, 8, 6) // 靴/手の形状も全村人で共有（材質だけ個体ごと）
 const CHAR_SHOULDER_GEO = new THREE.SphereGeometry(PROP.torsoTopR + 0.012, 10, 8) // 簡易figure(通行人/踊り手/見物客)の肩＝首の付け根を隠して「首が異様に長い」を解消（2026-06-28・ユーザー指摘）。1個を共有して描画予算を節約
+// 関節を埋める小球（肩袖/肘/膝）も全村人で共有＝個体を増やしてもgeometryが増えない。simple版で「腕/脚が胴から離れて浮く・継ぎ目に隙間＝木のマネキン/棒人間」を解消（ユーザー指摘2026-06-29）。
+// full版にあった肩袖(sleeve)・肘キャップ(elbowCap)・膝キャップ(kneeCap)・手(HAND)・靴(SHOE)を simple にも付ける。低ポリ球＋輪郭ハルなしで描画予算を守る。
+const SLEEVE_GEO = new THREE.SphereGeometry(0.06, 10, 8)        // 肩袖＝肩ピボットを覆い腕の付け根を胴に密着させる（full版sleeveと同径）
+const ELBOW_GEO = new THREE.SphereGeometry(PROP.armR * 0.98, 8, 6) // 肘の継ぎ目（上腕↔前腕。曲げても隙間が開かない）
+const KNEE_GEO = new THREE.SphereGeometry(PROP.legR * 0.98, 8, 6)  // 膝の継ぎ目（腿↔脛。走る子は大きく曲がるので必須）
 const NET_REST = -0.85 // 肩にかつぐ虫取り網の傾き（後ろへ寝かせる量）。0=直立 / 大きいほど後ろへ寝る。虫採り時はここから前へ振る。肩にちゃんと乗る角度に（浮き解消）
 function makeBoy() {
   const g = new THREE.Group(); const P = PROP
@@ -6471,7 +6476,9 @@ function makeVillager(x, z, opt) {
     // simple も膝＋足の関節ありに格上げ＝1本の棒脚をやめる（ユーザー「手足の関節が1つもないの気持ち悪い・棒人間」2026-06-28）。輪郭ハルだけ付けない＝描画予算を守りつつ“人らしく曲がる脚”に
     const thigh = limbCap(PROP.legR, PROP.thigh, skin); thigh.position.y = -PROP.thigh / 2; hip.add(thigh)
     const knee = new THREE.Group(); knee.position.y = -PROP.thigh; hip.add(knee)
-    const shin = limbCap(PROP.legR * 0.92, PROP.shin + 0.05, skin); shin.position.y = -(PROP.shin + 0.05) / 2; knee.add(shin) // すねは足先まで少し伸ばす＝靴を別メッシュにせず描画予算を節約しつつ脚先を作る
+    const kneeCap = new THREE.Mesh(KNEE_GEO, skin); knee.add(kneeCap) // 膝の継ぎ目＝腿と脛の間の隙間を埋める（共有ジオメトリ・走る子の大曲げでも“浮いた脛”にならない・2026-06-29）
+    const shin = limbCap(PROP.legR * 0.92, PROP.shin, skin); shin.position.y = -PROP.shin / 2; knee.add(shin)
+    const shoe = new THREE.Mesh(SHOE_GEO, toon(opt.shoe || 0x5a4a38)); shoe.position.set(0, -PROP.shin - 0.03, 0.03); knee.add(shoe) // 足先＝靴で締める（棒の切り口をなくす。full版と統一・SHOE_GEO共有）
     return { hip, knee }
   }
   const LL = makeLeg(-1), LR = makeLeg(1)
@@ -6499,9 +6506,11 @@ function makeVillager(x, z, opt) {
   // 首（主人公と統一・少し見せる）。大人は頭を上げる分だけ首を伸ばし、中心も上げて頭の底に接ぐ＝顔と首が離れない（2026-06-28・ユーザー指摘の「顔と首が離れて怖い」を解消）
   // 大人は頭を少し上げて頭身を上げる（ユーザー要望2026-06-25）が、上げ過ぎると首が長く見える＝控えめに（2026-06-28・ユーザー「首がまだ少し長い」）
   const headRaise = opt.adult ? 0.03 : 0
-  // 首：子どもは従来どおり短いまま。大人は頭の底〜胴の上端（full=肩1.30/simple=胴上端1.28）へ橋渡しする最小限の長さに（顔が浮かず・首も伸びすぎない）
+  // 首：子どもは従来どおり短いまま。大人も子どもと同じ“短い首”にして、首の根元を肩の球(上端≈1.395)の中へ tuck＝
+  // 肌色の首が肩の上にニョキッと伸びて「首元から顔が生えた／首と肩の間に肌色の塊」に見えるのを解消（2026-06-29・ユーザー指摘の接写で断定）。
+  // 以前は base=1.285(肩の中心1.30より下)＋太い(0.056)＝長く太い肌の柱が衿の上に突き出ていた。base を肩の球内へ上げ・太さも0.05に戻す。
   let neckH = 0.11, neckCy = PROP.neckY, neckR2 = 0.05
-  if (opt.adult) { const headBottom = PROP.headY + headRaise - PROP.headR * 0.95, top = headBottom + 0.016, base = 1.285; neckH = top - base; neckCy = (top + base) / 2; neckR2 = 0.056 }
+  if (opt.adult) { const headBottom = PROP.headY + headRaise - PROP.headR * 0.95, top = headBottom + 0.016, base = 1.37; neckH = top - base; neckCy = (top + base) / 2; neckR2 = 0.05 } // 根元(base)を肩の球(上端≈1.395)の中へ隠す＝見える首は頭の底までの短い区間だけ（子どもとほぼ同じ長さ）
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.044, neckR2, neckH, 14), skin); neck.position.y = neckCy; g.add(neck)
   // 首手ぬぐい（昭和の夏＝汗ふきを首にかける年配・畑帰り）。首まわりの帯＋胸前に垂れる2本。無地（ロゴ無し）。共有ジオメトリは使わず小メッシュ3つ＝geom微増
   if (opt.tenugui) { const tw = charToon(opt.tenuguiCol || 0xeae2cc), ny = neckCy + neckH / 2 - 0.01
@@ -6562,9 +6571,14 @@ function makeVillager(x, z, opt) {
       return { sh, elbow }
     }
     // simple も肘＋手の関節ありに格上げ（棒腕をやめる・ユーザー要望2026-06-28）。輪郭ハルは付けない＝予算内で“人らしく曲がる腕”に
+    // 肩袖＝肩ピボットを覆い腕の付け根を胴の肩に密着させる（袖なしのランニングシャツは地肌の肩玉。tank/jinbeiの袖違いはfull版のみ＝simpleは球で統一・浮き解消）
+    if (opt.garment !== 'tank') { const sleeve = new THREE.Mesh(SLEEVE_GEO, shirtM); sleeve.scale.set(1.05, 0.82, 1.05); sleeve.position.y = -0.04; sh.add(sleeve) }
+    else { const sleeve = new THREE.Mesh(SLEEVE_GEO, skin); sleeve.scale.set(1.0, 0.8, 1.0); sleeve.position.y = -0.04; sh.add(sleeve) }
     const upper = limbCap(PROP.armR, PROP.upperArm, skin); upper.position.y = -PROP.upperArm / 2 - 0.04; sh.add(upper)
     const elbow = new THREE.Group(); elbow.position.y = -PROP.upperArm; elbow.rotation.x = -0.16; sh.add(elbow)
-    const fore = limbCap(PROP.armR * 0.92, PROP.fore + 0.03, skin); fore.position.y = -(PROP.fore + 0.03) / 2; elbow.add(fore) // 前腕は手先まで少し伸ばす＝手を別メッシュにせず予算節約
+    const elbowCap = new THREE.Mesh(ELBOW_GEO, skin); elbow.add(elbowCap) // 肘の継ぎ目＝上腕と前腕の隙間を埋める（曲げても“浮いた前腕”にならない・共有ジオメトリ・2026-06-29）
+    const fore = limbCap(PROP.armR * 0.92, PROP.fore, skin); fore.position.y = -PROP.fore / 2; elbow.add(fore)
+    const hand = new THREE.Mesh(HAND_GEO, skin); hand.scale.set(0.92, 1.06, 0.7); hand.position.y = -PROP.fore - 0.005; elbow.add(hand) // 手＝前腕の切り口をなくす（full版と統一・HAND_GEO共有）
     return { sh, elbow }
   }
   const AL = makeArm(-1), AR = makeArm(1)
@@ -12703,7 +12717,6 @@ window.__proto3d = {
   _eveBgmStarted() { return eveBgmStarted }, // 検証用：夕夜BGMの発振器が起動済みか
   _setVolBgm(v) { settings.volBgm = v }, // 検証用：BGM音量スライダーの値を直接置く（夕夜BGM/オルゴールが従うか）
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
-  get _rainStarted() { return rainStarted },
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
   _setVista(fogFar, camFar) { window.__freezeCam = true; if (scene.fog) { scene.fog.near = Math.max(60, fogFar * 0.4); scene.fog.far = fogFar } camera.far = camFar; camera.updateProjectionMatrix(); renderer.render(scene, camera) }, // 検証用：屋上/飛行の眺望条件（霧far・カメラfar）を固定して描画＝遠景の山並みの確認
   _hillStats() { let n = 0, vis = 0; scene.traverse((o) => { if (o.name && o.name.startsWith('yatoFarHills')) { n++; if (o.visible) vis++ } }); return { meshes: n, visible: vis, chunkObjs: yatoChunks.length } }, // 検証用：遠景の山並みメッシュの数/表示状態（チャンクに巻き込まれて消えていないか）
