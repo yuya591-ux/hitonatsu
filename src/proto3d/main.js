@@ -1813,6 +1813,7 @@ const PARKFENCE_GEO = (() => { const box = new THREE.BoxGeometry(1, 1, 1), TR = 
   for (const sx of [-1.45, 1.45]) P.push({ g: box, m: TR(sx, 0.37, 0, 0.08, 0.78, 0.08), c: pipe }) // 支柱2本
   return mergeParts(P) })()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
+let farBackdrop = null // 遠景バックドロップ（地平の山＋都市ランドマーク）。カメラのX/Zに毎フレーム追従＝飛んでも近づけない・地平に留まる（buildShishigaya内で生成・updateで追従）
 const cloudShadowU = { uCloudTime: { value: 0 }, uCloudAmt: { value: 0.0 }, uWet: { value: 0.0 } } // 流れる雲の影＋雨上がりの濡れ（地面シェーダへ注入・updateで更新）
 const roadWetMats = [] // 道路の路面マテリアル（雨上がりに暗く＋照り返す。{mat,base色}）
 // ── 田舎寄せモード（むかしの“僕の夏休み”の空気へ：建物を間引き＋低層化）。0=忠実再現(既定・いつでも完全に戻せる) 1=中庸 2=大胆。
@@ -3452,51 +3453,126 @@ function buildShishigaya() {
       const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
     console.log('[shishigaya] grass', ng) }
-  // ── 谷を囲む遠景の山並みシルエット（盆地＝下末吉台地の谷戸。歩行範囲のはるか外周に低ポリの稜線を環状に）──
-  //   屋上(far≈1200)/飛行(far≈1250)で「世界の縁」の説得力を出す。地上(far≈470)では霞に半分溶ける高さ。
-  //   ★性能：色ちがい2層＝計2ドローコールに収める（多数のConeを各層1つのmerge済みメッシュへ手で頂点合成）。
-  //   ★重要：静的チャンク化(chunkYatoWorld・fog far超で非表示)に巻き込まれて消えないよう userData.noChunk=true で除外する
-  //     （常に地平に見える＝chunk対象外。merge済みでspanが大きくても触られない）。当たり判定も無し＝近づけないので“板”でも破綻しない。
+  // ── 遠景バックドロップ（地平の山＋鶴見・北寺尾から実際に見える都市ランドマーク）──────────────────────
+  //   ★過去の失敗＝「中心(3000,0)固定リングの装飾山」は飛行/浮遊で西へ出ると目前で巨大化し景観を破壊した（ユーザー2回指摘）。
+  //   ★方針＝入道雲(thunderheads)と同じ「カメラ追従の遠景」。1つのGroup farBackdrop を毎フレーム カメラのX/Zへ置く（Y固定＝地平に留まる）。
+  //     ・各オブジェクトはGroupローカル座標で「方角(azimuth)×描画半径R」に配置＝プレイヤーは絶対に近づけない（常に地平の彼方）。
+  //     ・R=950m（屋上/飛行のカメラ遠方面far≈1200〜1260の内側＝クリップで消えない）。fog:true＝地上(far470)では霞に溶けて見えない／高所(far1200+)で淡く現れる＝正しい空気遠近。
+  //     ・見かけ高さ ≈ 実高さ / 実距離 × R で角直径を実物どおりに（遠いスカイツリー28kmは小さく霞み・近いランドマークタワー6kmは大きく）。
+  //   ★性能：陰影なし(MeshBasic)＝太陽の向き/時刻で黒い角面が出ない（“黒い壁”を構造的に断つ）。山は層ごと1メッシュにmerge＝少数ドロー。インク輪郭から除外(layers.set(1))。
+  //   ★座標系：北=-z／東=+x／南=+z／西=-x（朝日が+x=東から昇るので裏取り済み）。方位は北寺尾(鶴見区)基準の概略。
   {
-    const cx0 = SG.gx0, cz0 = SG.gz0 // 谷の中心(3000,0)
-    // 2層：近い稜線=やや緑がかる／遠い稜線=青くかすむ（空気遠近）。色は霧色(noon fog≈0xdee9ee)へ寄せて溶けやすく
-    // ★半径は屋上のカメラ遠方面(far≈1260m＝round((fog1200+60)/20)*20)の“内側”に収める＝屋上/飛行で稜線がクリップされて消えない。
-    //   地上(far≈680)では稜線は遠方面の外＝自然に見えない（谷の霞の向こう＝正しい）。
-    // ★陰影の出ないMeshBasic＋淡い霞色＝太陽の向き/時刻で黒い面が出ない（“黒い角張った壁”を構造的に断つ・ユーザー指摘2026-06-29）。
-    //   近い層はなだらかな雑木林の丘らしく低く・淡く・外周へ（飛行高度で黒い峰がそびえないように）。遠い層は青くかすむ世界の縁。
-    const layers = [
-      { col: 0xa6b6ab, ring: 860, jit: 90, n: 22, hLo: 40, hHi: 72, radLo: 175, radHi: 260, sink: 30 }, // 近い山なみ＝なだらかな丘・淡い緑青・低め（黒い壁にしない）
-      { col: 0xb3c0c9, ring: 1010, jit: 90, n: 22, hLo: 84, hHi: 142, radLo: 215, radHi: 315, sink: 36 } // 遠い山なみ＝青くかすむ・町の屋根越しに（淡く高め）
-    ]
-    let li = 0
-    for (const Lr of layers) {
-      const pos = [], col = new THREE.Color(Lr.col), arr = []
-      // 各「山」＝5〜6角錐を1つにmerge。麓は地平より沈め(sink)、稜線だけ見せる
-      for (let i = 0; i < Lr.n; i++) {
-        const a = (i / Lr.n) * Math.PI * 2 + (Math.random() - 0.5) * (1.4 / Lr.n) * Math.PI * 2
-        const r = Lr.ring + (Math.random() - 0.5) * 2 * Lr.jit
-        const mx = cx0 + Math.cos(a) * r, mz = cz0 + Math.sin(a) * r
-        const h = Lr.hLo + Math.random() * (Lr.hHi - Lr.hLo), rad = Lr.radLo + Math.random() * (Lr.radHi - Lr.radLo)
+    const R = 700 // 描画半径(m)。屋上/飛行のcamera.far(≈1200〜1260)の内側＝クリップしない。地上のfog far(470)より外＝地上では霞に完全に溶けて見えない（地平の彼方＝景観破壊なし）。屋上のfog far(1200)では程よく霞んで“それと分かる”。カメラ追従なのでRは“見かけの大きさ”を決めるだけ（近づけはしない）
+    const LMK = 1.7 // ランドマークの見かけ高さの“ノスタルジー補正”：実角直径(6〜28kmで数px)では小さすぎて分からないため一律に拡大（相互の相対サイズは実物どおり＝スカイツリーは細く高く・タワーは大きく）。山は実寸のまま
+    farBackdrop = new THREE.Group(); farBackdrop.name = 'farBackdrop'; farBackdrop.userData.noChunk = true // チャンク距離カリング対象外（常に地平に見える）
+    // 方位（コンパス方位°＝北0/東90/南180/西270）→ Group内の方向ベクトル：北=-z なので dz=-cos(θ)、東=+x なので dx=+sin(θ)
+    const dirOf = (deg) => { const t = deg * Math.PI / 180; return [Math.sin(t), -Math.cos(t)] }
+    // 角直径から見かけ高さ：realH[m] / realDist[m] × R。山は実寸、ランドマークは×LMK（それと分かる大きさへ・相対比は保つ）
+    const appH = (realH, realDistM, mul) => realH / realDistM * R * (mul || 1)
+
+    // ① 地平の低い山並み（鶴見/北寺尾は大きな山に囲まれていない＝低くなだらか・控えめ・霞ませる）。
+    //    西〜南の遠景は丹沢/多摩丘陵の低い稜線、その他は近郊の低い丘。主役は谷の生活なので“そっと地平に”。
+    {
+      const pos = [], col = [], baseCol = new THREE.Color(0xa9bbc4) // 青くかすむ遠山の色（霧色へ寄せて溶けやすく）
+      const n = 30
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * (1.0 / n) * Math.PI * 2
+        const dx = Math.cos(a), dz = Math.sin(a)
+        const mx = dx * R, mz = dz * R
+        // 西〜南西(WSW≈-x,+z寄り)は丹沢の連なりでやや高め、それ以外は低い丘
+        const westish = (dx < -0.2) ? 1 : 0
+        const h = (westish ? 46 : 26) + Math.random() * (westish ? 34 : 22)
+        const rad = (140 + Math.random() * 120) // 麓の半径（角錐の裾）
         const seg = 5 + (Math.floor(Math.random() * 3)) // 5〜7角＝低ポリの稜線
-        const baseY = -Lr.sink, apex = [mx, baseY + h, mz], rot = Math.random() * Math.PI * 2
-        for (let k = 0; k < seg; k++) { // 側面の三角を麓リング→頂点で張る（円錐の側面）
+        const sink = 60, baseY = -sink, apex = [mx, baseY + h, mz], rot = Math.random() * Math.PI * 2 // 麓を地平の下に沈め稜線だけ見せる（黒い裾を出さない）
+        const shade = 0.92 + Math.random() * 0.12, c = baseCol.clone().multiplyScalar(shade)
+        for (let k = 0; k < seg; k++) {
           const a0 = rot + (k / seg) * Math.PI * 2, a1 = rot + ((k + 1) / seg) * Math.PI * 2
           const p0 = [mx + Math.cos(a0) * rad, baseY, mz + Math.sin(a0) * rad]
           const p1 = [mx + Math.cos(a1) * rad, baseY, mz + Math.sin(a1) * rad]
           pos.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], apex[0], apex[1], apex[2])
+          for (let v = 0; v < 3; v++) col.push(c.r, c.g, c.b)
         }
       }
-      for (let v = 0; v < pos.length / 3; v++) arr.push(col.r, col.g, col.b)
       const hg = new THREE.BufferGeometry()
       hg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-      hg.setAttribute('color', new THREE.Float32BufferAttribute(arr, 3))
+      hg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3))
       hg.computeVertexNormals()
-      const hm = new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true })) // ★陰影なし(Basic)＝太陽の向きで黒い面が出ない＝遠景の山は常に淡い霞のシルエット（黒い角張った壁を断つ）。fog:true＝霞に溶ける
-      hm.name = 'yatoFarHills' + (li++); hm.castShadow = false; hm.receiveShadow = false
-      hm.userData.noChunk = true // ★チャンク距離カリングの対象外＝屋上/飛行でも消えない（常に地平に見える）
-      hm.layers.set(1) // 空ドームと同じくインク線パスから除外＝遠景の稜線に黒い縁取りが暴れない（“板”っぽさを避ける）。メイン描画はlayer0+1なので見える
-      scene.add(hm)
+      const hm = new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }))
+      hm.name = 'yatoFarHills0'; hm.castShadow = hm.receiveShadow = false; hm.layers.set(1); hm.userData.noChunk = true
+      farBackdrop.add(hm)
     }
+
+    // ② 夏の富士＋丹沢（西〜南西WSW）。夏は冠雪なし＝青黒い裾広がりの稜線にとどめる（季節の忠実性）。やりすぎない・最も霞ませる。
+    {
+      const [dx, dz] = dirOf(250) // WSW
+      const fH = appH(3776, 85000) // 富士≈85km＝R=950で約42m（一番遠いが一番高いので地平にうっすら）
+      const mx = dx * R, mz = dz * R, baseY = -40
+      const fujiCol = new THREE.Color(0x9fb1c4).multiplyScalar(0.96) // 夏富士＝青黒くかすむ（雪なし）
+      const pos = [], col = [], rad = 230, seg = 7, rot = 0.2, apex = [mx, baseY + fH, mz]
+      for (let k = 0; k < seg; k++) { // ゆるい裾広がりの円錐（富士の象徴的シルエットだが控えめ）
+        const a0 = rot + (k / seg) * Math.PI * 2, a1 = rot + ((k + 1) / seg) * Math.PI * 2
+        const p0 = [mx + Math.cos(a0) * rad, baseY, mz + Math.sin(a0) * rad]
+        const p1 = [mx + Math.cos(a1) * rad, baseY, mz + Math.sin(a1) * rad]
+        pos.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], apex[0], apex[1], apex[2])
+        for (let v = 0; v < 3; v++) col.push(fujiCol.r, fujiCol.g, fujiCol.b)
+      }
+      const fg = new THREE.BufferGeometry()
+      fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+      fg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); fg.computeVertexNormals()
+      const fm = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }))
+      fm.name = 'yatoFarHills1'; fm.castShadow = fm.receiveShadow = false; fm.layers.set(1); fm.userData.noChunk = true
+      farBackdrop.add(fm)
+    }
+
+    // ③ 都市ランドマーク（“それと分かる”低ポリのシルエット。実在ロゴは付けない＝形だけ）。各1〜数メッシュ。
+    //    色は遠景らしく淡く・霞色寄り。MeshBasicで陰影なし＝黒い面が出ない。各メッシュ farBackdrop に足す（カメラ追従でまとめて地平に留まる）。
+    // 遠景のビルは“淡い青灰のシルエット”。ただし空(≈0xcfe8f0)/霧色に近すぎると溶けて見えないので、やや濃いめの青灰にして地平に芯を残す（霞の中でも「それと分かる」）。
+    // ★ランドマークは fog:false ＝強い霞(屋上fog far≈1280)で消えないように（カメラ追従で常に地平の彼方＝近づけないので fog で隠す必要がない）。
+    //   色は遠景らしい淡い青灰だが、屋上から「しっかり分かる」コントラストに（ユーザー要望2026-06-29＝前回は霞みすぎて見えなかった）。
+    const lmGray = new THREE.MeshBasicMaterial({ color: 0x6b8298, fog: false }) // 遠くのビル/スカイツリーの青灰
+    const lmTower = new THREE.MeshBasicMaterial({ color: 0x647d96, fog: false }) // ランドマークタワー（淡い青灰だが地平にくっきり）
+    const lmRed = new THREE.MeshBasicMaterial({ color: 0xa06a60, fog: false }) // 東京タワーの赤茶（遠景でも赤みが分かる）
+    const addLM = (deg, geo, mat, yOff, ry) => { const [dx, dz] = dirOf(deg); const m = new THREE.Mesh(geo, mat)
+      m.position.set(dx * R, yOff || 0, dz * R); if (ry != null) m.rotation.y = ry; m.castShadow = m.receiveShadow = false; m.layers.set(1); farBackdrop.add(m); return m }
+
+    // 横浜ランドマークタワー（みなとみらい・296m・約6km・南西SW=225°）。先細りで頂部が段状に絞られる超高層＝1番大きく見える。
+    {
+      const H = appH(296, 6000, 3.2) // 屋上からしっかり見えるよう拡大（一番近い6km＝一番大きく・ノスタルジー補正）
+      const w0 = H * 0.22, parts = [] // 幅≒実物比(73m/296m≈1:4)＝細すぎる棒にしない（霞でもスラブとして読める）
+      const shaft = new THREE.BoxGeometry(w0, H * 0.78, w0 * 0.86); shaft.translate(0, H * 0.39, 0); parts.push(shaft) // 本体（わずかに矩形断面）
+      const step1 = new THREE.BoxGeometry(w0 * 0.74, H * 0.13, w0 * 0.62); step1.translate(0, H * 0.78 + H * 0.065, 0); parts.push(step1) // 頂部の段（セットバック）
+      const step2 = new THREE.BoxGeometry(w0 * 0.5, H * 0.1, w0 * 0.42); step2.translate(0, H * 0.91 + H * 0.05, 0); parts.push(step2) // さらに絞る冠
+      addLM(225, mergeGeometries(parts), lmTower, 0, Math.PI / 4) // 角をSWへ向ける＝四隅のコーナー柱が効いた“それらしい”見え
+    }
+    // 新横浜プリンスホテル（150m・約4km・西W=270°）。細い円筒形の高層ホテル（丸い塔）。
+    {
+      const H = appH(150, 4000, 3.0) // 屋上からしっかり見えるよう拡大（円筒の高層ホテル）
+      const cyl = new THREE.CylinderGeometry(H * 0.085, H * 0.092, H, 14); cyl.translate(0, H / 2, 0)
+      addLM(270, cyl, lmGray, 0)
+    }
+    // 東京タワー（333m・約20km・北東NE=45°）。赤白の鉄塔＝裾広がりの四角錐＋上部の展望台。小さく霞む。
+    {
+      const H = appH(333, 20000, 2.6) // 遠い20km＝小さいが「ぼんやり確認できる」程度に（ユーザー許容の小ささ）
+      const parts = []
+      const legR = H * 0.22 // 裾の広がり
+      // 裾広がりの鉄塔（細い四角錐を近似＝下太く上細い角錐）＋展望台の小箱
+      const tower = new THREE.CylinderGeometry(H * 0.02, legR, H * 0.62, 4); tower.rotateY(Math.PI / 4); tower.translate(0, H * 0.31, 0); parts.push(tower)
+      const spire = new THREE.CylinderGeometry(H * 0.004, H * 0.02, H * 0.38, 4); spire.rotateY(Math.PI / 4); spire.translate(0, H * 0.62 + H * 0.19, 0); parts.push(spire) // 上部の細いアンテナ部
+      const obs = new THREE.BoxGeometry(H * 0.11, H * 0.05, H * 0.11); obs.rotateY(Math.PI / 4); obs.translate(0, H * 0.5, 0); parts.push(obs) // 大展望台
+      addLM(45, mergeGeometries(parts), lmRed, 0)
+    }
+    // 東京スカイツリー（634m・約28km・北東NE=40°＝東京タワーよりやや北/東）。非常に細く高い塔＋2つの展望台。一番小さいが一番高いので見える。
+    {
+      const H = appH(634, 28000, 2.8) // 一番遠い28kmだが一番高い＝地平に細く立つ。「ぼんやり確認できる」程度に
+      const parts = []
+      const shaft = new THREE.CylinderGeometry(H * 0.012, H * 0.06, H * 0.7, 7); shaft.translate(0, H * 0.35, 0); parts.push(shaft) // 細く高い塔（下わずかに広い三脚状を円錐で近似）
+      const gain = new THREE.CylinderGeometry(H * 0.004, H * 0.012, H * 0.3, 6); gain.translate(0, H * 0.7 + H * 0.15, 0); parts.push(gain) // 上部のゲイン塔（アンテナ）
+      const obs1 = new THREE.CylinderGeometry(H * 0.035, H * 0.035, H * 0.035, 8); obs1.translate(0, H * 0.5, 0); parts.push(obs1) // 第1展望台
+      const obs2 = new THREE.CylinderGeometry(H * 0.022, H * 0.022, H * 0.025, 8); obs2.translate(0, H * 0.66, 0); parts.push(obs2) // 第2展望台
+      addLM(40, mergeGeometries(parts), lmGray, 0)
+    }
+    scene.add(farBackdrop)
   }
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
@@ -10407,6 +10483,8 @@ function update(dt) {
     else { t.position.x += (ix - t.position.x) * followK; t.position.z += (iz - t.position.z) * followK }
     t.position.y = u.baseY
   }
+  // 遠景バックドロップ（地平の山＋都市ランドマーク）：カメラのX/Zへ即追従＝飛んでも近づけない・常に地平の彼方（雲と違い視差は出さない＝「世界の縁」は動かない）。Y=0固定で地平に留まる。
+  if (farBackdrop) { farBackdrop.position.x = camera.position.x; farBackdrop.position.z = camera.position.z; farBackdrop.visible = true } // 常に表示（地上ではfog far(470)<R(700)で自然にクリップされ見えない＝景観破壊なし／屋上・飛行・浮遊でfarが伸びた時だけ地平に現れる）
   // 夕立：時おり通り雨。空が陰り→雨→すぐ晴れる
   weatherTimer -= dt
   if (weatherTimer <= 0) {
