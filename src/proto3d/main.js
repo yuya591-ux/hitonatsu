@@ -11964,10 +11964,12 @@ function update(dt) {
   layoutCtxButtons() // C⑫：中央下の文脈ボタンが重なったら表示中のものを縦に積んで衝突を解消（毎フレーム＝モード切替でも自己修復）
   // 止め絵：座って景色をながめる間は、周辺減光と記憶の色を少し強めて“ただ味わう一枚絵”に（立つと戻る）
   { const ct = mode === 'sit' ? 1 : 0, nf = nightFactor(tday) // 夜は記憶の暖色(mem)と周辺減光(vig)を弱める＝空ドームの紺がそのまま出る（夜空が褐色のミルクに濁るのを解消・アートD指摘2026-06-27）
+    // 「間」：歩かずに立ち止まって眺めていると、止め絵の仕上げ・記憶の色・周辺減光がそっと深まる（座るほどではない控えめさ）＝“何もしない時間”の心地よさ（2026-06-29）
+    const idleCalm = (mode === 'walk' && !fpv && !boy.userData._high) ? THREE.MathUtils.clamp((idleTime - 2.5) / 4, 0, 1) : 0
     const moveVig = THREE.MathUtils.clamp(playerSpeed / 9, 0, 1) * (reduceMotion ? 0.16 : 0.05) // B2：動くほど周辺を少し暗く＝視界のふちの流れを抑える酔い対策（「画面のゆれをへらす」ONで強め）
-    gradePass.uniforms.vig.value += (((0.16 + ct * 0.12) * (1 - nf * 0.4) + moveVig) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
-    gradePass.uniforms.mem.value += (((0.78 + ct * 0.12) * (1 - nf * 0.5)) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6)
-    const stillF = (mode === 'sit' || mode === 'lie' || titleView || (dialogue && dlgWho)) ? 1 : 0 // A4：止め絵の瞬間（座る/寝ころぶ/タイトルはがき/会話）だけ“額装した絵”の仕上げをそっと効かせる
+    gradePass.uniforms.vig.value += (((0.16 + ct * 0.12 + idleCalm * 0.06) * (1 - nf * 0.4) + moveVig) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
+    gradePass.uniforms.mem.value += (((0.78 + ct * 0.12 + idleCalm * 0.08) * (1 - nf * 0.5)) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6)
+    const stillF = (mode === 'sit' || mode === 'lie' || titleView || (dialogue && dlgWho)) ? 1 : idleCalm * 0.5 // A4：止め絵の瞬間（座る/寝ころぶ/タイトルはがき/会話）は満額、立ち止まりは半分だけ“額装した絵”の仕上げ
     gradePass.uniforms.frame.value += (stillF - gradePass.uniforms.frame.value) * Math.min(1, dt * 1.6) }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
