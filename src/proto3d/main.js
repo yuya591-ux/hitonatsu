@@ -10602,8 +10602,10 @@ for (const s of YATO_SEATS) { if (!s.bench) continue
   if (s.shade) makeTree(s.x - Math.sin(s.yaw) * 2.4, s.z - Math.cos(s.yaw) * 2.4, 1.15) // 木かげ＝ベンチの後ろに大きめの木（座ると枝葉が陽をさえぎる）
 }
 const curSitEye = new THREE.Vector3()
+let sitWhich = null // 座っている場所の種類（'engawa'等）＝夕涼みフルコースの演出に使う
 function sitDown(which) {
   mode = 'sit'
+  sitWhich = which
   todayFlags.satHill = true
   endPuni()
   let eye, yaw, pitch = -0.05
@@ -10648,7 +10650,8 @@ function sitDown(which) {
   // B1：座ると、その時間の景色をしみじみ味わう一言（夕暮れは夕焼けの移ろいへ誘う＝座っている間は時間が速く流れる）
   const nf0 = nightFactor(tday), dusk = tday > 0.5 && tday < 0.76
   setTimeout(() => { if (mode !== 'sit') return // 立ち上がっていたら出さない
-    const lines = dusk ? ['夕やけが、すこしずつ 色を かえていく。', 'ひぐらしの声に、夏の おわりが まじっていた。', '空が あかね色から、藍に とけていく。じっと 見ていた。']
+    const lines = (which === 'engawa' && (dusk || nf0 > 0.4)) ? ['風鈴が、ちりん と 鳴った。蚊取り線香の においが、ゆっくり ながれていく。', '縁側は すずしい。日が くれて いくのを、ずっと 見ていた。', '軒先の 風鈴が、夕風に やさしく ゆれている。'] // E8：縁側の夕涼みフルコース＝風鈴・蚊取り線香・夕風が一点に
+      : dusk ? ['夕やけが、すこしずつ 色を かえていく。', 'ひぐらしの声に、夏の おわりが まじっていた。', '空が あかね色から、藍に とけていく。じっと 見ていた。']
       : nf0 > 0.5 ? ['星が ひとつ、またひとつ。夜は しずかに ふけていく。', '虫の声が、夜の そこから きこえてくる。']
       : tday < 0.35 ? ['朝の 風が、ほおを なでて いった。', '一日が、ゆっくり はじまっていく。']
       : ['風が 草を なでて いった。時間が、ゆっくり 流れる。', '入道雲が、もくもくと 立ちのぼっていた。']
@@ -10656,6 +10659,7 @@ function sitDown(which) {
 }
 function standUp() {
   mode = 'walk'
+  sitWhich = null
   document.body.classList.remove('sliding') // 滑走おわり＝ボタンを通常へ戻す
   boy.scale.setScalar(BOY_SCALE); landSquash = 0; airborne = false // 伸び縮みをリセット
   boy.userData.legL.rotation.x = 0; boy.userData.legR.rotation.x = 0
@@ -11054,6 +11058,8 @@ function update(dt) {
       idleSndArmed = false; idleSndCd = 50 + Math.random() * 70
       if (tday > 0.45 && tday < 0.72 && Math.random() < 0.45) farCall(listener.context.currentTime + 0.05); else playDog()
     }
+    // P1配線(E8)：縁側に腰かけると軒先の風鈴がふっと際立つ＝蚊取り線香の煙とあわせ“夕涼みフルコース”。立つと元へ戻る
+    if (chimeAudio && chimeAudio.buffer) { const ct = (mode === 'sit' && sitWhich === 'engawa') ? 1.1 : 0.7; chimeAudio.setVolume(chimeAudio.getVolume() + (ct - chimeAudio.getVolume()) * Math.min(1, dt * 1.5)) }
     if (tday < 0.4) chimeArmed = true
     if (chimeArmed && tday > 0.69) { chimeArmed = false; playChime() }
     updateEveningBgm(dt) // 晴れた夕暮れ〜夜の温かいBGM（パッド・うっすら常時／雨では退場）
