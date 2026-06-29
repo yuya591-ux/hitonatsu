@@ -655,7 +655,7 @@ scene.add(sunBall)
 const PAL = {
   morn: { light: 0xffe0a6, li: 1.9, sky: 0xa6cce2, mid: 0xe9e8dc, bot: 0xf7ecd0, fog: 0xe9e6d6, hi: 1.18, hsky: 0xc4dcec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
   noon: { light: 0xffeac6, li: 2.4, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xaed0ee, hi: 1.32, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
-  dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
+  dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xc7a692, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
 }
 const _a = new THREE.Color(), _b = new THREE.Color()
@@ -8545,7 +8545,7 @@ const gradePass = new ShaderPass({
       if (golden > 0.001) {
         c += golden * vec3(0.12, 0.05, -0.06) * (0.12 + lum);              // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
         c += golden * vec3(0.06, 0.005, 0.03) * smoothstep(0.5, 1.0, vUv.y);  // 上空は茜色がかる（紫みを残し奥行き）
-        c += golden * vec3(0.12, 0.038, -0.03) * smoothstep(0.62, 0.16, vUv.y); // 地平ちかくは燃える夕陽色（下ほど強い橙＝マジックアワー）
+        c += golden * vec3(0.12, 0.038, -0.03) * smoothstep(0.70, 0.16, vUv.y); // 地平ちかくは燃える夕陽色（下ほど強い橙＝マジックアワー）。上端0.62→0.70＝焼けた金色を地平の少し上(遠景)まで届かせる（2026-06-29）
       }
       // ★A1：朝もや/夕もや。画面の下〜中ほど（地面・谷）を、もやで少し白っぽく・低彩度に・ほのかに発光させ、立ちこめる空気の層を出す。
       //   朝は単独で冷たいもや／夕は上のgoldenが温かさを足して“あたたかい夕もや”に。地平へ向かうほど濃い。
@@ -9873,6 +9873,7 @@ const dialogueEl = document.getElementById('dialogue')
 const dlgNameEl = document.getElementById('dlg-name')
 const dlgTextEl = document.getElementById('dlg-text')
 let dialogue = null // { lines, idx }
+let dlgWho = null // 会話の相手（カメラの“二人を収める”寄り＝止め絵に使う・2026-06-29）
 // 台詞は1文字ずつ そっと現れる（間をつくる＝情緒）。表示途中にタップすると全部出る→もう一度タップで次へ（2026-06-29）
 let dlgType = null // { full, n, timer }
 function showDlgLine(text) {
@@ -9893,9 +9894,11 @@ function startDialogue() {
   // その日の関係の台詞（あれば）→ なければ時間帯の台詞
   const lines = (info.arcByDay && info.arcByDay[arcStage()]) || info.byPhase[phaseOf(tday)] || info.byPhase.noon // H1：関係は段階(初対面/打ちとけ/別れ)で進む＝ひと夏(7日)に対応
   dialogue = { lines, idx: 0 }
+  dlgWho = who // カメラが二人を画に収める寄り（止め絵）に使う
   dlgNameEl.textContent = info.name
   showDlgLine(lines[0])
   dialogueEl.style.display = 'block'
+  void dialogueEl.offsetHeight; dialogueEl.classList.add('show') // 吹き出しはふわっとフェードイン（レイアウト確定→.showでopacity/上がり）
   document.body.classList.add('talking') // 会話中は下の操作ボタン（ドック等）を隠す＝吹き出しと重ならず読みやすい（2026-06-29）
   npcEl.style.display = 'none'
   endPuni()
@@ -10099,7 +10102,7 @@ function advanceDialogue() {
   if (!dialogue) return
   if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null; dlgType.n = dlgType.full.length; dlgTextEl.textContent = dlgType.full; return } // 表示途中なら、まず全部出す（早送り）
   dialogue.idx++
-  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none'; document.body.classList.remove('talking'); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } }
+  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dlgWho = null; dialogueEl.classList.remove('show'); document.body.classList.remove('talking'); setTimeout(() => { if (!dialogue) dialogueEl.style.display = 'none' }, 320); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } } // ふわっとフェードアウトしてから隠す
   else showDlgLine(dialogue.lines[dialogue.idx])
 }
 tapBtn(npcEl, () => {
@@ -11793,7 +11796,8 @@ function update(dt) {
       camCtl.yaw += dyaw * Math.min(1, dt * 1.0) // ゆっくり（ラグ感＝レイクツーカメラ風）
     }
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
-    camCtl.dist += (camDistTarget * (1 + calm * 0.05) - camCtl.dist) * Math.min(1, dt * 1.2) // 立ち止まりの自動引きはごく控えめ(18%→5%)＝ズームのうざさを解消
+    const talkZoom = (dialogue && dlgWho) ? 0.66 : 1 // 会話中は少し寄って二人を画に（止め絵・2026-06-29）
+    camCtl.dist += (camDistTarget * (1 + calm * 0.05) * talkZoom - camCtl.dist) * Math.min(1, dt * (dialogue && dlgWho ? 2.2 : 1.2)) // 立ち止まりの自動引きはごく控えめ(18%→5%)＝ズームのうざさを解消。会話に入ると少し速めに寄る
     camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5)
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
@@ -11822,6 +11826,11 @@ function update(dt) {
     } else camOcclT += (1 - camOcclT) * Math.min(1, dt * 1.5) // 屋上では戻す
     { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
     lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
+    if (dialogue && dlgWho && !fpv) { // 会話中＝主人公と相手の中点を見て二人を画に収める（顔の高さへ・止め絵寄り）
+      lookGoal.x += (dlgWho.position.x - boy.position.x) * 0.5
+      lookGoal.z += (dlgWho.position.z - boy.position.z) * 0.5
+      lookGoal.y = (boy.position.y + dlgWho.position.y) / 2 + 1.45
+    }
     if (fpv) { const cp2 = Math.cos(camCtl.pitch), fx = -Math.sin(camCtl.yaw) * cp2, fy = -Math.sin(camCtl.pitch), fz = -Math.cos(camCtl.yaw) * cp2 // 視線方向
       const hx = boy.position.x, hy = boy.position.y + 1.66, hz = boy.position.z, back = 0.45 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける）
       camGoal.set(hx - fx * back, hy + 0.1 - fy * back, hz - fz * back)
@@ -11934,7 +11943,7 @@ function update(dt) {
     const moveVig = THREE.MathUtils.clamp(playerSpeed / 9, 0, 1) * (reduceMotion ? 0.16 : 0.05) // B2：動くほど周辺を少し暗く＝視界のふちの流れを抑える酔い対策（「画面のゆれをへらす」ONで強め）
     gradePass.uniforms.vig.value += (((0.16 + ct * 0.12) * (1 - nf * 0.4) + moveVig) - gradePass.uniforms.vig.value) * Math.min(1, dt * 1.6)
     gradePass.uniforms.mem.value += (((0.78 + ct * 0.12) * (1 - nf * 0.5)) - gradePass.uniforms.mem.value) * Math.min(1, dt * 1.6)
-    const stillF = (mode === 'sit' || mode === 'lie' || titleView) ? 1 : 0 // A4：止め絵の瞬間（座る/寝ころぶ/タイトルはがき）だけ“額装した絵”の仕上げをそっと効かせる
+    const stillF = (mode === 'sit' || mode === 'lie' || titleView || (dialogue && dlgWho)) ? 1 : 0 // A4：止め絵の瞬間（座る/寝ころぶ/タイトルはがき/会話）だけ“額装した絵”の仕上げをそっと効かせる
     gradePass.uniforms.frame.value += (stillF - gradePass.uniforms.frame.value) * Math.min(1, dt * 1.6) }
   updateBillboard() // 主人公の絵を追従＋生きた揺れ
   if (flying) { flyCam(dt); return } // 飛行モード：カメラを自由飛行で上書き（主人公の追従はしない）
