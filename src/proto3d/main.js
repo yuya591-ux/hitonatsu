@@ -654,7 +654,7 @@ scene.add(sunBall)
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
   morn: { light: 0xffe0a6, li: 1.9, sky: 0xa6cce2, mid: 0xe9e8dc, bot: 0xf7ecd0, fog: 0xe9e6d6, hi: 1.18, hsky: 0xc4dcec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
-  noon: { light: 0xffeac6, li: 2.4, sky: 0x4f9ddc, mid: 0x9ccdf0, bot: 0xdcecf5, fog: 0xcfe3f1, hi: 1.32, hsky: 0xdaf0fb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空（天頂を深く鮮やかな青へ・中〜地平は緑を抜いた澄んだ青白・霧も澄んだ青）。以前は天頂が淡く中下空が緑がかり地平が白っぽく「曇って見える」とユーザー指摘2026-06-29→鮮やかでクリアな夏空に。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
+  noon: { light: 0xffeac6, li: 2.4, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xc6def0, hi: 1.32, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
 }
@@ -6312,9 +6312,12 @@ function makeBoy() {
   // ── 実物の虫取り網に寄せる：粗い“編み目(メッシュ)”地を貼った深い袋＝中が透けて見える網。研究：竿＋金属の輪＋深い網袋(先は丸い) ──
   const ntx = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.clearRect(0, 0, 64, 64); x.strokeStyle = 'rgba(243,246,235,0.92)'; x.lineWidth = 2.4; for (let i = 0; i <= 64; i += 9) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 64); x.moveTo(0, i); x.lineTo(64, i); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 6); return t })()
   const netMat = new THREE.MeshBasicMaterial({ map: ntx, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
-  // 網袋は「輪の口(y=0.93)から、柄と反対側＝外へ」深く伸ばす（口金より先に袋が出る＝実物の向き）。以前は口から手元側(下)へ袋が伸び“裏返し／網が内側”に見えていた（2026-06-29・ユーザー指摘）
-  const bag = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.56, 18, 1, true), netMat); bag.position.y = 1.21; bag.rotation.x = 0; net.add(bag) // 深い網袋（口=0.93／先=1.49＝輪の外へ）
-  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = 0; bagTip.position.y = 1.47; net.add(bagTip) // 袋の底（丸み・輪の外側の先端）
+  // 網袋は輪(口)から“重力でしんなり下へ垂れる”：bagPivot を輪(y=0.93)に置き、柄の傾き(NET_REST=-0.85)を打ち消して
+  //   ふだんはほぼ真下＋わずかに後ろへ下垂（rotation.x=1.0で body 角≈+0.15＝下＋少し背中側）。採取で柄を振ると袋も前へなびく。
+  //   以前は袋が輪の外＝天井へピンと伸び“重力に逆らって不自然”だった（2026-06-29・ユーザー指摘）。
+  const bagPivot = new THREE.Group(); bagPivot.position.y = 0.93; bagPivot.rotation.x = 1.0; net.add(bagPivot)
+  const bag = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.56, 18, 1, true), netMat); bag.position.y = -0.28; bag.rotation.x = Math.PI; bagPivot.add(bag) // 口=輪(0)／先=下(-0.56)＝垂れ下がる深い網袋
+  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI; bagTip.position.y = -0.54; bagPivot.add(bagTip) // 袋の底（丸み・垂れた先端）
   net.position.set(0.15, 1.27, -0.01); net.rotation.set(NET_REST, 0, -0.06) // 柄の支点を右肩に乗せる＝肩に触れて網は頭の真後ろ上へ（横に飛び出さない・浮き解消）。rotation.xは虫採りアニメがNET_RESTで上書き
   net.traverse((o) => { if (o.isMesh) o.layers.set(1) }) // 網は細い棒/輪＋透明な袋＝エッジ検出が暴れるので法線パスから除外（背面法の輪郭線は残る）
   g.add(net)
@@ -9854,6 +9857,7 @@ if (audioUrls.river) {
 let mode = 'walk' // 'walk' | 'sit' | 'lie'
 let moving = false
 let phase = 0
+let walkBobY = 0 // 歩き/走りの上下ぴょこ（boy.position.yに加算）。カメラは一部だけ受けて“走りの画ブレ”を抑える（2026-06-29）
 let facing = boy.rotation.y // 向き(rad)。開始はサンライズ北寺尾の入口で階段の方を向く
 const keys = {}
 const seatLook = { yaw: Math.PI, pitch: -0.05 } // 座/寝の視線
@@ -9879,6 +9883,7 @@ function startDialogue() {
   dlgNameEl.textContent = info.name
   dlgTextEl.textContent = lines[0]
   dialogueEl.style.display = 'block'
+  document.body.classList.add('talking') // 会話中は下の操作ボタン（ドック等）を隠す＝吹き出しと重ならず読みやすい（2026-06-29）
   npcEl.style.display = 'none'
   endPuni()
   if (who === villager) todayFlags.metGirl = true
@@ -10080,7 +10085,7 @@ tapBtn(goEl, travel)
 function advanceDialogue() {
   if (!dialogue) return
   dialogue.idx++
-  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none' }
+  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none'; document.body.classList.remove('talking') }
   else dlgTextEl.textContent = dialogue.lines[dialogue.idx]
 }
 tapBtn(npcEl, () => {
@@ -10259,7 +10264,7 @@ let pinchD = 0
 let camSnap = false // 主観⇄三人称の切替時だけカメラを瞬間移動させる（体の中を通り抜けて赤くにじむ“番組みたい”表示を防ぐ・ユーザー指摘2026-06-23）
 // ── 操作しないとボタン類がそっと消えて景色に没入できる（どのモード/視点でも・触れると戻る・ユーザー要望2026-06-23）──
 let lastInteract = performance.now()
-const IDLE_MS = 4500 // この秒数 何も触らないとHUDをフェードアウト（鑑賞のため）
+const IDLE_MS = 2500 // この秒数 何も触らないとHUDをフェードアウト（鑑賞のため）。4500→2500＝より早く景色に没入（動画プレーヤー等の自動非表示は約2〜3秒が一般的・ユーザー要望2026-06-29）
 let idleMs = IDLE_MS // 実際に使うしきい値。初見だけ長くする（ガイドを読み終えた直後に操作ボタンが消えて手詰まりにならないよう・UI/UX指摘2026-06-27）
 function pokeUI() { lastInteract = performance.now(); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle') }
 // 操作ボタンは pointerdown で即発火＝タッチの click 依存をやめる（移動スティック操作中でも2本目の指で確実に押せる＝マルチタッチ／フェード復帰後/横画面下端でも不発にならない・ユーザー指摘2026-06-26）。ゴーストclickは抑制し、キーボードEnter等のclickは通す
@@ -11675,14 +11680,17 @@ function update(dt) {
     idleTime = moving ? 0 : idleTime + dt
     const calm = THREE.MathUtils.clamp((idleTime - 2.5) / 4, 0, 1) // 2.5秒立ち止まってから4秒かけて（短い停止では動かない＝歩行中のズーム切替を抑える）
     lookUp += ((moving ? 0 : calm * 0.18) - lookUp) * Math.min(1, dt * 2)
-    boy.userData.head.rotation.x = -lookUp * 1.6 + (moving ? Math.sin(phase * 2) * 0.03 : 0) // 見上げる＋歩くと小さくうなずく
+    boy.userData.head.rotation.x = -lookUp * 1.6 + (moving && !floatMode ? Math.sin(phase * 2) * 0.03 : 0) // 見上げる＋歩くと小さくうなずく（浮遊中は歩調うなずきを止める＝高速で震えない・2026-06-29）
     // 立ち止まると あたりを見回す。歩くと踏み込んだ足の方へ重心が傾く（ローリング）＝人らしい歩き
     const idleLook = moving ? 0 : calm
     boy.userData.head.rotation.y += ((Math.sin(tsec * 0.34) * 0.45 + Math.sin(tsec * 0.13) * 0.2) * idleLook - boy.userData.head.rotation.y) * Math.min(1, dt * 3)
-    const targetRoll = moving ? Math.sin(phase) * (0.08 + run * 0.05) : Math.sin(tsec * 0.5) * 0.02 * idleLook // 歩くと左右にとことこ揺れる（幼児のよちよち）
+    // 浮遊中は歩調(phase)に連動した“とことこ揺れ”を使わない＝速度を上げると phase が速く回り高速で震えていた（ユーザー指摘2026-06-29）。
+    //   代わりに速度に依存しない、ゆっくりした風まかせの横ゆれ（tsec基準）に。
+    const targetRoll = floatMode ? Math.sin(tsec * 0.5) * 0.035 + Math.sin(tsec * 0.23) * 0.02
+      : moving ? Math.sin(phase) * (0.08 + run * 0.05) : Math.sin(tsec * 0.5) * 0.02 * idleLook // 歩くと左右にとことこ揺れる（幼児のよちよち）
     boy.rotation.z += (targetRoll - boy.rotation.z) * Math.min(1, dt * 9)
     boy.userData.head.rotation.z = -boy.rotation.z * 0.55 // 頭は体ほど傾けず視線を水平に保つ（自然）
-    if (!floatMode) { const bobK = reduceMotion ? 0.4 : 1; boy.position.y += riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) * bobK : Math.sin(tsec * 1.4) * 0.012) } // 歩き=ぴょこ跳ね/立ち=呼吸。B2：酔い対策ONで歩きの上下を抑える（bobK）。浮遊中は別処理
+    if (!floatMode) { const bobK = reduceMotion ? 0.4 : 1; walkBobY = riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) * bobK : Math.sin(tsec * 1.4) * 0.012); boy.position.y += walkBobY } else walkBobY = 0 // 歩き=ぴょこ跳ね/立ち=呼吸。B2：酔い対策ONで歩きの上下を抑える（bobK）。浮遊中は別処理。walkBobYに退避＝カメラは一部だけ受ける
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
       jumpV -= 22 * dt; jumpY += jumpV * dt
@@ -11771,6 +11779,7 @@ function update(dt) {
     camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5)
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
+    camGoal.y -= walkBobY * 0.55 // 走りの上下ぴょこは主人公には残しつつ、カメラには約45%だけ伝える＝「主人公に合わせた自然な画ブレ」を保ったまま揺れを和らげる（ユーザー「ブレが激しい」2026-06-29）
     // ごく微かな“息”の揺れ（モーション軽減ONのときは止める）。立ち止まると揺れも静まり“間”が生まれる＝時が止まった夢の一瞬（calmで減衰・2026-06-24）
     if (!reduceMotion) { const breath = 1 - calm * 0.7; camGoal.x += Math.sin(tsec * 0.6) * 0.06 * breath; camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05 * breath }
     // カメラの遮蔽回避（マリオ式）：主人公とカメラの間に建物/木があれば手前へ寄せる。※屋上(高所)ではOFF＝建物の壁/手すりに反応してカメラが弾く・ズームするのを止める
@@ -12004,7 +12013,7 @@ renderer.setAnimationLoop(() => { try {
   // 操作している間（スティックで歩く/飛行の上下ホールド）はHUDを消さない。何もしない時間が続いたらそっと消す。
   // ※見回し(lookIds)は除外＝指を動かしている間は pointermove が pokeUI を呼ぶので消えない。指を止めて景色を眺める/離した指の取りこぼし（pointerup欠落でlookIdsが残る不具合）では“止まっている”扱いにして、ちゃんとフェードさせる（ユーザー要望2026-06-27：景色を大画面で楽しみたい）
   if (puni.active || floatUp || floatDown || flyUp || flyDown) lastInteract = performance.now() // 移動スティック/浮遊の上下/飛行の上下＝操作中はHUDを消さない（飛行fly-up/downの抜けを修正・2026-06-27）
-  if (!titleView && performance.now() - lastInteract > idleMs) { if (!document.body.classList.contains('ui-idle')) document.body.classList.add('ui-idle'); idleMs = IDLE_MS } // 一度フェードしたら以降は通常の4.5秒（初見の長い猶予は最初の1回だけ）
+  if (!titleView && performance.now() - lastInteract > idleMs) { if (!document.body.classList.contains('ui-idle')) document.body.classList.add('ui-idle'); idleMs = IDLE_MS } // 一度フェードしたら以降は通常の2.5秒（初見の長い猶予は最初の1回だけ）
   update(dt)
   if (titleView) titleCam() // タイトル中は景色のいい構図でゆっくり流す（updateのカメラを上書き）
   if (floatMode && window.__updFlightHud) window.__updFlightHud() // 風船飛行のメーター更新
@@ -12176,11 +12185,11 @@ const startBtn = document.getElementById('t-start')
 const guideEl = document.getElementById('guide')
 const guideOk = document.getElementById('guide-ok')
 let seenGuide = false; try { seenGuide = localStorage.getItem('hn3d_guide') === '1' } catch (e) {}
-if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} pokeUI(); idleMs = 8000; setTimeout(showWanderOnce, 1500) }) // ガイドを閉じた直後は8秒HUDを出したまま＝初見が操作を確かめる時間（最初の1回だけ・以降4.5秒）＋少し置いてM1の散歩の一言
+if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.classList.remove('on'); try { localStorage.setItem('hn3d_guide', '1') } catch (e) {} pokeUI(); idleMs = 5000; setTimeout(showWanderOnce, 1500) }) // ガイドを閉じた直後は5秒HUDを出したまま＝初見が操作を確かめる時間（最初の1回だけ・以降2.5秒）＋少し置いてM1の散歩の一言
 if (startBtn) startBtn.addEventListener('click', () => {
   startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
   tday = 0.18; dayAuto = true; setTimeOfDay(0.18) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
-  pokeUI(); idleMs = 8000 // 始めた直後もHUDを長めに出す（ガイドを2回目以降スキップした人にも初見の猶予・以降4.5秒）
+  pokeUI(); idleMs = 5000 // 始めた直後もHUDを長めに出す（ガイドを2回目以降スキップした人にも初見の猶予・以降2.5秒）
   const willShowGuide = !seenGuide && guideEl
   if (willShowGuide) { guideEl.classList.add('on'); seenGuide = true } // ガイドを出す回はガイドを閉じてから散歩の一言（guideOkで発火）
   else setTimeout(showWanderOnce, 3800) // ガイドを出さない回は開始から少し置いて散歩の一言
