@@ -83,6 +83,11 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
       color:#fff;background:rgba(40,44,60,0.7);box-shadow:0 3px 10px rgba(0,0,0,0.3);font-family:inherit;}
     #pm-flash{position:fixed;inset:0;z-index:41;background:#fff;opacity:0;pointer-events:none;transition:opacity 0.5s ease;}
     #pm-flash.on{opacity:0.85;transition:none;}
+    /* 撮った瞬間の手応え：撮れた一枚が小さくなりながらアルバム(🖼)へ吸い込まれる（思い出が1枚 増える実感） */
+    .pm-pop{position:fixed;z-index:42;border:3px solid #fff;border-radius:2px;box-shadow:0 5px 16px rgba(0,0,0,0.45);pointer-events:none;
+      transition:left 0.55s cubic-bezier(.35,0,.2,1),top 0.55s cubic-bezier(.35,0,.2,1),width 0.55s cubic-bezier(.35,0,.2,1),opacity 0.5s ease,transform 0.55s ease;}
+    #pm-bar.pm-got #pm-album-side,.pm-got{animation:pmgot 0.5s ease;}
+    @keyframes pmgot{0%,100%{transform:scale(1);}45%{transform:scale(1.22);}}
     #pm-album{position:fixed;inset:0;z-index:44;display:none;background:rgba(20,24,40,0.86);backdrop-filter:blur(2px);
       overflow:auto;padding:5vh 4vw;}
     #pm-album.on{display:block;}
@@ -111,7 +116,7 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
   const bar = $('div', '', document.body); bar.id = 'pm-bar'
   const closeBtn = $('button', '', bar); closeBtn.className = 'pm-side'; closeBtn.textContent = '×'; closeBtn.title = 'もどる'
   const shutter = $('button', '', bar); shutter.id = 'pm-shutter'
-  const albumBtn = $('button', '', bar); albumBtn.className = 'pm-side'; albumBtn.textContent = '🖼'; albumBtn.title = 'アルバム'
+  const albumBtn = $('button', '', bar); albumBtn.className = 'pm-side'; albumBtn.id = 'pm-album-side'; albumBtn.textContent = '🖼'; albumBtn.title = 'アルバム'
   const flash = $('div', '', document.body); flash.id = 'pm-flash'
   const album = $('div', '', document.body); album.id = 'pm-album'
   album.innerHTML = '<h3>なつやすみの しゃしん</h3><div id="pm-grid"></div><button id="pm-close-album">とじる</button>'
@@ -180,6 +185,18 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
     return c.toDataURL('image/jpeg', cfg.jpegQuality)
   }
 
+  // 撮った瞬間の手応え：撮れた一枚が小さくなりながらアルバム(🖼)へ吸い込まれ、アルバムボタンがぽよんと弾む
+  function popThumb(url) {
+    try {
+      const r = albumBtn.getBoundingClientRect()
+      const im = document.createElement('img'); im.className = 'pm-pop'; im.src = url
+      im.style.left = (innerWidth / 2 - 64) + 'px'; im.style.top = (innerHeight / 2 - 48) + 'px'; im.style.width = '128px'; im.style.transform = 'rotate(0deg)'
+      document.body.appendChild(im)
+      void im.offsetWidth // レイアウト確定→遷移が走る
+      im.style.left = (r.left + r.width / 2 - 13) + 'px'; im.style.top = (r.top + r.height / 2 - 10) + 'px'; im.style.width = '26px'; im.style.opacity = '0.15'; im.style.transform = 'rotate(-10deg)'
+      setTimeout(() => { im.remove(); albumBtn.classList.add('pm-got'); setTimeout(() => albumBtn.classList.remove('pm-got'), 520) }, 540)
+    } catch (e) {}
+  }
   function takePhoto() {
     try { playShutter && playShutter() } catch (e) {} // カシャッ（自前合成）
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 30) // 一瞬の白フラッシュ
@@ -191,6 +208,7 @@ export function initPhotoMode({ renderer, getDay, playShutter }) {
       if (idbOk) idbAdd(rec).then((id) => { rec.id = id }).catch(() => { idbOk = false }) // IndexedDBへ非同期保存（同期ブロックしない・失敗してもメモリには残る）
       photos.push(rec); while (photos.length > cfg.maxPhotos) { const old = photos.shift(); if (old && old.id != null && idbOk) idbDel(old.id) } // 上限超過は古いものから消す（IDBからも）
       newCount++ // その日の絵日記に使えるよう「新しく撮った枚数」を数える
+      popThumb(url) // 思い出が1枚 増える手応え
     })
   }
   let newCount = 0

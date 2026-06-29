@@ -9936,7 +9936,12 @@ const diaryPicEl = document.getElementById('diary-pic')
 ;(function () { const s = document.createElement('style'); s.textContent = `#diary-pic{position:relative;}
   .diary-stamp{position:absolute;right:7%;bottom:9%;width:76px;height:76px;border-radius:50%;border:3px double #b5462f;color:#b5462f;
     display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:700;line-height:1.3;
-    transform:rotate(-13deg);opacity:0.8;background:rgba(255,250,240,0.1);letter-spacing:0.02em;font-family:inherit;pointer-events:none;}`; document.head.appendChild(s) })()
+    transform:rotate(-13deg);opacity:0.8;background:rgba(255,250,240,0.1);letter-spacing:0.02em;font-family:inherit;pointer-events:none;}
+  /* 写真をアルバムに“貼った”感じ＝上の両隅に半透明のマスキングテープ（暖色/寒色の2枚で手作り感）。overflow:visible 前提 */
+  #diary-pic::before,#diary-pic::after{content:'';position:absolute;top:-9px;width:50px;height:19px;z-index:3;pointer-events:none;
+    box-shadow:0 1px 3px rgba(120,100,60,0.2);}
+  #diary-pic::before{left:7%;transform:rotate(-34deg);background:rgba(232,214,150,0.62);}
+  #diary-pic::after{right:7%;transform:rotate(34deg);background:rgba(186,208,224,0.56);}`; document.head.appendChild(s) })()
 // 紙の質感タイル（絵日記の絵に重ねる）
 const paperPat = (() => {
   const s = 80, c = document.createElement('canvas'); c.width = c.height = s
