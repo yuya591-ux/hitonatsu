@@ -3082,7 +3082,7 @@ function buildShishigaya() {
     for (let k = 0; k < p.length - 1 && tp.length <= 2300; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1
       for (let t = 12; t < l; t += 26) { const fx = x0 + dx * t / l, fz = z0 + dz * t / l, ox = -dz / l * (rd.w / 2 + 2.5), oz = dx / l * (rd.w / 2 + 2.5); for (const s of [1, -1]) { const x = fx + ox * s, z = fz + oz * s, c = cellOf(x, z); if (c >= 0 && !occ[c]) tp.push([x, z, 0]) } } } }
   // 電柱＋電線：昭和の空を走る電線（“電線越しの夕焼け”＝エモさの要）を町全体に普及（ユーザー要望2026-06-22）。多数でも軽いようインスタンシング＝電柱2種＋電線をまとめて3ドロー
-  { const poleP = [], wireSeg = [], catPt = (a, b, t, sag) => new THREE.Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * sag, a.z + (b.z - a.z) * t)
+  { const poleP = [], wireSeg = [], wireMid = [], catPt = (a, b, t, sag) => new THREE.Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * sag, a.z + (b.z - a.z) * t)
     const cenD = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
     const mainRoads = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD(a) - cenD(b)) // 細い路地以外の道ぜんぶ・中心部から優先
     for (const rd of mainRoads) { if (poleP.length > 420) break
@@ -3093,7 +3093,8 @@ function buildShishigaya() {
           if (inWater(px, pz) || heightAtYato(px, pz) < 3) { prev = null; continue }
           if (onYatoRoadCore(px, pz)) { prev = null; continue } // 別の交差する道の舗装の上に立つ電柱を排除（交差点の真ん中に電柱が立つ不具合・ユーザー指摘2026-06-28）。電柱は電線つき＝後で動かせないので置く時点で道を避ける
           const y = heightAtYato(px, pz), top = new THREE.Vector3(px, y + 8.2, pz); poleP.push([px, pz, y])
-          if (prev && prev.distanceTo(top) < 55) for (let w = 0; w < 5; w++) wireSeg.push(catPt(prev, top, w / 5, 1.1), catPt(prev, top, (w + 1) / 5, 1.1)) // 電線＝たるみ(catenary)つき
+          if (prev && prev.distanceTo(top) < 55) { for (let w = 0; w < 5; w++) wireSeg.push(catPt(prev, top, w / 5, 1.1), catPt(prev, top, (w + 1) / 5, 1.1)) // 電線＝たるみ(catenary)つき
+            wireMid.push({ p: catPt(prev, top, 0.5, 1.1), d: new THREE.Vector3(top.x - prev.x, 0, top.z - prev.z).normalize() }) } // 電線のたるみの底＝鳥が止まる候補
           prev = top } } }
     if (poleP.length) { const m4 = new THREE.Matrix4()
       const pI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.24, 9, 6), toon(0x9a958c), poleP.length); pI.castShadow = true; pI.userData.propKind = 'pole' // 道点検用のタグ
@@ -3105,6 +3106,22 @@ function buildShishigaya() {
       transP.forEach(([px, pz, y], i) => { m4.makeTranslation(px + 0.58, y + 6.55, pz); tI.setMatrixAt(i, m4) }) // 変圧器は柱の横に
       scene.add(pI); scene.add(aI); scene.add(aI2); scene.add(tI)
       const wl = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(wireSeg), new THREE.LineBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.6 })); wl.layers.set(1); scene.add(wl) // 電線はインク線パスから除外
+      // 電線に止まる鳥（数羽だけ・たるみの底に・暗いシルエット）＝“夕焼けに電線の鳥”の郷愁。
+      //   ★5パーツ×複数羽をそのままMeshにすると描画コールが増えて予算超過→1羽分を1ジオメトリに統合し、全羽をInstancedMeshで1ドローに。
+      if (wireMid.length) {
+        const parts = []
+        const body = new THREE.SphereGeometry(0.1, 9, 7); body.scale(0.92, 0.86, 1.9); body.rotateX(-0.12); parts.push(body) // すっと前傾の胴
+        const head = new THREE.SphereGeometry(0.055, 8, 6); head.translate(0, 0.085, 0.135); parts.push(head)
+        const beak = new THREE.ConeGeometry(0.022, 0.07, 5); beak.rotateX(Math.PI / 2); beak.translate(0, 0.085, 0.2); parts.push(beak) // くちばし
+        const tail = new THREE.BoxGeometry(0.045, 0.018, 0.2); tail.rotateX(0.22); tail.translate(0, -0.01, -0.21); parts.push(tail) // 後ろへ伸びる尾
+        const perch = new THREE.CylinderGeometry(0.016, 0.016, 0.9, 5); perch.rotateX(Math.PI / 2); perch.translate(0, -0.088, 0); parts.push(perch) // 止まり木＝電線に沿った短い線（鳥が浮かない）
+        const birdGeo = mergeGeometries(parts, false); parts.forEach((p) => p.dispose())
+        const spots = []; const step = Math.max(1, Math.floor(wireMid.length / 9))
+        for (let i = 0; i < wireMid.length; i += step) spots.push(wireMid[i])
+        if (birdGeo && spots.length) { const bI = new THREE.InstancedMesh(birdGeo, toon(0x37322a), spots.length); bI.castShadow = false; const m4 = new THREE.Matrix4()
+          spots.forEach((wm, i) => { m4.makeRotationY(Math.atan2(wm.d.x, wm.d.z) + (((Math.round(wm.p.x) + Math.round(wm.p.z)) & 1) ? 0 : Math.PI)); m4.setPosition(wm.p.x, wm.p.y + 0.085, wm.p.z); bI.setMatrixAt(i, m4) })
+          bI.instanceMatrix.needsUpdate = true; scene.add(bI) }
+      }
       console.log('[shishigaya] 電柱', poleP.length) } }
   // 道ぞいのブロック塀・生垣（家の前＝日本の住宅地の核・ユーザー要望2026-06-22）。家がある側だけ・中心部優先・ところどころ出入口で開ける。塀/生垣を各1インスタンスメッシュ＝軽い
   { const blockTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#bdb8ac'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(120,116,106,0.45)'; x.lineWidth = 2
