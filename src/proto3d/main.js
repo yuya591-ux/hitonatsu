@@ -10053,8 +10053,14 @@ function openDiary() {
     } else diaryPicEl.style.display = 'none'
   }
   diaryEl.style.display = 'flex'
+  void diaryEl.offsetHeight; diaryEl.classList.add('show') // ページがそっと浮かび上がる
+  // 本文を1行ずつ そっと出す（会話と揃えた“間”）。酔い対策ONなら一気に。
+  const lines = diaryBodyEl.querySelectorAll('.line')
+  if (reduceMotion) lines.forEach((ln) => ln.classList.add('in'))
+  else lines.forEach((ln, i) => setTimeout(() => { if (diaryOpen) ln.classList.add('in') }, 300 + i * 165))
 }
 function nextDay() {
+  diaryEl.classList.remove('show')
   diaryEl.style.display = 'none'; diaryOpen = false
   day = day >= TOTAL_DAYS ? 1 : day + 1 // ひと夏(7日)のあとは1日目へ（また来年の夏）
   for (const k in todayFlags) todayFlags[k] = false
@@ -10068,7 +10074,7 @@ sleepEl.addEventListener('click', () => { if (!diaryOpen && !dialogue) openDiary
 diaryCloseEl.addEventListener('click', () => { if (diaryOpen) nextDay() })
 // 「まだ ねない」＝誤って「ねる」を押しても、翌日へ進めず今の一日に戻る（時間も再開）。強制的に寝かされない（ユーザー要望）
 const diaryCancelEl = document.getElementById('diary-cancel')
-if (diaryCancelEl) diaryCancelEl.addEventListener('click', () => { if (diaryOpen) { diaryEl.style.display = 'none'; diaryOpen = false; dayAuto = true } })
+if (diaryCancelEl) diaryCancelEl.addEventListener('click', () => { if (diaryOpen) { diaryEl.classList.remove('show'); diaryEl.style.display = 'none'; diaryOpen = false; dayAuto = true } })
 
 // ── エリアの往来（野原 ⇄ 昭和の住宅街）。門に近づくとボタン→フェードで移動 ──
 let area = spawnPt.area || 'yato' // 開始エリア＝獅子ヶ谷の谷戸（サンライズ北寺尾の入口）。町/はらっぱへは門から往来（ユーザー要望2026-06-22）。「はじまりの場所」を保存していればそのエリアから始まる

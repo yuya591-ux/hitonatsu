@@ -179,7 +179,12 @@
         background: rgba(20,24,40,0.66); backdrop-filter: blur(2px); z-index: 20; }
       .diary-page { width: min(88vw, 560px); max-height: 86vh; overflow: auto; padding: 1.3em 1.6em 1.6em;
         background: #fbf6ea; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); text-align: center;
-        background-image: linear-gradient(rgba(180,160,120,0.12) 1px, transparent 1px); background-size: 100% 2.1em; }
+        background-image: linear-gradient(rgba(180,160,120,0.12) 1px, transparent 1px); background-size: 100% 2.1em;
+        opacity: 0; transform: translateY(12px) scale(0.985); transition: opacity 0.45s ease, transform 0.45s ease; } /* 開くとそっと浮かび上がる（会話と揃えた情緒・2026-06-29） */
+      #diary.show .diary-page { opacity: 1; transform: none; }
+      /* 本文は1行ずつ そっと現れる（.inで表示）＝日記を読む“間” */
+      #diary-body .line { opacity: 0; transform: translateY(5px); transition: opacity 0.5s ease, transform 0.5s ease; }
+      #diary-body .line.in { opacity: 1; transform: none; }
       #diary-title { margin: 0 0 0.6em; font-size: clamp(19px,4vw,28px); color: #4a4032; letter-spacing: 0.08em; }
       #diary-pic { margin: 0 auto 0.9em; width: min(76%, 360px); border: 5px solid #fff; border-radius: 4px;
         box-shadow: 0 3px 14px rgba(120,100,70,0.32); transform: rotate(-1.3deg); overflow: visible; background: #eee; }
