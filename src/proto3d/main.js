@@ -654,7 +654,7 @@ scene.add(sunBall)
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
   morn: { light: 0xffe0a6, li: 1.9, sky: 0xa6cce2, mid: 0xe9e8dc, bot: 0xf7ecd0, fog: 0xe9e6d6, hi: 1.18, hsky: 0xc4dcec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
-  noon: { light: 0xffeac6, li: 2.4, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xc6def0, hi: 1.32, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
+  noon: { light: 0xffeac6, li: 2.4, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xaed0ee, hi: 1.32, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xbf9ea8, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
 }
@@ -9873,6 +9873,19 @@ const dialogueEl = document.getElementById('dialogue')
 const dlgNameEl = document.getElementById('dlg-name')
 const dlgTextEl = document.getElementById('dlg-text')
 let dialogue = null // { lines, idx }
+// 台詞は1文字ずつ そっと現れる（間をつくる＝情緒）。表示途中にタップすると全部出る→もう一度タップで次へ（2026-06-29）
+let dlgType = null // { full, n, timer }
+function showDlgLine(text) {
+  if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null }
+  if (reduceMotion) { dlgTextEl.textContent = text; dlgType = { full: text, n: text.length, timer: null }; return } // 酔い対策ONなら一気に表示
+  dlgType = { full: text, n: 0, timer: null }
+  dlgTextEl.textContent = ''
+  dlgType.timer = setInterval(() => {
+    dlgType.n = Math.min(dlgType.full.length, dlgType.n + 1)
+    dlgTextEl.textContent = dlgType.full.slice(0, dlgType.n)
+    if (dlgType.n >= dlgType.full.length) { clearInterval(dlgType.timer); dlgType.timer = null }
+  }, 40) // 1文字あたり約40ms＝ゆっくり読める速さ
+}
 const phaseOf = (t) => (t < 0.18 ? 'morning' : t < 0.5 ? 'noon' : t < 0.78 ? 'evening' : 'night')
 function startDialogue() {
   const who = talkTarget || villager
@@ -9881,7 +9894,7 @@ function startDialogue() {
   const lines = (info.arcByDay && info.arcByDay[arcStage()]) || info.byPhase[phaseOf(tday)] || info.byPhase.noon // H1：関係は段階(初対面/打ちとけ/別れ)で進む＝ひと夏(7日)に対応
   dialogue = { lines, idx: 0 }
   dlgNameEl.textContent = info.name
-  dlgTextEl.textContent = lines[0]
+  showDlgLine(lines[0])
   dialogueEl.style.display = 'block'
   document.body.classList.add('talking') // 会話中は下の操作ボタン（ドック等）を隠す＝吹き出しと重ならず読みやすい（2026-06-29）
   npcEl.style.display = 'none'
@@ -10084,9 +10097,10 @@ function travel() {
 tapBtn(goEl, travel)
 function advanceDialogue() {
   if (!dialogue) return
+  if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null; dlgType.n = dlgType.full.length; dlgTextEl.textContent = dlgType.full; return } // 表示途中なら、まず全部出す（早送り）
   dialogue.idx++
-  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none'; document.body.classList.remove('talking') }
-  else dlgTextEl.textContent = dialogue.lines[dialogue.idx]
+  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dialogueEl.style.display = 'none'; document.body.classList.remove('talking'); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } }
+  else showDlgLine(dialogue.lines[dialogue.idx])
 }
 tapBtn(npcEl, () => {
   const act = npcEl.dataset.act
@@ -11587,10 +11601,14 @@ function update(dt) {
         if (boy.position.y <= gFloor + 0.05) { boy.position.y = gFloor; floatMode = false; floatExiting = false; document.body.classList.remove('floating'); if (!flying) { document.body.classList.remove('dev-float', 'dev-aerial'); setDevCoord(false); const fu = document.getElementById('flyui'); if (fu) fu.classList.remove('on') } if (fpv) { fpv = false; camSnap = true; const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.remove('on'); if (setFpvBtn) { setFpvBtn.classList.remove('on'); setFpvBtn.textContent = 'OFF' } } } // 着地したら主観視点は解除＋開発の座標読みUIも畳む（座標モード解除＝主人公を戻す。地上で一人称のまま取り残されない）
       } else {
         const ty = (floatUp - floatDown) * 6.0 // ▲うく/▼おりる
-        floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 2.4) // ふんわり上下
+        floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 1.6) // ふんわり上下＝慣性を強めて“ふわり”動き出し/止まりに（2.4→1.6・ユーザー要望2026-06-29）
+        const ceil = gFloor + floatMaxH
+        // 天井/地面ぎわは速度をやわらかく吸収＝限界で“カクッ”と止まらない（ふわり減速）
+        if (boy.position.y > ceil - 4 && floatVel.y > 0) floatVel.y *= 1 - Math.min(0.9, dt * 3)
+        if (boy.position.y < gFloor + 2.5 && floatVel.y < 0) floatVel.y *= 1 - Math.min(0.9, dt * 3)
         boy.position.y += floatVel.y * dt
         if (boy.position.y < gFloor) { boy.position.y = gFloor; if (floatVel.y < 0) floatVel.y = 0 }
-        boy.position.y = Math.min(boy.position.y, gFloor + floatMaxH) // 上限
+        boy.position.y = Math.min(boy.position.y, ceil) // 上限
         boy.position.y += Math.sin(tsec * 0.8) * 0.03 // ごく僅かなふわふわ
       }
       boy.userData._cy = null; boy.userData._high = (boy.position.y - heightAt(boy.position.x, boy.position.z)) > 6
