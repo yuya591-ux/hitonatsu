@@ -3463,7 +3463,7 @@ function buildShishigaya() {
   //   ★座標系：北=-z／東=+x／南=+z／西=-x（朝日が+x=東から昇るので裏取り済み）。方位は北寺尾(鶴見区)基準の概略。
   {
     const R = 700 // 描画半径(m)。屋上/飛行のcamera.far(≈1200〜1260)の内側＝クリップしない。地上のfog far(470)より外＝地上では霞に完全に溶けて見えない（地平の彼方＝景観破壊なし）。屋上のfog far(1200)では程よく霞んで“それと分かる”。カメラ追従なのでRは“見かけの大きさ”を決めるだけ（近づけはしない）
-    const LMK = 1.7 // ランドマークの見かけ高さの“ノスタルジー補正”：実角直径(6〜28kmで数px)では小さすぎて分からないため一律に拡大（相互の相対サイズは実物どおり＝スカイツリーは細く高く・タワーは大きく）。山は実寸のまま
+    const LMK = 2.2 // ランドマークの見かけ高さの一律倍率。★全ランドマーク共通＝相互の相対サイズ/遠近は実物どおり保つ（ユーザー要望2026-06-29「距離感・大きさは現実の遠近を忠実に」）。実角直径(6〜28kmで数px)では小さすぎるので一律2.2倍だけ拡大＝ランドマークタワー(近6km)>プリンス>スカイツリー>東京タワー(遠20km)の見かけ順は現実どおり。山は実寸のまま
     farBackdrop = new THREE.Group(); farBackdrop.name = 'farBackdrop'; farBackdrop.userData.noChunk = true // チャンク距離カリング対象外（常に地平に見える）
     // 方位（コンパス方位°＝北0/東90/南180/西270）→ Group内の方向ベクトル：北=-z なので dz=-cos(θ)、東=+x なので dx=+sin(θ)
     const dirOf = (deg) => { const t = deg * Math.PI / 180; return [Math.sin(t), -Math.cos(t)] }
@@ -3538,7 +3538,7 @@ function buildShishigaya() {
 
     // 横浜ランドマークタワー（みなとみらい・296m・約6km・南西SW=225°）。先細りで頂部が段状に絞られる超高層＝1番大きく見える。
     {
-      const H = appH(296, 6000, 3.2) // 屋上からしっかり見えるよう拡大（一番近い6km＝一番大きく・ノスタルジー補正）
+      const H = appH(296, 6000, LMK) // 一番近い6km＝相対的に一番大きく見える（共通倍率で実物の遠近を保つ）
       const w0 = H * 0.22, parts = [] // 幅≒実物比(73m/296m≈1:4)＝細すぎる棒にしない（霞でもスラブとして読める）
       const shaft = new THREE.BoxGeometry(w0, H * 0.78, w0 * 0.86); shaft.translate(0, H * 0.39, 0); parts.push(shaft) // 本体（わずかに矩形断面）
       const step1 = new THREE.BoxGeometry(w0 * 0.74, H * 0.13, w0 * 0.62); step1.translate(0, H * 0.78 + H * 0.065, 0); parts.push(step1) // 頂部の段（セットバック）
@@ -3547,13 +3547,13 @@ function buildShishigaya() {
     }
     // 新横浜プリンスホテル（150m・約4km・西W=270°）。細い円筒形の高層ホテル（丸い塔）。
     {
-      const H = appH(150, 4000, 3.0) // 屋上からしっかり見えるよう拡大（円筒の高層ホテル）
+      const H = appH(150, 4000, LMK) // 約4km＝相対サイズも実物どおり（円筒の高層ホテル）
       const cyl = new THREE.CylinderGeometry(H * 0.085, H * 0.092, H, 14); cyl.translate(0, H / 2, 0)
       addLM(270, cyl, lmGray, 0)
     }
     // 東京タワー（333m・約20km・北東NE=45°）。赤白の鉄塔＝裾広がりの四角錐＋上部の展望台。小さく霞む。
     {
-      const H = appH(333, 20000, 2.6) // 遠い20km＝小さいが「ぼんやり確認できる」程度に（ユーザー許容の小ささ）
+      const H = appH(333, 20000, LMK) // 遠い20km＝共通倍率で実物どおり小さく霞む（ユーザー許容の小ささ）
       const parts = []
       const legR = H * 0.22 // 裾の広がり
       // 裾広がりの鉄塔（細い四角錐を近似＝下太く上細い角錐）＋展望台の小箱
@@ -3564,7 +3564,7 @@ function buildShishigaya() {
     }
     // 東京スカイツリー（634m・約28km・北東NE=40°＝東京タワーよりやや北/東）。非常に細く高い塔＋2つの展望台。一番小さいが一番高いので見える。
     {
-      const H = appH(634, 28000, 2.8) // 一番遠い28kmだが一番高い＝地平に細く立つ。「ぼんやり確認できる」程度に
+      const H = appH(634, 28000, LMK) // 一番遠い28kmだが一番高い634m＝共通倍率で実物どおり（東京タワーよりやや高く・細く地平に）
       const parts = []
       const shaft = new THREE.CylinderGeometry(H * 0.012, H * 0.06, H * 0.7, 7); shaft.translate(0, H * 0.35, 0); parts.push(shaft) // 細く高い塔（下わずかに広い三脚状を円錐で近似）
       const gain = new THREE.CylinderGeometry(H * 0.004, H * 0.012, H * 0.3, 6); gain.translate(0, H * 0.7 + H * 0.15, 0); parts.push(gain) // 上部のゲイン塔（アンテナ）
