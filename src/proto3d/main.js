@@ -10104,7 +10104,7 @@ function advanceDialogue() {
   if (!dialogue) return
   if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null; dlgType.n = dlgType.full.length; dlgTextEl.textContent = dlgType.full; if (dlgMoreEl) dlgMoreEl.style.opacity = '1'; return } // 表示途中なら、まず全部出す（早送り）＋「▼」を出す
   dialogue.idx++
-  if (dialogue.idx >= dialogue.lines.length) { dialogue = null; dlgWho = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '0'; dialogueEl.classList.remove('show'); document.body.classList.remove('talking'); setTimeout(() => { if (!dialogue) dialogueEl.style.display = 'none' }, 320); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } } // ふわっとフェードアウトしてから隠す
+  if (dialogue.idx >= dialogue.lines.length) { if (dlgWho && dlgWho.userData.mouth) { const m = dlgWho.userData.mouth; m.scale.y = m.userData.by || 1; m.position.y = -0.058 } dialogue = null; dlgWho = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '0'; dialogueEl.classList.remove('show'); document.body.classList.remove('talking'); setTimeout(() => { if (!dialogue) dialogueEl.style.display = 'none' }, 320); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } } // 相手の口を閉じる＋ふわっとフェードアウトしてから隠す
   else showDlgLine(dialogue.lines[dialogue.idx])
 }
 tapBtn(npcEl, () => {
@@ -11788,6 +11788,16 @@ function update(dt) {
     fishEl.style.display = ((nearPond || fishState !== 'idle') && !dialogue && !catchTarget) ? 'block' : 'none'
     if (nearPond && !catchTarget) onceHint('fish', '池の そばだね。「つる」を おすと、さかなが つれるかも。')
     if (fishState === 'bite' && castPond) floatMesh.position.y = floatWy + Math.sin(tsec * 30) * 0.08
+
+    // 会話の相手＝ゆっくりこちらを向く（一瞬で切り替わらない）＋台詞が出ている間だけ口パク（生きた交流・2026-06-29）。
+    //   このブロックは各NPCの個別更新より後に走るので、相手の向き/口を最後に上書きできる。
+    if (dialogue && dlgWho) {
+      const tgt = Math.atan2(boy.position.x - dlgWho.position.x, boy.position.z - dlgWho.position.z)
+      let dyr = tgt - dlgWho.rotation.y; while (dyr > Math.PI) dyr -= Math.PI * 2; while (dyr < -Math.PI) dyr += Math.PI * 2
+      dlgWho.rotation.y += dyr * Math.min(1, dt * 3) // ふわっと振り向く
+      const m = dlgWho.userData.mouth
+      if (m) { const open = (dlgType && dlgType.timer) ? (0.5 + 0.5 * Math.sin(tsec * 18)) : 0; m.scale.y = (m.userData.by || 1) * (1 + open * 2.2); m.position.y = -0.058 - open * 0.012 } // 台詞タイプ中だけ口が動く→出切ると閉じる
+    }
 
     // マリオ64/サンシャイン式の追従：歩くとカメラが進行方向の真後ろへゆっくり回り込む。
     // 指で視点を回した直後(camManualTimer)は自動追従を止めて手動を優先する。
