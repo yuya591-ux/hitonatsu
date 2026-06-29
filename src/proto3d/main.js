@@ -11795,6 +11795,7 @@ function update(dt) {
       const tgt = Math.atan2(boy.position.x - dlgWho.position.x, boy.position.z - dlgWho.position.z)
       let dyr = tgt - dlgWho.rotation.y; while (dyr > Math.PI) dyr -= Math.PI * 2; while (dyr < -Math.PI) dyr += Math.PI * 2
       dlgWho.rotation.y += dyr * Math.min(1, dt * 3) // ふわっと振り向く
+      if (speedNow < 0.1) facing = Math.atan2(dlgWho.position.x - boy.position.x, dlgWho.position.z - boy.position.z) // 主人公も相手に向き直る＝二人が向き合う（既存の facing→rotation.y のなめらか補間に乗る・歩いている時は邪魔しない）
       const m = dlgWho.userData.mouth
       if (m) { const open = (dlgType && dlgType.timer) ? (0.5 + 0.5 * Math.sin(tsec * 18)) : 0; m.scale.y = (m.userData.by || 1) * (1 + open * 2.2); m.position.y = -0.058 - open * 0.012 } // 台詞タイプ中だけ口が動く→出切ると閉じる
     }
