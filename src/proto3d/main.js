@@ -10708,18 +10708,23 @@ MOUNT_SEAT.y = heightAt(MOUNT_SEAT.x, MOUNT_SEAT.z)
 // P2（2026-06-27）：スポーンエリア(yato)で「座って見回す」＝本作の核を体験できるように座れる場所を用意。
 // 従来この所作は field/town 限定で、最初に降り立つ yato では1つも発火しなかった（QA指摘）。
 const YATO_SEATS = [
-  { x: 3018, z: 24, yaw: -Math.PI / 2, pitch: -0.02, label: '通りで すわる' },   // 路肩のベンチ＝開始のすぐそば（旧バス停を撤去し木のベンチだけ残した・2026-06-29）。西へ伸びる朝の通りを眺める（北東はマンションの壁で抜けないため西向きに）
-  { x: 3008, z: -489, yaw: Math.PI, pitch: -0.07, label: '池を ながめる', bench: true },  // 二ツ池の北岸＝南へ水面(B⑨の水鏡)を見渡す止め絵
-  { x: 3034, z: 56, yaw: 0.32, pitch: -0.02, label: '木かげで すずむ', bench: true, shade: true }, // N2：開始の通りぞいの木かげのベンチ＝“間”の滞留ポイント。夏の日かげで村の通りを眺める
+  { x: 3018, z: 24, yaw: -Math.PI / 2, pitch: -0.02, label: '通りで すわる', line: '朝の 通りを、だれかの 自転車が とおりすぎた。風が きもちいい。' },   // 路肩のベンチ＝開始のすぐそば（旧バス停を撤去し木のベンチだけ残した・2026-06-29）。西へ伸びる朝の通りを眺める（北東はマンションの壁で抜けないため西向きに）
+  { x: 3008, z: -489, yaw: Math.PI, pitch: -0.07, label: '池を ながめる', bench: true, line: '水面に、空と 雲が うつっている。…とき どき、魚が ぴちゃんと はねた。' },  // 二ツ池の北岸＝南へ水面(B⑨の水鏡)を見渡す止め絵
+  { x: 3034, z: 56, yaw: 0.32, pitch: -0.02, label: '木かげで すずむ', bench: true, shade: true, line: '木かげは、ひんやり。せみの声が、すこし とおく きこえる。' }, // N2：開始の通りぞいの木かげのベンチ＝“間”の滞留ポイント。夏の日かげで村の通りを眺める
+  { x: 3140, z: -178, yaw: -2.03, pitch: -0.03, label: '校庭を ながめる', bench: true, line: '校庭の 土の においが した。だれもいない 校庭は、しんと していた。' }, // P4：小学校の校庭の縁（広く平ら）＝destinationの眺め。盆踊り/体操の会場(3124,-186)を少し離れて見る
 ]
 let activeYatoSeat = null // いま近い yato のベンチ（actBtn→sitDown('yatoseat')で使う）
 // ベンチが要る座り場所に木のベンチを建てる（二ツ池の畔／通りの木かげ）。開始の通り側(3018,24)は上のランドマーク区画で建てた路傍ベンチを使う
 for (const s of YATO_SEATS) { if (!s.bench) continue
-  const g = new THREE.Group(), w = toon(0x9a6a3a)
-  const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.13, 0.66), w); top.position.y = 0.5; g.add(top)
-  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.46, 0.11), w); back.position.set(0, 0.78, -0.28); g.add(back) // 背もたれは座る人の後ろ
-  for (const lx of [-0.92, 0.92]) for (const lz of [-0.24, 0.24]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), toon(0x7a5230)); leg.position.set(lx, 0.25, lz); g.add(leg) }
-  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  const g = new THREE.Group()
+  // 描画予算対策：座面/背もたれ＝1ドロー、脚4本＝1ドローに材質ごと統合（yatoは予算が厳しい）
+  const woodGeos = [], legGeos = []
+  { const top = new THREE.BoxGeometry(2.2, 0.13, 0.66); top.translate(0, 0.5, 0); woodGeos.push(top)
+    const back = new THREE.BoxGeometry(2.2, 0.46, 0.11); back.translate(0, 0.78, -0.28); woodGeos.push(back) } // 背もたれは座る人の後ろ
+  for (const lx of [-0.92, 0.92]) for (const lz of [-0.24, 0.24]) { const leg = new THREE.BoxGeometry(0.11, 0.5, 0.11); leg.translate(lx, 0.25, lz); legGeos.push(leg) }
+  const wood = new THREE.Mesh(mergeGeometries(woodGeos), toon(0x9a6a3a)); wood.castShadow = true; g.add(wood)
+  const legs = new THREE.Mesh(mergeGeometries(legGeos), toon(0x7a5230)); legs.castShadow = true; g.add(legs)
+  woodGeos.forEach((x) => x.dispose()); legGeos.forEach((x) => x.dispose())
   g.position.set(s.x, heightAtYato(s.x, s.z), s.z); g.rotation.y = s.yaw // 座面が見たい方を向く
   mergedOutline(g, 0.03); addContactShadow(g, 1.4); scene.add(g)
   if (s.shade) makeTree(s.x - Math.sin(s.yaw) * 2.4, s.z - Math.cos(s.yaw) * 2.4, 1.15) // 木かげ＝ベンチの後ろに大きめの木（座ると枝葉が陽をさえぎる）
@@ -10771,9 +10776,11 @@ function sitDown(which) {
   actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   lookHint.textContent = 'スワイプで見回す ・ もう一度タップで立つ'; lookHint.style.display = 'block' // 主観で文を変えていても、座るの戻り文へ必ず戻す
   // B1：座ると、その時間の景色をしみじみ味わう一言（夕暮れは夕焼けの移ろいへ誘う＝座っている間は時間が速く流れる）
+  const seatLine = (which === 'yatoseat' && activeYatoSeat && activeYatoSeat.line) ? activeYatoSeat.line : null // P4：そのベンチならではの眺めの一言（6割で出し、4割は時間帯の一言で変化）
   const nf0 = nightFactor(tday), dusk = tday > 0.5 && tday < 0.76
   setTimeout(() => { if (mode !== 'sit') return // 立ち上がっていたら出さない
-    const lines = (which === 'engawa' && (dusk || nf0 > 0.4)) ? ['風鈴が、ちりん と 鳴った。蚊取り線香の においが、ゆっくり ながれていく。', '縁側は すずしい。日が くれて いくのを、ずっと 見ていた。', '軒先の 風鈴が、夕風に やさしく ゆれている。'] // E8：縁側の夕涼みフルコース＝風鈴・蚊取り線香・夕風が一点に
+    const lines = (seatLine && Math.random() < 0.6) ? [seatLine]
+      : (which === 'engawa' && (dusk || nf0 > 0.4)) ? ['風鈴が、ちりん と 鳴った。蚊取り線香の においが、ゆっくり ながれていく。', '縁側は すずしい。日が くれて いくのを、ずっと 見ていた。', '軒先の 風鈴が、夕風に やさしく ゆれている。'] // E8：縁側の夕涼みフルコース＝風鈴・蚊取り線香・夕風が一点に
       : dusk ? ['夕やけが、すこしずつ 色を かえていく。', 'ひぐらしの声に、夏の おわりが まじっていた。', '空が あかね色から、藍に とけていく。じっと 見ていた。']
       : nf0 > 0.5 ? ['星が ひとつ、またひとつ。夜は しずかに ふけていく。', '虫の声が、夜の そこから きこえてくる。']
       : tday < 0.35 ? ['朝の 風が、ほおを なでて いった。', '一日が、ゆっくり はじまっていく。']
