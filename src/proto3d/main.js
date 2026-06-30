@@ -3358,6 +3358,11 @@ function buildShishigaya() {
       PM(g, new THREE.BoxGeometry(1.12, 0.24, 1.06), toon(0x6f8aa6), 0, 2.14, 0) // 青みの庇屋根
       PM(g, new THREE.BoxGeometry(0.34, 0.5, 0.16), toon(0x6a7a6a), 0, 1.25, -0.33) // 電話機
       const glow = PM(g, new THREE.PlaneGeometry(0.78, 1.5), new THREE.MeshBasicMaterial({ color: 0xe6f0e2, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide }), 0, 1.15, 0); townNightLights.push({ m: glow, base: 0.55, ph: Math.random() * 6, fa: 0.04 }) // 夜にぼんやり灯る
+      PM(g, new THREE.BoxGeometry(0.5, 0.07, 0.3), toon(0x4a5a4a), 0, 1.0, -0.3) // 電話台（棚）＝電話が宙に浮かないように
+      PM(g, new THREE.BoxGeometry(0.07, 0.24, 0.07), toon(0x32402f), -0.17, 1.27, -0.29) // 受話器（フックの送受話器）
+      PM(g, new THREE.BoxGeometry(0.22, 0.3, 0.02), toon(0xeae4d4), 0.16, 1.58, -0.31) // 電話帳/料金表のプレート
+      PM(g, new THREE.BoxGeometry(0.78, 0.16, 0.04), toon(0xdfe6ee), 0, 2.16, 0.54) // 上の「公衆電話」表示板（庇の前面）
+      PM(g, new THREE.BoxGeometry(0.78, 0.05, 0.045), toon(0x3a6a9a), 0, 2.06, 0.545) // 表示板の下の青ライン
       placeProp(g, x, z, rot || 0, 0.02, 0.7) }
     const makeBoard = (x, z, rot) => { const g = new THREE.Group()
       for (const px of [-0.7, 0.7]) PM(g, new THREE.BoxGeometry(0.1, 1.65, 0.1), toon(0x6a4e30), px, 0.82, 0) // 2本柱
