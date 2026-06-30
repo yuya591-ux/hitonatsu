@@ -1330,7 +1330,12 @@ function makeVending(x, z, rot, col = 0xc23a2c) {
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.9), toon(col)); body.position.y = 1.1; g.add(body)
   const panel = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.25, 0.06), new THREE.MeshBasicMaterial({ color: 0xfff3c8 })); panel.position.set(0, 1.45, 0.46); g.add(panel)
   const canCols = [0xd24a3a, 0x3a6a9a, 0x3e8a4a, 0xe0a838, 0xc04888, 0x5a5a5a, 0xe06a2a, 0x40a0a0] // 平成初期＝缶ジュースの色とりどり
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const can = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, 0.02), toon(canCols[(i * 3 + j) % canCols.length])); can.position.set(-0.3 + i * 0.3, 1.05 + j * 0.4, 0.5); g.add(can) }
+  // 描画予算：缶9個を1ドローのInstancedMeshに（色は per-instance）＝各自販機 11→3ドロー。yatoは予算が厳しいので効く
+  const cans = new THREE.InstancedMesh(new THREE.BoxGeometry(0.2, 0.28, 0.02), toon(0xffffff), 9)
+  cans.castShadow = false; const _m = new THREE.Matrix4(); let ci = 0
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { _m.setPosition(-0.3 + i * 0.3, 1.05 + j * 0.4, 0.5); cans.setMatrixAt(ci, _m); cans.setColorAt(ci, new THREE.Color(canCols[(i * 3 + j) % canCols.length])); ci++ }
+  cans.instanceMatrix.needsUpdate = true; if (cans.instanceColor) cans.instanceColor.needsUpdate = true
+  g.add(cans)
   placeProp(g, x, z, rot, 0.04, 1.0)
   auditProps.push({ g, x, z, kind: 'vending' })
 }
