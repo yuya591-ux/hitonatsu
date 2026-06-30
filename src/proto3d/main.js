@@ -10422,11 +10422,26 @@ function castLine() {
     clearTimeout(fishTimer); fishTimer = setTimeout(() => { if (fishState === 'bite') endFishing('にげられた…') }, 1300)
   }, 1500 + Math.random() * 2500)
 }
+// P3：池(場所)と時間帯で釣れる魚が変わる＝「あの池の あの時間でしか」＝探索と再訪の動機。重み付き抽選
+function pickFish(pond, t) {
+  const big = !!(pond && pond.yato) // 谷戸の大きな池(二ツ池/三ツ池) vs はらっぱの小さな池
+  const night = t > 0.78 || t < 0.12, eve = t >= 0.6 && t <= 0.78
+  const w = {
+    'メダカ': big ? 1 : 3,                                   // 小さな池に群れる
+    'フナ': big ? 3 : 1,                                     // 大きな池でゆったり
+    'ザリガニ': (big ? 0.6 : 2) * (night ? 0.3 : 1),         // 小さな池・昼に多い
+    'ナマズ': big ? (eve || night ? 2.6 : 0.5) : 0.2,        // 大きな池の どろの底・夕〜夜
+    'おたまじゃくし': big ? 0.5 : 1.6,                        // 小さな池・田の用水
+  }
+  let tot = 0; for (const k in w) tot += w[k]; let r = Math.random() * tot
+  for (const k in w) { r -= w[k]; if (r <= 0) return k }
+  return 'メダカ'
+}
 function reel() {
   if (fishState === 'bite') {
     // P3：谷戸の大きな池(二ツ池/三ツ池)では、ごく まれに“ぬし”がかかる＝一期一会の手応え（押し付けない・噂が探索を駆動）
     const nushi = castPond && castPond.yato && Math.random() < 0.05
-    const name = nushi ? 'ぬし' : FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]
+    const name = nushi ? 'ぬし' : pickFish(castPond, tday)
     if (!fish.kinds[name]) fish.first[name] = { day, tw: timeWord(tday), place: nearPlace() } // はじめて釣った日・時刻・場所
     fish.count++; fish.kinds[name] = (fish.kinds[name] || 0) + 1
     spawnRipple(floatMesh.position.x, floatMesh.position.z)
