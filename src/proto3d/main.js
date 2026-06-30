@@ -10703,6 +10703,22 @@ function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04
   if (fpv && !floatMode) { lookHint.textContent = 'スワイプで 見わたす ・ 🔭を もう一度で もどる'; lookHint.style.display = 'block' }
   else if (!fpv && mode === 'walk') { lookHint.style.display = 'none'; lookHint.textContent = 'スワイプで見回す ・ もう一度タップで立つ' } } // ONで視線を水平（少しだけ下＝足元の道が見える）／OFFで通常文へ戻す
 tapBtn(fpvBtnEl, () => { if (mode === 'walk' && !doingTaiso) toggleFpv() }) // ねころぶ列の🔭＝主観視点ワンボタン（📷は本物のカメラ#pm-btnに専任、視点トグルは🔭「見わたす」へ・👁は怖いと却下→🔭・2026-06-26）
+// アート：ドック/ねるの絵文字を手描きの墨グリフへ（OSフォントの絵文字は手描きの世界から浮く＝ずかんの手描きと様式を揃える）。ラベル(ねころぶ等)は残す
+function dockGlyph(kind) {
+  const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d')
+  x.lineWidth = 2.6; x.lineJoin = x.lineCap = 'round'; x.strokeStyle = '#4a3a2a'
+  if (kind === 'leaf') { x.fillStyle = '#8aaa5a'; x.beginPath(); x.moveTo(24, 40); x.bezierCurveTo(8, 30, 12, 10, 24, 8); x.bezierCurveTo(36, 10, 40, 30, 24, 40); x.closePath(); x.fill(); x.stroke(); x.beginPath(); x.moveTo(24, 40); x.lineTo(24, 9); x.moveTo(24, 24); x.lineTo(15, 18); x.moveTo(24, 24); x.lineTo(33, 18); x.stroke() } // 葉
+  else if (kind === 'bike') { x.beginPath(); x.arc(13, 32, 8.5, 0, 6.283); x.moveTo(43.5, 32); x.arc(35, 32, 8.5, 0, 6.283); x.stroke(); x.beginPath(); x.moveTo(13, 32); x.lineTo(23, 16); x.lineTo(35, 32); x.lineTo(20, 32); x.lineTo(23, 16); x.stroke(); x.beginPath(); x.moveTo(23, 16); x.lineTo(28, 13); x.stroke() } // 自転車
+  else if (kind === 'balloon') { x.fillStyle = '#d86a6a'; x.beginPath(); x.ellipse(24, 18, 11, 13, 0, 0, 6.283); x.fill(); x.stroke(); x.beginPath(); x.moveTo(24, 31); x.lineTo(22, 33); x.lineTo(26, 33); x.closePath(); x.fillStyle = '#b85050'; x.fill(); x.beginPath(); x.moveTo(24, 33); x.quadraticCurveTo(28, 40, 24, 45); x.stroke() } // 風船
+  else if (kind === 'scope') { x.save(); x.translate(24, 24); x.rotate(-0.5); x.fillStyle = '#a8946e'; x.beginPath(); x.rect(-15, -5.5, 22, 11); x.fill(); x.stroke(); x.fillStyle = '#c2b088'; x.beginPath(); x.rect(7, -7.5, 8, 15); x.fill(); x.stroke(); x.restore(); x.beginPath(); x.moveTo(12, 38); x.lineTo(20, 30); x.stroke() } // 望遠鏡＋三脚の脚
+  else if (kind === 'moon') { x.fillStyle = '#ecd98a'; x.beginPath(); x.arc(26, 24, 15, 0.5, 5.4); x.arc(20, 21, 15, 5.2, 1.0, true); x.closePath(); x.fill(); x.stroke() } // 三日月
+  return c.toDataURL()
+}
+;(function applyDockGlyphs() {
+  const set = (id, kind, em) => { const btn = document.getElementById(id); const b = btn && btn.querySelector('b'); if (b) b.innerHTML = `<img src="${dockGlyph(kind)}" style="width:1.25em;height:1.25em;vertical-align:middle" alt="">`
+    if (id === 'sleep' && btn) btn.innerHTML = `<img src="${dockGlyph('moon')}" style="width:1.15em;height:1.15em;vertical-align:-0.18em;margin-right:0.22em" alt=""> ねる` }
+  set('lie', 'leaf'); set('bike', 'bike'); set('float', 'balloon'); set('fpvbtn', 'scope'); set('sleep', 'moon')
+})()
 const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 11, 95) // 主観視点：寄り(11)〜引き(95)を大幅拡大＝望遠で覗ける＋広く見わたせる（ユーザー要望2026-06-29・旧26〜78）
   else if (mode === 'sit' || mode === 'lie') { camera.fov = THREE.MathUtils.clamp(camera.fov * f, 22, 92); camera.updateProjectionMatrix() } // 座る/寝ころぶ時もズームできる（f<1=寄る・空や景色を大きく/広く）
   else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観/座寝は画角でズーム（f<1=ズームイン）
