@@ -1323,6 +1323,20 @@ function makeYoshizu(x, z, rot, w = 1.7, h = 2.1) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; addContactShadow(g, w * 0.6); scene.add(g)
 }
 makeYoshizu(HENG.x + 2.0, HENG.z + 0.4, -0.7) // 縁側の東の端に立てかけた日よけ
+// ── 風鈴（ふうりん）＝夏の象徴。軒に吊るしてガラスの鈴と短冊が風にゆれる ──
+function makeFurin(x, y, z) {
+  const g = new THREE.Group(); g.position.set(x, y, z)
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.18, 4), toon(0x6a5a44)); str.position.y = -0.09; g.add(str) // 釣り紐
+  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), new THREE.MeshToonMaterial({ color: 0xbfe0e8, gradientMap: GRAD, transparent: true, opacity: 0.8, side: THREE.DoubleSide })); bell.position.y = -0.26; g.add(bell) // ガラスの鈴（淡い水色）
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 6, 16), toon(0x7fb8c4)); rim.rotation.x = Math.PI / 2; rim.position.y = -0.33; g.add(rim) // 鈴口のふち
+  const clap = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), toon(0xd8d2c2)); clap.position.y = -0.34; g.add(clap) // 中の舌
+  const tanzaku = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.2), new THREE.MeshToonMaterial({ color: 0xede6d2, gradientMap: GRAD, side: THREE.DoubleSide })); tanzaku.position.y = -0.47; g.add(tanzaku) // 短冊
+  const tline = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.03), new THREE.MeshBasicMaterial({ color: 0xc0504a, side: THREE.DoubleSide })); tline.position.set(0, -0.41, 0.001); g.add(tline) // 短冊の彩り
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  scene.add(g); swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.12 })
+}
+{ const r = 0.35, lx = 2.4, lz = 3.4, cy = heightAt(HOUSE.x, HOUSE.z) // 縁側の軒の右前角（家の回転を反映したワールド座標）
+  makeFurin(HOUSE.x + lx * Math.cos(r) + lz * Math.sin(r), cy + 3.0, HOUSE.z - lx * Math.sin(r) + lz * Math.cos(r)) }
 // 縁側の小物：麦わら帽子・うちわ（夏の昼下がりの気配）＝板の上に置く
 {
   const topY = HENG.y + 0.80 // 縁側の板の上
