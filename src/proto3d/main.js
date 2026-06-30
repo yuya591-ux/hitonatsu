@@ -10280,11 +10280,14 @@ function startTaiso() {
   } else showToast('きょうの はんこは おしたよ。いっしょに 体操しよう。')
 }
 function stopTaiso() { doingTaiso = false }
+const YATO_VEND = { x: 3052, z: -118 } // P4：谷戸の自販機(既設・道角)＝yatoでもラムネが買える＝探索のご褒美をyatoにも(W1：lamuneが旧エリア限定だった穴を埋める)
+let nearVendPos = null // いま近い自販機の位置（buyRamuneが正対する先）
 let lamuneCd = 0
 function buyRamune() {
   if (lamuneCd > 0) return
   lamuneCd = 2.2
-  facing = Math.atan2(VENDING.x - boy.position.x, VENDING.z - boy.position.z); boy.rotation.y = facing // 自販機の方を向く
+  const vp = nearVendPos || VENDING
+  facing = Math.atan2(vp.x - boy.position.x, vp.z - boy.position.z); boy.rotation.y = facing // 最寄りの自販機の方を向く
   playThunk()
   showToast(todayFlags.lamune ? 'もう一本。やっぱり つめたい。' : 'ガコン。つめたい ラムネ。100円なり。')
   todayFlags.lamune = true
@@ -11993,13 +11996,15 @@ function update(dt) {
     if (area === 'yato' && mode === 'walk' && moving && seenHints['wander-down'] && tday > 0.2 && tday < 0.78) onceHint('photo', '左上の 📷で、夏の しゃしんが とれるよ。')
     if (window.__senkoBtn) window.__senkoBtn.style.display = (!dialogue && (tday > 0.8 || tday < 0.06) && !senko.active) ? 'block' : 'none' // H4：夜だけ線香花火ボタンを出す
     const nearCat = area === 'yato' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2 // 猫は獅子ヶ谷(サンライズ前)に居る＝撫でられる
-    const nearVending = area === 'town' && Math.hypot(boy.position.x - VENDING.x, boy.position.z - VENDING.z) < 2.8
+    const vendNear = area === 'town' ? VENDING : ((area === 'yato' || onYato) ? YATO_VEND : null) // 町は従来の自販機／谷戸は道角の自販機（W1：ご褒美をyatoにも）
+    const nearVending = !!vendNear && Math.hypot(boy.position.x - vendNear.x, boy.position.z - vendNear.z) < 3.2
+    if (nearVending) nearVendPos = vendNear
     const nearGarden = area === 'field' && Math.hypot(boy.position.x - GARDEN.x, boy.position.z - GARDEN.z) < 3.6
     const nearTaiso = radioTaiso.visible && (onYato || area === 'yato') && Math.hypot(boy.position.x - 3124, boy.position.z + 186) < 16 // 早朝の校庭でラジオ体操の輪に近い
     const nearNpc = !!talkTarget
     if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.act = 'talk'; npcEl.style.display = 'block'; onceHint('talk', '人が いるね。右下の「はなしかける」を おしてみよう。') }
     else if (nearCat && !dialogue) { npcEl.textContent = 'なでる'; npcEl.dataset.act = 'pet'; npcEl.style.display = 'block' }
-    else if (nearVending && !dialogue) { npcEl.textContent = 'ラムネを 一本'; npcEl.dataset.act = 'buy'; npcEl.style.display = 'block' }
+    else if (nearVending && !dialogue) { npcEl.textContent = 'ラムネを 一本'; npcEl.dataset.act = 'buy'; npcEl.style.display = 'block'; onceHint('lamune', '自販機が あるね。「ラムネを 一本」で、つめたい のが のめるよ。') }
     else if (nearGarden && !dialogue) { npcEl.textContent = '水をやる'; npcEl.dataset.act = 'water'; npcEl.style.display = 'block'; onceHint('asagao', '朝顔の 鉢が あるよ。毎朝 水を やると、すこしずつ 育つんだ。') }
     else npcEl.style.display = 'none'
     if (doingTaiso) { actBtn.textContent = 'やめる'; actBtn.dataset.spot = 'taisostop'; actBtn.style.display = 'block' }
