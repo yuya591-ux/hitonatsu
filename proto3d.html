@@ -163,9 +163,10 @@
       #catch, #fish { left: 50%; bottom: calc(15% + env(safe-area-inset-bottom)); transform: translateX(-50%); appearance: none; border: none; cursor: pointer;
         padding: 0.55em 1.5em; font-size: clamp(14px,2.8vw,20px); font-family: inherit; color: #2e5a2e;
         background: rgba(232,246,228,0.95); border-radius: 999px; box-shadow: 0 4px 14px rgba(80,110,70,0.3); display: none; }
-      #toast { left: 50%; top: 13%; transform: translateX(-50%) translateY(-8px); padding: 0.5em 1.3em;
-        font-size: clamp(14px,2.8vw,20px); letter-spacing: 0.06em; color: #fdf7ec; background: rgba(74,64,50,0.9);
-        border-radius: 999px; box-shadow: 0 3px 12px rgba(30,24,16,0.3); opacity: 0; pointer-events: none;
+      /* P5：情緒的な台詞(発見/名所の気づき/おまけ等)が“スマホ通知風”の暗いカプセルから、絵日記と同じ世界の質感へ＝クリーム色の紙片＋インク茶の文字 */
+      #toast { left: 50%; top: 13%; transform: translateX(-50%) translateY(-8px); padding: 0.55em 1.45em;
+        font-size: clamp(14px,2.8vw,20px); letter-spacing: 0.05em; color: #3b3024; background: rgba(251,244,228,0.96);
+        border: 1px solid rgba(120,96,58,0.4); border-radius: 7px; box-shadow: 0 4px 14px rgba(60,44,24,0.26); opacity: 0; pointer-events: none;
         transition: opacity 0.4s ease, transform 0.4s ease; }
       #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
       /* 「ねる」は左上の⚙の下へ（横画面で左手の親指の下＝誤爆を避ける・ユーザー要望）。押すと確認の絵日記が出る */
