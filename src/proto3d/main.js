@@ -8667,6 +8667,8 @@ const gradePass = new ShaderPass({
         c += midday * vec3(0.038, 0.034, 0.020) * smoothstep(0.55, 0.10, vUv.y); // 地平ちかくの暖白い光
         c.b += midday * 0.028 * smoothstep(0.5, 1.0, vUv.y);                     // 上空の青を一段濃く
         float lmid = L(c); c = mix(vec3(lmid), c, 1.0 + midday * 0.08);          // 中間調の彩度を+8%（昼だけ少し戻す）
+        float farB = smoothstep(0.34, 0.50, vUv.y) * (1.0 - smoothstep(0.56, 0.72, vUv.y)); // 地平の帯（遠くの町/山がいる所）
+        c = mix(c, mix(vec3(L(c)), vec3(0.72, 0.79, 0.90), 0.55), midday * farB * 0.22);     // 遠景を薄青へ低彩度に＝空気遠近（白い霞でなく空気の青み・奥行き）
       }
       // ★A1：朝もや/夕もや。画面の下〜中ほど（地面・谷）を、もやで少し白っぽく・低彩度に・ほのかに発光させ、立ちこめる空気の層を出す。
       //   朝は単独で冷たいもや／夕は上のgoldenが温かさを足して“あたたかい夕もや”に。地平へ向かうほど濃い。
