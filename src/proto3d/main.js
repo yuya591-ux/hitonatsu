@@ -10424,11 +10424,15 @@ function castLine() {
 }
 function reel() {
   if (fishState === 'bite') {
-    const name = FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]
+    // P3：谷戸の大きな池(二ツ池/三ツ池)では、ごく まれに“ぬし”がかかる＝一期一会の手応え（押し付けない・噂が探索を駆動）
+    const nushi = castPond && castPond.yato && Math.random() < 0.05
+    const name = nushi ? 'ぬし' : FISH_NAMES[Math.floor(Math.random() * FISH_NAMES.length)]
     if (!fish.kinds[name]) fish.first[name] = { day, tw: timeWord(tday), place: nearPlace() } // はじめて釣った日・時刻・場所
     fish.count++; fish.kinds[name] = (fish.kinds[name] || 0) + 1
-    playPlop(); spawnRipple(floatMesh.position.x, floatMesh.position.z) // 釣り上げる「ぴちゃっ」
-    showToast(`${name}が つれた！`); endFishing()
+    spawnRipple(floatMesh.position.x, floatMesh.position.z)
+    if (nushi) { spawnRipple(floatMesh.position.x, floatMesh.position.z); playFound(); showToast('！！ ずっしり 重い…！ 池の ぬしを つり上げた！') } // 大物＝きらり音＋大きな波紋
+    else { playPlop(); showToast(`${name}が つれた！`) }
+    endFishing()
   } else if (fishState === 'wait') endFishing('はやい！ にげられた')
 }
 function endFishing(msg) { fishState = 'idle'; clearTimeout(fishTimer); floatMesh.visible = false; castPond = null; if (fishEl) fishEl.textContent = 'つる'; if (msg) showToast(msg) }
@@ -12343,6 +12347,7 @@ function creatureArt(kind) {
   else if (kind === 'セミ') { ell(cx, cy + 4, 9, 16, '#4a5a3a'); ell(cx - 12, cy, 13, 7, 'rgba(210,220,230,0.7)', -0.5); ell(cx + 12, cy, 13, 7, 'rgba(210,220,230,0.7)', 0.5); ell(cx, cy - 11, 7, 6, '#3a4a2e') } // 体＋透けた翅
   else if (kind === 'ザリガニ') { ell(cx, cy + 6, 9, 14, '#c0402a'); for (const s of [-1, 1]) { x.beginPath(); x.moveTo(cx + s * 6, cy - 4); x.lineTo(cx + s * 18, cy - 12); x.stroke(); ell(cx + s * 20, cy - 14, 6, 4, '#c0402a', s * 0.6) } x.beginPath(); for (const s of [-1, 1]) { x.moveTo(cx, cy + 14); x.lineTo(cx + s * 8, cy + 20) } x.stroke() } // 体＋はさみ
   else if (kind === 'おたまじゃくし') { ell(cx - 4, cy, 12, 11, '#3a4636'); x.beginPath(); x.moveTo(cx + 7, cy); x.quadraticCurveTo(cx + 22, cy - 8, cx + 26, cy + 4); x.stroke(); fill('#fff'); x.beginPath(); x.arc(cx - 7, cy - 3, 2.4, 0, 7); x.fill() } // 丸い頭＋しっぽ
+  else if (kind === 'ぬし') { ell(cx - 3, cy, 22, 14, '#39454e'); x.beginPath(); x.moveTo(cx + 15, cy); x.lineTo(cx + 30, cy - 13); x.lineTo(cx + 30, cy + 13); x.closePath(); fill('#39454e'); x.fill(); x.stroke(); ell(cx + 2, cy - 9, 8, 4, '#4e5c66', -0.3); fill('#fff'); x.beginPath(); x.arc(cx - 13, cy - 3, 3, 0, 7); x.fill(); fill('#2a333a'); x.beginPath(); x.arc(cx - 13, cy - 3, 1.4, 0, 7); x.fill() } // 大きな池の主＝黒っぽい大魚
   else { const col = kind === 'メダカ' ? '#9aa66a' : kind === 'ナマズ' ? '#5a5a4a' : '#b0a070'; ell(cx - 4, cy, 17, 10, col); x.beginPath(); x.moveTo(cx + 11, cy); x.lineTo(cx + 24, cy - 9); x.lineTo(cx + 24, cy + 9); x.closePath(); fill(col); x.fill(); x.stroke(); fill('#fff'); x.beginPath(); x.arc(cx - 11, cy - 2, 2.6, 0, 7); x.fill(); if (kind === 'ナマズ') { x.beginPath(); x.moveTo(cx - 13, cy + 2); x.lineTo(cx - 24, cy - 1); x.moveTo(cx - 13, cy + 4); x.lineTo(cx - 24, cy + 7); x.stroke() } } // 魚＝胴＋尾びれ＋目（ナマズはひげ）
   return c.toDataURL()
 }
@@ -12358,6 +12363,7 @@ const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fi
     { k: 'ザリガニ', d: 'はさみを ふりあげて おこる。赤い よろい。' },
     { k: 'ナマズ', d: 'どろの 底に ひそむ。ひげが ながい。' },
     { k: 'おたまじゃくし', d: 'やがて カエルに なる。しっぽが かわいい。' },
+    { k: 'ぬし', d: '大きな池に、ごく たまに。…ぬしと よばれる 大物。' },
   ],
 }
 for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c.k) // 起動時に挿絵を1回だけ生成
