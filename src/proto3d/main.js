@@ -1426,6 +1426,24 @@ function makeSuikaTub(x, z, rot) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.02); addContactShadow(g, 0.6); scene.add(g)
 }
 makeSuikaTub(-9.5, 15.5, 0.4) // 縁側のそば（木かげ）
+// 畑の農具＝トタンのバケツと緑のじょうろ。畝のわきに置きっぱなしの生活感。材質ごと1ドローに統合
+function makeGardenTools(x, z, rot) {
+  const g = new THREE.Group()
+  const metal = [] // バケツ（トタン）：胴＋底＋縁を1メッシュに
+  { const b = new THREE.CylinderGeometry(0.17, 0.13, 0.28, 14, 1, true); b.translate(-0.32, 0.14, 0); metal.push(b) }
+  { const bo = new THREE.CircleGeometry(0.13, 14); bo.rotateX(-Math.PI / 2); bo.translate(-0.32, 0.002, 0); metal.push(bo) }
+  { const ri = new THREE.TorusGeometry(0.17, 0.018, 6, 16); ri.rotateX(Math.PI / 2); ri.translate(-0.32, 0.28, 0); metal.push(ri) }
+  const bucket = new THREE.Mesh(mergeGeometries(metal), toon(0x9aa0a2)); metal.forEach((d) => d.dispose()); g.add(bucket)
+  const bhandle = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.012, 6, 14, Math.PI), toon(0x6a7072)); bhandle.position.set(-0.32, 0.28, 0); g.add(bhandle) // 半円の取っ手
+  const green = [] // じょうろ（緑のブリキ）：胴＋注ぎ口を1メッシュに
+  { const jb = new THREE.CylinderGeometry(0.14, 0.16, 0.26, 14); jb.translate(0.22, 0.16, 0); green.push(jb) }
+  { const js = new THREE.CylinderGeometry(0.032, 0.05, 0.42, 8); js.rotateZ(-0.85); js.translate(0.46, 0.24, 0); green.push(js) }
+  const jelly = new THREE.Mesh(mergeGeometries(green), toon(0x3f7a55)); green.forEach((d) => d.dispose()); g.add(jelly)
+  const jrose = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.05, 0.05, 10), toon(0x356a48)); jrose.position.set(0.62, 0.37, 0); jrose.rotation.z = -0.85; g.add(jrose) // ハス口
+  const jhandle = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 6, 14, Math.PI), toon(0x356a48)); jhandle.position.set(0.2, 0.3, 0); jhandle.rotation.z = Math.PI; g.add(jhandle) // 上の取っ手
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.02); addContactShadow(g, 0.6); scene.add(g)
+}
+makeGardenTools(-22.3, 8.6, -0.8) // 夏野菜の畑のわき
 // 夕涼みの縁台＋赤提灯（昭和の夏の夕暮れの象徴）＝木の縁台＋柱に吊るした赤提灯。細部は材質ごと1ドローに統合
 function makeAkachochinBench(x, z, rot) {
   const g = new THREE.Group()
