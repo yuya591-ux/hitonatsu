@@ -1444,6 +1444,20 @@ function makeGardenTools(x, z, rot) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.02); addContactShadow(g, 0.6); scene.add(g)
 }
 makeGardenTools(-22.3, 8.6, -0.8) // 夏野菜の畑のわき
+// 軒下に吊るした干し玉ねぎ・唐辛子＝昭和の農家の軒先。風でわずかにゆれる。玉ねぎ／唐辛子は色ごと1ドローに統合
+function makeHangingVeg(x, y, z) {
+  const g = new THREE.Group(); g.position.set(x, y, z)
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.5, 4), toon(0x6a5a44)); str.position.y = -0.25; g.add(str) // 吊り紐
+  const onions = [] // 玉ねぎの房（5個を互い違いに）
+  for (let i = 0; i < 5; i++) { const o = new THREE.SphereGeometry(0.075, 8, 6); o.scale(1, 1.15, 1); o.translate((i % 2 ? 0.05 : -0.05), -0.46 - i * 0.11, (i % 2 ? 0.04 : -0.03)); onions.push(o) }
+  const onion = new THREE.Mesh(mergeGeometries(onions), toon(0xceb06a)); onions.forEach((d) => d.dispose()); g.add(onion)
+  const chilis = [] // 唐辛子（赤・細い）数本
+  for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28; const cl = new THREE.ConeGeometry(0.014, 0.13, 5); cl.rotateX(Math.PI); cl.translate(Math.cos(a) * 0.09, -0.5 + Math.sin(a) * 0.02, Math.sin(a) * 0.09); chilis.push(cl) }
+  const chili = new THREE.Mesh(mergeGeometries(chilis), toon(0xc23a2a)); chilis.forEach((d) => d.dispose()); g.add(chili)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  scene.add(g); swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.06 })
+}
+{ const hy = heightAt(28, -12); makeHangingVeg(29.4, hy + 3.0, -8.5); makeHangingVeg(26.6, hy + 3.0, -8.5) } // 2軒目の農家の軒下に2房
 // 夕涼みの縁台＋赤提灯（昭和の夏の夕暮れの象徴）＝木の縁台＋柱に吊るした赤提灯。細部は材質ごと1ドローに統合
 function makeAkachochinBench(x, z, rot) {
   const g = new THREE.Group()
