@@ -7503,6 +7503,20 @@ makeFireShed(2775, -70, 0.3, heightAtYato(2775, -70))
   const txt = new THREE.Mesh(new THREE.PlaneGeometry(0.84, 0.28), new THREE.MeshBasicMaterial({ map: textTex('火の用心', '#3a2a1e', '#e8dcc0', false), transparent: true, toneMapped: false })); txt.position.set(0, 1.18, 0.035); wg.add(txt)
   wg.traverse((o) => { if (o.isMesh) o.castShadow = true })
   wg.position.set(wx, wgy, wz); wg.rotation.y = 1.3; mergedOutline(wg, 0.02); addContactShadow(wg, 0.8); scene.add(wg) }
+// 野菜の無人販売所（横溝屋敷の田のそば＝採れたて野菜を縁台に並べ、料金箱に小銭を入れる昭和の田舎の信用販売）
+function makeMujinHanbai(x, z, rot, gy) {
+  const g = new THREE.Group(), wood = toon(0x9a7a4e), woodD = toon(0x6a4e30)
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.7), wood); top.position.y = 0.78; g.add(top) // 売り台
+  for (const [lx, lz] of [[-0.7, -0.28], [0.7, -0.28], [-0.7, 0.28], [0.7, 0.28]]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.78, 0.08), woodD); leg.position.set(lx, 0.39, lz); g.add(leg) }
+  for (const px of [-0.7, 0.7]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.5, 0.07), woodD); post.position.set(px, 0.75, -0.3); g.add(post) } // 屋根の柱
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 0.62), toon(0x7a5a3a)); roof.position.set(0, 1.52, -0.18); roof.rotation.x = -0.22; g.add(roof) // 片流れ屋根
+  for (const [c, vx, vz, sx, sy, sz, ry] of [[0x6a3a8a, -0.52, 0.1, 0.62, 0.62, 1.5, 0.4], [0xc6402c, -0.22, 0.04, 1.0, 0.88, 1.0, 0], [0x4a7a3a, 0.12, 0.12, 0.42, 0.42, 1.7, -0.3], [0xd8b840, 0.46, 0.02, 0.6, 0.6, 1.5, 0.2]]) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), toon(c)); m.scale.set(sx, sy, sz); m.position.set(vx, 0.88 + sy * 0.04, vz); m.rotation.y = ry; g.add(m) } // なす(細長)/トマト(丸)/きゅうり(細長)/とうもろこし
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.22, 0.18), woodD); box.position.set(0.62, 0.93, 0.16); g.add(box) // 料金箱
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.2), new THREE.MeshBasicMaterial({ map: textTex('100えん', '#3a2a1e', '#f0e6cc', false), transparent: true, toneMapped: false })); sign.position.set(-0.1, 1.18, -0.27); g.add(sign) // 「100えん」の札
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, gy != null ? gy : heightAtYato(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.022); addContactShadow(g, 1.4); addCollider(x, z, 1.0); scene.add(g)
+}
+makeMujinHanbai(2430, 620, -1.4, heightAtYato(2430, 620))
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
