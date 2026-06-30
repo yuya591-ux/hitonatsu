@@ -1458,6 +1458,21 @@ function makeHangingVeg(x, y, z) {
   scene.add(g); swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.06 })
 }
 { const hy = heightAt(28, -12); makeHangingVeg(29.4, hy + 3.0, -8.5); makeHangingVeg(26.6, hy + 3.0, -8.5) } // 2軒目の農家の軒下に2房
+// 金魚鉢＝縁台の上に置いた夏の風物詩。ガラスの鉢に水と金魚2匹（透けて見える）
+function makeKingyobachi(x, y, z) {
+  const g = new THREE.Group(); g.position.set(x, y, z)
+  const water = new THREE.Mesh(new THREE.SphereGeometry(0.135, 14, 10, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.55), new THREE.MeshToonMaterial({ color: 0x7fb6cc, gradientMap: GRAD, transparent: true, opacity: 0.62 })); water.position.y = 0.16; g.add(water) // 水（下半分）
+  const fish = [] // 金魚2匹：胴＋尾を1メッシュに
+  for (const [fx, fz, fa] of [[0.04, 0.03, 0.6], [-0.05, -0.02, 2.4]]) {
+    const b = new THREE.SphereGeometry(0.05, 8, 6); b.scale(1.5, 0.8, 1); b.rotateY(fa); b.translate(fx, 0.14, fz); fish.push(b)
+    const t = new THREE.ConeGeometry(0.04, 0.08, 5); t.rotateZ(Math.PI / 2); t.rotateY(fa); t.translate(fx - Math.cos(fa) * 0.09, 0.15, fz + Math.sin(fa) * 0.09); fish.push(t) // 尾
+  }
+  const fishM = new THREE.Mesh(mergeGeometries(fish), toon(0xe8702a)); fish.forEach((d) => d.dispose()); g.add(fishM)
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), new THREE.MeshToonMaterial({ color: 0xcfeaf0, gradientMap: GRAD, transparent: true, opacity: 0.3, side: THREE.DoubleSide })); bowl.position.y = 0.16; g.add(bowl) // ガラスの鉢
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.012, 6, 16), toon(0xbfe0e8)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.3; g.add(rim) // すぼまった口の縁
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); addContactShadow(g, 0.3); scene.add(g)
+}
+{ const by = heightAt(-12, 18) + 0.47; makeKingyobachi(-11.7, by, 17.85) } // 縁台の座面の上
 // 夕涼みの縁台＋赤提灯（昭和の夏の夕暮れの象徴）＝木の縁台＋柱に吊るした赤提灯。細部は材質ごと1ドローに統合
 function makeAkachochinBench(x, z, rot) {
   const g = new THREE.Group()
