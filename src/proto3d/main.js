@@ -1384,7 +1384,15 @@ makeVending(TOWN.x + 46, TOWN.z - 6, 0, 0x2a7ab0); makeVending(TOWN.x + 47.6, TO
 function makePole(x, z) {
   const g = new THREE.Group(); const pole = toon(0x9a958c)
   const p = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 9, 8), pole); p.position.y = 4.5; g.add(p)
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 0.16), toon(0x6a5a44)); arm.position.y = 8.2; g.add(arm)
+  const armM = toon(0x6a5a44)
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 0.16), armM); arm.position.y = 8.2; g.add(arm)
+  const arm2 = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.14, 0.14), armM); arm2.position.y = 7.5; g.add(arm2) // 腕金2段目
+  const insG = [] // 碍子（がいし）＝腕金の上の白い小さな碍子。1ドローに統合
+  for (const ax of [-1.0, 0, 1.0]) { const ins = new THREE.CylinderGeometry(0.08, 0.1, 0.18, 6); ins.translate(ax, 8.37, 0); insG.push(ins) }
+  for (const ax of [-0.8, 0.8]) { const ins = new THREE.CylinderGeometry(0.07, 0.09, 0.16, 6); ins.translate(ax, 7.66, 0); insG.push(ins) }
+  const insMesh = new THREE.Mesh(mergeGeometries(insG), toon(0xdad6c6)); insG.forEach((d) => d.dispose()); g.add(insMesh)
+  if (Math.round(x) % 2 === 0) { const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.72, 10), toon(0x8a8a86)); tr.position.set(0.42, 6.6, 0); g.add(tr) } // 柱上変圧器（一部の電柱に）
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   placeProp(g, x, z, 0, 0.05, 0.6)
   auditProps.push({ g, x, z, kind: 'pole', wired: true }) // 電柱は電線でつながるので動かすと配線がずれる＝移設対象から外す（fixPropsでwiredはスキップ）
   return new THREE.Vector3(x, heightAt(x, z) + 8.2, z)
