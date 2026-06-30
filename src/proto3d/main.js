@@ -1409,6 +1409,23 @@ function makeWarnSign(x, z, rot) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.02); addContactShadow(g, 0.3); scene.add(g)
 }
 makeWarnSign(-4, 21, -0.4) // 家先の辻（丸ポストのそば）
+// たらいで冷やす西瓜＝井戸水で冷やした夏のごちそう。緑＋縞のテクスチャを巻いた一個の西瓜が水に半分沈む
+const suikaTex = (() => {
+  const w = 64, h = 32, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d')
+  x.fillStyle = '#4f9040'; x.fillRect(0, 0, w, h) // 西瓜の地（明るい緑）
+  x.strokeStyle = '#2c5a28'; x.lineWidth = 3; x.lineCap = 'round' // 濃い緑の縞（うねる経線）
+  for (let i = 0; i < 8; i++) { const xx = (i + 0.5) / 8 * w; x.beginPath(); for (let yy = 0; yy <= h; yy += 3) { const wob = Math.sin(yy * 0.4 + i * 1.3) * 2.2; yy === 0 ? x.moveTo(xx + wob, yy) : x.lineTo(xx + wob, yy) } x.stroke() }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4; return t
+})()
+function makeSuikaTub(x, z, rot) {
+  const g = new THREE.Group()
+  const tub = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.52, 0.34, 18, 1, true), toon(0xa6acae)); tub.position.y = 0.17; g.add(tub) // たらい（トタンの開口）
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.038, 8, 22), toon(0xc2c8ca)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.34; g.add(rim) // 縁
+  const water = new THREE.Mesh(new THREE.CircleGeometry(0.57, 22), new THREE.MeshToonMaterial({ color: 0x86bdce, gradientMap: GRAD, transparent: true, opacity: 0.86 })); water.rotation.x = -Math.PI / 2; water.position.y = 0.28; g.add(water) // 水面
+  const melon = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), new THREE.MeshToonMaterial({ color: 0xffffff, map: suikaTex, gradientMap: GRAD })); melon.position.set(0.09, 0.33, -0.05); melon.scale.set(1, 0.94, 1); g.add(melon) // 西瓜（半分沈む）
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.02); addContactShadow(g, 0.6); scene.add(g)
+}
+makeSuikaTub(-9.5, 15.5, 0.4) // 縁側のそば（木かげ）
 // 夕涼みの縁台＋赤提灯（昭和の夏の夕暮れの象徴）＝木の縁台＋柱に吊るした赤提灯。細部は材質ごと1ドローに統合
 function makeAkachochinBench(x, z, rot) {
   const g = new THREE.Group()
