@@ -7531,6 +7531,27 @@ function makeMujinHanbai(x, z, rot, gy) {
   g.position.set(x, gy != null ? gy : heightAtYato(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.022); addContactShadow(g, 1.4); addCollider(x, z, 1.0); scene.add(g)
 }
 makeMujinHanbai(2430, 620, -1.4, heightAtYato(2430, 620))
+// ザリガニ（二ツ池の岸＝夏の子どもの宝もの。はさみをゆっくり開閉し触角を揺らす。駄菓子屋の男の子の「二ツ池でザリガニとらない？」とつながる発見・C16残り）
+const crayfish = []
+function makeCrayfish(x, z, gy, rot) {
+  const g = new THREE.Group(), red = toon(0xb23a24), redD = toon(0x7a2418)
+  const ceph = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), red); ceph.scale.set(1, 0.7, 1.5); ceph.position.set(0, 0.06, 0.06); g.add(ceph) // 頭胸部
+  for (let i = 0; i < 3; i++) { const seg = new THREE.Mesh(new THREE.SphereGeometry(0.055 - i * 0.012, 8, 6), red); seg.scale.set(1, 0.6, 1.1); seg.position.set(0, 0.05 + i * 0.004, -0.06 - i * 0.065); g.add(seg) } // 腹部の節
+  const fan = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.06, 6), redD); fan.rotation.x = -1.9; fan.position.set(0, 0.06, -0.29); g.add(fan) // 尾扇
+  const claws = []
+  for (const sx of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(sx * 0.055, 0.07, 0.17); arm.rotation.x = -0.5 // はさみを前上へ構える（ザリガニらしい姿勢）
+    const seg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.016, 0.1, 5), redD); seg1.rotation.x = -0.4; seg1.position.set(0, 0, 0.05); arm.add(seg1)
+    const pincer = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), red); pincer.scale.set(0.85, 0.6, 1.7); pincer.position.set(0, 0.01, 0.14); arm.add(pincer) // はさみの膨らみ
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.06, 5), redD); tip.rotation.x = 1.6; tip.position.set(0, 0.015, 0.2); arm.add(tip) // はさみの先
+    g.add(arm); claws.push(arm) }
+  const ants = []
+  for (const sx of [-1, 1]) { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.002, 0.16, 4), redD); a.position.set(sx * 0.025, 0.08, 0.18); a.rotation.x = -0.7; a.rotation.z = sx * 0.3; g.add(a); ants.push(a) } // 触角
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, gy, z); g.rotation.y = rot || 0; g.userData = { claws, ants, ph: Math.random() * 6, baseY: gy }
+  mergedOutline(g, 0.013); addContactShadow(g, 0.5); scene.add(g); crayfish.push(g); return g
+}
+makeCrayfish(3020, -484, heightAtYato(3020, -484), 2.4)
+makeCrayfish(2998, -482, heightAtYato(2998, -482), -1.1)
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
@@ -12027,6 +12048,17 @@ function update(dt) {
       }
     } else if (act === 'sweep' && near) u.head.rotation.x += (0 - u.head.rotation.x) * Math.min(1, dt * 3) // 話しかけられたら顔を上げる
     else if (act === 'gaze' && near) u.head.rotation.x += (0 - u.head.rotation.x) * Math.min(1, dt * 3)
+  }
+  // ザリガニ（二ツ池の岸＝はさみをゆっくり開閉・触角を揺らす。約90mで描画カリング・60mでアニメ停止）
+  if (area === 'yato' || onYato) for (const cf of crayfish) {
+    const cdx = boy.position.x - cf.position.x, cdz = boy.position.z - cf.position.z, cd2 = cdx * cdx + cdz * cdz
+    cf.visible = cd2 < 90 * 90
+    if (cd2 > 60 * 60) continue
+    const u = cf.userData, ct = tsec * 1.4 + u.ph
+    const open = 0.18 + Math.sin(ct) * 0.18 // はさみの開き
+    u.claws[0].rotation.y = open; u.claws[1].rotation.y = -open
+    u.ants[0].rotation.z = -0.3 - Math.sin(ct * 1.7) * 0.18; u.ants[1].rotation.z = 0.3 + Math.sin(ct * 1.7 + 0.6) * 0.18 // 触角ゆらゆら
+    cf.position.y = u.baseY + Math.abs(Math.sin(ct * 0.6)) * 0.01 // わずかな息づき
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
