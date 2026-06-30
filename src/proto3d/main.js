@@ -1323,6 +1323,27 @@ function makePostBox(x, z, rot) {
   placeProp(g, x, z, rot || 0, 0.04, 0.7)
 }
 makePostBox(-7, 22)
+// 夕涼みの縁台＋赤提灯（昭和の夏の夕暮れの象徴）＝木の縁台＋柱に吊るした赤提灯。細部は材質ごと1ドローに統合
+function makeAkachochinBench(x, z, rot) {
+  const g = new THREE.Group()
+  const woodGeos = [] // 縁台（座面＋脚）
+  { const top = new THREE.BoxGeometry(1.5, 0.1, 0.5); top.translate(0, 0.42, 0); woodGeos.push(top) }
+  for (const lx of [-0.6, 0.6]) for (const lz of [-0.18, 0.18]) { const leg = new THREE.BoxGeometry(0.09, 0.42, 0.09); leg.translate(lx, 0.21, lz); woodGeos.push(leg) }
+  const wood = new THREE.Mesh(mergeGeometries(woodGeos), toon(0x8a5a32)); wood.castShadow = true; woodGeos.forEach((d) => d.dispose()); g.add(wood)
+  const frameGeos = [] // 提灯を吊るす柱＋腕木
+  { const pole = new THREE.CylinderGeometry(0.05, 0.05, 2.5, 6); pole.translate(-0.85, 1.25, -0.12); frameGeos.push(pole) }
+  { const arm = new THREE.CylinderGeometry(0.035, 0.035, 0.66, 5); arm.rotateZ(Math.PI / 2); arm.translate(-0.55, 2.42, -0.12); frameGeos.push(arm) }
+  const frame = new THREE.Mesh(mergeGeometries(frameGeos), toon(0x5a4632)); frame.castShadow = true; frameGeos.forEach((d) => d.dispose()); g.add(frame)
+  const lan = new THREE.Group() // 赤提灯（紙＝あかるい赤／上下の黒い口は1ドローに統合）
+  lan.add(new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.4, 12), toon(0xe24632)))
+  const capGeos = []
+  { const ct = new THREE.CylinderGeometry(0.1, 0.16, 0.06, 12); ct.translate(0, 0.23, 0); capGeos.push(ct) }
+  { const cb = new THREE.CylinderGeometry(0.16, 0.1, 0.06, 12); cb.translate(0, -0.23, 0); capGeos.push(cb) }
+  const caps = new THREE.Mesh(mergeGeometries(capGeos), toon(0x241712)); caps.castShadow = false; lan.add(caps)
+  lan.position.set(-0.26, 2.15, -0.12); g.add(lan)
+  placeProp(g, x, z, rot || 0, 0.03, 1.2)
+}
+makeAkachochinBench(-12, 18, 0.4)
 // 物干し（洗濯もの）
 {
   const g = new THREE.Group(); const pole = toon(0xb4b4b0)
