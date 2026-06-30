@@ -7442,6 +7442,34 @@ giveBroom(yatoShrineBaa) // お社＝境内を掃く
 yatoPondJii.userData.act = 'gaze' // 池＝水面を眺める（小道具なし）
 giveBroom(yatoYashikiBaa) // 屋敷＝家の前を掃く
 giveUchiwa(yatoMorningJii) // 近所＝軒先でうちわ（開始地点のそば＝序盤の暮らしの気配）
+// 泉屋（大衆食堂）の おばさん（店先で呼び込み・カレーとラーメンの匂い。開始地点から遠い＝歩いて見つける店）
+const yatoDinerLady = makeYatoResident(2672, -17, 2676, -14, {
+  scale: 1.14, adult: true, simple: true, build: 1.1, garment: 'dress', apron: 0xc24a3a, shirt: 0xdcd2bc, skirt: 0x6a5a4a, skin: 0xeec0a0,
+  hair: 0x554636, hairStyle: 'bob', brow: true, browTilt: 0.85, eyeSc: 1.0,
+  info: { name: '食堂の おばさん',
+    arcGreet: { 1: 'いらっしゃい！うちは ごはんも めんも あるよ。', 2: 'おや、また 来てくれたね。おなか すいたかい。', 3: 'もう 夏も おわりかい。…また 食べに おいで。まけとくよ。' },
+    byPhase: {
+      morning: ['おはよう。朝めし、たべてくかい。みそ汁 つけるよ。', 'のれん、いま 出した ところだよ。', 'けさは アジの ひらきが いいよ。'],
+      noon: ['いらっしゃい！ひるどきは こむよ、はやく おはいり。', 'カレーが よく 出るんだ。あつい 夏でもね。', 'れいやし中華、はじめました。よく ひえてるよ。'],
+      evening: ['ゆうはんは なに たべる？ラーメンも あるよ。', 'お父さんの かえりに、おかず 持ってくかい。', '夕がたは ビールの お客さんで にぎわうんだ。'],
+      night: ['もう のれん しまう ところだよ。', 'こんな じかんに、おなか すかせて。おにぎり 持ってきな。', '気をつけて お帰り。あぶないからね。'],
+    } },
+})
+npcs.push(yatoDinerLady); giveUchiwa(yatoDinerLady)
+// 光明寺の おばあさん（参道で本堂に手を合わせる・お墓まいり帰り。野菜の入った買い物袋を提げて）
+const yatoTeraBaa = makeYatoResident(2735, -427, 2735, -420, {
+  scale: 1.07, adult: true, simple: true, build: 0.9, garment: 'dress', apron: 0xb8b0a0, shirt: 0x8a8478, skirt: 0x4a463e, skin: 0xe4b78e,
+  hair: 0xcdc9bf, hairStyle: 'bob', brow: true, browTilt: 0.45, browY: 0.005, eyeSc: 0.92, bag: 0xb89a64,
+  info: { name: 'お寺の おばあさん',
+    arcGreet: { 1: 'おや、お参りかい。ほとけさまも よろこばれるよ。', 2: 'また 会えたね。仏さまの ご縁だねえ。', 3: 'もう 夏も しまいだね。…達者でね。また 手を あわせに おいで。' },
+    byPhase: {
+      morning: ['おはよう。朝の お寺は、空気が きよくて ええねえ。', 'ご先祖さまに、手を あわせてきた ところだよ。', 'けさは セミが、本堂で よう ないとった。'],
+      noon: ['暑いねえ。山門の 日かげで、ひと休みしていき。', 'この お寺は、むかしから ここに あってねえ。', 'お墓の 花も、すぐ しおれちまう 暑さだよ。'],
+      evening: ['夕がたの 鐘が、もうじき なるよ。', 'ひぐらしを きくと、なんだか しみじみするねえ。', '帰りに、畑で もらった なすを 持ってくかい。'],
+      night: ['夜の お寺は、しずかで こころが おちつくよ。', 'ひとりで えらいねえ。気を つけて お帰り。', '月あかりで、本堂が ほの白く 見えるね。'],
+    } },
+})
+npcs.push(yatoTeraBaa); yatoTeraBaa.userData.act = 'gaze' // 本堂を見上げて手を合わせる気配
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
