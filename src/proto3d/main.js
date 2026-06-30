@@ -1307,14 +1307,22 @@ function placeProp(g, x, z, rot, outline, shadowR) {
   mergedOutline(g, outline); addContactShadow(g, shadowR); scene.add(g)
   return g
 }
-// 丸ポスト
-{
+// 丸ポスト（郵便差出箱1号丸型）＝関数化＋当時の細部（投函口の庇・取り出し口の扉と取っ手・足元の台座）。ダークな細部は1ドローに統合＝元と同じ3ドローで質感UP
+function makePostBox(x, z, rot) {
   const g = new THREE.Group(); const red = toon(0xc0392b)
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 2.2, 12), red); body.position.y = 1.1; g.add(body)
-  const top = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), red); top.position.y = 2.2; g.add(top)
-  const slot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.06), toon(0x241712)); slot.position.set(0, 1.72, 0.42); g.add(slot)
-  placeProp(g, -7, 22, 0, 0.04, 0.7)
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 2.2, 14), red); body.position.y = 1.1; g.add(body)
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 9, 0, Math.PI * 2, 0, Math.PI / 2), red); top.position.y = 2.2; g.add(top)
+  const dk = []
+  { const slot = new THREE.BoxGeometry(0.5, 0.09, 0.1); slot.translate(0, 1.74, 0.4); dk.push(slot) } // 投函口
+  { const visor = new THREE.BoxGeometry(0.56, 0.05, 0.18); visor.translate(0, 1.84, 0.42); dk.push(visor) } // 庇
+  { const door = new THREE.BoxGeometry(0.5, 0.62, 0.05); door.translate(0, 0.82, 0.43); dk.push(door) } // 取り出し口の扉
+  { const knob = new THREE.BoxGeometry(0.08, 0.08, 0.07); knob.translate(0.16, 0.82, 0.46); dk.push(knob) } // 取っ手
+  { const base = new THREE.CylinderGeometry(0.5, 0.54, 0.2, 14); base.translate(0, 0.1, 0); dk.push(base) } // 台座
+  const dark = new THREE.Mesh(mergeGeometries(dk), toon(0x2a1712)); dark.castShadow = true; dk.forEach((d) => d.dispose()); g.add(dark)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  placeProp(g, x, z, rot || 0, 0.04, 0.7)
 }
+makePostBox(-7, 22)
 // 物干し（洗濯もの）
 {
   const g = new THREE.Group(); const pole = toon(0xb4b4b0)
@@ -3320,7 +3328,7 @@ function buildShishigaya() {
     hachi(4131, -1050, Math.PI / 2); hachi(4172, -1088, 0); hachi(4120, -1118, Math.PI / 2) // 北門の家の軒先にも鉢植え
     makeVending(4128, -984, 0.3, 0xc23a2c) // 小道の入口の自販機（プール帰りのラムネ）
     makeVending(2900, -50, 1.0, 0xc23a2c); makeVending(3052, -118, -0.6, 0x2a7ab0); makeVending(3120, -100, 0.4, 0xe0a838) // 道角の自販機（風呂上がり/夏のラムネ）
-    { const g = new THREE.Group(), red = toon(0xc0392b); const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red); body.position.y = 1.05; g.add(body); const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red); top.position.y = 2.1; g.add(top); placeProp(g, 2960, -86, 0, 0.04, 0.7) } // 丸ポスト
+    makePostBox(2960, -86) // 丸ポスト
     // ── P3（2026-06-27）：開始地点の生活感を厚く＋サンライズ(マンション)の壁を植栽で和らげる。
     //    “人がいた痕跡”＝止め置き自転車・軒先の鉢、東面の壁ぎわに街路樹/生垣/電柱で壁を背景へ。道幅と建物は避け手置き。
     const parkedBike = (x, z, rot, col = 0x2f4a8a) => { const g = new THREE.Group(), bg = new THREE.Group() // 少し傾けて立てかけた自転車
@@ -3360,7 +3368,7 @@ function buildShishigaya() {
     makePhoneBox(3024, 18.5, -0.5); makePhoneBox(2958, -512, 0.6) // 開始の通りの路肩＋二ツ池の道
     makeBoard(3013, 41, 0.1); makeBoard(2968, -455, -0.4); makeBoard(3046, -55, 1.0) // 開始地点の道・二ツ池・核
     makeVending(3010, -205, 0.3, 0xc23a2c); makeVending(2972, -360, -0.5, 0x2a7ab0) // 追加の自販機
-    { const g = new THREE.Group(), red = toon(0xc0392b); PM(g, new THREE.CylinderGeometry(0.4, 0.44, 2.1, 12), red, 0, 1.05, 0); PM(g, new THREE.SphereGeometry(0.4, 12, 8, 0, 6.28, 0, Math.PI / 2), red, 0, 2.1, 0); placeProp(g, 3038, -178, 0, 0.04, 0.7) } } // 追加の丸ポスト
+    makePostBox(3038, -178) } // 追加の丸ポスト
   // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木（実在の名所）。※夏は満開の桜ではなく青々とした緑葉＝季節に忠実（色は2894行で夏緑に・2026-06-26）
   for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
   let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
