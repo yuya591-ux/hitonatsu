@@ -12001,6 +12001,14 @@ function update(dt) {
     if (area === 'yato' && mode === 'walk' && moving && boy.position.z < 24 && boy.position.x > 2960 && boy.position.x < 3060) onceHint('wander-down', '坂の 下のほうに、なにか ありそう。道しるべを たどって みよう。')
     // 写真の気づき（1回だけ）：最初の誘導のあと、昼間に少し離れて歩いていたら「📷で 夏の しゃしんが とれるよ」（左上の📷ボタンへ気づけるように）
     if (area === 'yato' && mode === 'walk' && moving && seenHints['wander-down'] && tday > 0.2 && tday < 0.78) onceHint('photo', '左上の 📷で、夏の しゃしんが とれるよ。')
+    // P4：名所に近づくと一度だけ「気づきの一言」＝散策のご褒美を言葉で（指図でなく独白・地物に出会う情緒）
+    if ((area === 'yato' || onYato) && mode === 'walk' && seenGuide && !dialogue) {
+      const bx = boy.position.x, bz = boy.position.z
+      if (Math.hypot(bx - 3008, bz + 489) < 16) onceHint('lm-niike', '大きな 池だ。…二ツ池って いうらしい。水面に、夏の 空が うつっている。')
+      else if (Math.hypot(bx - 3124, bz + 186) < 20) onceHint('lm-school', '小学校だ。夏休みの 校庭は、しんと している。…なんだか、なつかしい。')
+      else if (Math.hypot(bx - 2960, bz + 335) < 16) onceHint('lm-shrine', '古い おやしろだ。鳥居を くぐると、せみの声が すこし とおのいた。')
+      else if (Math.hypot(bx - 2368, bz - 662) < 18) onceHint('lm-yashiki', '大きな かやぶきの 屋敷。…ずっと むかしから、ここに あるみたいだ。')
+    }
     if (window.__senkoBtn) window.__senkoBtn.style.display = (!dialogue && (tday > 0.8 || tday < 0.06) && !senko.active) ? 'block' : 'none' // H4：夜だけ線香花火ボタンを出す
     const nearCat = area === 'yato' && Math.hypot(boy.position.x - cat.position.x, boy.position.z - cat.position.z) < 2.2 // 猫は獅子ヶ谷(サンライズ前)に居る＝撫でられる
     const vendNear = area === 'town' ? VENDING : ((area === 'yato' || onYato) ? YATO_VEND : null) // 町は従来の自販機／谷戸は道角の自販機（W1：ご褒美をyatoにも）
