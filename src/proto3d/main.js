@@ -1302,6 +1302,43 @@ makeSmoke(HENG.x + 1.4, HENG.y + 0.7, HENG.z) // 縁側の蚊取り線香
   }
 }
 
+// ── よしず（葦簀）＝縁側の夏の日よけ。葦の縦じまテクスチャを貼った一枚板を立てかける（昭和の夏の必需品）──
+const yoshizuTex = (() => {
+  const w = 64, h = 128, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d')
+  x.fillStyle = '#cdb877'; x.fillRect(0, 0, w, h) // 葦の地色
+  for (let i = 0; i < w; i += 2) { const v = Math.random(); x.strokeStyle = v < 0.33 ? '#b49b58' : v < 0.66 ? '#dcc98a' : '#c6af6c'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(i + 0.7, 0); x.lineTo(i + 0.7, h); x.stroke() } // 縦の葦（濃淡で本数感）
+  x.strokeStyle = 'rgba(58,44,26,0.45)'; x.lineWidth = 2 // 横の編み糸（黒っぽい結束）
+  for (const y of [9, h * 0.34, h * 0.66, h - 9]) { x.beginPath(); x.moveTo(0, y); x.lineTo(w, y); x.stroke() }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t
+})()
+function makeYoshizu(x, z, rot, w = 1.7, h = 2.1) {
+  const g = new THREE.Group()
+  const pivot = new THREE.Group(); pivot.rotation.x = 0.15 // 上が少し後ろへもたれる
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshToonMaterial({ color: 0xffffff, map: yoshizuTex, gradientMap: GRAD, side: THREE.DoubleSide }))
+  panel.position.y = h / 2; pivot.add(panel)
+  const rod = toon(0x9a824e)
+  for (const ry of [0.06, h - 0.06]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, w + 0.1, 6), rod); r.rotation.z = Math.PI / 2; r.position.y = ry; pivot.add(r) } // 上下の巻き竹
+  g.add(pivot)
+  for (const lx of [-w / 2 + 0.25, w / 2 - 0.25]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, h * 1.02, 5), rod); leg.position.set(lx, h * 0.48, -0.2); leg.rotation.x = -0.15; g.add(leg) } // 後ろの支え脚
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; addContactShadow(g, w * 0.6); scene.add(g)
+}
+makeYoshizu(HENG.x + 2.0, HENG.z + 0.4, -0.7) // 縁側の東の端に立てかけた日よけ
+// 縁側の小物：麦わら帽子・うちわ（夏の昼下がりの気配）＝板の上に置く
+{
+  const topY = HENG.y + 0.80 // 縁側の板の上
+  const hat = new THREE.Group() // 麦わら帽子
+  hat.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.31, 0.02, 16), toon(0xd9c27a))) // つば
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), toon(0xe0ca80)); crown.position.y = 0.02; hat.add(crown)
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.166, 0.166, 0.05, 14), toon(0x7a4a3a)); band.position.y = 0.04; hat.add(band) // リボン
+  hat.traverse((o) => { if (o.isMesh) o.castShadow = true }); hat.position.set(HENG.x - 1.6, topY, HENG.z + 0.2); hat.rotation.y = 0.5; scene.add(hat)
+  const u = new THREE.Group() // うちわ
+  const fan = new THREE.Mesh(new THREE.CircleGeometry(0.17, 18), new THREE.MeshToonMaterial({ color: 0xf0ead6, gradientMap: GRAD, side: THREE.DoubleSide })); fan.rotation.x = -Math.PI / 2; u.add(fan)
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.012, 6, 20), toon(0x8a6a3a)); ring.rotation.x = -Math.PI / 2; u.add(ring) // 骨のふち
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.015, 0.22), toon(0x9a7a4a)); handle.position.set(0, 0, 0.26); u.add(handle) // 柄
+  const motif = new THREE.Mesh(new THREE.CircleGeometry(0.06, 12), new THREE.MeshBasicMaterial({ color: 0xc0504a })); motif.rotation.x = -Math.PI / 2; motif.position.set(0.03, 0.003, -0.02); u.add(motif) // 朝顔の絵
+  u.traverse((o) => { if (o.isMesh) o.castShadow = true }); u.position.set(HENG.x - 0.85, topY + 0.01, HENG.z + 0.1); u.rotation.y = -0.4; scene.add(u)
+}
+
 // ── 時代の生活痕（昭和後期〜平成初期）：丸ポスト・物干し・電柱と電線・自販機 ──
 function placeProp(g, x, z, rot, outline, shadowR) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
