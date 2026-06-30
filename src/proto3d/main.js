@@ -5666,6 +5666,34 @@ for (const [hx, hz] of [[2380, -654], [2382, -657], [2378, -651], [2960, -322], 
 // ── 野原(エリア1)の充実：家の畑・田んぼ・すずめ ──
 // 家のとなりの畑（うね＋作物＋スイカ）＝暮らしの気配。水やりの“過ごす行動”の場
 const GARDEN = { x: HOUSE.x + 7, z: HOUSE.z - 4 }
+// P3「育つ夏」：毎朝 水をやると育つ朝顔（畑のそば）＝“明日も来たい”を作る。成長段階はlocalStorageに残る＝世話が世界に残る
+let asagaoStage = 0, asagaoWaterDay = 0 // 0=芽→1=双葉→2=つる→3=つぼみ→4=初花→5=満開／最後に水をやった日(1日1回だけ育つ・甘やかに＝休んでも罰しない)
+try { asagaoStage = Math.min(5, Math.max(0, +(localStorage.getItem('hn3d_asagao') || 0) || 0)) } catch (e) {}
+try { asagaoWaterDay = +(localStorage.getItem('hn3d_asagao_day') || 0) || 0 } catch (e) {}
+const personalAsagao = new THREE.Group()
+const asagaoPlant = new THREE.Group(); personalAsagao.add(asagaoPlant) // 成長で作り直す部分（接地影は親に付けて消えないように）
+personalAsagao.position.set(GARDEN.x + 1.4, heightAt(GARDEN.x + 1.4, GARDEN.z - 1.0), GARDEN.z - 1.0); personalAsagao.rotation.y = 0.4
+const asagaoMats = { pot: toon(0xb5673f), dirt: toon(0x4a3a2c), bamboo: toon(0xbfae6e), leaf: toon(0x4a7a3a), flower: new THREE.MeshToonMaterial({ color: 0x6a7ed0, gradientMap: GRAD, side: THREE.DoubleSide }) }
+function setAsagaoStage(s) {
+  for (let i = asagaoPlant.children.length - 1; i >= 0; i--) { const c = asagaoPlant.children[i]; if (c.geometry && c.geometry.dispose) c.geometry.dispose(); asagaoPlant.remove(c) }
+  const buckets = {}
+  const push = (key, geo, x, y, z, rz) => { geo = geo.clone(); if (rz) geo.rotateZ(rz); geo.translate(x, y, z); (buckets[key] || (buckets[key] = [])).push(geo) }
+  push('pot', new THREE.CylinderGeometry(0.3, 0.22, 0.3, 10), 0, 0.15, 0)
+  push('dirt', new THREE.CylinderGeometry(0.26, 0.26, 0.05, 10), 0, 0.3, 0)
+  if (s <= 0) push('leaf', new THREE.ConeGeometry(0.035, 0.13, 5), 0, 0.4, 0) // 芽
+  else if (s === 1) { for (const sx of [-0.07, 0.07]) { const g0 = new THREE.SphereGeometry(0.08, 6, 5); g0.scale(1.1, 0.4, 1); push('leaf', g0, sx, 0.42, 0) } } // 双葉
+  else {
+    const H = 0.7 + s * 0.22
+    for (const px of [-0.24, 0.24]) push('bamboo', new THREE.CylinderGeometry(0.016, 0.016, H, 5), px, 0.3 + H / 2, 0)
+    push('bamboo', new THREE.CylinderGeometry(0.013, 0.013, 0.52, 5), 0, 0.3 + H * 0.8, 0, Math.PI / 2)
+    for (let i = 0; i < 4 + s; i++) push('leaf', new THREE.IcosahedronGeometry(0.1, 0), -0.26 + Math.random() * 0.52, 0.4 + Math.random() * (H - 0.12), 0.02)
+    if (s === 3) for (let i = 0; i < 2; i++) push('flower', new THREE.ConeGeometry(0.05, 0.15, 5), -0.16 + i * 0.32, 0.55 + H * 0.4, 0.05) // つぼみ
+    if (s >= 4) { const nf = s === 4 ? 2 : 4; for (let i = 0; i < nf; i++) push('flower', new THREE.CircleGeometry(0.12, 8), -0.24 + Math.random() * 0.48, 0.45 + Math.random() * (H - 0.12), 0.06) } // 花
+  }
+  for (const k in buckets) { const merged = mergeGeometries(buckets[k], false); buckets[k].forEach((g) => g.dispose()); if (merged) { const m = new THREE.Mesh(merged, asagaoMats[k]); m.castShadow = true; asagaoPlant.add(m) } } // 材質ごとに1ドローへ統合＝描画予算にやさしい
+}
+setAsagaoStage(asagaoStage)
+addContactShadow(personalAsagao, 0.9); scene.add(personalAsagao)
 const gardenCrops = []
 {
   const soil = toon(0x6b4a33)
@@ -10081,7 +10109,7 @@ function buildDiaryEntry() {
   if (todayFlags.sawMedaka) body.push('メダカは、近づくと さっと にげた。指の あいだを すりぬけた。')
   else if (todayFlags.sawPond) body.push('池を のぞいた。メダカが いた きがする。')
   if (todayFlags.sawFrog) body.push('カエルを 見つけた。じっと こっちを 見ていた。')
-  if (todayFlags.watered) body.push('畑に 水を やった。土の においが 立った。あした 大きく なってるかな。')
+  if (todayFlags.watered) body.push(asagaoWaterDay === day ? (asagaoStage >= 5 ? '朝顔が 満開に なった。…この夏の、たからもの。' : asagaoStage >= 4 ? '朝顔が、はじめて 花を つけた。あした も 咲くかな。' : '朝顔に 水を やった。つるが、すこし のびた きがする。') : '畑に 水を やった。土の においが 立った。')
   if (todayFlags.satHill) body.push(dpick(['ベンチで ぼーっと した。風が 草を なでて いく音が した。', 'すこし すわって やすんだ。とおくで 入道雲が もくもく していた。', 'ベンチに こしかけた。あつい 一日が、ゆっくり 過ぎていった。']))
   if (todayFlags.layDown) body.push(dpick(['草の上で ねころんだ。雲が ゆっくり ながれて いった。', '草の上に ねころんだ。空が やけに 高くて、すいこまれそうだった。', 'ねころんで 空を 見た。雲の かたちが、すこしずつ 変わっていった。']))
   if (todayFlags.jumped) body.push(dpick(['なんとなく ぴょんと はねた。とくに 理由は なかった。', 'みずたまりを ジャンプで こえた。…ちょっと とどかなかった。']))
@@ -10218,7 +10246,15 @@ function waterPlants() {
   facing = Math.atan2(GARDEN.x - boy.position.x, GARDEN.z - boy.position.z); boy.rotation.y = facing // 畑の方を向く
   todayFlags.watered = true
   playPlop()
-  showToast('畑に 水を やった。土が いいにおい。')
+  // P3：毎日の水やりで朝顔が育つ（1日1回・世話が世界に残る）
+  if (asagaoWaterDay !== day && asagaoStage < 5) {
+    asagaoWaterDay = day; asagaoStage = Math.min(5, asagaoStage + 1)
+    try { localStorage.setItem('hn3d_asagao', asagaoStage); localStorage.setItem('hn3d_asagao_day', day) } catch (e) {}
+    setAsagaoStage(asagaoStage)
+    const grew = ['めが でた。', '双葉が ひらいた。', 'つるが、ぐんと のびた。', 'つぼみが ついた。…あした 咲くかな。', 'はじめての 花が 咲いた！', '満開に なった。'][asagaoStage]
+    showToast('朝顔に 水を やった。' + grew)
+  } else if (asagaoStage >= 5) showToast('朝顔は、もう 満開。…きれいだなあ。')
+  else showToast('きょうは もう 水を やったね。あした また あげよう。')
 }
 let lamuneCd = 0
 function buyRamune() {
@@ -11898,7 +11934,7 @@ function update(dt) {
     if (talkTarget && !dialogue) { npcEl.textContent = 'はなしかける'; npcEl.dataset.act = 'talk'; npcEl.style.display = 'block'; onceHint('talk', '人が いるね。右下の「はなしかける」を おしてみよう。') }
     else if (nearCat && !dialogue) { npcEl.textContent = 'なでる'; npcEl.dataset.act = 'pet'; npcEl.style.display = 'block' }
     else if (nearVending && !dialogue) { npcEl.textContent = 'ラムネを 一本'; npcEl.dataset.act = 'buy'; npcEl.style.display = 'block' }
-    else if (nearGarden && !dialogue) { npcEl.textContent = '水をやる'; npcEl.dataset.act = 'water'; npcEl.style.display = 'block' }
+    else if (nearGarden && !dialogue) { npcEl.textContent = '水をやる'; npcEl.dataset.act = 'water'; npcEl.style.display = 'block'; onceHint('asagao', '朝顔の 鉢が あるよ。毎朝 水を やると、すこしずつ 育つんだ。') }
     else npcEl.style.display = 'none'
     if (!nearNpc && !dialogue && nearEngawa) { actBtn.textContent = '縁側にすわる'; actBtn.dataset.spot = 'engawa'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearBench) { actBtn.textContent = 'すわる'; actBtn.dataset.spot = 'bench'; actBtn.style.display = 'block'; onceHint('sit', 'ベンチが あるね。「すわる」を おすと、ひとやすみ できるよ。') }
