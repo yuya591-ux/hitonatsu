@@ -60,9 +60,10 @@
       #zout { bottom: calc(9% + 90px + env(safe-area-inset-bottom)); }
       #zin { bottom: calc(9% + 150px + env(safe-area-inset-bottom)); }
       .zbtn:active { background: rgba(240,232,218,0.7); transform: scale(0.94); }
-      #look { left: 50%; bottom: calc(9% + env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 0.4em 1.1em;
+      /* 主観モードの説明＝下部中央のドック/ジャンプと干渉していたので上部中央へ退避（横画面で操作ボタンに被らない・ユーザー指摘2026-07-01） */
+      #look { left: 50%; top: calc(3.5% + env(safe-area-inset-top)); transform: translateX(-50%); padding: 0.4em 1.1em;
         font-size: clamp(12px,2.2vw,16px); color: #fdf7ec; background: rgba(60,66,98,0.8);
-        border-radius: 999px; display: none; }
+        border-radius: 999px; display: none; z-index: 7; }
       /* ── 下部中央のドック：移動/くつろぎのトグルを一列にまとめる（ねころぶ・🚲・🎈）＝散らからない ── */
       #dock { left: 50%; bottom: calc(5% + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 10px; align-items: flex-end; z-index: 6; }
       /* ドックの各ボタンは「絵＋小さな言葉」で統一＝🚲🎈📷が何か一目で分かる（UX見直し2026-06-26） */
