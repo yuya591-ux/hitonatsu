@@ -12801,6 +12801,8 @@ window.__proto3d = {
   _setTdayLive(t) { dayAuto = true; tday = t; setTimeOfDay(t) }, // 検証用：dayAutoを生かしたまま時刻を置く（日課トースト=if(dayAuto)内 を発火させる）
   startAudio,
   placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
+  __taiso(on) { if (on) { area = 'yato'; dayAuto = false; tday = 0.08; setTimeOfDay(tday); boy.position.set(3118, heightAtYato(3118, -186), -180); startTaiso() } else stopTaiso(); return doingTaiso }, // 検証用：ラジオ体操に参加（姿勢確認）
+  get _doingTaiso() { return doingTaiso }, // 検証用
   sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(3012, heightAt(3012, 25), 25) } boy.userData._cy = null }, // 検証用：屋上/入口に置く
   sunRoofY: { get top() { return SUN_ROOF.top } }, // 検証用：屋上top
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
