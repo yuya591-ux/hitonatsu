@@ -7417,6 +7417,31 @@ const yatoMorningJii = makeYatoResident(3022, 16, 3016, 22, {
     } },
 })
 npcs.push(yatoMorningJii)
+// ── 住人の“暮らしの所作”：手に小道具を持たせ、話していない時はうちわで扇ぐ／ほうきで掃く／水面を眺める（yatoFolk ループで動かす・C14） ──
+function giveUchiwa(p) { // うちわ（暑い昼〜夕方にパタパタあおぐ）
+  if (!p.userData.elbowR) return
+  const u = new THREE.Group()
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.16, 0.018), toon(0x9a7b4a)); handle.position.y = 0.07; u.add(handle)
+  const paddle = new THREE.Mesh(new THREE.CircleGeometry(0.12, 16), new THREE.MeshToonMaterial({ color: 0xeae2cc, gradientMap: GRAD, side: THREE.DoubleSide })); paddle.position.y = 0.21; u.add(paddle)
+  u.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  u.position.set(0, -0.24, 0.05); u.rotation.x = -0.5
+  p.userData.elbowR.add(u); p.userData.uchiwa = u; p.userData.act = 'fan'
+}
+function giveBroom(p) { // 竹ぼうき（境内や家の前を掃く）
+  if (!p.userData.elbowR) return
+  const b = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.92, 6), toon(0xb89a64)); pole.position.y = -0.30; b.add(pole) // 竹の柄（手の下へ長く伸ばす）
+  const bind = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.045, 6), toon(0x7a5a34)); bind.position.y = -0.62; b.add(bind) // しばり目
+  const straw = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 7, 1, true), new THREE.MeshToonMaterial({ color: 0xc7a85a, gradientMap: GRAD, side: THREE.DoubleSide })); straw.position.y = -0.78; straw.rotation.x = Math.PI; b.add(straw) // 竹ぼうきの穂先
+  b.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  b.position.set(0, -0.2, 0.06); b.rotation.x = 0.5 // 穂先を前下＝地面へ向ける
+  p.userData.elbowR.add(b); p.userData.broom = b; p.userData.act = 'sweep'
+}
+giveUchiwa(yatoDagashiBaa) // 駄菓子屋＝店先でうちわ
+giveBroom(yatoShrineBaa) // お社＝境内を掃く
+yatoPondJii.userData.act = 'gaze' // 池＝水面を眺める（小道具なし）
+giveBroom(yatoYashikiBaa) // 屋敷＝家の前を掃く
+giveUchiwa(yatoMorningJii) // 近所＝軒先でうちわ（開始地点のそば＝序盤の暮らしの気配）
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
@@ -11883,7 +11908,36 @@ function update(dt) {
       n.rotation.y += dd * Math.min(1, dt * 4)
       n.userData.head.rotation.y *= 0.85
     } else n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
-    npcArms(n, near, dt, tsec)
+    // 暮らしの所作：話していない時だけ（近づくと所作をやめてこちらを向く・C14）
+    const act = n.userData.act, u = n.userData
+    const acting = !!act && !near
+    const fanning = acting && act === 'fan' && tday > 0.32 && tday < 0.82
+    const sweeping = acting && act === 'sweep' && tday > 0.18 && tday < 0.86
+    if (!(fanning || sweeping)) npcArms(n, near, dt, tsec) // 腕の所作中はnpcArmsを通さない（腕を取り合って中途半端になるのを防ぐ）
+    if (acting) {
+      if (act === 'fan') { // うちわでパタパタ＝暑い昼〜夕方だけ。涼しい朝夜は手を下ろして休む
+        if (fanning) { const f = Math.sin(tsec * 7 + n.position.x)
+          u.armR.rotation.x += (-0.95 - u.armR.rotation.x) * Math.min(1, dt * 5)
+          u.armR.rotation.z += (0.55 - u.armR.rotation.z) * Math.min(1, dt * 5)
+          u.elbowR.rotation.x += ((-1.35 + f * 0.28) - u.elbowR.rotation.x) * Math.min(1, dt * 12)
+          if (u.uchiwa) u.uchiwa.rotation.x = -0.5 + f * 0.35
+        } else if (u.uchiwa) { u.uchiwa.rotation.x += (-0.5 - u.uchiwa.rotation.x) * Math.min(1, dt * 4) } // 涼しい朝夜は腕を下ろして休む（腕はnpcArms任せ）
+      } else if (act === 'sweep') { // ほうきで掃く＝前かがみで左右にゆっくり掃く（夜は休む）
+        if (sweeping) { const s = Math.sin(tsec * 1.7 + n.position.x) // 掃くリズム
+          u.head.rotation.x += (0.42 - u.head.rotation.x) * Math.min(1, dt * 4) // 手もと（地面）を見る
+          u.armR.rotation.x += (-0.62 - u.armR.rotation.x) * Math.min(1, dt * 5)
+          u.armR.rotation.z += ((0.22 + s * 0.32) - u.armR.rotation.z) * Math.min(1, dt * 6) // 左右に掃く
+          u.elbowR.rotation.x += (-0.5 - u.elbowR.rotation.x) * Math.min(1, dt * 6)
+          if (u.armL) { u.armL.rotation.x += (-0.5 - u.armL.rotation.x) * Math.min(1, dt * 5); u.armL.rotation.z += ((-0.1 + s * 0.3) - u.armL.rotation.z) * Math.min(1, dt * 6) } // 添える手も一緒に動く
+          if (u.elbowL) u.elbowL.rotation.x += (-0.7 - u.elbowL.rotation.x) * Math.min(1, dt * 6)
+        } else { u.head.rotation.x += (0 - u.head.rotation.x) * Math.min(1, dt * 3) }
+      } else if (act === 'gaze') { // 水面・景色を眺める＝うつむき気味にゆっくり首をふる
+        u.head.rotation.x += (0.36 - u.head.rotation.x) * Math.min(1, dt * 4)
+        u.head.rotation.y = Math.sin(tsec * 0.3 + n.position.x) * 0.3
+        u.head.rotation.z = Math.sin(tsec * 0.22 + n.position.x) * 0.06 // ときおり首をかしげる
+      }
+    } else if (act === 'sweep' && near) u.head.rotation.x += (0 - u.head.rotation.x) * Math.min(1, dt * 3) // 話しかけられたら顔を上げる
+    else if (act === 'gaze' && near) u.head.rotation.x += (0 - u.head.rotation.x) * Math.min(1, dt * 3)
   }
   // 蝶（昼に舞い、夜は消える）
   for (const b of butterflies) {
@@ -13384,7 +13438,8 @@ window.__proto3d = {
   _akatombo() { const d = yatoBugs.filter((c) => c.dusk); return { total: d.length, vis: d.filter((c) => c.obj.visible).length, at: d.slice(0, 3).map((c) => [Math.round(c.obj.position.x), Math.round(c.obj.position.z), c.obj.visible]) } }, // 検証用：赤とんぼ(dusk)の数と表示中
   _sparrows() { return sparrows.map((s) => ({ at: [+s.position.x.toFixed(0), +s.position.z.toFixed(0)], area: s.userData.area, state: s.userData.state, y: +s.position.y.toFixed(2), vis: s.visible })) }, // 検証用：スズメの状態（home areaと表示）
   _shopkeepers() { return shopkeepers.map((p) => ({ at: [+p.position.x.toFixed(0), +p.position.z.toFixed(0)], y: +p.position.y.toFixed(1), garment: p.userData.garment, sweep: !!p.userData.sweep, faceX: +Math.sin(p.rotation.y).toFixed(2), faceZ: +Math.cos(p.rotation.y).toFixed(2) })) }, // 検証用：店番の位置・服・掃除か・向き(顔の方向)
-  _yatoFolk() { return yatoFolk.map((p) => ({ name: p.userData.info.name, at: [+p.position.x.toFixed(1), +p.position.z.toFixed(1)], y: +p.position.y.toFixed(2), spotOk: npcSpotOk(p.position.x, p.position.z, 0.7), onRoad: onYatoRoadCore(p.position.x, p.position.z), inNpcs: npcs.includes(p) })) }, // 検証用：yatoの話せる住人（接地/開けた地面/道よけ/npcs登録）
+  _yatoFolk() { return yatoFolk.map((p) => ({ name: p.userData.info.name, at: [+p.position.x.toFixed(1), +p.position.z.toFixed(1)], y: +p.position.y.toFixed(2), spotOk: npcSpotOk(p.position.x, p.position.z, 0.7), onRoad: onYatoRoadCore(p.position.x, p.position.z), inNpcs: npcs.includes(p), act: p.userData.act || null, broom: !!p.userData.broom, uchiwa: !!p.userData.uchiwa, vis: p.visible, armRx: +p.userData.armR.rotation.x.toFixed(2), headx: +p.userData.head.rotation.x.toFixed(2) })) }, // 検証用：yatoの話せる住人（接地/開けた地面/道よけ/npcs登録/暮らしの所作/腕・頭の角度）
+  get _dbgArea() { return { area, onYato } }, // 検証用：現在のエリア状態
   get _talkTarget() { return talkTarget ? talkTarget.userData.info.name : null }, // 検証用：いま話しかけられる相手の名前
   get _flags() { return { ...todayFlags } }, // 検証用：絵日記フラグの現在値
   _diaryName() { return dlgNameEl.textContent }, // 検証用：いま開いている会話の相手名
