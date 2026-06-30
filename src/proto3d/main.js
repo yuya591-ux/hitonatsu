@@ -1473,6 +1473,20 @@ function makeKingyobachi(x, y, z) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); addContactShadow(g, 0.3); scene.add(g)
 }
 { const by = heightAt(-12, 18) + 0.47; makeKingyobachi(-11.7, by, 17.85) } // 縁台の座面の上
+// ツバメの巣（軒先）＝泥のおわんの巣に、口を開けて餌を待つヒナ。昭和の軒先の初夏〜夏の風物詩（QUALITY_ROADMAP C17）
+function makeTsubameNest(x, y, z, rot) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot || 0
+  const nest = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), toon(0x6a4e38)); nest.scale.set(1, 0.9, 0.72); nest.position.z = -0.04; g.add(nest) // 泥のおわん（壁に貼り付く半カップ）
+  const heads = [] // ヒナの頭（黒っぽい）3羽
+  for (const [hx, hz] of [[-0.06, 0.02], [0.06, 0.02], [0, -0.03]]) { const h = new THREE.SphereGeometry(0.046, 8, 6); h.translate(hx, 0.06, hz); heads.push(h) }
+  const headM = new THREE.Mesh(mergeGeometries(heads), toon(0x2c2c30)); heads.forEach((d) => d.dispose()); g.add(headM)
+  const beaks = [] // 黄色いくちばし（上に開けて餌を待つ＝ツバメのヒナの象徴）
+  for (const [hx, hz] of [[-0.06, 0.02], [0.06, 0.02], [0, -0.03]]) { const b = new THREE.ConeGeometry(0.03, 0.07, 5); b.rotateX(Math.PI * 0.3); b.translate(hx, 0.105, hz + 0.045); beaks.push(b) }
+  const beakM = new THREE.Mesh(mergeGeometries(beaks), toon(0xe6ac32)); beaks.forEach((d) => d.dispose()); g.add(beakM)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(g)
+}
+{ const r = 0.35, lx = -2.0, lz = 2.55, cy = heightAt(HOUSE.x, HOUSE.z) // 縁側の左の軒角（壁ぎわ）
+  makeTsubameNest(HOUSE.x + lx * Math.cos(r) + lz * Math.sin(r), cy + 2.86, HOUSE.z - lx * Math.sin(r) + lz * Math.cos(r), r) }
 // 夕涼みの縁台＋赤提灯（昭和の夏の夕暮れの象徴）＝木の縁台＋柱に吊るした赤提灯。細部は材質ごと1ドローに統合
 function makeAkachochinBench(x, z, rot) {
   const g = new THREE.Group()
