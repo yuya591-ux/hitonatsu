@@ -1336,6 +1336,15 @@ function makeVending(x, z, rot, col = 0xc23a2c) {
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { _m.setPosition(-0.3 + i * 0.3, 1.05 + j * 0.4, 0.5); cans.setMatrixAt(ci, _m); cans.setColorAt(ci, new THREE.Color(canCols[(i * 3 + j) % canCols.length])); ci++ }
   cans.instanceMatrix.needsUpdate = true; if (cans.instanceColor) cans.instanceColor.needsUpdate = true
   g.add(cans)
+  // 当時の自販機の細部（取り出し口・コイン投入口の柱・台座）＝ダークな細部を1ドローに統合（quality↑・予算最小）
+  const dkGeos = []
+  { const slot = new THREE.BoxGeometry(0.64, 0.26, 0.14); slot.translate(0, 0.44, 0.45); dkGeos.push(slot) } // 取り出し口（下の方の口）
+  { const coin = new THREE.BoxGeometry(0.17, 0.62, 0.07); coin.translate(0.6, 1.52, 0.47); dkGeos.push(coin) } // コイン投入口の柱（右側）
+  { const base = new THREE.BoxGeometry(1.48, 0.18, 0.98); base.translate(0, 0.09, 0); dkGeos.push(base) } // 台座（足元の暗い縁）
+  { const topb = new THREE.BoxGeometry(1.46, 0.12, 0.94); topb.translate(0, 2.16, 0); dkGeos.push(topb) } // 天面の縁
+  const dark = new THREE.Mesh(mergeGeometries(dkGeos), toon(0x33333a)); dark.castShadow = true; dkGeos.forEach((d) => d.dispose()); g.add(dark)
+  // 取り出し口の中の影（黒）＝奥行き感。MeshBasicの小さな面1枚（予算+1）
+  const hole = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), new THREE.MeshBasicMaterial({ color: 0x14141a })); hole.position.set(0, 0.44, 0.515); g.add(hole)
   placeProp(g, x, z, rot, 0.04, 1.0)
   auditProps.push({ g, x, z, kind: 'vending' })
 }
