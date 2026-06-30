@@ -757,6 +757,8 @@ const yatoGroundTex = (() => {
   blob('#9aa882', 0.17, 110, 8, 34)   // 草地のまだら（やや暗い緑灰＝陰る所）。マクロな斑のコントラストを下げ、上空からのタイル反復(格子模様)を目立たなく（D9・2026-06-25）
   blob('#d6ccab', 0.16, 70, 7, 22)    // 乾いた土／枯れ草の斑（暖色灰）
   blob('#d4e0b6', 0.14, 90, 6, 20)    // 明るい草のかたまり（光る所）
+  blob('#b8c277', 0.09, 16, 28, 58)   // 大きめのやわらかい斑（黄緑＝日なたの草地）＝マクロな色のゆらぎで一様な緑を解消
+  blob('#7f9a70', 0.09, 14, 28, 56)   // 大きめの斑（青緑＝湿った/陰る草地）＝丘が“塗り絵の一色”に見えるのを解消
   x.lineCap = 'round' // 短い草の筆致＝近くで見たときの細かな手ざわり（本数を増やして足元の密度を上げる）
   for (let i = 0; i < 2600; i++) { const px = Math.random() * s, py = Math.random() * s, a = (Math.random() - 0.5) * 0.9 - 1.57, len = 2 + Math.random() * 5, dark = Math.random() < 0.5; x.globalAlpha = 0.12 + Math.random() * 0.10; x.strokeStyle = dark ? '#8a987080' : '#ecf0dc'; x.lineWidth = 0.8 + Math.random() * 0.8; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len); x.stroke() }
   x.globalAlpha = 1
