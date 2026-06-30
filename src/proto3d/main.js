@@ -5736,7 +5736,7 @@ function makeSento(x, z, rot) {
 }
 makeSento(TOWN.x + 40, TOWN.z - 8, -Math.PI / 2)
 // ── 火の見櫓（昭和の町の遠景ランドマーク。鉄骨やぐら＋見張り台＋半鐘）──
-function makeFireTower(x, z) {
+function makeFireTower(x, z, gy) {
   const g = new THREE.Group(); const steel = toon(0x6f6356), H = 11, bR = 1.4, tR = 0.7
   const strut = (ax, ay, az, bx, by, bz, r) => { const dx = bx - ax, dy = by - ay, dz = bz - az, len = Math.hypot(dx, dy, dz); const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 5), steel); m.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize()); m.castShadow = true; g.add(m) }
   const corner = (lv) => { const y = lv * H / 3, r = bR + (tR - bR) * (lv / 3); return [[-r, y, -r], [r, y, -r], [r, y, r], [-r, y, r]] }
@@ -5747,7 +5747,8 @@ function makeFireTower(x, z) {
   const plat = new THREE.Mesh(new THREE.BoxGeometry(tR * 2 + 0.4, 0.1, tR * 2 + 0.4), steel); plat.position.y = H; plat.castShadow = true; g.add(plat)
   const roof = new THREE.Mesh(new THREE.ConeGeometry(tR + 0.6, 1.1, 4), toon(0x5a5048)); roof.rotation.y = Math.PI / 4; roof.position.y = H + 0.65; roof.castShadow = true; g.add(roof)
   const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.5, 10, 1, true), toon(0x47564e)); bell.position.set(0, H - 0.55, 0); g.add(bell) // 半鐘
-  g.position.set(x, heightAt(x, z), z); mergedOutline(g, 0.03); addContactShadow(g, 2.2); addCollider(x, z, 1.6); scene.add(g)
+  g.position.set(x, gy != null ? gy : heightAt(x, z), z); mergedOutline(g, 0.03); addContactShadow(g, 2.2); addCollider(x, z, 1.6); scene.add(g)
+  return g
 }
 makeFireTower(TOWN.x + 24, TOWN.z - 2)
 // ── プロパンガスのボンベ（家の脇＝昭和の生活必需。2本ずつ）──
@@ -7470,6 +7471,8 @@ const yatoTeraBaa = makeYatoResident(2735, -427, 2735, -420, {
     } },
 })
 npcs.push(yatoTeraBaa); yatoTeraBaa.userData.act = 'gaze' // 本堂を見上げて手を合わせる気配
+// 火の見櫓（昭和の村のランドマーク＝鉄骨やぐら＋見張り台＋半鐘）を獅子ヶ谷の村の中心（商店街・駐在所のそば）へ。歩く時の目印になり、遠くからも村の在りかを示す。開始から約240m＝開始カメラには霧で沈む
+makeFireTower(2780, -60, heightAtYato(2780, -60))
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
@@ -13468,6 +13471,7 @@ window.__proto3d = {
   _shopkeepers() { return shopkeepers.map((p) => ({ at: [+p.position.x.toFixed(0), +p.position.z.toFixed(0)], y: +p.position.y.toFixed(1), garment: p.userData.garment, sweep: !!p.userData.sweep, faceX: +Math.sin(p.rotation.y).toFixed(2), faceZ: +Math.cos(p.rotation.y).toFixed(2) })) }, // 検証用：店番の位置・服・掃除か・向き(顔の方向)
   _yatoFolk() { return yatoFolk.map((p) => ({ name: p.userData.info.name, at: [+p.position.x.toFixed(1), +p.position.z.toFixed(1)], y: +p.position.y.toFixed(2), spotOk: npcSpotOk(p.position.x, p.position.z, 0.7), onRoad: onYatoRoadCore(p.position.x, p.position.z), inNpcs: npcs.includes(p), act: p.userData.act || null, broom: !!p.userData.broom, uchiwa: !!p.userData.uchiwa, vis: p.visible, armRx: +p.userData.armR.rotation.x.toFixed(2), headx: +p.userData.head.rotation.x.toFixed(2) })) }, // 検証用：yatoの話せる住人（接地/開けた地面/道よけ/npcs登録/暮らしの所作/腕・頭の角度）
   get _dbgArea() { return { area, onYato } }, // 検証用：現在のエリア状態
+  _clearAt(x, z) { return { gy: +heightAtYato(x, z).toFixed(2), road: onYatoRoadCore(x, z), bld: deepInBuilding(x, z), water: npcInWater(x, z), spotOk: npcSpotOk(x, z, 1.6) } }, // 検証用：その地点が小物/櫓を置ける開けた地面か
   get _talkTarget() { return talkTarget ? talkTarget.userData.info.name : null }, // 検証用：いま話しかけられる相手の名前
   get _flags() { return { ...todayFlags } }, // 検証用：絵日記フラグの現在値
   _diaryName() { return dlgNameEl.textContent }, // 検証用：いま開いている会話の相手名
