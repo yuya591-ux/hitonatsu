@@ -1341,9 +1341,10 @@ function makeAkachochinBench(x, z, rot) {
   { const cb = new THREE.CylinderGeometry(0.16, 0.1, 0.06, 12); cb.translate(0, -0.23, 0); capGeos.push(cb) }
   const caps = new THREE.Mesh(mergeGeometries(capGeos), toon(0x241712)); caps.castShadow = false; lan.add(caps)
   lan.position.set(-0.26, 2.15, -0.12); g.add(lan)
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.62), new THREE.MeshBasicMaterial({ color: 0xff8a4a, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide }))
+  glow.position.copy(lan.position); g.add(glow); townNightLights.push({ m: glow, base: 0.7, ph: Math.random() * 6, flame: true }) // 夕暮れ〜夜にちらちら灯る赤提灯
   placeProp(g, x, z, rot || 0, 0.03, 1.2)
 }
-makeAkachochinBench(-12, 18, 0.4)
 // 物干し（洗濯もの）
 {
   const g = new THREE.Group(); const pole = toon(0xb4b4b0)
@@ -1652,6 +1653,7 @@ function makeShop(x, z, rot, opt) {
 }
 const townNightLights = [] // 夜に灯る街のあかり（窓・街灯・自販機）。nfで点灯＝夜のエモさ
 const festLights = [] // お祭り会場の暖色の灯り（点光源）＝夜に踊り手と地面を温かく照らす（黒シルエットを解消・ユーザー指摘2026-06-26）
+makeAkachochinBench(-12, 18, 0.4) // 夕涼みの縁台＋赤提灯（家先・縁側のそば）＝townNightLights定義後に呼ぶ（夜の灯り登録のため）
 const bonOdori = new THREE.Group(); bonOdori.visible = false; scene.add(bonOdori) // 盆踊り会場（櫓＋提灯）＝小学校の校庭。開催日だけ姿を見せる
 const finalDayProps = new THREE.Group(); finalDayProps.visible = false; scene.add(finalDayProps) // ひと夏の最終日(day>=TOTAL_DAYS)だけ世界が絵日記に呼応＝木の蝉の抜け殻・片付けかけの提灯。updateで day を見て visible 切替（喪失感をそっと）
 // 盆踊りの会場（櫓＋紅白幕＋太鼓＋提灯ガーランド＋屋台）を任意の場所(ox,oy,oz)に建てる。bonOdoriグループに入れ開催日だけ姿を見せ夜に灯る。獅子ヶ谷小学校の校庭(3124,-186)など複数会場で共用（ユーザー要望2026-06-24）
