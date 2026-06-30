@@ -10883,7 +10883,11 @@ function update(dt) {
     if (!diaryOpen && !seenSummer.nyudo && tday > 0.26 && tday < 0.48 && weather < 0.2) { seenSummer.nyudo = day; todayFlags.firstNyudo = true; saveSummer() }
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     // D3：朝のひとことを日替りに＝一日ごとに“手ざわり”が違う（初日のときめき→2日目のおまつり予感→最終日の名残）。ラジオ体操は共通の日課
-    if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true; showToast(day === 1 ? 'なつやすみ 初日。ラジオ体操の じかんだ。' : day >= TOTAL_DAYS ? 'なつやすみ さいごの 朝。…一日を、ゆっくり あるこう。' : 'あたらしい 朝。きょうも どこかで おまつりが あるらしい。') }
+    if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true
+      // P3：日替わりの催し＝今日ひらく祭り会場を朝に名指しで予報（festDayで3日周期にローテ＝昨日と違う今日の目的地）
+      const tv = FEST_VENUES.filter((v) => v.days.indexOf(festDay()) >= 0)
+      const fest = tv.length ? `今日の ゆうがたは、${tv[0].name}で 盆踊りが あるみたい。お囃子を たどって みよう。` : '今日は おまつりは おやすみ。…のんびり 一日を あるこう。'
+      showToast(day === 1 ? 'なつやすみ 初日。ラジオ体操の じかんだ。' : day >= TOTAL_DAYS ? 'なつやすみ さいごの 朝。…一日を、ゆっくり あるこう。' : 'あたらしい 朝。' + fest) }
     if (!dayEvents.dinner && prev < 0.7 && tday >= 0.7) { dayEvents.dinner = true; showToast('「ごはんよー」と よばれた。') }
     // D3：おまつりのある日(1・2日目)は夕方にお囃子に気づくひとこと＝音をたどって盆踊りへ。最終日(3日目)は会場が無く、静かな宵が“最後の日”の手ざわりになる
     if (!dayEvents.fest && tday > 0.5 && typeof activeVenue === 'function' && activeVenue()) { dayEvents.fest = true; showToast('どこかで おまつりの おはやしが きこえる。') }
