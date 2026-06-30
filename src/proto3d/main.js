@@ -7361,6 +7361,34 @@ const yatoDagashiBaa = makeYatoResident(2767, 150, 2768, 146, {
     } },
 })
 npcs.push(yatoDagashiBaa)
+// 神明社の おばあさん（境内を掃く・お社の世話。木陰とせみと落ち葉掃き）
+const yatoShrineBaa = makeYatoResident(2960, -330, 2960, -325, {
+  scale: 1.1, adult: true, simple: true, garment: 'dress', apron: 0xd8d2c4, shirt: 0x8a96a0, skirt: 0x5a5650, skin: 0xe6b890,
+  hair: 0xc8c4ba, hairStyle: 'bob', brow: true, browTilt: 0.5, eyeSc: 0.94,
+  info: { name: 'お社の おばあさん',
+    arcGreet: { 1: 'おや、お参りかい。ようこそ おまいり。', 2: 'また 来てくれたね。お社も よろこんどるよ。', 3: 'もう 夏も おわりだね。…また 来年、手を あわせに おいで。' },
+    byPhase: {
+      morning: ['おはよう。朝の お社は、しんと して 気もちいいねえ。', 'けさは 落ち葉が 多くてね。掃いても 掃いても。', 'お参りの まえに、手水で 手を きよめておいき。', '木もれ日が、参道に きらきら おちてるよ。'],
+      noon: ['暑いねえ。木かげで すこし 休んでおいき。', 'この みき、ご神木でね。何百年も ここに 立っとる。', 'せみの こえが、お社に こだまして すずしげだろう。', 'お賽銭は、むりせん でいいんだよ。気もちが だいじ。'],
+      evening: ['夕がたの お社は、いちだんと しずかでねえ。', 'ひぐらしが ないて、そろそろ 灯ろうに 火を いれる ころだ。', '夕やけが、鳥居を あかく そめておるよ。', 'おまもり、ひとつ もっておいき。…ないしょの おまけだよ。'],
+      night: ['夜の お社は、すこし おごそかだろう。', 'ひとりで 来たのかい。気を つけて お帰り。', '月あかりで、参道が ほの白く 見えるねえ。', 'むしの声を きくと、ご先祖さまが そばに おる気が するよ。'],
+    } },
+})
+npcs.push(yatoShrineBaa)
+// 二ツ池の おじいさん（水を見ている・釣りのまえの世間話。メダカと灯ろう流し）
+const yatoPondJii = makeYatoResident(3012, -480, 3006, -490, {
+  scale: 1.12, adult: true, simple: true, garment: 'tank', shirt: 0xe6e0d0, skirt: 0x5a5a52, skin: 0xd8a878,
+  hair: 0x9a968e, hairStyle: 'short', brow: true, browTilt: 0.6, eyeSc: 0.98,
+  info: { name: '池の おじいさん',
+    arcGreet: { 1: 'お、ぼうずか。この池を 見に きたのかい。', 2: 'また 来たな。まあ すわって、水でも ながめろ。', 3: 'もう 帰っちまうのか。…また 来年、この池で 会おうな。' },
+    byPhase: {
+      morning: ['朝は 水が すんでてな、底まで よう 見える。', 'メダカが、すいすい およいどる。見えるか。', 'けさは フナが はねてのう。大きいのが おる。', '朝もやが 池から たちのぼって、きれいなもんだ。'],
+      noon: ['暑い ひるまは、魚も 草かげに かくれよる。', 'むかしは ここで、よう ザリガニを とったもんだ。', 'あめんぼが、すいすい 水を すべっとるな。', 'のんびり 水を ながめとると、いやな ことも わすれる。'],
+      evening: ['夕がたは、魚が よく はねる。えさの 時間でな。', 'お盆には、この池に 灯ろうを ながすんだよ。きれいだぞ。', 'あかとんぼが、水の うえを とんでおる。', '夕やけが 池に うつって、空が ふたつに なる。'],
+      night: ['夜の池は、しずかで すこし こわいか。', '星が 水に うつって、池にも 星空が あるようだ。', 'かえるが、ごうごう ないとるのう。', 'よふかしは いかんぞ。気を つけて お帰り。'],
+    } },
+})
+npcs.push(yatoPondJii)
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
@@ -11813,8 +11841,10 @@ function update(dt) {
   }
   // 獅子ヶ谷（yato）の立ち話す住人：息づかい＋ふだんは見回し、近づくと気づいてこちらを向く（townLady と同じ作法。yato でだけ動かす）
   if (area === 'yato' || onYato) for (const n of yatoFolk) {
-    // ★性能（計算LOD）：約60m以遠の立ち話の人は息づかい/見回し/腕の計算を停止＝最後のポーズで静止して立つ。visibleはtrueのまま＝消えない（2026-06-29）
-    { const ndx = boy.position.x - n.position.x, ndz = boy.position.z - n.position.z; if (ndx * ndx + ndz * ndz > LOD_PERSON2) { _perfAnim.folk.skip++; continue } }
+    // ★性能：約130m以遠は描画カリング（豆粒＋霧で見えない＝ポップインは起きず、yato描画予算に余白を作り住人を町中に散らせる・2026-06-30）。約60m以遠はアニメ計算を停止（最後のポーズで静止・visibleは保つ）
+    const ndx = boy.position.x - n.position.x, ndz = boy.position.z - n.position.z, nd2 = ndx * ndx + ndz * ndz
+    n.visible = nd2 < 130 * 130
+    if (nd2 > LOD_PERSON2) { _perfAnim.folk.skip++; continue }
     _perfAnim.folk.ran++
     n.position.y = n.userData.baseY + Math.abs(Math.sin(tsec * 1.3 + n.position.x)) * 0.012
     const pd = Math.hypot(boy.position.x - n.position.x, boy.position.z - n.position.z)
