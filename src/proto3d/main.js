@@ -1388,6 +1388,27 @@ function makePostBox(x, z, rot) {
   placeProp(g, x, z, rot || 0, 0.04, 0.7)
 }
 makePostBox(-7, 22)
+// 「とびだし注意」の道路標識＝黄色地に走る子どもの絵＋文字（昭和の通学路の気配・意匠は自作のオリジナル）
+const tobidashiTex = (() => {
+  const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d')
+  x.fillStyle = '#f2c200'; x.fillRect(0, 0, s, s) // 黄色の地
+  x.strokeStyle = '#1c1c1c'; x.lineWidth = 6; x.strokeRect(7, 7, s - 14, s - 14) // 黒枠
+  x.fillStyle = '#1c1c1c'; x.strokeStyle = '#1c1c1c'; x.lineWidth = 6; x.lineCap = 'round'; x.lineJoin = 'round'
+  x.beginPath(); x.arc(57, 30, 9, 0, 6.283); x.fill() // 頭
+  x.beginPath(); x.moveTo(57, 39); x.lineTo(64, 64); x.stroke() // 胴
+  x.beginPath(); x.moveTo(59, 46); x.lineTo(43, 41); x.stroke(); x.beginPath(); x.moveTo(59, 48); x.lineTo(76, 53); x.stroke() // 腕（前後に振る）
+  x.beginPath(); x.moveTo(64, 64); x.lineTo(50, 80); x.stroke(); x.beginPath(); x.moveTo(64, 64); x.lineTo(80, 76); x.stroke() // 脚（走る）
+  x.fillStyle = '#1c1c1c'; x.font = 'bold 19px sans-serif'; x.textAlign = 'center'; x.fillText('とびだし', s / 2, 102); x.font = 'bold 17px sans-serif'; x.fillText('ちゅうい', s / 2, 120) // 文字
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t
+})()
+function makeWarnSign(x, z, rot) {
+  const g = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 8), toon(0xb2b2aa)); pole.position.y = 0.75; g.add(pole) // 銀の支柱
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshToonMaterial({ color: 0xffffff, map: tobidashiTex, gradientMap: GRAD, side: THREE.FrontSide })); board.position.y = 1.55; g.add(board)
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), toon(0xd8d0c2)); back.position.set(0, 1.55, -0.012); back.rotation.y = Math.PI; g.add(back) // 裏当て
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, heightAt(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.02); addContactShadow(g, 0.3); scene.add(g)
+}
+makeWarnSign(-4, 21, -0.4) // 家先の辻（丸ポストのそば）
 // 夕涼みの縁台＋赤提灯（昭和の夏の夕暮れの象徴）＝木の縁台＋柱に吊るした赤提灯。細部は材質ごと1ドローに統合
 function makeAkachochinBench(x, z, rot) {
   const g = new THREE.Group()
