@@ -3561,14 +3561,24 @@ function buildShishigaya() {
       PM(g, new THREE.BoxGeometry(0.78, 0.16, 0.04), toon(0xdfe6ee), 0, 2.16, 0.54) // 上の「公衆電話」表示板（庇の前面）
       PM(g, new THREE.BoxGeometry(0.78, 0.05, 0.045), toon(0x3a6a9a), 0, 2.06, 0.545) // 表示板の下の青ライン
       placeProp(g, x, z, rot || 0, 0.02, 0.7) }
-    const makeBoard = (x, z, rot) => { const g = new THREE.Group()
+    // 町内会の貼り紙テクスチャ（のっぺりした白紙を“読めるお知らせ”に）。お祭りの告知＝歩いて見つける小さな発見＆既存の盆踊り(校庭)と世界がつながる
+    const posterTex = (title, lines, accent, bg) => { const c = document.createElement('canvas'); c.width = 112; c.height = 152; const x = c.getContext('2d')
+      x.fillStyle = bg || '#e7d8b0'; x.fillRect(0, 0, 112, 152); x.strokeStyle = accent; x.lineWidth = 5; x.strokeRect(5, 5, 102, 142) // わら半紙色の地＋濃い枠
+      x.fillStyle = accent; x.font = 'bold 21px serif'; x.textAlign = 'center'; for (let i = 0; i < title.length; i++) x.fillText(title[i], 56, 32 + i * 22) // 縦書き風の見出し
+      x.font = 'bold 12px sans-serif'; x.fillStyle = '#3a322a'; for (let i = 0; i < lines.length; i++) x.fillText(lines[i], 56, 34 + title.length * 22 + 12 + i * 16)
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t }
+    const bonPoster = posterTex('盆踊り', ['八月十五日', '夕がたより', '小学校 校庭'], '#9a2f24')
+    const rajioPoster = posterTex('体操', ['毎朝 六時半', '神社の 境内', 'はんこ おします'], '#2a6a8a')
+    const makeBoard = (x, z, rot, poster) => { const g = new THREE.Group()
       for (const px of [-0.7, 0.7]) PM(g, new THREE.BoxGeometry(0.1, 1.65, 0.1), toon(0x6a4e30), px, 0.82, 0) // 2本柱
       PM(g, new THREE.BoxGeometry(1.7, 0.92, 0.08), toon(0x8a6a44), 0, 1.28, 0) // 板
       PM(g, new THREE.BoxGeometry(1.92, 0.1, 0.42), toon(0x5a4632), 0, 1.8, 0.07).rotation.x = -0.18 // 小さな庇
-      for (let i = 0; i < 4; i++) PM(g, new THREE.PlaneGeometry(0.3 + Math.random() * 0.08, 0.22 + Math.random() * 0.08), new THREE.MeshToonMaterial({ color: [0xf4f0e4, 0xf0e2c4, 0xe6eef4][i % 3], gradientMap: GRAD, side: THREE.DoubleSide }), -0.52 + (i % 2) * 0.58, 1.42 - (i >> 1) * 0.34, 0.05) // 貼り紙
+      const np = poster ? 3 : 4
+      for (let i = 0; i < np; i++) PM(g, new THREE.PlaneGeometry(0.3 + Math.random() * 0.08, 0.22 + Math.random() * 0.08), new THREE.MeshToonMaterial({ color: [0xf4f0e4, 0xf0e2c4, 0xe6eef4][i % 3], gradientMap: GRAD, side: THREE.DoubleSide }), -0.52 + (i % 2) * 0.58, 1.42 - (i >> 1) * 0.34, 0.05) // 貼り紙
+      if (poster) PM(g, new THREE.PlaneGeometry(0.34, 0.46), new THREE.MeshBasicMaterial({ map: poster, transparent: true, toneMapped: false }), 0.5, 1.3, 0.055) // 読めるお知らせ（toneMapped:false＝ACESで白飛びさせない）
       placeProp(g, x, z, rot || 0, 0.02, 1.0) }
     makePhoneBox(3024, 18.5, -0.5); makePhoneBox(2958, -512, 0.6) // 開始の通りの路肩＋二ツ池の道
-    makeBoard(3013, 41, 0.1); makeBoard(2968, -455, -0.4); makeBoard(3046, -55, 1.0) // 開始地点の道・二ツ池・核
+    makeBoard(3013, 41, 0.1, rajioPoster); makeBoard(2968, -455, -0.4); makeBoard(3046, -55, 1.0, bonPoster) // 開始地点の道(ラジオ体操)・二ツ池・核(盆踊り)
     makeVending(3010, -205, 0.3, 0xc23a2c); makeVending(2972, -360, -0.5, 0x2a7ab0) // 追加の自販機
     makePostBox(3038, -178) } // 追加の丸ポスト
   // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木（実在の名所）。※夏は満開の桜ではなく青々とした緑葉＝季節に忠実（色は2894行で夏緑に・2026-06-26）
