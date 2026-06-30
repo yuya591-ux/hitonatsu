@@ -5947,6 +5947,9 @@ makeBusStop(TOWN.x + 18, TOWN.z + 20, 0) // 町の本通り沿い（外の町と
   const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 1.0, 6), toon(0x9a978c)); stone.position.y = 0.72; g.add(stone)
   const cap = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), toon(0x8e8b80)); cap.position.y = 1.2; g.add(cap)
   const bib = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.34), new THREE.MeshToonMaterial({ color: 0xc0463a, gradientMap: GRAD, side: THREE.DoubleSide })); bib.position.set(0, 0.8, 0.34); bib.rotation.x = 0.12; g.add(bib) // 赤い前掛け
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.37, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), new THREE.MeshToonMaterial({ color: 0xc0463a, gradientMap: GRAD })); hood.position.y = 1.2; g.add(hood) // 赤い頭巾（お地蔵さん）
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.09, 8), toon(0xd8d2c2)); cup.position.set(-0.17, 0.29, 0.33); g.add(cup) // お供えの湯のみ
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 4), toon(0x5a7a40)); stem.position.set(0.16, 0.34, 0.32); g.add(stem); const flower = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 5), toon(0xe09ab0)); flower.position.set(0.16, 0.44, 0.32); g.add(flower) // お供えの花
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); placeProp(g, 12, 22, 0.4, 0.03, 0.6); addCollider(12, 22, 0.45) }
 // ── 雑木林（外周の虚無を埋める木の塊＝木陰の目的地）──
 for (const [gx, gz, gn] of [[-60, -34, 9], [70, -42, 8], [-66, 32, 7]]) for (let i = 0; i < gn; i++) { const a = Math.random() * 6.28, r = Math.random() * 8; makeTree(gx + Math.cos(a) * r, gz + Math.sin(a) * r, 1.0 + Math.random() * 0.5) }
