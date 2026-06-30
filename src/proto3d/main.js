@@ -8616,10 +8616,10 @@ composer.addPass(bloom)
 // 仕上げ：退色フィルム調のカラーグレード＋周辺減光（“あの頃の記憶の色”）
 // 影を青緑へ・ハイライトを暖色へ転がし、彩度をわずかに落とし、黒を少し浮かせる。
 const gradePass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, mist: { value: 0.0 }, frame: { value: 0.0 }, exposure: { value: 1.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, vig: { value: 0.16 }, amount: { value: 1.0 }, wc: { value: 1.0 }, golden: { value: 0.0 }, midday: { value: 0.0 }, rain: { value: 0.0 }, mem: { value: 0.78 }, heat: { value: 0.0 }, time: { value: 0.0 }, nightCool: { value: 0.0 }, mist: { value: 0.0 }, frame: { value: 0.0 }, exposure: { value: 1.0 }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   // 水彩レンダリング：にじみのゆらぎ＋顔料だまり（フチ）＋紙の質感を、グレードに混ぜ込む（パス追加なし）
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform float mist; uniform float frame; uniform float exposure; uniform vec2 texel;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float vig; uniform float amount; uniform float wc; uniform float golden; uniform float midday; uniform float rain; uniform float mem; uniform float heat; uniform float time; uniform float nightCool; uniform float mist; uniform float frame; uniform float exposure; uniform vec2 texel;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       float a = hash(i), b = hash(i + vec2(1.0, 0.0)), cc = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
@@ -8661,6 +8661,12 @@ const gradePass = new ShaderPass({
         c += golden * vec3(0.12, 0.05, -0.06) * (0.12 + lum);              // 光の当たる所ほど金色に（暗部は金に染めず陰影を残す）
         c += golden * vec3(0.06, 0.005, 0.03) * smoothstep(0.5, 1.0, vUv.y);  // 上空は茜色がかる（紫みを残し奥行き）
         c += golden * vec3(0.12, 0.038, -0.03) * smoothstep(0.70, 0.16, vUv.y); // 地平ちかくは燃える夕陽色（下ほど強い橙＝マジックアワー）。上端0.62→0.70＝焼けた金色を地平の少し上(遠景)まで届かせる（2026-06-29）
+      }
+      // P5 昼の絵づくり：昼だけ“夏の白い光”を足す＝地平のわずかな暖白＋上空の青を一段＋中間調の彩度を少し戻す（平板な昼を救う・夕夜のグレードは不変）
+      if (midday > 0.001) {
+        c += midday * vec3(0.038, 0.034, 0.020) * smoothstep(0.55, 0.10, vUv.y); // 地平ちかくの暖白い光
+        c.b += midday * 0.028 * smoothstep(0.5, 1.0, vUv.y);                     // 上空の青を一段濃く
+        float lmid = L(c); c = mix(vec3(lmid), c, 1.0 + midday * 0.08);          // 中間調の彩度を+8%（昼だけ少し戻す）
       }
       // ★A1：朝もや/夕もや。画面の下〜中ほど（地面・谷）を、もやで少し白っぽく・低彩度に・ほのかに発光させ、立ちこめる空気の層を出す。
       //   朝は単独で冷たいもや／夕は上のgoldenが温かさを足して“あたたかい夕もや”に。地平へ向かうほど濃い。
@@ -11815,6 +11821,7 @@ function update(dt) {
   const sunOnScreen = sunProj.z < 1 && Math.abs(sunProj.x) < 1.15 && Math.abs(sunProj.y) < 1.15
   godrayPass.uniforms.strength.value = sunOnScreen ? (1 - nf) * 0.2 : 0 // 控えめ＝光条であって閃光事故にしない（0.32→0.20＝房バグ対策でさらに弱く・2026-06-27）
   gradePass.uniforms.golden.value = THREE.MathUtils.smoothstep(tday, 0.56, 0.72) * (1 - THREE.MathUtils.smoothstep(tday, 0.84, 0.94)) * (day >= TOTAL_DAYS ? 1.16 : 1.0) // 夕方の黄金色（少し早く始め長く残す＝マジックアワーを長く味わう）。最終日だけ一段濃く＝絵日記の「夕やけにとけていった」に呼応（そっと・×1.16）
+  gradePass.uniforms.midday.value = THREE.MathUtils.smoothstep(tday, 0.28, 0.40) * (1 - THREE.MathUtils.smoothstep(tday, 0.50, 0.58)) * (1 - weather) // P5：昼の白い光（平板な昼を救う）。晴れた真昼だけ・夕方(golden)の前に消える
   { const fd = onYato && day >= TOTAL_DAYS; if (finalDayProps.visible !== fd) finalDayProps.visible = fd } // 最終日だけ世界が絵日記に呼応（蝉の抜け殻・片付けかけの提灯）。獅子ヶ谷エリアにいる時だけ＝旧プロト町では出さない
   gradePass.uniforms.nightCool.value = nightFactor(tday) * 0.9 // ★A8：夜は月明かりの青を暗部に＝暖色の窓あかりとの対比を強め、夏の夜のしんとした安らぎ
     + THREE.MathUtils.smoothstep(tday, 0.06, 0.18) * (1 - THREE.MathUtils.smoothstep(tday, 0.28, 0.44)) * 0.5 // 黄金の朝（B⑦）＝開始時(0.18)を温かい金色のウォッシュに。夕より柔らかく0.5倍
