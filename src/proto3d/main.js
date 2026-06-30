@@ -7314,8 +7314,8 @@ function makeYatoResident(ax, az, faceX, faceZ, opt) {
 }
 // 八百屋のおばさん（商店街の店先。店番＝主人公級。話すと metShop、夕方は gotOmake でトマトのおまけ）
 const yatoShopLady = makeYatoResident(2732, -116, 2729, -116, {
-  scale: 1.16, adult: true, garment: 'dress', apron: 0xe8e2d4, shirt: 0xc9b48c, skirt: 0x8a6a4a, skin: 0xeab584,
-  hair: 0x6a5a48, hairStyle: 'bob', brow: true, browTilt: 0.9,
+  scale: 1.16, adult: true, build: 1.12, garment: 'dress', apron: 0xe8e2d4, shirt: 0xc9b48c, skirt: 0x8a6a4a, skin: 0xeab584,
+  hair: 0x6a5a48, hairStyle: 'bob', brow: true, browTilt: 0.9, eyeSc: 1.02,
   info: { name: '八百屋の おばさん', arcGreet: { 1: 'おや、見ない顔だね。この夏 きたのかい。', 2: 'また 来てくれたね。まいど。', 3: 'もう 夏も おわりだね。…来年も おいで。' }, byPhase: {
     morning: ['あら、おはよう。トマト、けさ もいだ ばっかりだよ。', 'すいか、よく ひえてるよ。半分でも 売るからね。', 'なすも きゅうりも、けさ どれだよ。', 'はやおきは 三文の とくっていうからねえ。'],
     noon: ['いらっしゃい。暑いねえ、日かげに おはいり。', 'きゅうりに 塩、つけて かじると うまいんだ。', 'とうもろこし、ゆでたてが あるよ。', 'こう 暑いと、商売も ばてちまうねえ。'],
@@ -7325,8 +7325,8 @@ const yatoShopLady = makeYatoResident(2732, -116, 2729, -116, {
 })
 // 花屋のおばさん（商店街の並び。話すと metShop。やさしい花の話）
 const yatoFlowerLady = makeYatoResident(2732, -125, 2729, -125, {
-  scale: 1.14, adult: true, garment: 'dress', apron: 0x9aa0a8, shirt: 0xb8889a, skirt: 0x5a6a7a, skin: 0xf0c49c,
-  hair: 0x4a3a2e, hairStyle: 'pony', brow: true, browTilt: 0.8,
+  scale: 1.13, adult: true, build: 0.94, garment: 'dress', apron: 0x9aa0a8, shirt: 0xb8889a, skirt: 0x5a6a7a, skin: 0xf0c49c,
+  hair: 0x4a3a2e, hairStyle: 'pony', brow: true, browTilt: 0.8, eyeSc: 1.04,
   info: { name: '花屋の おばさん', arcGreet: { 1: 'あら、はじめての お客さんだね。', 2: 'また 来てくれたの。うれしいねえ。', 3: 'もう 夏も おしまいだね。来年も、花を 見においで。' }, byPhase: {
     morning: ['おはよう。けさは ひまわりが きれいに 咲いたよ。', 'あさがおの 鉢、ひとつ いるかい。', '朝つゆが、花びらに のっていて きれいだよ。', 'けさは 鳥が よく ないていたね。'],
     noon: ['暑いから、花も しおれちゃうねえ。水を やらないと。', 'ほおずき、もう 赤く なってきたよ。', 'この 暑さじゃ、花も ひとやすみだね。', 'ひまわりは 暑いほど 元気だねえ。'],
@@ -7336,8 +7336,8 @@ const yatoFlowerLady = makeYatoResident(2732, -125, 2729, -125, {
 })
 // 軒先の おじいさん（夕涼み・世間話。商店街の少し北の住宅の軒先。フラグは立てず“気配と交流”のみ）
 const yatoGrandpa = makeYatoResident(2732, -107, 2729, -107, {
-  scale: 1.12, adult: true, garment: 'tank', shirt: 0xece8da, skirt: 0x5a564c, skin: 0xddb088,
-  hair: 0x8c8c86, hairStyle: 'short', brow: true, browTilt: 0.6,
+  scale: 1.11, adult: true, build: 1.02, garment: 'tank', shirt: 0xece8da, skirt: 0x5a564c, skin: 0xd6aa80,
+  hair: 0x8c8c86, hairStyle: 'short', brow: true, browTilt: 0.55, tenugui: true, tenuguiCol: 0xcdb892,
   info: { name: '軒先の おじいさん', arcGreet: { 1: 'はて、見かけん顔だな。この夏 きたのかい。', 2: 'お、また 来たか。まあ すわれ。', 3: 'もう 帰っちまうのか。…来年も 達者で 来いよ。' }, byPhase: {
     morning: ['お、はやいな。朝の うちは すずしくて ええのう。', 'ラジオ体操かい。えらいぞ。', '朝顔が、けさも よう 咲いとる。', '年を とると、朝が はやくなってのう。'],
     noon: ['暑いのう。…うちわ、かしてやろうか。', 'この あたりも、むかしは 田んぼ ばっかりでなあ。', 'ひるねでも すりゃ、いい いちにちだ。', 'せみが よう ないとる。夏は これじゃ ないとな。'],
@@ -7349,8 +7349,8 @@ npcs.push(yatoShopLady, yatoFlowerLady, yatoGrandpa) // 話せる人の輪に加
 // ── 獅子ヶ谷の暮らしを満たす：話せる住人を町中に散らす（C13・商店街だけだったのを各所へ）。simpleでも会話/口パク/振り向きは完全に動く＝予算安全 ──
 // 駄菓子屋のおばあちゃん（しんみせ＝駄菓子屋の店先。10円玉とガチャと当てくじ＝昭和の子どもの聖地）
 const yatoDagashiBaa = makeYatoResident(2767, 150, 2768, 146, {
-  scale: 1.08, adult: true, simple: true, garment: 'dress', apron: 0xcdbfa0, shirt: 0xb0a48c, skirt: 0x6a6258, skin: 0xeab584,
-  hair: 0xd8d4ca, hairStyle: 'bob', brow: true, browTilt: 0.6, eyeSc: 0.96,
+  scale: 1.06, adult: true, simple: true, build: 0.9, garment: 'dress', apron: 0xcdbfa0, shirt: 0xb0a48c, skirt: 0x6a6258, skin: 0xeab584,
+  hair: 0xd8d4ca, hairStyle: 'bob', brow: true, browTilt: 0.55, browY: 0.004, eyeSc: 0.95,
   info: { name: '駄菓子屋の おばあちゃん',
     arcGreet: { 1: 'おや、いらっしゃい。見ない顔だねえ。', 2: 'また 来たね。まいど あり。', 3: 'もう 夏も おしまいかい。…さびしく なるねえ。また おいで。' },
     byPhase: {
@@ -7363,8 +7363,8 @@ const yatoDagashiBaa = makeYatoResident(2767, 150, 2768, 146, {
 npcs.push(yatoDagashiBaa)
 // 神明社の おばあさん（境内を掃く・お社の世話。木陰とせみと落ち葉掃き）
 const yatoShrineBaa = makeYatoResident(2960, -330, 2960, -325, {
-  scale: 1.1, adult: true, simple: true, garment: 'dress', apron: 0xd8d2c4, shirt: 0x8a96a0, skirt: 0x5a5650, skin: 0xe6b890,
-  hair: 0xc8c4ba, hairStyle: 'bob', brow: true, browTilt: 0.5, eyeSc: 0.94,
+  scale: 1.09, adult: true, simple: true, build: 0.96, garment: 'dress', apron: 0xd8d2c4, shirt: 0x8a96a0, skirt: 0x5a5650, skin: 0xe6b890,
+  hair: 0xc8c4ba, hairStyle: 'bob', brow: true, browTilt: 0.5, eyeSc: 0.93, tenugui: true, tenuguiCol: 0xe8e2d0,
   info: { name: 'お社の おばあさん',
     arcGreet: { 1: 'おや、お参りかい。ようこそ おまいり。', 2: 'また 来てくれたね。お社も よろこんどるよ。', 3: 'もう 夏も おわりだね。…また 来年、手を あわせに おいで。' },
     byPhase: {
@@ -7377,8 +7377,8 @@ const yatoShrineBaa = makeYatoResident(2960, -330, 2960, -325, {
 npcs.push(yatoShrineBaa)
 // 二ツ池の おじいさん（水を見ている・釣りのまえの世間話。メダカと灯ろう流し）
 const yatoPondJii = makeYatoResident(3012, -480, 3006, -490, {
-  scale: 1.12, adult: true, simple: true, garment: 'tank', shirt: 0xe6e0d0, skirt: 0x5a5a52, skin: 0xd8a878,
-  hair: 0x9a968e, hairStyle: 'short', brow: true, browTilt: 0.6, eyeSc: 0.98,
+  scale: 1.12, adult: true, simple: true, build: 1.0, garment: 'tank', shirt: 0xe6e0d0, skirt: 0x5a5a52, skin: 0xe2b78c,
+  hair: 0x9a968e, hairStyle: 'short', brow: true, browTilt: 0.65, eyeSc: 0.98, tenugui: true, tenuguiCol: 0xc6cdbb,
   info: { name: '池の おじいさん',
     arcGreet: { 1: 'お、ぼうずか。この池を 見に きたのかい。', 2: 'また 来たな。まあ すわって、水でも ながめろ。', 3: 'もう 帰っちまうのか。…また 来年、この池で 会おうな。' },
     byPhase: {
@@ -7391,8 +7391,8 @@ const yatoPondJii = makeYatoResident(3012, -480, 3006, -490, {
 npcs.push(yatoPondJii)
 // 横溝屋敷の おばあさん（名主屋敷の縁側。古い家・養蚕・昔ばなし。遠い南西＝歩いて訪ねる甲斐のある人）
 const yatoYashikiBaa = makeYatoResident(2368, 656, 2368, 650, {
-  scale: 1.08, adult: true, simple: true, garment: 'dress', apron: 0xcfc6b2, shirt: 0x9a8c78, skirt: 0x4a4640, skin: 0xe6b890,
-  hair: 0xcac6bc, hairStyle: 'bob', brow: true, browTilt: 0.5, eyeSc: 0.94,
+  scale: 1.05, adult: true, simple: true, build: 0.88, garment: 'dress', apron: 0xcfc6b2, shirt: 0x9a8c78, skirt: 0x4a4640, skin: 0xe0b08a,
+  hair: 0xcac6bc, hairStyle: 'bob', brow: true, browTilt: 0.45, browY: 0.006, eyeSc: 0.92,
   info: { name: '屋敷の おばあさん',
     arcGreet: { 1: 'おや、めずらしい お客さんだ。よう おいでなすった。', 2: 'また 来てくれたかい。縁側で すこし 休んでおいき。', 3: 'もう 夏も しまいだね。…この家を おぼえておいておくれ。' },
     byPhase: {
@@ -7405,8 +7405,8 @@ const yatoYashikiBaa = makeYatoResident(2368, 656, 2368, 650, {
 npcs.push(yatoYashikiBaa)
 // 朝の通りの おじいさん（開始地点のそば・近所の顔なじみ。朝の散歩。序盤から声をかけられる暮らしの気配）
 const yatoMorningJii = makeYatoResident(3022, 16, 3016, 22, {
-  scale: 1.12, adult: true, simple: true, garment: 'tank', shirt: 0xeae4d6, skirt: 0x5a564c, skin: 0xddb088,
-  hair: 0x8c8c86, hairStyle: 'short', brow: true, browTilt: 0.6, eyeSc: 0.98,
+  scale: 1.13, adult: true, simple: true, build: 1.08, garment: 'tank', shirt: 0xeae4d6, skirt: 0x5a564c, skin: 0xd8a878,
+  hair: 0x8c8c86, hairStyle: 'short', brow: true, browTilt: 0.7, eyeSc: 0.99, tenugui: true, tenuguiCol: 0xaebcca,
   info: { name: '近所の おじいさん',
     arcGreet: { 1: 'お、見ない顔だな。この夏 きたのかい。よろしくな。', 2: 'お、また 会ったな。散歩 かい。', 3: 'もう 帰っちまうのか。…また 来年、達者で 来いよ。' },
     byPhase: {
