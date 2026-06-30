@@ -1609,8 +1609,10 @@ function makeShop(x, z, rot, opt) {
   // 夜に灯る店先のあかり（夕方の駄菓子屋の灯り＝商店街の郷愁）。昼は消灯、夜にぼんやり暖色
   const shopGlow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.0), new THREE.MeshBasicMaterial({ color: 0xffd183, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide })); shopGlow.position.set(0, 1.4, 2.54); g.add(shopGlow)
   townNightLights.push({ m: shopGlow, base: 0.62, ph: Math.random() * 6 })
-  // 暖簾（のれん・切れ目つき）
+  // 暖簾（のれん・切れ目つき）＋横木（吊るす棒）＋上部の白い帯（昭和の暖簾の意匠）
   for (let i = 0; i < 4; i++) { const nr = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 0.95), toon(opt.sign)); nr.position.set(-1.8 + i * 1.2, 2.05, 2.53); g.add(nr) }
+  const norenRod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.6, 6), toon(0x5a4632)); norenRod.rotation.z = Math.PI / 2; norenRod.position.set(0, 2.53, 2.53); g.add(norenRod) // のれんを吊るす木の棒
+  const norenBand = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 0.22), new THREE.MeshToonMaterial({ color: 0xf2ead6, gradientMap: GRAD, side: THREE.DoubleSide })); norenBand.position.set(0, 2.36, 2.535); g.add(norenBand) // 上部の白い帯（屋号が入る所）
   // 縞テント（白×店色）
   const tent = new THREE.Group()
   const stripes = 6
