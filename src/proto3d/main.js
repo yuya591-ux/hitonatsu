@@ -1267,11 +1267,23 @@ function makeHouse(x, z, rot, roofHex) {
 makeHouse(HOUSE.x, HOUSE.z, 0.35)
 // 縁側の生活感：蚊取り線香（煙がゆらぐ）。風鈴は音とともに後段で。
 const HENG = { x: HOUSE.x + Math.sin(0.35) * 3.0, y: heightAt(HOUSE.x, HOUSE.z), z: HOUSE.z + Math.cos(0.35) * 3.0 }
-{
-  const katori = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.05, 8, 18), toon(0x3a5a3a))
-  katori.rotation.x = -Math.PI / 2; katori.position.set(HENG.x + 1.4, HENG.y + 0.62, HENG.z); katori.castShadow = true
-  scene.add(katori)
+// 蚊遣り豚（かやりぶた）＝飴色の素焼きの豚。胴の大穴に蚊取り線香、鼻面から煙。昭和の夏の縁側の名脇役。ダークな細部は1ドローに統合
+function makeKayaributa(x, y, z, rot) {
+  const g = new THREE.Group(); const glaze = toon(0xb07a44)
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), glaze); body.scale.set(1.5, 1.0, 1.0); body.position.y = 0.26; g.add(body) // 横長の胴
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.12, 10), glaze); snout.rotation.z = Math.PI / 2; snout.position.set(0.42, 0.26, 0); g.add(snout) // 鼻面
+  for (const dz of [-0.13, 0.13]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.09, 4), glaze); ear.position.set(0.28, 0.46, dz); ear.rotation.z = -0.3; g.add(ear) } // 耳
+  for (const lx of [-0.18, 0.2]) for (const lz of [-0.13, 0.13]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 6), glaze); leg.position.set(lx, 0.06, lz); g.add(leg) } // 4本足
+  const tail = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 10, Math.PI * 1.4), glaze); tail.position.set(-0.42, 0.32, 0); tail.rotation.y = Math.PI / 2; g.add(tail) // しっぽ
+  const darks = []
+  for (const dz of [-0.04, 0.04]) { const n = new THREE.CylinderGeometry(0.018, 0.018, 0.04, 6); n.rotateZ(Math.PI / 2); n.translate(0.49, 0.27, dz); darks.push(n) } // 鼻の穴
+  for (const dz of [-0.12, 0.12]) { const e = new THREE.SphereGeometry(0.022, 6, 6); e.translate(0.34, 0.36, dz); darks.push(e) } // 目
+  { const hole = new THREE.CylinderGeometry(0.1, 0.1, 0.04, 12); hole.rotateX(Math.PI / 2); hole.translate(0, 0.28, 0.27); darks.push(hole) } // 胴の大穴
+  const dk = new THREE.Mesh(mergeGeometries(darks), toon(0x241a12)); dk.castShadow = true; darks.forEach((d) => d.dispose()); g.add(dk)
+  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.018, 6, 14), toon(0x4a6a44)); coil.rotation.x = Math.PI / 2; coil.position.set(0, 0.28, 0.27); g.add(coil) // 中の渦巻き
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true }); g.position.set(x, y, z); g.rotation.y = rot || 0; mergedOutline(g, 0.02); addContactShadow(g, 0.5); scene.add(g)
 }
+makeKayaributa(HENG.x + 1.4, HENG.y + 0.77, HENG.z, 0.7) // 縁側の板の上
 const smokers = [] // 蚊取り線香などの細い煙。複数の発生源を持てる
 function makeSmoke(x, y, z, n = 14) {
   const g = new THREE.BufferGeometry(); const sp = new Float32Array(n * 3)
@@ -1280,7 +1292,7 @@ function makeSmoke(x, y, z, n = 14) {
   const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xeceae2, size: 0.13, transparent: true, opacity: 0.3, depthWrite: false, fog: true }))
   scene.add(pts); smokers.push({ pts, x, y, z, n })
 }
-makeSmoke(HENG.x + 1.4, HENG.y + 0.7, HENG.z) // 縁側の蚊取り線香
+makeSmoke(HENG.x + 1.4, HENG.y + 1.05, HENG.z) // 縁側の蚊遣り豚（線香の煙）
 
 // ── 物干し竿＝洗濯物が風にゆれる（昭和の生活感）──
 {
