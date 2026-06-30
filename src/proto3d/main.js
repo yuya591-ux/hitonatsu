@@ -7483,6 +7483,18 @@ const yatoTeraBaa = makeYatoResident(2735, -427, 2735, -420, {
 npcs.push(yatoTeraBaa); yatoTeraBaa.userData.act = 'gaze' // 本堂を見上げて手を合わせる気配
 // 火の見櫓（昭和の村のランドマーク＝鉄骨やぐら＋見張り台＋半鐘）を獅子ヶ谷の村の中心（商店街・駐在所のそば）へ。歩く時の目印になり、遠くからも村の在りかを示す。開始から約240m＝開始カメラには霧で沈む
 makeFireTower(2780, -60, heightAtYato(2780, -60))
+// 消防団の器具庫（火の見櫓のそば＝モルタルの小屋＋赤いシャッター＋切妻屋根＋「消防」の小看板）。昭和の村の消防クラスタを完成させる
+function makeFireShed(x, z, rot, gy) {
+  const g = new THREE.Group(), W = 3.0, D = 2.2, H = 2.5
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(W, H, D), toon(0xcfc7b4))) // モルタルの躯体
+  const sh = new THREE.Mesh(new THREE.BoxGeometry(W * 0.62, H * 0.74, 0.06), toon(0xb23a2c)); sh.position.set(0, -H * 0.08, D / 2 + 0.02); g.add(sh) // 赤いシャッター
+  for (let i = 0; i < 6; i++) { const ln = new THREE.Mesh(new THREE.BoxGeometry(W * 0.62, 0.02, 0.07), toon(0x8a2a1e)); ln.position.set(0, -H * 0.08 - H * 0.3 + i * (H * 0.74 / 6), D / 2 + 0.03); g.add(ln) } // シャッターの段目地
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.12, D + 0.3), toon(0x6a6258)); roof.position.y = H / 2 + 0.06; g.add(roof) // 薄い庇屋根
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.34), new THREE.MeshBasicMaterial({ map: textTex('消防', '#f4ead0', '#3a3a44', false), transparent: true, toneMapped: false })); sign.position.set(0, H / 2 - 0.32, D / 2 + 0.05); g.add(sign) // 「消防」の小看板
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(x, (gy != null ? gy : heightAtYato(x, z)) + H / 2, z); g.rotation.y = rot || 0; mergedOutline(g, 0.026); addContactShadow(g, 2.0); addCollider(x, z, 1.8); scene.add(g)
+}
+makeFireShed(2775, -70, 0.3, heightAtYato(2775, -70))
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
