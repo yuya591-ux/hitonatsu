@@ -3569,6 +3569,7 @@ function buildShishigaya() {
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t }
     const bonPoster = posterTex('盆踊り', ['八月十五日', '夕がたより', '小学校 校庭'], '#9a2f24')
     const rajioPoster = posterTex('体操', ['毎朝 六時半', '神社の 境内', 'はんこ おします'], '#2a6a8a')
+    const toroPoster = posterTex('灯ろう', ['お盆の よる', '二ツ池にて', 'ご先祖さまへ'], '#5a4a8a') // 灯ろう流し＝既存イベントと一致
     const makeBoard = (x, z, rot, poster) => { const g = new THREE.Group()
       for (const px of [-0.7, 0.7]) PM(g, new THREE.BoxGeometry(0.1, 1.65, 0.1), toon(0x6a4e30), px, 0.82, 0) // 2本柱
       PM(g, new THREE.BoxGeometry(1.7, 0.92, 0.08), toon(0x8a6a44), 0, 1.28, 0) // 板
@@ -3578,7 +3579,7 @@ function buildShishigaya() {
       if (poster) PM(g, new THREE.PlaneGeometry(0.34, 0.46), new THREE.MeshBasicMaterial({ map: poster, transparent: true, toneMapped: false }), 0.5, 1.3, 0.055) // 読めるお知らせ（toneMapped:false＝ACESで白飛びさせない）
       placeProp(g, x, z, rot || 0, 0.02, 1.0) }
     makePhoneBox(3024, 18.5, -0.5); makePhoneBox(2958, -512, 0.6) // 開始の通りの路肩＋二ツ池の道
-    makeBoard(3013, 41, 0.1, rajioPoster); makeBoard(2968, -455, -0.4); makeBoard(3046, -55, 1.0, bonPoster) // 開始地点の道(ラジオ体操)・二ツ池・核(盆踊り)
+    makeBoard(3013, 41, 0.1, rajioPoster); makeBoard(2968, -455, -0.4, toroPoster); makeBoard(3046, -55, 1.0, bonPoster) // 開始地点の道(ラジオ体操)・二ツ池(灯ろう流し)・核(盆踊り)
     makeVending(3010, -205, 0.3, 0xc23a2c); makeVending(2972, -360, -0.5, 0x2a7ab0) // 追加の自販機
     makePostBox(3038, -178) } // 追加の丸ポスト
   // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木（実在の名所）。※夏は満開の桜ではなく青々とした緑葉＝季節に忠実（色は2894行で夏緑に・2026-06-26）
@@ -7495,6 +7496,13 @@ function makeFireShed(x, z, rot, gy) {
   g.position.set(x, (gy != null ? gy : heightAtYato(x, z)) + H / 2, z); g.rotation.y = rot || 0; mergedOutline(g, 0.026); addContactShadow(g, 2.0); addCollider(x, z, 1.8); scene.add(g)
 }
 makeFireShed(2775, -70, 0.3, heightAtYato(2775, -70))
+// 「火の用心」の立て看板（消防の器具庫のそば＝昭和の村の戒め）
+{ const wx = 2770, wz = -66, wgy = heightAtYato(wx, wz), wg = new THREE.Group()
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 1.4, 6), toon(0x6a4e30)); post.position.y = 0.7; wg.add(post)
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.34, 0.05), toon(0xb8a06a)); board.position.y = 1.18; wg.add(board)
+  const txt = new THREE.Mesh(new THREE.PlaneGeometry(0.84, 0.28), new THREE.MeshBasicMaterial({ map: textTex('火の用心', '#3a2a1e', '#e8dcc0', false), transparent: true, toneMapped: false })); txt.position.set(0, 1.18, 0.035); wg.add(txt)
+  wg.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  wg.position.set(wx, wgy, wz); wg.rotation.y = 1.3; mergedOutline(wg, 0.02); addContactShadow(wg, 0.8); scene.add(wg) }
 // 構築後の小物点検：自販機/看板/電柱が「建物に深く埋まる/水中/道路の舗装上」なら、近くの開けた地面へそっと逃がす（壁際の自然な配置は動かさない）
 function fixProps() {
   let moved = 0
