@@ -10768,6 +10768,7 @@ function buyRamune() {
 const catchEl = document.getElementById('catch')
 const toastEl = document.getElementById('toast')
 let catchTarget = null
+let pendingCatch = null // 網を振り切った瞬間に捕る対象（振っている最中に虫が消えない＝“すくった”手応え・2026-07-01）
 function showToast(msg) {
   if (!toastEl) return
   toastEl.textContent = msg; toastEl.classList.add('show')
@@ -10790,16 +10791,17 @@ function doCatch() {
   if (!catchTarget || catchTarget.done) return
   const tp = catchTarget.obj.position
   facing = Math.atan2(tp.x - boy.position.x, tp.z - boy.position.z); boy.rotation.y = facing // 虫の方を向く
-  boy.userData.swing = 320 // 網を振る
-  catchTarget.done = true
-  catchTarget.obj.visible = false
-  catchTarget.obj.userData.done = true
-  if (!caught.kinds[catchTarget.kind]) caught.first[catchTarget.kind] = { day, tw: timeWord(tday), place: nearPlace() } // はじめて出会った日・時刻・場所
-  caught.count += 1
-  caught.kinds[catchTarget.kind] = (caught.kinds[catchTarget.kind] || 0) + 1
-  showToast(`${catchTarget.kind}を つかまえた！`)
+  boy.userData.swing = 320 // 網を振りかぶる
+  pendingCatch = catchTarget // 振り切って網が虫を覆った瞬間に捕る（すぐには消えない）
   catchTarget = null
   if (catchEl) catchEl.style.display = 'none'
+}
+function capturePending() { // 網を前へ振り切った所で“すくう”＝ここで初めて虫が網に入る
+  const c = pendingCatch; pendingCatch = null; if (!c || c.done) return
+  c.done = true; c.obj.visible = false; c.obj.userData.done = true
+  if (!caught.kinds[c.kind]) caught.first[c.kind] = { day, tw: timeWord(tday), place: nearPlace() } // はじめて出会った日・時刻・場所
+  caught.count += 1; caught.kinds[c.kind] = (caught.kinds[c.kind] || 0) + 1
+  showToast(`${c.kind}を つかまえた！`)
 }
 tapBtn(catchEl, doCatch)
 
@@ -11629,12 +11631,14 @@ function update(dt) {
   const shDusk = THREE.MathUtils.smoothstep(tday, 0.58, 0.72) * (1 - shNf)
   boyShadowMat.color.setRGB(1, 1, 1).lerp(boyShadowWarm, shDusk * 0.7).lerp(boyShadowCool, shNf * 0.7)
   boyShadow.visible = boy.visible
-  // 虫取り網を振る（採取時）
+  // 虫取り網を振る（採取時）＝振り切って網が虫を覆った瞬間に捕る（瞬間消滅でなく“すくった”手応え・2026-07-01）
   if (boy.userData.swing > 0) {
+    const prevSwing = boy.userData.swing
     boy.userData.swing = Math.max(0, boy.userData.swing - dt * 1000)
     const sw = Math.sin((1 - boy.userData.swing / 320) * Math.PI)
     boy.userData.net.rotation.x = NET_REST - sw * 1.15 // 肩の上の網を前へ振って採る（振り切り角は従来どおり）
-  } else boy.userData.net.rotation.x = NET_REST // ふだんは肩にかつぐ＝柄を後ろへ寝かせ網は背中側へ（浮き/飛び解消）
+    if (pendingCatch && prevSwing > 150 && boy.userData.swing <= 150) capturePending() // 網が前に振り切った所で虫が網へ入る
+  } else { boy.userData.net.rotation.x = NET_REST; if (pendingCatch) capturePending() } // ふだんは肩にかつぐ／低fpsで山を跨ぎ損ねても取りこぼさない
   // 池に近づいたら“見た”ことを記録（絵日記用）
   if (Math.hypot(boy.position.x - POND.x, boy.position.z - POND.z) < POND.r + 2) todayFlags.sawPond = true
   // 環境音：時刻でクロスフェード＋夕方に一度だけ夕焼けチャイム
