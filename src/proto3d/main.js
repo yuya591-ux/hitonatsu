@@ -8098,6 +8098,68 @@ function updateTownWalkers(dt) {
     if (u.head) u.head.rotation.y = moving ? Math.sin(w.wph * 0.5) * 0.08 : Math.sin(clock.elapsedTime * 0.4 + px) * 0.3 // 佇む間はゆっくり見回す
   }
 }
+// ── 自転車で通る人（日中〜夕方、子が自転車で道を走り抜ける＝昭和の田舎の夏の定番。生きてる感Cの後半・ユーザー要望「自転車」2026-07-01）。主人公と同じ乗車ポーズ（原点=足・脚を曲げてペダルへ＝車輪接地・腰は座面）を流用＝浮かない。実在の道を往復・LOD＋日中ゲート ──
+const bikeRiders = []
+let bikeRidersInit = false
+function makeNpcBike(frameCol) { // 軽量版の自転車（主人公の寸法に合わせつつメッシュ数を抑える）
+  const g = new THREE.Group()
+  const metal = charToon(frameCol || 0x4a78c0), steel = toon(0x70757a), tire = toon(0x2d2d2f), R = 0.33
+  const mkWheel = (wz) => { const wg = new THREE.Group(); wg.position.set(0, R, wz)
+    const t = new THREE.Mesh(new THREE.TorusGeometry(R, 0.045, 6, 16), tire); t.rotation.y = Math.PI / 2; wg.add(t)
+    for (let s = 0; s < 3; s++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.009, R * 1.7, 0.009), toon(0xc6cacd)); sp.rotation.x = s * Math.PI / 3; wg.add(sp) }
+    g.add(wg); return wg }
+  const wheelF = mkWheel(0.62), wheelB = mkWheel(-0.62)
+  const tube = (x1, y1, z1, x2, y2, z2, r, m) => { const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, len = Math.hypot(dx, dy, dz) || 1, c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 6), m || metal); c.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2); c.quaternion.setFromUnitVectors(_wUP, _wD.set(dx / len, dy / len, dz / len)); g.add(c) }
+  tube(0, 0.30, 0, 0, 0.72, -0.30, 0.028); tube(0, 0.30, 0, 0, 0.74, 0.40, 0.03); tube(0, 0.72, -0.30, 0, 0.74, 0.40, 0.026) // シート/ダウン/トップチューブ
+  tube(0, 0.74, 0.40, 0, R, 0.62, 0.024, steel); tube(0, 0.30, 0, 0, R, -0.62, 0.02, steel) // フロントフォーク/チェーンステー
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.24), toon(0x3a342e)); seat.position.set(0, 0.78, -0.30); g.add(seat) // サドル
+  tube(0, 0.74, 0.40, 0, 0.92, 0.34, 0.018, steel) // ステム（ハンドルの立ち上がり＝ママチャリの高い位置へ）
+  const hbar = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.40, 6), steel); hbar.rotation.z = Math.PI / 2; hbar.position.set(0, 0.92, 0.34); g.add(hbar) // ハンドル＝高く手前へ（ママチャリ＝上体を起こして乗る昭和の街の自転車）
+  const crank = new THREE.Group(); crank.position.set(0, 0.30, 0); g.add(crank)
+  for (const s of [-1, 1]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.16, 0.02), steel); arm.position.set(s * 0.05, -0.06 * s, 0); crank.add(arm); const ped = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.026, 0.1), toon(0x2d2d2f)); ped.position.set(s * 0.08, -0.12 * s, 0); crank.add(ped) } // クランク＋ペダル
+  g.traverse((o) => { if (o.isMesh) o.castShadow = false })
+  g.userData = { wheelF, wheelB, crank }
+  return g
+}
+function makeBikeRider(route) {
+  const fpick = (a) => a[Math.floor(Math.random() * a.length)], adult = Math.random() < 0.35 // 子が多い
+  const person = makeVillager(route[0][0], route[0][1], { shirt: fpick([0xd85a4a, 0x4a78c0, 0xe0b24a, 0x6a9a6a, 0xf0f0e8]), skirt: fpick([0x3a4a6a, 0x6a6a66, 0x8a6a4a]), skin: fpick([0xf0c49c, 0xeab584]), hair: fpick([0x2a2218, 0x3a2e22]), boy: Math.random() < 0.7, simple: true, adult, hat: Math.random() < 0.3 ? 'cap' : false, hairStyle: 'short', scale: adult ? 1.06 : 0.86, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const bike = makeNpcBike(fpick([0x4a78c0, 0xd85a4a, 0x3a7a5a, 0x8a8a8a])); person.add(bike) // 自転車は乗り手の子＝一緒に向き・大きさが揃う（主人公と同じ作法）
+  person.visible = false
+  const cum = [0]; for (let i = 1; i < route.length; i++) cum[i] = cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1])
+  return { person, bike, route, cum, len: cum[cum.length - 1], d: Math.random() * cum[cum.length - 1], dir: Math.random() < 0.5 ? 1 : -1, pp: Math.random() * 6, sp: 2.2 + Math.random() * 0.5 }
+}
+function initBikeRiders() {
+  if (bikeRidersInit || !SG.roads) return; bikeRidersInit = true
+  for (const [sx, sz] of [[2900, -90], [2980, -60], [2760, -120], [3040, -140]]) { if (bikeRiders.length >= 1) break
+    const route = roadRouteNear(sx, sz, 55); if (!route) continue // 長めの道（自転車は速いので短いと往復が忙しい）
+    bikeRiders.push(makeBikeRider(route))
+  }
+}
+function updateBikeRiders(dt) {
+  initBikeRiders(); if (!bikeRiders.length) return
+  const active = onYato && tday > 0.14 && tday < 0.70 // 日中〜夕方
+  for (const w of bikeRiders) {
+    const vis = active && Math.hypot(boy.position.x - w.person.position.x, boy.position.z - w.person.position.z) < 95 // 速いので少し広め
+    if (w.person.visible !== vis) w.person.visible = vis
+    if (!vis) continue
+    w.d += w.sp * w.dir * dt; if (w.d >= w.len) { w.d = w.len; w.dir = -1 } else if (w.d <= 0) { w.d = 0; w.dir = 1 } // 端で折り返す（子が道を行ったり来たり）
+    let i = 1; while (i < w.cum.length - 1 && w.cum[i] < w.d) i++
+    const a = w.route[i - 1], b = w.route[i], segL = (w.cum[i] - w.cum[i - 1]) || 1, t = (w.d - w.cum[i - 1]) / segL
+    const px = a[0] + (b[0] - a[0]) * t, pz = a[1] + (b[1] - a[1]) * t
+    const faceY = Math.atan2((b[0] - a[0]) * w.dir, (b[1] - a[1]) * w.dir)
+    w.pp += dt * 6.5 // こぐ速さ（クランク回転）
+    w.person.position.set(px, heightAtYato(px, pz) + Math.abs(Math.sin(w.pp)) * 0.01, pz)
+    let dd = faceY - w.person.rotation.y; while (dd > Math.PI) dd -= 6.2832; while (dd < -Math.PI) dd += 6.2832; w.person.rotation.y += dd * Math.min(1, dt * 6) // 進行方向へなめらかに向く（折り返しで急反転しない）
+    const u = w.person.userData, pp = w.pp
+    w.bike.userData.crank.rotation.x = -pp; w.bike.userData.wheelF.rotation.x = w.bike.userData.wheelB.rotation.x = -pp * 1.35
+    u.legL.rotation.x = -0.95 + Math.sin(pp) * 0.16; u.legR.rotation.x = -0.95 + Math.sin(pp + Math.PI) * 0.16 // 両脚が交互にペダルを踏む（主人公と同じ）
+    if (u.kneeL) { u.kneeL.rotation.x = 0.95 + Math.sin(pp) * 0.5; u.kneeR.rotation.x = 0.95 + Math.sin(pp + Math.PI) * 0.5 }
+    u.armL.rotation.x = -0.78; u.armR.rotation.x = -0.78; u.armL.rotation.z = 0.12; u.armR.rotation.z = -0.12 // 腕は高いハンドルへ＝軽く前へ・少し内側（棒のように突き出さない・上体を起こしたママチャリの握り）
+    if (u.elbowL) { u.elbowL.rotation.x = -0.55; u.elbowR.rotation.x = -0.55 } // 肘を曲げてハンドルを握る（前へ伸ばし切らない）
+    if (u.head) u.head.rotation.y = Math.sin(pp * 0.3) * 0.1
+  }
+}
 // ── にわとり（横溝屋敷の前庭でついばむ／地面を蹴る＝昭和の農家の庭。新しい生きもの・C16）。距離ゲートで負荷を抑える ──
 // 塊感を出さない（[[animal-no-blob]]）＝胴を一個の球にせず、胸/尾羽/首/頭/とさか/脚に分ける。頭はグループ＝ついばみで前下へ振る。
 const chickens = []
@@ -11598,6 +11660,7 @@ function update(dt) {
   updateUchimizu(dt) // 打ち水（夕方・家の前・近接時のみ）
   updateDogWalkers(dt) // 犬の散歩（朝夕・住宅街の道・近接時のみ）
   updateTownWalkers(dt) // 目的を持って歩く通行人（日中・買い物袋・商店街の道・近接時のみ・生きてる感C）
+  updateBikeRiders(dt) // 自転車で通る人（日中〜夕方・道を往復・近接時のみ・生きてる感C後半）
   updateChickens(dt) // にわとり（横溝屋敷の前庭・日中・近接時のみ）
   updateStriders(dt) // あめんぼ（二ツ池/三ツ池の水面・日中・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
@@ -13783,6 +13846,8 @@ window.__proto3d = {
   _vehSpawnKind(i) { for (const o of vehPool) { o.active = false; o.g.visible = false } const v = vehPool[i]; if (!v) return null; v.active = true; v.d = 12; v.dir = 1; vehTimer = 999; v.g.position.set(3016, heightAt(3016, 13.4) + 0.02, 13.4); v.g.rotation.y = 1.09; v.g.visible = true; return { x: 3016, z: 13.4 } }, // 検証用：他を消してプールの指定番号(0淡青セダン/1軽トラ/2ベージュ)だけを始点付近に出す（形の寄り確認・自動スポーン止め）
   _vehStats() { let active = 0, vis = 0; const at = []; for (const v of vehPool) { if (v.active) { active++; const p = v.g.position; at.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: v.g.visible, ry: +v.g.rotation.y.toFixed(2) }); if (v.g.visible) vis++ } } return { active, vis, at } }, // 検証用：往来の乗り物の台数/位置/向き/可視
   _walkers() { const at = townWalkers.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), wait: +w.wait.toFixed(1), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: townWalkers.length, at } }, // 検証用：日中の通行人の人数/位置/向き/経路端
+  _bikers() { const at = bikeRiders.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: bikeRiders.length, at } }, // 検証用：自転車で通る人の人数/位置/向き/経路端
+  _bikeStop() { for (const w of bikeRiders) w.sp = 0; return bikeRiders.length }, // 検証用：その場に止める（こぐアニメは続く・姿勢の寄り撮影用）
   _setVista(fogFar, camFar) { window.__freezeCam = true; if (scene.fog) { scene.fog.near = Math.max(60, fogFar * 0.4); scene.fog.far = fogFar } camera.far = camFar; camera.updateProjectionMatrix(); renderer.render(scene, camera) }, // 検証用：屋上/飛行の眺望条件（霧far・カメラfar）を固定して描画＝遠景の山並みの確認
   _hillStats() { let n = 0, vis = 0; scene.traverse((o) => { if (o.name && (o.name === 'yatoFarCity' || o.name === 'yatoFarFuji' || o.name.startsWith('yatoFarHills'))) { n++; if (o.visible) vis++ } }); return { meshes: n, visible: vis, chunkObjs: yatoChunks.length } }, // 検証用：遠景の市街シルエット帯/富士メッシュの数/表示状態（チャンクに巻き込まれて消えていないか。旧yatoFarHillsは撤去済）
   _groundY(x, z) { return heightAt(x, z) }, // 検証用：地面の標高（スクショのカメラ高さ合わせ）
