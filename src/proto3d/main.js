@@ -8238,6 +8238,7 @@ addRunGroup(3852, -706, 4.4) // 三ツ池公園の芝生（昼に駆け回る子
 //    遊具はPLAYGROUND_GEOを各公園にインスタンシング（向き=seed%4の90°回転）。同じ式でブランコ席/砂場の世界座標を割り出し、子をそこへ紐づける。
 //    LOD：60m以内だけアニメ（揺れ/しゃがみ）、遠くはvisibleのまま静止＝遠景で重くしない。──
 const parkKids = []
+const _swUp = new THREE.Vector3(0, 1, 0), _swDir = new THREE.Vector3() // ブランコの鎖を2点間に張るための一時ベクトル
 function addParkKids(px, pz) {
   const seed = Math.abs(Math.round(px) + Math.round(pz) * 3), a = (seed % 4) * (Math.PI / 2), ca = Math.cos(a), sa = Math.sin(a) // インスタンシングと同じ向き
   const gy = heightAtYato(px, pz)
@@ -8245,8 +8246,8 @@ function addParkKids(px, pz) {
   const toWorld = (lx, lz) => [px + lx * ca + lz * sa, pz - lx * sa + lz * ca]
   const cpick = (arr) => arr[Math.floor(Math.random() * arr.length)]
   const skins = [0xf0c49c, 0xe8b890, 0xeab584, 0xd8a878], hairs = [0x2a2218, 0x35291c, 0x46371f]
-  // ブランコに乗る子（席のひとつ＝local(-4.5+0.8,*,0)）。席top y≈1.0。上のバー y≈2.55 が支点。
-  { const [sx, sz] = toWorld(-4.5 + 0.8, 0), pivot = gy + 2.55, seatTop = gy + 1.0
+  // ブランコに乗る子（席は上バーの真下＝local(-4.5,*,0)）。席top y≈1.0。上のバー y≈2.55 が支点＝鎖はここから真下へ張る（枠から前へずれない・2026-07-01）
+  { const [sx, sz] = toWorld(-4.5, 0), pivot = gy + 2.55, seatTop = gy + 1.0
     const boyP = Math.random() < 0.6
     const g = makeVillager(sx, sz, { simple: true, garment: boyP ? 'shorts' : 'dress', boy: boyP, shirt: boyP ? cpick([0xf0ece0, 0xe8e4d6, 0x6a7a9a, 0xb56a6a]) : cpick([0xd05a4a, 0x4a9a6a, 0xe0a838, 0xd8a0b8]), skirt: boyP ? cpick([0x46412f, 0x3a4250, 0x5a4a3a]) : cpick([0xd05a4a, 0x4a9a6a, 0xe0a838]), skin: cpick(skins), hair: cpick(hairs), adult: false, hairStyle: boyP ? 'short' : cpick(['bob', 'pony']), shoe: cpick([0x9a3a3a, 0x3a5a8a, 0x3a7a4a]), scale: 0.8, info: { name: '', byPhase: { noon: [''] } } })
     const u = g.userData; if (u.kneeL) u.kneeL.rotation.x = 1.4; if (u.kneeR) u.kneeR.rotation.x = 1.4 // ひざを曲げて腰かける
@@ -8254,7 +8255,12 @@ function addParkKids(px, pz) {
     if (u.armL) u.armL.rotation.x = -0.5; if (u.armR) u.armR.rotation.x = -0.5 // 鎖をつかむ腕
     g.rotation.y = a // ブランコの面（前後の振り）を向く
     g.visible = false; g.traverse((o) => { if (o.isMesh) o.castShadow = true }); scene.add(g)
-    parkKids.push({ g, kind: 'swing', cx: sx, cz: sz, px: sx, pz: sz, pivot, seatTop, ca: Math.cos(a + Math.PI / 2), sa: Math.sin(a + Math.PI / 2), ph: Math.random() * 6 }) } // ca/sa=振りの水平方向（ブランコの面の前後＝local z方向）
+    // ★座面＋鎖（PLAYGROUND_GEOは支柱と上バーだけで席/鎖が無く、子が“宙に浮いて揺れる”ように見えた・ユーザー指摘2026-07-01）。子と一緒に振れる動的パーツを足す
+    const chMat = toon(0x3f3a34), stMat = toon(0x6a5238)
+    const mkCh = () => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1, 5), chMat); m.castShadow = true; m.visible = false; scene.add(m); return m }
+    const chainL = mkCh(), chainR = mkCh()
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.26), stMat); seat.castShadow = true; seat.visible = false; scene.add(seat)
+    parkKids.push({ g, kind: 'swing', cx: sx, cz: sz, px: sx, pz: sz, pivot, seatTop, faceA: a, ca: Math.cos(a + Math.PI / 2), sa: Math.sin(a + Math.PI / 2), ph: Math.random() * 6, chainL, chainR, seat }) } // ca/sa=振りの水平方向（ブランコの面の前後＝local z方向）
   // 砂場でしゃがんで遊ぶ子（約4割の公園に＝全部には置かず点々と）
   if (seed % 5 < 2) { const [bx, bz] = toWorld(4 + (Math.random() - 0.5) * 1.6, 4 + (Math.random() - 0.5) * 1.6)
     const g = makeVillager(bx, bz, { simple: true, garment: 'shorts', boy: Math.random() < 0.5, shirt: cpick([0xf0ece0, 0xd05a4a, 0x4a9a6a, 0xe0a838]), skirt: cpick([0x46412f, 0x3a4250]), skin: cpick(skins), hair: cpick(hairs), adult: false, hairStyle: cpick(['short', 'bob']), shoe: cpick([0x9a3a3a, 0x3a5a8a]), scale: 0.78, info: { name: '', byPhase: { noon: [''] } } })
@@ -8271,15 +8277,24 @@ function updateParkKids(dt) {
   for (const K of parkKids) {
     const near = Math.hypot(boy.position.x - K.cx, boy.position.z - K.cz)
     const vis = active && near < 150 // 遠くは消す（描画予算）。可視範囲は広めに保ち“公園に子がいる”気配を残す
-    if (K.g.visible !== vis) K.g.visible = vis
-    if (!vis || near > 60) continue // ★60m超はvisibleのまま静止＝アニメをskip（遠くで重くしない）
-    K.ph += dt
-    if (K.kind === 'swing') { const sw = Math.sin(K.ph * 1.7) * 0.5 // 前後の振り（±約0.5rad）
+    if (K.g.visible !== vis) { K.g.visible = vis; if (K.chainL) K.chainL.visible = K.chainR.visible = K.seat.visible = vis } // 席/鎖も一緒に出し入れ
+    if (!vis) continue
+    const animate = near <= 60 // ★60m超はvisibleのまま静止＝アニメをskip（遠くで重くしない）。ただしブランコの席/鎖は静止時も“rest姿勢で”配置する（原点に取り残さない）
+    if (animate) K.ph += dt
+    if (K.kind === 'swing') { const sw = animate ? Math.sin(K.ph * 1.7) * 0.5 : 0 // 前後の振り（±約0.5rad）。遠景はrest(0)
       const armL = K.pivot - K.seatTop // 支点から席までの腕の長さ
       const ox = Math.sin(sw) * armL // 振りで席が前後にずれる水平距離（ブランコの面方向）
       K.g.position.set(K.px + K.ca * ox, K.pivot - Math.cos(sw) * armL, K.pz + K.sa * ox) // 円弧を描いて揺れる（席が上下にも動く）
-      K.g.rotation.x = sw * 0.7 } // 体も振りに合わせて前後に傾く
-    else if (K.kind === 'sand') { K.g.position.y = K.baseY + Math.abs(Math.sin(K.ph * 1.3)) * 0.03; const u = K.g.userData; const f = Math.sin(K.ph * 1.3) * 0.18; if (u.armL) u.armL.rotation.x = -1.0 + f; if (u.armR) u.armR.rotation.x = -1.05 - f } // 砂をいじる手の上下
+      K.g.rotation.x = sw * 0.7 // 体も振りに合わせて前後に傾く
+      // 席と鎖を子に追従（支点=上バーは固定、席は子の腰の高さ）。鎖は支点→席の2点間に張る＝子が“ブランコに乗っている”と分かる
+      const syTop = K.g.position.y + 0.34, sideX = -K.sa, sideZ = K.ca
+      const place = (m, off) => { const ax = K.cx + sideX * off, az = K.cz + sideZ * off, bx = K.g.position.x + sideX * off, bz = K.g.position.z + sideZ * off
+        const dx = bx - ax, dy = syTop - K.pivot, dz = bz - az, len = Math.hypot(dx, dy, dz) || 1
+        m.position.set((ax + bx) / 2, (K.pivot + syTop) / 2, (az + bz) / 2); m.scale.y = len
+        m.quaternion.setFromUnitVectors(_swUp, _swDir.set(dx / len, dy / len, dz / len)) }
+      place(K.chainL, 0.15); place(K.chainR, -0.15)
+      K.seat.position.set(K.g.position.x, syTop, K.g.position.z); K.seat.rotation.set(sw * 0.7, K.faceA, 0) }
+    else if (animate && K.kind === 'sand') { K.g.position.y = K.baseY + Math.abs(Math.sin(K.ph * 1.3)) * 0.03; const u = K.g.userData; const f = Math.sin(K.ph * 1.3) * 0.18; if (u.armL) u.armL.rotation.x = -1.0 + f; if (u.armR) u.armR.rotation.x = -1.05 - f } // 砂をいじる手の上下
   }
 }
 // ── 夜のお祭りの傍：会場のすぐ脇の空いたスペースで、子らがペンライトを持って追いかけっこ（ユーザーの実体験＝祭り会場の傍の校庭でペンライト鬼ごっこ・2026-06-28）。会場が出ている晩だけ現れる ──
