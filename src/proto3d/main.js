@@ -8037,6 +8037,67 @@ function updateDogWalkers(dt) {
     w.leash.position.copy(_wA).add(_wB).multiplyScalar(0.5); w.leash.scale.set(1, llen, 1); w.leash.quaternion.setFromUnitVectors(_wUP, _wD.normalize())
   }
 }
+// ── 目的を持って歩く通行人（日中＝買い物袋を持って商店街の道を歩き、端まで来ると少し佇む＝用足しに来た人。街に“往来”を生む・ユーザー要望2026-07-01・生きてる感C）。犬の散歩(朝夕)と別に日中を受け持つ。実在の道(SG.roads)に沿わせ、LOD＋日中ゲートで負荷を抑える ──
+const townWalkers = []
+let townWalkersInit = false
+function roadRouteNear(px, pz, minLen) { // 種の近くの太い道から、連続する数点をつないだ「歩く経路」を切り出す
+  if (!SG.roads) return null
+  let bestRd = null, bestK = 0, bd = 1e18
+  for (const rd of SG.roads) { if ((rd.w || 2) < 3 || !rd.p || rd.p.length < 2) continue
+    for (let k = 0; k < rd.p.length; k++) { const a = rd.p[k], d = (a[0] - px) ** 2 + (a[1] - pz) ** 2; if (d < bd) { bd = d; bestRd = rd; bestK = k } } }
+  if (!bestRd || bd > 70 * 70) return null
+  const p = bestRd.p; let lo = bestK, hi = bestK, total = 0
+  while (total < minLen && (lo > 0 || hi < p.length - 1)) { let ext = false
+    if (hi < p.length - 1) { total += Math.hypot(p[hi + 1][0] - p[hi][0], p[hi + 1][1] - p[hi][1]); hi++; ext = true }
+    if (total < minLen && lo > 0) { total += Math.hypot(p[lo][0] - p[lo - 1][0], p[lo][1] - p[lo - 1][1]); lo--; ext = true }
+    if (!ext) break }
+  if (total < 16) return null // 短すぎる道は使わない（ちょこちょこ往復に見える）
+  return p.slice(lo, hi + 1).map((q) => [q[0], q[1]])
+}
+function makeTownWalker(route, bagCol) {
+  const fpick = (a) => a[Math.floor(Math.random() * a.length)], adult = Math.random() < 0.7
+  const person = makeVillager(route[0][0], route[0][1], { shirt: fpick([0x6a7a9a, 0x8a9a6a, 0xb56a6a, 0xcfcabd, 0xd6b26a]), skirt: fpick([0x3a4a6a, 0x6a6a66, 0x8a6a4a, 0x5a6a7a]), skin: fpick([0xf0c49c, 0xe8b890, 0xeab584]), hair: fpick([0x2a2218, 0x3a2e22, 0x8c8c86]), boy: Math.random() < 0.5, simple: true, adult, hat: Math.random() < 0.28 ? 'straw' : false, hairStyle: 'short', scale: adult ? 1.12 : 0.86, bag: bagCol, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  person.visible = false
+  const cum = [0]; for (let i = 1; i < route.length; i++) cum[i] = cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1])
+  return { person, route, cum, len: cum[cum.length - 1], d: Math.random() * cum[cum.length - 1], dir: Math.random() < 0.5 ? 1 : -1, sp: 0.75 + Math.random() * 0.25, wph: Math.random() * 6, wait: 0 }
+}
+function initTownWalkers() {
+  if (townWalkersInit || !SG.roads) return; townWalkersInit = true
+  for (const [sx, sz, bag] of [[2745, -118, 0xd08a5a], [2980, -60, 0xb7c0a0], [3060, -135, 0xc8a060], [2740, -150, 0x9aa8b0]]) { if (townWalkers.length >= 2) break // 買い物袋の色ばらつき＝別人
+    const route = roadRouteNear(sx, sz, 42); if (!route) continue
+    if (townWalkers.some((w) => Math.hypot(w.route[0][0] - route[0][0], w.route[0][1] - route[0][1]) < 40)) continue // 近すぎる2人を避ける
+    townWalkers.push(makeTownWalker(route, bag))
+  }
+}
+function updateTownWalkers(dt) {
+  initTownWalkers(); if (!townWalkers.length) return
+  const active = onYato && tday > 0.14 && tday < 0.64 // 日中＝買い物・用足しの時間帯（朝夕は犬の散歩が受け持つ）
+  for (const w of townWalkers) {
+    const vis = active && Math.hypot(boy.position.x - w.person.position.x, boy.position.z - w.person.position.z) < 75 // 近接時だけ描画（予算）
+    if (w.person.visible !== vis) w.person.visible = vis
+    if (!vis) continue
+    const u = w.person.userData
+    let moving = true
+    if (w.wait > 0) { w.wait -= dt; moving = false } // 端で少し佇む＝用足しに来た（目的地に着いた）間
+    else { w.d += w.sp * w.dir * dt; if (w.d >= w.len) { w.d = w.len; w.dir = -1; w.wait = 2.5 + Math.random() * 3 } else if (w.d <= 0) { w.d = 0; w.dir = 1; w.wait = 2.5 + Math.random() * 3 } }
+    let i = 1; while (i < w.cum.length - 1 && w.cum[i] < w.d) i++
+    const a = w.route[i - 1], b = w.route[i], segL = (w.cum[i] - w.cum[i - 1]) || 1, t = (w.d - w.cum[i - 1]) / segL
+    const px = a[0] + (b[0] - a[0]) * t, pz = a[1] + (b[1] - a[1]) * t
+    const faceY = Math.atan2((b[0] - a[0]) * w.dir, (b[1] - a[1]) * w.dir)
+    if (moving) w.wph += dt * (u.adult ? 5 : 6.5)
+    w.person.position.set(px, heightAtYato(px, pz) + (moving ? Math.abs(Math.sin(w.wph)) * 0.03 : 0), pz)
+    const near = Math.hypot(boy.position.x - px, boy.position.z - pz) < 4.5
+    if (near && !moving) { let dd = Math.atan2(boy.position.x - px, boy.position.z - pz) - w.person.rotation.y; while (dd > Math.PI) dd -= 6.2832; while (dd < -Math.PI) dd += 6.2832; w.person.rotation.y += dd * Math.min(1, dt * 4) } // 佇んでいて近づかれたら気づいてこちらを向く
+    else { let dd = faceY - w.person.rotation.y; while (dd > Math.PI) dd -= 6.2832; while (dd < -Math.PI) dd += 6.2832; w.person.rotation.y += dd * Math.min(1, dt * 8) } // ふだんは進行方向を向く
+    const sw = moving ? Math.sin(w.wph) * 0.42 : 0
+    u.legL.rotation.x = sw; u.legR.rotation.x = -sw
+    u.armL.rotation.x = -sw; u.armR.rotation.x = -0.32 // 左手を振り、右手は買い物袋を持つ（袋は体側に付く）
+    if (u.kneeL) { u.kneeL.rotation.x = Math.max(0, sw) * 0.75; u.kneeR.rotation.x = Math.max(0, -sw) * 0.75 } // 振り出す側の膝を持ち上げて歩く
+    if (u.elbowL) u.elbowL.rotation.x = -0.18 - Math.max(0, -sw) * 0.3
+    if (u.elbowR) u.elbowR.rotation.x = -0.55 // 袋を持つ肘をたたむ
+    if (u.head) u.head.rotation.y = moving ? Math.sin(w.wph * 0.5) * 0.08 : Math.sin(clock.elapsedTime * 0.4 + px) * 0.3 // 佇む間はゆっくり見回す
+  }
+}
 // ── にわとり（横溝屋敷の前庭でついばむ／地面を蹴る＝昭和の農家の庭。新しい生きもの・C16）。距離ゲートで負荷を抑える ──
 // 塊感を出さない（[[animal-no-blob]]）＝胴を一個の球にせず、胸/尾羽/首/頭/とさか/脚に分ける。頭はグループ＝ついばみで前下へ振る。
 const chickens = []
@@ -11536,6 +11597,7 @@ function update(dt) {
   updateFishers(dt) // 釣り人（二ツ池・三ツ池の岸・朝〜昼下がり・近接時のみ）
   updateUchimizu(dt) // 打ち水（夕方・家の前・近接時のみ）
   updateDogWalkers(dt) // 犬の散歩（朝夕・住宅街の道・近接時のみ）
+  updateTownWalkers(dt) // 目的を持って歩く通行人（日中・買い物袋・商店街の道・近接時のみ・生きてる感C）
   updateChickens(dt) // にわとり（横溝屋敷の前庭・日中・近接時のみ）
   updateStriders(dt) // あめんぼ（二ツ池/三ツ池の水面・日中・近接時のみ）
   updateRunKids(dt) // 走り回る子（追いかけっこ・昼・公園/校庭・近接時のみ）
@@ -13720,6 +13782,7 @@ window.__proto3d = {
   _vehSpawn() { let n = 0; for (const v of vehPool) if (v.active) n++; while (n < 2) { const before = vehPool.filter((v) => v.active).length; spawnVehicle(); if (vehPool.filter((v) => v.active).length === before) break; n++ } return vehPool.filter((v) => v.active).length }, // 検証用：往来の乗り物を最大2台まで強制スポーン（予算ピーク計測）
   _vehSpawnKind(i) { for (const o of vehPool) { o.active = false; o.g.visible = false } const v = vehPool[i]; if (!v) return null; v.active = true; v.d = 12; v.dir = 1; vehTimer = 999; v.g.position.set(3016, heightAt(3016, 13.4) + 0.02, 13.4); v.g.rotation.y = 1.09; v.g.visible = true; return { x: 3016, z: 13.4 } }, // 検証用：他を消してプールの指定番号(0淡青セダン/1軽トラ/2ベージュ)だけを始点付近に出す（形の寄り確認・自動スポーン止め）
   _vehStats() { let active = 0, vis = 0; const at = []; for (const v of vehPool) { if (v.active) { active++; const p = v.g.position; at.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: v.g.visible, ry: +v.g.rotation.y.toFixed(2) }); if (v.g.visible) vis++ } } return { active, vis, at } }, // 検証用：往来の乗り物の台数/位置/向き/可視
+  _walkers() { const at = townWalkers.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), wait: +w.wait.toFixed(1), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: townWalkers.length, at } }, // 検証用：日中の通行人の人数/位置/向き/経路端
   _setVista(fogFar, camFar) { window.__freezeCam = true; if (scene.fog) { scene.fog.near = Math.max(60, fogFar * 0.4); scene.fog.far = fogFar } camera.far = camFar; camera.updateProjectionMatrix(); renderer.render(scene, camera) }, // 検証用：屋上/飛行の眺望条件（霧far・カメラfar）を固定して描画＝遠景の山並みの確認
   _hillStats() { let n = 0, vis = 0; scene.traverse((o) => { if (o.name && (o.name === 'yatoFarCity' || o.name === 'yatoFarFuji' || o.name.startsWith('yatoFarHills'))) { n++; if (o.visible) vis++ } }); return { meshes: n, visible: vis, chunkObjs: yatoChunks.length } }, // 検証用：遠景の市街シルエット帯/富士メッシュの数/表示状態（チャンクに巻き込まれて消えていないか。旧yatoFarHillsは撤去済）
   _groundY(x, z) { return heightAt(x, z) }, // 検証用：地面の標高（スクショのカメラ高さ合わせ）
