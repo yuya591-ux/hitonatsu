@@ -10631,6 +10631,7 @@ let mode = 'walk' // 'walk' | 'sit' | 'lie'
 let moving = false
 let phase = 0
 let walkBobY = 0 // 歩き/走りの上下ぴょこ（boy.position.yに加算）。カメラは一部だけ受けて“走りの画ブレ”を抑える（2026-06-29）
+let stepBobY = 0 // 踏み込みの上下ぴょこ（walkBobYと別のもう1本・boy.position.yに加算）。カメラ/主観からは大半を拒否＝走行の画ブレを和らげる（ユーザー「走りの揺れが大きすぎる」2026-07-01）
 let facing = boy.rotation.y // 向き(rad)。開始はサンライズ北寺尾の入口で階段の方を向く
 const keys = {}
 const seatLook = { yaw: Math.PI, pitch: -0.05 } // 座/寝の視線
@@ -12657,7 +12658,8 @@ function update(dt) {
     }
     lastStepS = sw
     // 一歩ごとに上下に弾む＝走り/歩きの足取りに生気を（今まで主人公だけ上下動が無く“地面を滑る”ように見えていた・ユーザー要望2026-06-28）。歩きは小さく走るほど大きく。地上のみ（屋上/階段/ジャンプ/自転車/浮遊は除く）
-    if (moving && !riding && !floatMode && boy.userData._cy == null && jumpY <= 0.02 && !airborne) boy.position.y += Math.abs(Math.sin(phase)) * (0.02 + run * 0.075)
+    stepBobY = (moving && !riding && !floatMode && boy.userData._cy == null && jumpY <= 0.02 && !airborne) ? Math.abs(Math.sin(phase)) * (0.02 + run * 0.038) : 0 // 走りの縦バウンドを控えめに（run係数 0.075→0.038）＝主人公の揺れすぎを解消。カメラ/主観からは下で大半を除く
+    boy.position.y += stepBobY
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     // 腕：歩くと振る／止まると凍りつかず、そっと息づくように下ろす
     const armTL = moving ? (-sw - run * 0.25) : Math.sin(tsec * 1.3) * 0.05
@@ -12733,10 +12735,10 @@ function update(dt) {
     // 浮遊中は歩調(phase)に連動した“とことこ揺れ”を使わない＝速度を上げると phase が速く回り高速で震えていた（ユーザー指摘2026-06-29）。
     //   代わりに速度に依存しない、ゆっくりした風まかせの横ゆれ（tsec基準）に。
     const targetRoll = floatMode ? Math.sin(tsec * 0.5) * 0.035 + Math.sin(tsec * 0.23) * 0.02
-      : moving ? Math.sin(phase) * (0.08 + run * 0.05) : Math.sin(tsec * 0.5) * 0.02 * idleLook // 歩くと左右にとことこ揺れる（幼児のよちよち）
+      : moving ? Math.sin(phase) * (0.07 + run * 0.03) : Math.sin(tsec * 0.5) * 0.02 * idleLook // 歩くと左右にとことこ揺れる（幼児のよちよち）。走りの横ゆれを控えめに（run係数 0.05→0.03）
     boy.rotation.z += (targetRoll - boy.rotation.z) * Math.min(1, dt * 9)
     boy.userData.head.rotation.z = -boy.rotation.z * 0.55 // 頭は体ほど傾けず視線を水平に保つ（自然）
-    if (!floatMode) { const bobK = reduceMotion ? 0.4 : 1; walkBobY = riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.05 + run * 0.22) * bobK : Math.sin(tsec * 1.4) * 0.012); boy.position.y += walkBobY } else walkBobY = 0 // 歩き=ぴょこ跳ね/立ち=呼吸。B2：酔い対策ONで歩きの上下を抑える（bobK）。浮遊中は別処理。walkBobYに退避＝カメラは一部だけ受ける
+    if (!floatMode) { const bobK = reduceMotion ? 0.4 : 1; walkBobY = riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.045 + run * 0.11) * bobK : Math.sin(tsec * 1.4) * 0.012); boy.position.y += walkBobY } else walkBobY = 0 // 歩き=ぴょこ跳ね/立ち=呼吸。走りの縦バウンドを控えめに（run係数 0.22→0.11＝揺れすぎ解消）。B2：酔い対策ONで更に抑える（bobK）。浮遊中は別処理。walkBobYに退避＝カメラは一部だけ受ける
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
       jumpV -= 22 * dt; jumpY += jumpV * dt
@@ -12869,7 +12871,7 @@ function update(dt) {
     if (!fpv) camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5) // ★主観ではここで画角を動かさない＝下(12911)のfpvFovへの補間と引き合い、釣り合い点がdtで動いてfovが毎フレーム脈打つ→「ズームが小刻みに揺れる・寄るほど大きい」不具合の真因（ユーザー2026-07-01）。主観のfovは12911の一本だけに
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
-    camGoal.y -= walkBobY * 0.55 // 走りの上下ぴょこは主人公には残しつつ、カメラには約45%だけ伝える＝「主人公に合わせた自然な画ブレ」を保ったまま揺れを和らげる（ユーザー「ブレが激しい」2026-06-29）
+    camGoal.y -= walkBobY * 0.72 + stepBobY * 0.65 // 走りの上下ぴょこは主人公には残しつつ、カメラは大半を拒否＝画面のブレを大きく抑える（walkBobY45%→28%・stepBobYも65%除く。ユーザー「走りの揺れが大きすぎる・画面も揺れる」2026-07-01）。主人公に合わせた僅かな“生きた画ブレ”だけ残す
     // ごく微かな“息”の揺れ（モーション軽減ONのときは止める）。立ち止まると揺れも静まり“間”が生まれる＝時が止まった夢の一瞬（calmで減衰・2026-06-24）
     //  ★ズーム連動の手ぶれ補正：寄る（距離が縮む/画角が狭い）ほど、同じ世界の揺れ幅でも画面上では大きく見える＝望遠でカクカク揺れて見える不具合。寄るほど揺れ幅を減らす（ユーザー「ズームで定期的にぶれる」2026-07-01）
     if (!reduceMotion) { const breath = 1 - calm * 0.7
@@ -12903,7 +12905,7 @@ function update(dt) {
       lookGoal.y = (boy.position.y + dlgWho.position.y) / 2 + 1.45
     }
     if (fpv) { const cp2 = Math.cos(camCtl.pitch), fx = -Math.sin(camCtl.yaw) * cp2, fy = -Math.sin(camCtl.pitch), fz = -Math.cos(camCtl.yaw) * cp2 // 視線方向
-      const hx = boy.position.x, hy = boy.position.y - walkBobY + 1.66, hz = boy.position.z, back = 0.45 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける）。★歩き/立ちの上下ぴょこ(walkBobY)は目線から除く＝主観が望遠でも揺れない（ユーザー「主観で定期的にぶれる」2026-07-01）
+      const hx = boy.position.x, hy = boy.position.y - walkBobY - stepBobY + 1.66, hz = boy.position.z, back = 0.45 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける）。★歩き/走り/立ちの上下ぴょこ(walkBobY＋stepBobY)は両方とも目線から除く＝主観は走っても望遠でも揺れない（ユーザー「主観で揺れる/走りの揺れが大きい」2026-07）
       camGoal.set(hx - fx * back, hy + 0.1 - fy * back, hz - fz * back)
       const cgy = heightAt(camGoal.x, camGoal.z) + 0.45; if (camGoal.y < cgy) camGoal.y = cgy // ★引いたカメラが坂/丘の中にめり込んで真っ暗になる不具合を解消（獅子ヶ谷の起伏でFPVが地中に潜る・ユーザー指摘の主観改善2026-06-26）
       if (pushOutOfColliders(camGoal.x, camGoal.z).hit) camGoal.set(hx, hy + 0.1, hz) // 引いたカメラが建物の中に入るなら目線へ戻す＝壁の中で真っ暗にならない
@@ -13878,6 +13880,7 @@ window.__proto3d = {
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
   _setInk(s, th, hex) { if (s != null) inkPass.uniforms.strength.value = s; if (th != null) inkPass.uniforms.thickness.value = th; if (hex != null) inkPass.uniforms.inkColor.value.set(hex); return { s: inkPass.uniforms.strength.value, th: inkPass.uniforms.thickness.value, c: '#' + inkPass.uniforms.inkColor.value.getHexString() } }, // 検証用：インク線の濃さ/太さ/色をライブ調整（建物の黒線の柔らかさA/B）
   _setFpvFov(v) { fpvFov = v; return fpvFov }, // 検証用：主観の画角を直接セット（最高ズームの揺れ確認）
+  _bobStats() { return { boyY: +boy.position.y.toFixed(4), camY: +camera.position.y.toFixed(4), run: +(Math.hypot(vel.x, vel.z) / 7).toFixed(3), walkBobY: +walkBobY.toFixed(4), stepBobY: +stepBobY.toFixed(4) } }, // 検証用：走行時の上下ぴょこ（主人公boyY/カメラcamYの振幅を測る）
   _fpvSample() { const d = new THREE.Vector3(); camera.getWorldDirection(d); return { fov: +camera.fov.toFixed(3), yaw: +camCtl.yaw.toFixed(4), pitch: +camCtl.pitch.toFixed(4), px: +camera.position.x.toFixed(4), py: +camera.position.y.toFixed(4), pz: +camera.position.z.toFixed(4), dx: +d.x.toFixed(5), dy: +d.y.toFixed(5), dz: +d.z.toFixed(5) } }, // 検証用：主観カメラの画角/視点角/位置/向き（フレーム間の揺れ＝dx/dy/dzの不動を測る）
   _vehSpawn() { let n = 0; for (const v of vehPool) if (v.active) n++; while (n < 2) { const before = vehPool.filter((v) => v.active).length; spawnVehicle(); if (vehPool.filter((v) => v.active).length === before) break; n++ } return vehPool.filter((v) => v.active).length }, // 検証用：往来の乗り物を最大2台まで強制スポーン（予算ピーク計測）
   _vehSpawnKind(i) { for (const o of vehPool) { o.active = false; o.g.visible = false } const v = vehPool[i]; if (!v) return null; v.active = true; v.d = 12; v.dir = 1; vehTimer = 999; v.g.position.set(3016, heightAt(3016, 13.4) + 0.02, 13.4); v.g.rotation.y = 1.09; v.g.visible = true; return { x: 3016, z: 13.4 } }, // 検証用：他を消してプールの指定番号(0淡青セダン/1軽トラ/2ベージュ)だけを始点付近に出す（形の寄り確認・自動スポーン止め）
