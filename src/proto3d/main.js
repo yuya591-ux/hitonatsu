@@ -7722,6 +7722,8 @@ const yatoHydrantSpots = []
   if (grays.length) { const m = new THREE.Mesh(mergeGeometries(grays), new THREE.MeshToonMaterial({ color: 0x8a8a86, gradientMap: GRAD })); m.castShadow = true; scene.add(m); if (typeof yatoStatics !== 'undefined') yatoStatics.push(m) }
 })()
 const yatoLaundrySpots = [] // 物干しの位置（検証用）
+const laundryCloths = [] // D仕上げ：干し物の布メッシュ（夕方に取り込む＝布だけ出し入れ・支柱は残す）
+let laundryOut = null // 現在干してあるか（tri-state・状態が変わった時だけvisibleを書く）
 ;(function addYatoLifeTraces() {
   if (!builtBuildings.length) return
   const clothCols = [[0.93, 0.89, 0.83], [0.60, 0.75, 0.85], [0.85, 0.56, 0.56], [0.93, 0.89, 0.83], [0.78, 0.84, 0.62], [0.91, 0.85, 0.62]]
@@ -7751,7 +7753,7 @@ const yatoLaundrySpots = [] // 物干しの位置（検証用）
       for (let v = 0; v < pg.attributes.position.count; v++) ca.push(col[0], col[1], col[2])
       pg.setAttribute('color', new THREE.Float32BufferAttribute(ca, 3)); cgeos.push(pg)
     }
-    const cloth = new THREE.Mesh(mergeGeometries(cgeos), clothMat); cloth.castShadow = true; grp.add(cloth)
+    const cloth = new THREE.Mesh(mergeGeometries(cgeos), clothMat); cloth.castShadow = true; grp.add(cloth); laundryCloths.push(cloth) // 布だけ別参照＝夕方に取り込む（支柱グループとは独立にvisibleを操作）
     scene.add(grp); swayables.push({ obj: grp, ph: n * 0.7, amp: 0.10 }); if (typeof yatoStatics !== 'undefined') yatoStatics.push(grp); yatoLaundrySpots.push({ x: +lx.toFixed(1), z: +lz.toFixed(1) }) // 風でゆれる＋J1カリング対象＋位置記録(検証用)
     n++
   }
@@ -11649,6 +11651,8 @@ function update(dt) {
     for (const s of swayables) { const sx = s.obj.position.x - bx, sz = s.obj.position.z - bz
       if (sx * sx + sz * sz > LOD_SWAY2) { _perfAnim.sway.skip++; continue }
       s.obj.rotation.z = Math.sin(tsec * 1.1 + s.ph) * s.amp * (0.5 + wind); _perfAnim.sway.ran++ } }
+  // D仕上げ：干し物を夕方に取り込む＝日中(tday0.1〜0.6)は干し、夕方に布だけそっと消える（＝取り込んだ・支柱は残る）。朝にまた干し直す（時刻の生活演出・可逆・状態が変わった時だけ書く）
+  { const out = tday > 0.1 && tday < 0.6; if (out !== laundryOut) { laundryOut = out; for (const c of laundryCloths) c.visible = out } }
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
   if (yatoTreeShader) { yatoTreeShader.uniforms.uTime.value = tsec; yatoTreeShader.uniforms.uWind.value = wind } // 樹冠も夏の風でそよぐ
@@ -13770,6 +13774,7 @@ window.__proto3d = {
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
   _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
   _laundry() { return yatoLaundrySpots.slice() }, // 検証用：E1 洗濯物（物干し）の位置一覧
+  _laundryVis() { let v = 0; for (const c of laundryCloths) if (c.visible) v++; return { total: laundryCloths.length, visible: v, out: laundryOut } }, // 検証用：干してある布の可視枚数（夕方に取り込むか）
   _sunflowers() { return yatoSunflowerSpots.slice() }, // 検証用：D1 ヒマワリの位置一覧
   _hydrants() { return yatoHydrantSpots.slice() }, // 検証用：F2 消火栓の位置一覧
   _nests() { return yatoNestSpots.slice() }, // 検証用：C6 ツバメの巣の位置一覧
