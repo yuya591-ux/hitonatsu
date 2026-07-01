@@ -11354,8 +11354,8 @@ function dockGlyph(kind) {
   set('lie', 'leaf'); set('bike', 'bike'); set('float', 'balloon'); set('fpvbtn', 'scope'); set('sleep', 'moon')
   const sb = document.getElementById('set-btn'); if (sb) sb.innerHTML = `<img src="${dockGlyph('gear')}" style="width:1.55em;height:1.55em;vertical-align:middle" alt="せってい">` // ⚙(OS絵文字)→手描きの歯車グリフ＝ドックと統一
 })()
-const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 6, 95) // 主観視点：寄り(6)〜引き(95)＝もっと望遠で覗ける（ユーザー「もっと寄れるように」2026-07-01・旧下限11）
-  else if (mode === 'sit' || mode === 'lie') { camera.fov = THREE.MathUtils.clamp(camera.fov * f, 22, 92); camera.updateProjectionMatrix() } // 座る/寝ころぶ時もズームできる（f<1=寄る・空や景色を大きく/広く）
+const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 4, 95) // 主観視点：寄り(4)〜引き(95)＝さらに望遠で覗ける（ユーザー「もっと倍率を上げて」2026-07-01・下限11→6→4）
+  else if (mode === 'sit' || mode === 'lie') { camera.fov = THREE.MathUtils.clamp(camera.fov * f, 8, 92); camera.updateProjectionMatrix() } // 座る/寝ころぶ時も深くズームできる（下限22→8＝寝ころんで雲や遠くを大きく・主観と近い倍率に揃える）
   else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観/座寝は画角でズーム（f<1=ズームイン）
 tapBtn(zinEl, () => zoomStep(0.8))
 tapBtn(zoutEl, () => zoomStep(1.25))
@@ -11369,7 +11369,7 @@ tapBtn(zoutEl, () => zoomStep(1.25))
   tapBtn(flFpv, () => { toggleFpv() }) // 飛行中の主観視点トグル（全ボタン同期＝toggleFpv）
   window.__updFlightHud = () => { // 毎フレーム：高度/速さ/ズームのメーターを更新
     const alt = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / floatMaxH, 0, 1)
-    const zoomN = fpv ? (95 - fpvFov) / 89 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
+    const zoomN = fpv ? (95 - fpvFov) / 91 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
     const ea = document.getElementById('flg-alt'), es = document.getElementById('flg-spd'), ez = document.getElementById('flg-zoom')
     if (ea) ea.style.transform = 'scaleY(' + alt.toFixed(3) + ')'
     if (es) es.style.transform = 'scaleY(' + ((floatSpeedI + 1) / FLOAT_SPEEDS.length).toFixed(3) + ')'
@@ -13026,6 +13026,8 @@ function update(dt) {
   camera.userData._look = camera.userData._look || new THREE.Vector3().copy(lookGoal)
   if (camSnap) { // 主観⇄三人称の切替時だけ瞬間移動＝体の中をカメラが通り抜けて赤くにじむ“番組みたい”表示を防ぐ（ユーザー指摘2026-06-23）
     camera.position.copy(camGoal); camera.userData._look.copy(lookGoal); camSnap = false
+  } else if (fpv) { // ★主観(一人称)：位置と注視を毎フレーム直接合わせる＝位置(4.6)と注視(5.4)の率ズレ＆遅れが視線方向を揺らし、望遠(最高ズーム)で拡大されて「小刻みに揺れる」不具合を断つ（ユーザー2026-07-01）。頭は歩き/立ちのぴょこ(walkBobY)を除いてあるので直接追従でも揺れない
+    camera.position.copy(camGoal); camera.userData._look.copy(lookGoal)
   } else {
     camera.position.lerp(camGoal, Math.min(1, dt * (mode === 'swing' || mode === 'sliding' ? 11 : mode !== 'walk' ? 5.4 : 4.6))) // 追従をほんの少しやわらかく＝夢のような“ふわり”した視点（遅れすぎて酔わない範囲・2026-06-24）
     camera.userData._look.lerp(lookGoal, Math.min(1, dt * (mode === 'swing' || mode === 'sliding' ? 11 : 5.4)))
@@ -13875,6 +13877,8 @@ window.__proto3d = {
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
   _setInk(s, th, hex) { if (s != null) inkPass.uniforms.strength.value = s; if (th != null) inkPass.uniforms.thickness.value = th; if (hex != null) inkPass.uniforms.inkColor.value.set(hex); return { s: inkPass.uniforms.strength.value, th: inkPass.uniforms.thickness.value, c: '#' + inkPass.uniforms.inkColor.value.getHexString() } }, // 検証用：インク線の濃さ/太さ/色をライブ調整（建物の黒線の柔らかさA/B）
+  _setFpvFov(v) { fpvFov = v; return fpvFov }, // 検証用：主観の画角を直接セット（最高ズームの揺れ確認）
+  _fpvSample() { const d = new THREE.Vector3(); camera.getWorldDirection(d); return { fov: +camera.fov.toFixed(3), yaw: +camCtl.yaw.toFixed(4), pitch: +camCtl.pitch.toFixed(4), px: +camera.position.x.toFixed(4), py: +camera.position.y.toFixed(4), pz: +camera.position.z.toFixed(4), dx: +d.x.toFixed(5), dy: +d.y.toFixed(5), dz: +d.z.toFixed(5) } }, // 検証用：主観カメラの画角/視点角/位置/向き（フレーム間の揺れ＝dx/dy/dzの不動を測る）
   _vehSpawn() { let n = 0; for (const v of vehPool) if (v.active) n++; while (n < 2) { const before = vehPool.filter((v) => v.active).length; spawnVehicle(); if (vehPool.filter((v) => v.active).length === before) break; n++ } return vehPool.filter((v) => v.active).length }, // 検証用：往来の乗り物を最大2台まで強制スポーン（予算ピーク計測）
   _vehSpawnKind(i) { for (const o of vehPool) { o.active = false; o.g.visible = false } const v = vehPool[i]; if (!v) return null; v.active = true; v.d = 12; v.dir = 1; vehTimer = 999; v.g.position.set(3016, heightAt(3016, 13.4) + 0.02, 13.4); v.g.rotation.y = 1.09; v.g.visible = true; return { x: 3016, z: 13.4 } }, // 検証用：他を消してプールの指定番号(0淡青セダン/1軽トラ/2ベージュ)だけを始点付近に出す（形の寄り確認・自動スポーン止め）
   _vehStats() { let active = 0, vis = 0; const at = []; for (const v of vehPool) { if (v.active) { active++; const p = v.g.position; at.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: v.g.visible, ry: +v.g.rotation.y.toFixed(2) }); if (v.g.visible) vis++ } } return { active, vis, at } }, // 検証用：往来の乗り物の台数/位置/向き/可視

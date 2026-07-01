@@ -116,7 +116,7 @@
       body.floating #fl-up, body.floating #fl-down, body.floating #fl-zin, body.floating #fl-zout, body.floating #fl-fpv { display: block; }
       /* #fl-speed は上の flex 規則で表示（小見出し＋値の2段）。ここで block にすると上書きされるため含めない */
       body.floating #fl-gauges { display: block; }
-      body.floating #jump, body.floating #zin, body.floating #zout, body.floating #lie, body.floating #bike, body.floating #act, body.floating #npc, body.floating #catch, body.floating #fish, body.floating #hint, body.floating #sleep, body.floating #pm-btn { display: none !important; }
+      body.floating #jump, body.floating #zin, body.floating #zout, body.floating #lie, body.floating #bike, body.floating #act, body.floating #npc, body.floating #catch, body.floating #fish, body.floating #hint, body.floating #sleep, body.floating #pm-btn, body.floating #mb-btn, body.floating #senko-btn { display: none !important; } /* 飛行中は📔おもいで/🎆線香花火も隠す＝景色の邪魔をしない（ユーザー指摘2026-07-01） */
       /* ── 軽量モード（低スペック端末）＝UIのすりガラス(backdrop-filter)を切り、そのぶん不透明度を上げて文字が沈まないように（2026-06-29） ── */
       body.lowfx #act, body.lowfx #jump, body.lowfx .zbtn, body.lowfx #dock > button,
       body.lowfx #fl-up, body.lowfx #fl-down, body.lowfx #fl-zin, body.lowfx #fl-zout, body.lowfx #fl-speed, body.lowfx #fl-fpv,
@@ -132,15 +132,17 @@
       #hint, #badge, #act, #jump, #zin, #zout, #look, #dock, #npc, #go, #catch, #fish, #sleep, #set-btn,
       #fl-up, #fl-down, #fl-zin, #fl-zout, #fl-speed, #fl-fpv, #fl-gauges, #stick,
       #fly-up, #fly-down, #fly-zin, #fly-zout, #fly-speed, #fly-photo, #fly-exit,
-      #fly-cross, #pin-read, #pin-list, #pin-drop, #pin-clear, #pin-copyall { transition: opacity 0.9s ease; }
+      #fly-cross, #pin-read, #pin-list, #pin-drop, #pin-clear, #pin-copyall,
+      #mb-btn, #senko-btn, #pm-btn { transition: opacity 0.9s ease; }
       body.ui-idle #hint, body.ui-idle #badge, body.ui-idle #act, body.ui-idle #jump, body.ui-idle #zin, body.ui-idle #zout,
       body.ui-idle #look, body.ui-idle #dock, body.ui-idle #npc, body.ui-idle #go, body.ui-idle #catch, body.ui-idle #fish,
       body.ui-idle #sleep, body.ui-idle #set-btn, body.ui-idle #fl-up, body.ui-idle #fl-down, body.ui-idle #fl-zin,
       body.ui-idle #fl-zout, body.ui-idle #fl-speed, body.ui-idle #fl-fpv, body.ui-idle #fl-gauges, body.ui-idle #stick,
       body.ui-idle #fly-up, body.ui-idle #fly-down, body.ui-idle #fly-zin, body.ui-idle #fly-zout, body.ui-idle #fly-speed,
       body.ui-idle #fly-photo, body.ui-idle #fly-exit, body.ui-idle #fly-cross, body.ui-idle #pin-read, body.ui-idle #pin-list,
-      body.ui-idle #pin-drop, body.ui-idle #pin-clear, body.ui-idle #pin-copyall {
-        opacity: 0 !important; pointer-events: none !important; }
+      body.ui-idle #pin-drop, body.ui-idle #pin-clear, body.ui-idle #pin-copyall,
+      body.ui-idle #mb-btn, body.ui-idle #senko-btn, body.ui-idle #pm-btn {
+        opacity: 0 !important; pointer-events: none !important; } /* 📔おもいで/🎆線香花火/📷カメラも景色モードでそっと消える（触れると戻る・ユーザー指摘2026-07-01） */
       /* ただし操作ボタンはフェード中でも押せる＝1タップで効く（消えていても押せて、同時にUIが戻る・ユーザー指摘2026-06-26） */
       body.ui-idle #jump, body.ui-idle #zin, body.ui-idle #zout, body.ui-idle #dock, body.ui-idle #dock > button,
       body.ui-idle #act, body.ui-idle #npc, body.ui-idle #go, body.ui-idle #catch, body.ui-idle #fish,
