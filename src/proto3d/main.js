@@ -10013,7 +10013,7 @@ const LIFE_SPOTS = [
   { x: 3010, z: 8, kinds: ['murmur', 'dog'], w: [0.5, 0.8] },               // 家並み・夕方の家路（遠い子の声＋犬の遠吠え＝郷愁）
   { x: 2762, z: -150, kinds: ['murmur', 'bell'], w: [0.2, 0.78] },          // 商店街（立ち話のざわめき＋自転車のベル）
 ]
-let lifeGain = null, lifeMurmurCd = 4 + Math.random() * 10, lifeCheerCd = 10 + Math.random() * 24, lifeDogCd = 50 + Math.random() * 70, lifeBellCd = 40 + Math.random() * 70, lifeCallCd = 30 + Math.random() * 50, lifeRoosterCd = 12 + Math.random() * 30
+let lifeGain = null, lifeMurmurCd = 4 + Math.random() * 10, lifeCheerCd = 10 + Math.random() * 24, lifeDogCd = 50 + Math.random() * 70, lifeBellCd = 40 + Math.random() * 70, lifeCallCd = 30 + Math.random() * 50, lifeRoosterCd = 12 + Math.random() * 30, lifeTofuCd = 45 + Math.random() * 60
 function getLifeOut() { const ctx = listener.context; if (lifeGain && lifeGain.context === ctx) return lifeGain
   lifeGain = ctx.createGain(); lifeGain.gain.value = 0
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2300 // 遠い生活音＝やわらかく（輪郭を消す）
@@ -10124,6 +10124,29 @@ function roosterCrow(t0) { if (!audioStarted) return; try {
   f2.frequency.setValueAtTime(1100, t0 + ls); f2.frequency.linearRampToValueAtTime(900, t0 + ls + 0.9)
   o.start(t0); o.stop(t0 + ls + 1.1)
 } catch (e) {} }
+// 豆腐屋のラッパ＝夕方、通りを流していく「プァ〜〜、プゥ〜」（真鍮のラッパの物悲しい2音）。昭和の夕暮れの定番の音（録音不使用・自前合成）。
+//   farCall/雄鶏と同じく近接ゲートに縛られず谷をわたって届く独立配線＝遠いローパス＋うっすら反響＋左→右にゆっくりパン（通りを流していく）。
+function tofuHorn(t0) { if (!audioStarted) return; try {
+  const ctx = listener.context
+  const out = ctx.createGain(); out.gain.value = 1
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1650; lp.Q.value = 0.5 // 遠い＝高域が届かずやわらかい
+  const dl = ctx.createDelay(); dl.delayTime.value = 0.19; const fb = ctx.createGain(); fb.gain.value = 0.2; const wet = ctx.createGain(); wet.gain.value = 0.3 // 夕暮れの通りにうっすら返る
+  dl.connect(fb); fb.connect(dl)
+  const pan = lifePan(-0.55); pan.pan.setValueAtTime(-0.55, t0); pan.pan.linearRampToValueAtTime(0.55, t0 + 3.6) // 通りを流していく（左→右）
+  out.connect(lp); lp.connect(pan); pan.connect(getMaster()); lp.connect(dl); dl.connect(wet); wet.connect(pan)
+  const pk = 0.03 * (AUDIO.lifeVol || 0.4) * (settings.volLife ?? 1) // 控えめ（遠い一節）＝G5：声(生活音)スライダー
+  const blow = (ts, f1, f2, dur) => { // ラッパの一吹き＝少し尻下がりに気の抜ける真鍮の音
+    const o = ctx.createOscillator(); o.type = 'sawtooth' // のこぎり波＝真鍮の倍音
+    const bp = ctx.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.value = 1250; bp.Q.value = 0.8
+    const vib = ctx.createOscillator(); vib.frequency.value = 5.2; const vibg = ctx.createGain(); vibg.gain.value = 3.4; vib.connect(vibg); vibg.connect(o.frequency); vib.start(ts); vib.stop(ts + dur + 0.08) // ゆるいビブラート＝人の吹く息
+    o.frequency.setValueAtTime(f1, ts); o.frequency.linearRampToValueAtTime(f2, ts + dur) // 尻下がり
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ts); g.gain.linearRampToValueAtTime(pk, ts + 0.07); g.gain.linearRampToValueAtTime(pk * 0.82, ts + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, ts + dur + 0.14)
+    o.connect(bp); bp.connect(g); g.connect(out); o.start(ts); o.stop(ts + dur + 0.18)
+  }
+  // 「プァ〜（高）→プゥ〜（低）」を、少し間をおいて2度（豆腐屋がゆっくり通り過ぎる）
+  blow(t0, 587, 566, 0.55); blow(t0 + 0.64, 440, 424, 0.8)
+  blow(t0 + 1.9, 587, 566, 0.52); blow(t0 + 2.5, 440, 424, 0.85)
+} catch (e) {} }
 function maybeLifeSounds(dt) {
   if (!audioStarted) return
   const ctx = listener.context, out = getLifeOut()
@@ -10137,6 +10160,8 @@ function maybeLifeSounds(dt) {
   lifeCallCd -= dt; if (onYato && tday > 0.48 && tday < 0.72 && lifeCallCd <= 0) { lifeCallCd = 50 + Math.random() * 80; farCall(ctx.currentTime + 0.06) }
   // 夜明けの雄鶏（横溝屋敷のにわとり）。近接ゲートに縛られず谷をわたって届く＝朝いちばんの音。明け方tday0.02〜0.14にときどき
   lifeRoosterCd -= dt; if (onYato && tday > 0.02 && tday < 0.14 && lifeRoosterCd <= 0) { lifeRoosterCd = 28 + Math.random() * 45; roosterCrow(ctx.currentTime + 0.06) }
+  // 豆腐屋のラッパ（夕方、通りを流していく物悲しい2音）。近接ゲートに縛られず谷をわたって届く＝夕暮れの定番。tday0.5〜0.72にまれに（＝希少で沁みる）
+  lifeTofuCd -= dt; if (onYato && tday > 0.5 && tday < 0.72 && lifeTofuCd <= 0) { lifeTofuCd = 100 + Math.random() * 100; tofuHorn(ctx.currentTime + 0.06) }
   if (!near || !onYato || target < 0.012) return // 遠い/夜/対象外は鳴らさない
   const at = ctx.currentTime + 0.06, has = (k) => near.kinds.indexOf(k) >= 0
   lifeMurmurCd -= dt; if (lifeMurmurCd <= 0) { lifeMurmurCd = 9 + Math.random() * 15; if (has('murmur')) lifeMurmur(at) }
@@ -13713,7 +13738,7 @@ window.__proto3d = {
     for (const G of runGroups) out.push({ t: 'run', x: +G.cx.toFixed(0), z: +G.cz.toFixed(0), at: desc(G.cx, G.cz) })
     for (const C of chatPairs) out.push({ t: 'chat', x: +C.cx.toFixed(0), z: +C.cz.toFixed(0), a: desc(C.a.position.x, C.a.position.z), b: desc(C.b.position.x, C.b.position.z) })
     return out }, // 検証用：全NPCの足元が 水中/道路上/建物内/地面OK のどれか（漏れ把握）
-  _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); else if (k === 'call') farCall(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
+  _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); else if (k === 'call') farCall(at); else if (k === 'tofu') tofuHorn(at); else if (k === 'rooster') roosterCrow(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _festFigVis() { let total = 0, vis = 0, parentVis = 0, near = 0, minD = 1e9, maxD = 0; for (const d of festFigs) { total++; if (d.g.visible) vis++; if (d.g.parent && d.g.parent.visible) { parentVis++; const dx = boy.position.x - d.cx, dz = boy.position.z - d.cz, dd = Math.sqrt(dx * dx + dz * dz); if (dd < 60) near++; if (dd < minD) minD = dd; if (dd > maxD) maxD = dd } } return { total, selfVisible: vis, inVisibleVenue: parentVis, within60m: near, minD: +minD.toFixed(1), maxD: +maxD.toFixed(1) } }, // 検証用：踊り手のvisible数＋計算LODの60m内訳（静止しても消えていないこと＝inVisibleVenue分は描画される）
   _festMeshStats() { return FEST_VENUES.map((v) => { let meshes = 0, outlines = 0, glows = 0, lights = 0, points = 0, tris = 0, figMeshes = 0, staticMeshes = 0; const isFig = (o) => { let c = o; while (c && c !== v.g) { if (c.userData && c.userData.head) return true; c = c.parent } return false }; v.g.traverse((o) => { if (o.isPoints) points++; if (o.isLight) lights++; if (!o.isMesh) return; meshes++; if (isFig(o)) figMeshes++; else staticMeshes++; if (o.material === OUTLINE_MAT) outlines++; else if (o.material && o.material.isMeshBasicMaterial && o.material.blending === THREE.AdditiveBlending) glows++; const g = o.geometry; if (g && g.index) tris += g.index.count / 3; else if (g && g.attributes && g.attributes.position) tris += g.attributes.position.count / 3 }); return { name: v.name, meshes, figMeshes, staticMeshes, outlines, glows, lights, points, tris: Math.round(tris), children: v.g.children.length } }) }, // 検証用：各会場グループのメッシュ内訳（軽量化の的を絞る・figMeshes=人/staticMeshes=構造物）
@@ -13839,6 +13864,7 @@ window.__proto3d = {
   get _eveBgmVol() { return eveBgmGain ? eveBgmGain.gain.value : -1 }, // 検証用：晴れた夕夜BGM(パッド)の音量
   _eveBgmTick(d) { startAudio(); try { listener.context.resume() } catch (e) {} updateEveningBgm(d || 0.016); return { started: eveBgmStarted, gain: eveBgmGain ? +eveBgmGain.gain.value.toFixed(4) : -1 } }, // 検証用：夕夜BGMの更新を1回回して目標へ近づける（setTargetは時定数2.2sなので複数回呼んで観測）
   _eveBgmStarted() { return eveBgmStarted }, // 検証用：夕夜BGMの発振器が起動済みか
+  _audioOn() { return audioStarted }, // 検証用：オーディオが起動済みか（生活音の合成を実際に走らせられるか）
   _setVolBgm(v) { settings.volBgm = v }, // 検証用：BGM音量スライダーの値を直接置く（夕夜BGM/オルゴールが従うか）
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
