@@ -7,13 +7,19 @@ export const PHOTO_CFG = {
   width: 640, height: 480, // VGA級にダウンサンプル（粗さ・ドット感）
   jpegQuality: 0.8, // 圧縮感（ガラケー/デジカメ風）
   saturation: 0.82, // 彩度を少し下げる
-  contrast: 0.92, // 眠い階調（強くしすぎない）
-  brightness: 1.05,
+  contrast: 0.94, // 眠い階調（強くしすぎない・眠くしすぎてモヤにしない）
+  brightness: 1.02,
   softBlurPx: 0.7, // ごくわずかなソフトフォーカス
   wbR: 1.07, wbG: 1.0, wbB: 0.9, // ホワイトバランス：曇り寄り（青を抜き暖色へ）
   warmAdd: 6, // さらに全体へ薄く黄/暖色を足す
   vignette: 0.34, // 周辺減光（軽く）
-  grain: 22, // フィルムグレイン（±grain/2）
+  grain: 20, // フィルムグレイン（±grain/2）
+  // ── ここから“エモさ”の核（褪せた技術写真→あたたかい記憶へ）。控えめに＝白飛び/モヤにしない ──
+  halation: 0.3, // ハレーション＝空/灯りだけが暖色にふわっと滲む（夏の光の記憶・いちばん効く）
+  blackLift: 0.055, // 黒をほんの少し暖かいグレーへ＝褪せたプリントの影（真っ黒に沈めない・持ち上げすぎない）
+  splitWarm: 10, // スプリットトーン：ハイライトを琥珀へ（夕日/白熱灯の記憶）
+  splitCool: 7, // スプリットトーン：シャドウをほのかに青緑へ（フィルムのやさしい色ずれ）
+  lightLeak: 0.09, // 光もれ＝隅からの暖かい光線（フィルムの光線・夏の日ざしの気配・ごく淡く）
   dateStamp: true, // 右下の日付スタンプ（平成デジカメ風）
   dateColor: 'rgba(255,150,46,0.92)',
   maxPhotos: 80, // アルバム上限（古いものから消す）。J5でIndexedDB化＝localStorageの5MB制限から解放したので30→80へ
@@ -36,9 +42,9 @@ async function idbDel(id) { const db = await idbOpen(); return new Promise((res)
 
 // レトロ強度プリセット（見た目パラメータのみ差し替え。解像度等は据え置き）
 export const PHOTO_PRESETS = {
-  '弱': { saturation: 0.92, contrast: 0.98, brightness: 1.04, softBlurPx: 0.4, wbR: 1.04, wbG: 1.0, wbB: 0.95, warmAdd: 3, vignette: 0.2, grain: 12 },
-  '標準': { saturation: 0.82, contrast: 0.92, brightness: 1.05, softBlurPx: 0.7, wbR: 1.07, wbG: 1.0, wbB: 0.9, warmAdd: 6, vignette: 0.34, grain: 22 },
-  '強': { saturation: 0.66, contrast: 0.85, brightness: 1.06, softBlurPx: 1.05, wbR: 1.1, wbG: 1.0, wbB: 0.85, warmAdd: 11, vignette: 0.46, grain: 34 },
+  '弱': { saturation: 0.9, contrast: 0.98, brightness: 1.02, softBlurPx: 0.45, wbR: 1.05, wbG: 1.0, wbB: 0.94, warmAdd: 4, vignette: 0.22, grain: 12, halation: 0.2, blackLift: 0.035, splitWarm: 7, splitCool: 4, lightLeak: 0.06 },
+  '標準': { saturation: 0.82, contrast: 0.94, brightness: 1.02, softBlurPx: 0.7, wbR: 1.07, wbG: 1.0, wbB: 0.9, warmAdd: 6, vignette: 0.34, grain: 20, halation: 0.3, blackLift: 0.055, splitWarm: 10, splitCool: 7, lightLeak: 0.09 },
+  '強': { saturation: 0.68, contrast: 0.88, brightness: 1.03, softBlurPx: 1.0, wbR: 1.11, wbG: 1.0, wbB: 0.84, warmAdd: 11, vignette: 0.46, grain: 30, halation: 0.46, blackLift: 0.1, splitWarm: 16, splitCool: 11, lightLeak: 0.16 },
 }
 
 export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
@@ -93,16 +99,18 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
     #pm-album.on{display:block;}
     #pm-album h3{color:#fdf6e8;text-align:center;font-weight:600;letter-spacing:0.1em;margin:0 0 4vh;}
     #pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;max-width:880px;margin:0 auto;}
-    #pm-grid img{width:100%;display:block;border:4px solid #fff;border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,0.4);
+    #pm-grid img{width:100%;display:block;border:5px solid #f4ecda;border-bottom-width:11px;border-radius:2px;box-shadow:0 5px 14px rgba(0,0,0,0.4);
       cursor:pointer;transform:rotate(-1deg);}
     #pm-grid img:nth-child(even){transform:rotate(1.2deg);}
     #pm-empty{color:#cdbfa6;text-align:center;font-size:15px;}
     #pm-close-album{display:block;margin:5vh auto 0;appearance:none;border:none;cursor:pointer;padding:0.55em 2.2em;
       font-size:17px;font-family:inherit;color:#fdf7ec;background:#6a7088;border-radius:999px;}
     #pm-view{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;
-      background:rgba(10,12,20,0.92);padding:4vw;}
+      background:radial-gradient(120% 120% at 50% 42%, rgba(38,27,19,0.9), rgba(18,13,10,0.95));padding:4vw;}
     #pm-view.on{display:flex;}
-    #pm-view img{max-width:94vw;max-height:80vh;border:6px solid #fff;border-radius:3px;box-shadow:0 8px 30px rgba(0,0,0,0.6);}
+    /* 写真＝クリーム色のフチの“プリント”。白×黒の画廊でなく、あたたかい暗がりに一枚だけ置いた思い出に */
+    #pm-view img{max-width:94vw;max-height:80vh;border:7px solid #f4ecda;border-bottom-width:15px;border-radius:2px;
+      box-shadow:0 12px 34px rgba(0,0,0,0.5),0 2px 10px rgba(70,46,26,0.45);transform:rotate(-0.7deg);}
     /* 写真の下にそっと一行＝アルバムを“絵の束”から“思い出”へ（いつ・どこで撮ったか） */
     #pm-view-cap{position:fixed;bottom:13vh;left:0;right:0;text-align:center;color:#fdf3e0;font-size:15px;letter-spacing:0.06em;text-shadow:0 1px 4px rgba(0,0,0,0.7);font-family:inherit;pointer-events:none;}
     #pm-view-bar{position:fixed;bottom:5vh;left:0;right:0;display:flex;justify-content:center;gap:6vw;}
@@ -165,11 +173,19 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
     x.filter = `blur(${cfg.softBlurPx}px) saturate(${cfg.saturation}) contrast(${cfg.contrast}) brightness(${cfg.brightness})`
     x.drawImage(src, cx, cy, cw, ch, 0, 0, W, H)
     x.filter = 'none'
-    // 画素処理：WB(曇り寄り)＋グレイン＋ヴィネット
+    // 画素処理：WB(曇り寄り)＋スプリットトーン(暖ハイライト/寒シャドウ)＋黒の持ち上げ(ミルキー)＋グレイン＋ヴィネット
     const img = x.getImageData(0, 0, W, H), d = img.data
     const cxp = W / 2, cyp = H / 2, maxd = Math.hypot(cxp, cyp)
+    const bl = cfg.blackLift || 0, sw2 = cfg.splitWarm || 0, sc = cfg.splitCool || 0
     for (let i = 0; i < d.length; i += 4) {
       let r = d[i] * cfg.wbR + cfg.warmAdd, g = d[i + 1] * cfg.wbG + cfg.warmAdd * 0.6, b = d[i + 2] * cfg.wbB
+      const lum = (r * 0.299 + g * 0.587 + b * 0.114) / 255, sh = 1 - lum // 明るさ0..1／影の重み
+      // スプリットトーン：ハイライト＝琥珀、シャドウ＝ほのかに青緑（フィルムのやさしい色ずれ＝記憶の色）
+      r += lum * sw2 - sh * sc * 0.35
+      g += lum * sw2 * 0.42 + sh * sc * 0.12
+      b += -lum * sw2 * 0.55 + sh * sc
+      // 黒を暖かいグレーへ持ち上げ＝褪せたプリントのミルキーな影（真っ黒に沈まず、やわらかい）
+      r = r * (1 - bl) + 48 * bl; g = g * (1 - bl) + 43 * bl; b = b * (1 - bl) + 40 * bl
       const n = (Math.random() - 0.5) * cfg.grain
       r += n; g += n; b += n
       const px = (i >> 2) % W, py = (i >> 2) / W | 0
@@ -179,6 +195,22 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
       d[i] = r < 0 ? 0 : r > 255 ? 255 : r; d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g; d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b
     }
     x.putImageData(img, 0, 0)
+    // ハレーション：本当に明るい所（空・灯り・白い雲）だけが暖色にふわっと滲む（夏の光/白熱灯の記憶）＝しきい値でハイライトのみ抽出→暖色に染め→大きくぼかして加算。閾値方式なので淡いトゥーンの壁までは滲ませず白飛びしない
+    if (cfg.halation > 0) {
+      const hc = document.createElement('canvas'); hc.width = W; hc.height = H; const hx = hc.getContext('2d')
+      const hi = x.getImageData(0, 0, W, H), hd = hi.data
+      for (let i = 0; i < hd.length; i += 4) { const l = hd[i] * 0.299 + hd[i + 1] * 0.587 + hd[i + 2] * 0.114
+        const m = Math.min(1, Math.max(0, l - 206) / 44) // 明度206以上だけ（空/灯り）＝壁(≈180)は滲まない
+        hd[i] = hd[i] * m; hd[i + 1] = hd[i + 1] * m * 0.82; hd[i + 2] = hd[i + 2] * m * 0.52 } // 琥珀に寄せる
+      hx.putImageData(hi, 0, 0)
+      x.globalCompositeOperation = 'lighter'; x.globalAlpha = cfg.halation; x.filter = `blur(${Math.max(4, Math.round(W * 0.02))}px)`; x.drawImage(hc, 0, 0); x.filter = 'none'; x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'
+    }
+    // 光もれ：右上の隅から暖かい光線がにじむ（フィルムの光もれ・夏の日ざしの気配）＝ごく淡く加算
+    if (cfg.lightLeak > 0) {
+      const g1 = x.createRadialGradient(W * 0.97, H * 0.05, 0, W * 0.97, H * 0.05, W * 0.62)
+      g1.addColorStop(0, `rgba(255,158,74,${cfg.lightLeak})`); g1.addColorStop(0.5, `rgba(255,122,86,${cfg.lightLeak * 0.34})`); g1.addColorStop(1, 'rgba(255,122,86,0)')
+      x.globalCompositeOperation = 'lighter'; x.fillStyle = g1; x.fillRect(0, 0, W, H); x.globalCompositeOperation = 'source-over'
+    }
     if (cfg.dateStamp) {
       x.font = 'bold 22px "Courier New", monospace'; x.textAlign = 'right'
       x.shadowColor = 'rgba(0,0,0,0.5)'; x.shadowBlur = 3
@@ -257,5 +289,6 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
     get newCount() { return newCount }, // その日 新しく撮った枚数（絵日記用）
     clearNew() { newCount = 0 },
     latestPhoto() { return photos.length ? photos[photos.length - 1].url : null },
+    _process(over) { const keys = over ? Object.keys(over) : [], bak = {}; for (const k of keys) bak[k] = cfg[k]; if (over) Object.assign(cfg, over); const url = processRetro(renderer.domElement); for (const k of keys) cfg[k] = bak[k]; return url }, // 検証用：今の画面を指定設定で現像（旧/新のA/B比較）
   }
 }
