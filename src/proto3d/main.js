@@ -12866,7 +12866,7 @@ function update(dt) {
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
     const talkZoom = (dialogue && dlgWho) ? 0.66 : 1 // 会話中は少し寄って二人を画に（止め絵・2026-06-29）
     camCtl.dist += (camDistTarget * (1 + calm * 0.05) * talkZoom - camCtl.dist) * Math.min(1, dt * (dialogue && dlgWho ? 2.2 : 1.2)) // 立ち止まりの自動引きはごく控えめ(18%→5%)＝ズームのうざさを解消。会話に入ると少し速めに寄る
-    camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5)
+    if (!fpv) camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5) // ★主観ではここで画角を動かさない＝下(12911)のfpvFovへの補間と引き合い、釣り合い点がdtで動いてfovが毎フレーム脈打つ→「ズームが小刻みに揺れる・寄るほど大きい」不具合の真因（ユーザー2026-07-01）。主観のfovは12911の一本だけに
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
     camGoal.y -= walkBobY * 0.55 // 走りの上下ぴょこは主人公には残しつつ、カメラには約45%だけ伝える＝「主人公に合わせた自然な画ブレ」を保ったまま揺れを和らげる（ユーザー「ブレが激しい」2026-06-29）
