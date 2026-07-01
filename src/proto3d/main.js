@@ -11134,7 +11134,7 @@ function dockGlyph(kind) {
     if (id === 'sleep' && btn) btn.innerHTML = `<img src="${dockGlyph('moon')}" style="width:1.15em;height:1.15em;vertical-align:-0.18em;margin-right:0.22em" alt=""> ねる` }
   set('lie', 'leaf'); set('bike', 'bike'); set('float', 'balloon'); set('fpvbtn', 'scope'); set('sleep', 'moon')
 })()
-const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 11, 95) // 主観視点：寄り(11)〜引き(95)を大幅拡大＝望遠で覗ける＋広く見わたせる（ユーザー要望2026-06-29・旧26〜78）
+const zoomStep = (f) => { if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * f, 6, 95) // 主観視点：寄り(6)〜引き(95)＝もっと望遠で覗ける（ユーザー「もっと寄れるように」2026-07-01・旧下限11）
   else if (mode === 'sit' || mode === 'lie') { camera.fov = THREE.MathUtils.clamp(camera.fov * f, 22, 92); camera.updateProjectionMatrix() } // 座る/寝ころぶ時もズームできる（f<1=寄る・空や景色を大きく/広く）
   else camDistTarget = THREE.MathUtils.clamp(camDistTarget * f, camCtl.minDist, camCtl.maxDist) } // 主観/座寝は画角でズーム（f<1=ズームイン）
 tapBtn(zinEl, () => zoomStep(0.8))
@@ -11149,7 +11149,7 @@ tapBtn(zoutEl, () => zoomStep(1.25))
   tapBtn(flFpv, () => { toggleFpv() }) // 飛行中の主観視点トグル（全ボタン同期＝toggleFpv）
   window.__updFlightHud = () => { // 毎フレーム：高度/速さ/ズームのメーターを更新
     const alt = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / floatMaxH, 0, 1)
-    const zoomN = fpv ? (95 - fpvFov) / 84 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
+    const zoomN = fpv ? (95 - fpvFov) / 89 : (camCtl.maxDist - camDistTarget) / (camCtl.maxDist - camCtl.minDist)
     const ea = document.getElementById('flg-alt'), es = document.getElementById('flg-spd'), ez = document.getElementById('flg-zoom')
     if (ea) ea.style.transform = 'scaleY(' + alt.toFixed(3) + ')'
     if (es) es.style.transform = 'scaleY(' + ((floatSpeedI + 1) / FLOAT_SPEEDS.length).toFixed(3) + ')'
@@ -12646,7 +12646,10 @@ function update(dt) {
     camGoal.copy(boy.position).add(camOffset(tmp))
     camGoal.y -= walkBobY * 0.55 // 走りの上下ぴょこは主人公には残しつつ、カメラには約45%だけ伝える＝「主人公に合わせた自然な画ブレ」を保ったまま揺れを和らげる（ユーザー「ブレが激しい」2026-06-29）
     // ごく微かな“息”の揺れ（モーション軽減ONのときは止める）。立ち止まると揺れも静まり“間”が生まれる＝時が止まった夢の一瞬（calmで減衰・2026-06-24）
-    if (!reduceMotion) { const breath = 1 - calm * 0.7; camGoal.x += Math.sin(tsec * 0.6) * 0.06 * breath; camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05 * breath }
+    //  ★ズーム連動の手ぶれ補正：寄る（距離が縮む/画角が狭い）ほど、同じ世界の揺れ幅でも画面上では大きく見える＝望遠でカクカク揺れて見える不具合。寄るほど揺れ幅を減らす（ユーザー「ズームで定期的にぶれる」2026-07-01）
+    if (!reduceMotion) { const breath = 1 - calm * 0.7
+      const zstab = THREE.MathUtils.clamp((camCtl.dist / camCtl.maxDist) * (camera.fov / BASE_FOV), 0.14, 1)
+      camGoal.x += Math.sin(tsec * 0.6) * 0.06 * breath * zstab; camGoal.y += Math.sin(tsec * 0.8 + 1) * 0.05 * breath * zstab }
     // カメラの遮蔽回避（マリオ式）：主人公とカメラの間に建物/木があれば手前へ寄せる。※屋上(高所)ではOFF＝建物の壁/手すりに反応してカメラが弾く・ズームするのを止める
     if (!boy.userData._high) {
       const hx = boy.position.x, hyc = boy.position.y + 1.3, hz = boy.position.z
@@ -12675,7 +12678,7 @@ function update(dt) {
       lookGoal.y = (boy.position.y + dlgWho.position.y) / 2 + 1.45
     }
     if (fpv) { const cp2 = Math.cos(camCtl.pitch), fx = -Math.sin(camCtl.yaw) * cp2, fy = -Math.sin(camCtl.pitch), fz = -Math.cos(camCtl.yaw) * cp2 // 視線方向
-      const hx = boy.position.x, hy = boy.position.y + 1.66, hz = boy.position.z, back = 0.45 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける）
+      const hx = boy.position.x, hy = boy.position.y - walkBobY + 1.66, hz = boy.position.z, back = 0.45 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける）。★歩き/立ちの上下ぴょこ(walkBobY)は目線から除く＝主観が望遠でも揺れない（ユーザー「主観で定期的にぶれる」2026-07-01）
       camGoal.set(hx - fx * back, hy + 0.1 - fy * back, hz - fz * back)
       const cgy = heightAt(camGoal.x, camGoal.z) + 0.45; if (camGoal.y < cgy) camGoal.y = cgy // ★引いたカメラが坂/丘の中にめり込んで真っ暗になる不具合を解消（獅子ヶ谷の起伏でFPVが地中に潜る・ユーザー指摘の主観改善2026-06-26）
       if (pushOutOfColliders(camGoal.x, camGoal.z).hit) camGoal.set(hx, hy + 0.1, hz) // 引いたカメラが建物の中に入るなら目線へ戻す＝壁の中で真っ暗にならない
@@ -12781,6 +12784,7 @@ function update(dt) {
     actBtn.style.display = 'none'; lieBtn.style.display = 'none'; npcEl.style.display = 'none'; goEl.style.display = 'none'; catchEl.style.display = 'none'; fishEl.style.display = 'none'
   }
   layoutCtxButtons() // C⑫：中央下の文脈ボタンが重なったら表示中のものを縦に積んで衝突を解消（毎フレーム＝モード切替でも自己修復）
+  document.body.classList.toggle('busy', fishEl.style.display === 'block' || catchEl.style.display === 'block') // 釣り/虫取りが出ている間は画面を片づけ、操作ボタンを主人公に重ねない（下のCSS body.busy・ユーザー指摘2026-07-01「つるボタンが主人公に思いっきり重なる」）
   // 止め絵：座って景色をながめる間は、周辺減光と記憶の色を少し強めて“ただ味わう一枚絵”に（立つと戻る）
   { const ct = mode === 'sit' ? 1 : 0, nf = nightFactor(tday) // 夜は記憶の暖色(mem)と周辺減光(vig)を弱める＝空ドームの紺がそのまま出る（夜空が褐色のミルクに濁るのを解消・アートD指摘2026-06-27）
     // 「間」：歩かずに立ち止まって眺めていると、止め絵の仕上げ・記憶の色・周辺減光がそっと深まる（座るほどではない控えめさ）＝“何もしない時間”の心地よさ（2026-06-29）

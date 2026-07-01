@@ -204,6 +204,12 @@
         box-shadow: 0 4px 14px rgba(120,100,70,0.3); display: none; }
       /* 会話中は下の操作ボタン（ドック/ジャンプ/ズーム/文脈アクション）を隠す＝吹き出しと重ならず読みやすい（ユーザー指摘2026-06-29） */
       body.talking #dock, body.talking #jump, body.talking #zin, body.talking #zout, body.talking #act, body.talking #catch, body.talking #fish { display: none !important; }
+      /* 釣り/虫取り中は、画面中央の主人公に「つる/つかまえる」が思いっきり重なっていた（ユーザー指摘2026-07-01）。
+         →この間は ドック/ジャンプ/ズーム を片づけ、行動ボタンを中央（主人公の上）から 右下の親指の位置へ寄せる＝鑑賞を邪魔せず押しやすい。 */
+      body.busy #dock, body.busy #jump, body.busy #zin, body.busy #zout { display: none !important; }
+      body.busy #catch, body.busy #fish { left: auto; right: calc(5% + env(safe-area-inset-right));
+        bottom: calc(9% + env(safe-area-inset-bottom)); transform: none !important; padding: 0.7em 1.6em; }
+      body.busy #catch:active, body.busy #fish:active { transform: scale(0.95) !important; }
       #dialogue { left: 50%; bottom: 6%; transform: translateX(-50%) translateY(10px); width: min(86vw, 680px);
         padding: 0.9em 1.3em 1.1em; background: rgba(255,250,240,0.96); border-radius: 16px;
         box-shadow: 0 6px 22px rgba(80,66,46,0.35); display: none; cursor: pointer;
