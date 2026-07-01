@@ -484,8 +484,9 @@ const CEL = {
   charFloor: 0.72,      // 主人公・村人の服/体の影の床（世界より高く＝人物だけ逆光でも黒く沈まずはっきり見える。世界の陰影は shadowFloor のまま保つ）
   hatFloor: 0.92,       // 麦わら帽子の影の床（かなり高め＝ほぼ影なしの明るい麦わら。クラウンに黒い三日月（影の段）が出て“てっぺんが破け／禿げ”に見えるのを防ぐ）
   inkEdges: true,       // ポストプロセスのエッジ線（深度/法線ベースの内側の線）ON/OFF＝重い端末は切れる
-  inkStrength: 0.7,     // エッジ線の濃さ（0.85→0.70＝密集地で線が出すぎて画を汚す指摘に対応・家の輪郭は保ちつつ過密を解消・2026-06-27）
-  inkThickness: 1.2,    // エッジ線の太さ（テクセル）
+  inkStrength: 0.5,     // エッジ線の濃さ（0.85→0.70→0.50＝建物の線が黒く目立ちすぎ＝過去の指摘に続き2026-07-01も指摘。もう一段やわらげる。輪郭は保つ）
+  inkThickness: 1.05,   // エッジ線の太さ（テクセル。1.2→1.05＝細くしてやわらかく）
+  inkTint: 0x2b2420,    // ★インク線(ポストプロセス)の色だけ「ほぼ黒→やわらかい焦げ茶」に（建物の黒線が硬く目立つ指摘・2026-07-01。ハル輪郭CEL.outlineは据え置き＝キャラのフチは保つ）＝水彩/色鉛筆のあたたかい線に
   inkFadeNear: 48,      // この視線距離からインク線を薄め始める（近景はくっきり）
   inkFadeFar: 150,      // この距離で完全に消す＝遠景の細い物のサブピクセルなチラつき(黒モヤ)を構造的に断つ
 }
@@ -9337,7 +9338,7 @@ const inkPass = new ShaderPass({
     tDiffuse: { value: null }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
     texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: camera.far },
     fadeNear: { value: CEL.inkFadeNear }, fadeFar: { value: CEL.inkFadeFar }, // この距離からエッジを薄くし、奥で消す＝遠景のチラつき(黒モヤ)を断つ
-    inkColor: { value: new THREE.Color(CEL.outline) }, strength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness },
+    inkColor: { value: new THREE.Color(CEL.inkTint) }, strength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness }, // インク線は焦げ茶（ハル輪郭CEL.outlineとは別＝建物の硬い黒線をやわらげる・2026-07-01）
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
   fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 texel; uniform float near, far, strength, thickness, fadeNear, fadeFar; uniform vec3 inkColor;
@@ -13873,6 +13874,7 @@ window.__proto3d = {
   _setVolBgm(v) { settings.volBgm = v }, // 検証用：BGM音量スライダーの値を直接置く（夕夜BGM/オルゴールが従うか）
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
+  _setInk(s, th, hex) { if (s != null) inkPass.uniforms.strength.value = s; if (th != null) inkPass.uniforms.thickness.value = th; if (hex != null) inkPass.uniforms.inkColor.value.set(hex); return { s: inkPass.uniforms.strength.value, th: inkPass.uniforms.thickness.value, c: '#' + inkPass.uniforms.inkColor.value.getHexString() } }, // 検証用：インク線の濃さ/太さ/色をライブ調整（建物の黒線の柔らかさA/B）
   _vehSpawn() { let n = 0; for (const v of vehPool) if (v.active) n++; while (n < 2) { const before = vehPool.filter((v) => v.active).length; spawnVehicle(); if (vehPool.filter((v) => v.active).length === before) break; n++ } return vehPool.filter((v) => v.active).length }, // 検証用：往来の乗り物を最大2台まで強制スポーン（予算ピーク計測）
   _vehSpawnKind(i) { for (const o of vehPool) { o.active = false; o.g.visible = false } const v = vehPool[i]; if (!v) return null; v.active = true; v.d = 12; v.dir = 1; vehTimer = 999; v.g.position.set(3016, heightAt(3016, 13.4) + 0.02, 13.4); v.g.rotation.y = 1.09; v.g.visible = true; return { x: 3016, z: 13.4 } }, // 検証用：他を消してプールの指定番号(0淡青セダン/1軽トラ/2ベージュ)だけを始点付近に出す（形の寄り確認・自動スポーン止め）
   _vehStats() { let active = 0, vis = 0; const at = []; for (const v of vehPool) { if (v.active) { active++; const p = v.g.position; at.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: v.g.visible, ry: +v.g.rotation.y.toFixed(2) }); if (v.g.visible) vis++ } } return { active, vis, at } }, // 検証用：往来の乗り物の台数/位置/向き/可視
