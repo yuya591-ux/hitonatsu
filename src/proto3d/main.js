@@ -11114,7 +11114,8 @@ const fpvBtnEl = document.getElementById('fpvbtn')
 function syncFpvBtns() { if (fpvBtnEl) fpvBtnEl.classList.toggle('on', fpv); const sb = document.getElementById('set-fpv'); if (sb) { sb.classList.toggle('on', fpv); sb.textContent = fpv ? 'ON' : 'OFF' } const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.toggle('on', fpv) }
 function toggleFpv() { fpv = !fpv; camSnap = true; if (fpv) camCtl.pitch = -0.04; syncFpvBtns()
   // 主観の間は「もどり方」をそっと常設（消えない小さなピル）＝初見の「もどせない不安」を解消。歩き始めると邪魔なので歩いていない時だけ出す
-  if (fpv && !floatMode) { lookHint.textContent = 'スワイプで 見わたす ・ 🔭を もう一度で もどる'; lookHint.style.display = 'block' }
+  //  ※#lookは上段中央。起動直後のチュートリアル#hint（同じ上段中央）がまだ生きていると全幅で重なるので、主観へ入る時に#hintを畳む（ユーザー指摘2026-07-01のUI総点検で検出）
+  if (fpv && !floatMode) { const hn = document.getElementById('hint'); if (hn) hn.classList.add('gone'); lookHint.textContent = 'スワイプで見わたす ・ 🔭でもどる'; lookHint.style.display = 'block' }
   else if (!fpv && mode === 'walk') { lookHint.style.display = 'none'; lookHint.textContent = 'スワイプで見回す ・ もう一度タップで立つ' } } // ONで視線を水平（少しだけ下＝足元の道が見える）／OFFで通常文へ戻す
 tapBtn(fpvBtnEl, () => { if (mode === 'walk' && !doingTaiso) toggleFpv() }) // ねころぶ列の🔭＝主観視点ワンボタン（📷は本物のカメラ#pm-btnに専任、視点トグルは🔭「見わたす」へ・👁は怖いと却下→🔭・2026-06-26）
 // アート：ドック/ねるの絵文字を手描きの墨グリフへ（OSフォントの絵文字は手描きの世界から浮く＝ずかんの手描きと様式を揃える）。ラベル(ねころぶ等)は残す
