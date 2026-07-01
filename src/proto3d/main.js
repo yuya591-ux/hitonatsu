@@ -10233,14 +10233,26 @@ function updateFestival(dt) {
   out.gain.setTargetAtTime(target, ctx.currentTime, 0.4)
   if (target > 0.004) { const now = ctx.currentTime; if (festNextBar < now + 0.1) festNextBar = now + 0.1; while (festNextBar < now + 0.7) { scheduleFestBar(festNextBar); festNextBar += 2.0 } } // 聞こえる範囲のときだけ先読み
 }
-function playStep(vol, surf) { // 足音：路面で表情を変える＝舗装"タッ"／土"とっ"／砂利"ジャッ"／草"さく"／板"こと"（G4・2026-06-26）
+function playStep(vol, surf) { // 足音：路面で表情を変える＝舗装"パッ"（重み＋靴底の2層）／土"とっ"／砂利"ジャッ"／草"さく"／板"こと"（G4・2026-06-26／舗装は2026-07-01に竹馬っぽさ解消）
   if (!audioStarted) return
   try {
     const ctx = listener.context, now = ctx.currentTime
+    // 舗装＝単一バンドパス(中域のピッチある"コッ"＝高速反復で竹馬/中空)をやめ、「踏み込みの低い"ど"＋靴底の短い"た"」の2層で重みのある自然な足音に（ユーザー「走るとコンクリが竹馬みたいで違和感」2026-07-01）
+    if (surf === 'pave') {
+      const body = ctx.createBufferSource(); body.buffer = getNoise(); body.playbackRate.value = 0.6 + Math.random() * 0.2 // 踏み込みの重み（低い"ど"）
+      const bl = ctx.createBiquadFilter(); bl.type = 'lowpass'; bl.frequency.value = 185 + Math.random() * 60; bl.Q.value = 0.6
+      const bg = ctx.createGain(); bg.gain.setValueAtTime(0.0001, now); bg.gain.exponentialRampToValueAtTime(vol * 0.8, now + 0.004); bg.gain.exponentialRampToValueAtTime(0.0001, now + 0.085)
+      body.connect(bl); bl.connect(bg); bg.connect(getSfxOut()); body.start(now); body.stop(now + 0.13)
+      const slap = ctx.createBufferSource(); slap.buffer = getNoise(); slap.playbackRate.value = 0.9 + Math.random() * 0.3 // 靴底の短い"た"（広めの高域・共鳴させず耳につく上をカット）
+      const sh = ctx.createBiquadFilter(); sh.type = 'highpass'; sh.frequency.value = 1350 + Math.random() * 400; sh.Q.value = 0.5
+      const scap = ctx.createBiquadFilter(); scap.type = 'lowpass'; scap.frequency.value = 4600
+      const sg = ctx.createGain(); sg.gain.setValueAtTime(0.0001, now); sg.gain.exponentialRampToValueAtTime(vol * 0.3, now + 0.003); sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.04)
+      slap.connect(sh); sh.connect(scap); scap.connect(sg); sg.connect(getSfxOut()); slap.start(now); slap.stop(now + 0.07)
+      return
+    }
     const src = ctx.createBufferSource(); src.buffer = getNoise(); src.playbackRate.value = 0.8 + Math.random() * 0.35
     // 路面ごとのフィルタ：type/中心周波数/Q/減衰/音量補正
-    const S = surf === 'pave' ? { ty: 'bandpass', f: 900 + Math.random() * 360, q: 0.7, d: 0.10, v: 1.0 } // 舗装＝やわらかい"タッ"
-      : surf === 'dirt' ? { ty: 'lowpass', f: 480 + Math.random() * 130, q: 0.6, d: 0.12, v: 1.0 } // 土＝乾いた"とっ"（草より少し締まる）
+    const S = surf === 'dirt' ? { ty: 'lowpass', f: 480 + Math.random() * 130, q: 0.6, d: 0.12, v: 1.0 } // 土＝乾いた"とっ"（草より少し締まる）
       : surf === 'gravel' ? { ty: 'bandpass', f: 1600 + Math.random() * 700, q: 0.5, d: 0.09, v: 0.82 } // 砂利＝細かい"ジャッ"
       : surf === 'wood' ? { ty: 'bandpass', f: 300 + Math.random() * 90, q: 2.2, d: 0.13, v: 1.1 } // 板／縁側＝中空の"こと"
       : { ty: 'lowpass', f: 360 + Math.random() * 140, q: 0.6, d: 0.15, v: 0.95 } // 草＝やわらかい低音"さく"
@@ -13748,6 +13760,7 @@ window.__proto3d = {
     for (const C of chatPairs) out.push({ t: 'chat', x: +C.cx.toFixed(0), z: +C.cz.toFixed(0), a: desc(C.a.position.x, C.a.position.z), b: desc(C.b.position.x, C.b.position.z) })
     return out }, // 検証用：全NPCの足元が 水中/道路上/建物内/地面OK のどれか（漏れ把握）
   _life(k) { const at = listener.context.currentTime + 0.05; if (k === 'cheer') kidCheer(at); else if (k === 'murmur') lifeMurmur(at); else if (k === 'ball') ballBounce(at); else if (k === 'dog') dogBark(at, true); else if (k === 'bell') bikeBell(at); else if (k === 'call') farCall(at); else if (k === 'tofu') tofuHorn(at); else if (k === 'rooster') roosterCrow(at); return getLifeOut().gain.value }, // 検証用：生活音を今すぐ鳴らす（エラー無しの確認）
+  _step(surf) { playStep(0.12, surf); return audioStarted }, // 検証用：足音を1回鳴らす（路面別・エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice() })) } }, // 検証用：今夜のおまつり会場（日替り）
   _festFigVis() { let total = 0, vis = 0, parentVis = 0, near = 0, minD = 1e9, maxD = 0; for (const d of festFigs) { total++; if (d.g.visible) vis++; if (d.g.parent && d.g.parent.visible) { parentVis++; const dx = boy.position.x - d.cx, dz = boy.position.z - d.cz, dd = Math.sqrt(dx * dx + dz * dz); if (dd < 60) near++; if (dd < minD) minD = dd; if (dd > maxD) maxD = dd } } return { total, selfVisible: vis, inVisibleVenue: parentVis, within60m: near, minD: +minD.toFixed(1), maxD: +maxD.toFixed(1) } }, // 検証用：踊り手のvisible数＋計算LODの60m内訳（静止しても消えていないこと＝inVisibleVenue分は描画される）
   _festMeshStats() { return FEST_VENUES.map((v) => { let meshes = 0, outlines = 0, glows = 0, lights = 0, points = 0, tris = 0, figMeshes = 0, staticMeshes = 0; const isFig = (o) => { let c = o; while (c && c !== v.g) { if (c.userData && c.userData.head) return true; c = c.parent } return false }; v.g.traverse((o) => { if (o.isPoints) points++; if (o.isLight) lights++; if (!o.isMesh) return; meshes++; if (isFig(o)) figMeshes++; else staticMeshes++; if (o.material === OUTLINE_MAT) outlines++; else if (o.material && o.material.isMeshBasicMaterial && o.material.blending === THREE.AdditiveBlending) glows++; const g = o.geometry; if (g && g.index) tris += g.index.count / 3; else if (g && g.attributes && g.attributes.position) tris += g.attributes.position.count / 3 }); return { name: v.name, meshes, figMeshes, staticMeshes, outlines, glows, lights, points, tris: Math.round(tris), children: v.g.children.length } }) }, // 検証用：各会場グループのメッシュ内訳（軽量化の的を絞る・figMeshes=人/staticMeshes=構造物）
