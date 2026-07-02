@@ -9454,11 +9454,15 @@ composer.addPass(gradePass)
 // 重い端末は CEL.inkEdges=false で丸ごと切れる（背面法の輪郭線だけ残る）。
 const _db = renderer.getDrawingBufferSize(new THREE.Vector2())
 const normalRT = new THREE.WebGLRenderTarget(_db.x, _db.y, { depthTexture: new THREE.DepthTexture(_db.x, _db.y, THREE.UnsignedIntType) })
+// プリパス（法線/深度RTへのシーン二重描画）だけ描画距離を300mに絞る＝インク線はfadeFar150で消え・DoFのボケも289mで最大に飽和しているため出力は同一のまま、
+// 300m〜fog先の建物/木のドローコールを丸ごと省く（発熱対策・2026-07-02）。深度の復号(near/far uniform)も必ずこの値に合わせること＝ずれると中景のボケ量が狂う。
+// A/B検証用に window.__prepassFar = false で旧動作（全距離描画）に戻せる
+const PREPASS_FAR = 300
 // ── 被写界深度(DOF)：主人公(画面中央やや下)にピント、ピント面から離れた遠景/最近景だけをやわらかくぼかす。インク線の前に置き＝色だけ柔らかく輪郭線はくっきり＝温かいトゥーンを保つ弱めのボケ（A1・ユーザー承認2026-06-25「弱めに」）──
 const dofPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null }, tDepth: { value: normalRT.depthTexture },
-    texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: camera.far },
+    texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: PREPASS_FAR }, // 深度RTはPREPASS_FARの射影で描く＝復号もそれに合わせる（camera.farだと中景の距離を誤読）
     strength: { value: 0.7 }, maxCoc: { value: 1.2 }, focusBias: { value: 15.0 }, // strength=効きの強さ・maxCoc=最大ボケ径(px)・focusBias=ピント面の許容(大きいほど手前は鈍感)。ユーザー「ボケで見づらい/建物の線が透けて視界を邪魔」→ごく弱く＝中景まではくっきり保ち、 いちばん遠い霞だけ僅かに柔らかく（2026-06-26）
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
@@ -9483,7 +9487,7 @@ const normalMat = new THREE.MeshNormalMaterial()
 const inkPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
-    texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: camera.far },
+    texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: PREPASS_FAR }, // 深度RTはPREPASS_FARの射影で描く＝復号もそれに合わせる（camera.farだと中景の距離を誤読）
     fadeNear: { value: CEL.inkFadeNear }, fadeFar: { value: CEL.inkFadeFar }, // この距離からエッジを薄くし、奥で消す＝遠景のチラつき(黒モヤ)を断つ
     inkColor: { value: new THREE.Color(CEL.inkTint) }, strength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness }, // インク線は焦げ茶（ハル輪郭CEL.outlineとは別＝建物の硬い黒線をやわらげる・2026-07-01）
   },
@@ -13293,7 +13297,10 @@ renderer.setAnimationLoop(() => { try {
   cullYatoChunks() // 谷戸の巨大メッシュをチャンク化したぶんの距離カリング（fog far+余裕より遠いチャンクを非表示・カメラ確定後＝この場フレームで反映）。フラスタムカリングは Three.js が描画時に自動で行う
   if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick & 1))) { // 動いている時は毎フレーム、静止中だけ半分の頻度＝残像なし＋静止時は発熱を抑える
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
+    const _mainFar = camera.far // プリパスだけfarを絞って300m先を描かない（出力は同一＝上のPREPASS_FARの注記）。屋上のfog拡張等でcamera.farが変わっていてもmin側に倒す
+    camera.far = (window.__prepassFar === false) ? _mainFar : Math.min(_mainFar, PREPASS_FAR); camera.updateProjectionMatrix()
     renderer.setRenderTarget(normalRT); renderer.clear(); renderer.render(scene, camera)
+    camera.far = _mainFar; camera.updateProjectionMatrix()
     renderer.setRenderTarget(null); scene.overrideMaterial = null; camera.layers.enable(1)
   }
   composer.render()
@@ -14028,6 +14035,7 @@ window.__proto3d = {
     renderer.info.autoReset = true
     return r
   },
+  _callsPerSec(ms = 1000) { return new Promise((res) => { const inf = renderer.info; inf.autoReset = false; inf.reset(); const f0 = inf.render.frame, t0 = performance.now(); setTimeout(() => { const dts = (performance.now() - t0) / 1000; const c = inf.render.calls, tr = inf.render.triangles, fr = inf.render.frame - f0; inf.autoReset = true; res({ callsPerSec: Math.round(c / dts), trisPerSec: Math.round(tr / dts), renders: fr, callsPerRender: fr ? Math.round(c / fr) : -1 }) }, ms) }) }, // 検証用：実ループの総描画コール/秒＋renderer.render回数（プリパス＋全ポスト込み）＝発熱対策のbefore/after比較
   _weather(v) { weather = v; weatherTarget = v; weatherTimer = 999 }, // 検証用：夕立 0=晴 1=雨
   get _rainVol() { return rainGain ? rainGain.gain.value : -1 }, // 検証用：雨音の音量
   get _festVol() { return festGain ? festGain.gain.value : -1 }, // 検証用：縁日の音量（距離で変わる）
