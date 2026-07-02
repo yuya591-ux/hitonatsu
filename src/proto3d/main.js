@@ -3780,6 +3780,51 @@ function buildShishigaya() {
         const g = new THREE.Mesh(mergeGeometries(gp, false), toon(0xd8d8d2)); gp.forEach((d) => d.dispose())
         g.position.set(cx, gy, cz); g.castShadow = true; scene.add(g)
         addBox(cx, cz, 1.3, 1.3, 0, 0.3) } }
+    // ── マンション周りの作り込み（ユーザー写真3枚・2026-07-02）──
+    { // (1) 正面＝リング模様(ドーナツ柄)の舗装坂：エントランス前の車路(3014.5,11)→(3005.5,31)に洗い出し風の輪々テクスチャを敷く
+      const rtx = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d')
+        x.fillStyle = '#c6c2b8'; x.fillRect(0, 0, 128, 128); x.strokeStyle = '#918d83'; x.lineWidth = 3
+        for (let r = 0; r < 4; r++) for (let q = 0; q < 4; q++) { x.beginPath(); x.arc(16 + q * 32 + (r % 2) * 16, 16 + r * 32, 9 + (q + r) % 3, 0, 6.29); x.stroke() }
+        const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 6); return t })()
+      const pg2 = new THREE.PlaneGeometry(10, 21, 1, 8); pg2.rotateX(-Math.PI / 2); pg2.rotateY(Math.atan2(-9, 20))
+      { const pa = pg2.attributes.position; for (let i = 0; i < pa.count; i++) { const wx = 3010 + pa.getX(i), wz = 21 + pa.getZ(i); pa.setY(i, heightAtYato(wx, wz) - 46.9 + 0.14) } pg2.computeVertexNormals() } // +0.14＝下の白コンクリのリボン(+0.05〜0.08)より必ず上＝斑に埋もれない
+      const donut = new THREE.Mesh(pg2, new THREE.MeshToonMaterial({ map: rtx, gradientMap: GRAD })); donut.position.set(3010, 46.9, 21); donut.receiveShadow = true; scene.add(donut)
+      // (2) 歩行者エントランスの黒いアーチ庇（写真1＝丸い黒屋根）＝既存ポーチの庇の上にかぶせる
+      { const fth = Math.atan2(-4, 8), ag = new THREE.Group(); ag.position.set(3003.8, heightAtYato(3003.8, 7.5), 7.5); ag.rotation.y = fth; scene.add(ag)
+        const arch = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 5.4, 14, 1, true, 0, Math.PI), toon(0x2e3237))
+        arch.rotation.z = Math.PI / 2; arch.rotation.y = Math.PI / 2; arch.position.set(0, 3.35, 2.6); arch.castShadow = true; ag.add(arch) }
+      // 植込みの玉つげ＋低い庭園灯（写真1の左手）
+      for (const [bx2, bz2, br2] of [[3000, 16, 0.8], [2997.5, 20, 0.7], [3003, 27, 0.75], [3016, 15.5, 0.7]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br2, 1), toon(0x4c7a42)); b.position.set(bx2, heightAtYato(bx2, bz2) + br2 * 0.55, bz2); b.castShadow = true; scene.add(b) }
+      for (const [lx2, lz2] of [[2999, 18.5], [3006, 28.5]]) { const gy2 = heightAtYato(lx2, lz2), lp = new THREE.Group(); lp.position.set(lx2, gy2, lz2); scene.add(lp)
+        const po = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.9, 6), toon(0x4a4e52)); po.position.y = 0.45; po.castShadow = true; lp.add(po)
+        const gl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 7), new THREE.MeshBasicMaterial({ color: 0xf2ecd8 })); gl.position.y = 1.0; lp.add(gl); townNightLights.push({ m: gl, base: 0.9, ph: Math.random() * 6, fa: 0.05 }) }
+      // (3) 地下前の一本道＝谷側(NW)に緑の金網フェンス＋木立（写真2）。1メッシュに支柱、網はnetTexを緑がけ
+      { const pts = [[2986, -26], [2970, -41], [2960, -60]], posts = []
+        for (let s = 0; s < pts.length - 1; s++) { const [ax, az] = pts[s], [bx, bz] = pts[s + 1], L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 2.2)
+          const fence = new THREE.Mesh(new THREE.PlaneGeometry(L, 1.7), new THREE.MeshBasicMaterial({ map: netTex, color: 0x77c07c, transparent: true, side: THREE.DoubleSide, depthWrite: false }))
+          const my = (heightAtYato(ax, az) + heightAtYato(bx, bz)) / 2
+          fence.position.set((ax + bx) / 2, my + 0.9, (az + bz) / 2); fence.rotation.y = Math.atan2(bx - ax, bz - az) + Math.PI / 2; fence.layers.set(1); scene.add(fence)
+          for (let k = 0; k <= n; k++) { const t = k / n, px = ax + (bx - ax) * t, pz = az + (bz - az) * t, c = new THREE.CylinderGeometry(0.035, 0.035, 1.8, 5); c.translate(px, heightAtYato(px, pz) + 0.9, pz); posts.push(c) } }
+        const pm = new THREE.Mesh(mergeGeometries(posts, false), toon(0x3f6a46)); posts.forEach((d) => d.dispose()); pm.castShadow = true; scene.add(pm) }
+      makeTree(2979, -33, 0.95); makeTree(2963, -50, 1.05) // フェンス奥の木立（写真2の左手の緑）
+      // (4) 公園のマンション側入口＝土手を下りるコンクリ階段＋鉄の手すり（写真3の右奥＝駐輪場→茂み→この階段→園庭の毎日のルート）
+      { const sg2 = [], hx0 = 3046.6, hz0 = 22.6, hx1 = 3049.6, hz1 = 18.6, top2 = heightAtYato(hx0, hz0), bot2 = heightAtYato(hx1, hz1), NS = 7
+        for (let k = 0; k < NS; k++) { const t = k / (NS - 1), sx2 = hx0 + (hx1 - hx0) * t, sz2 = hz0 + (hz1 - hz0) * t, sy2 = top2 + (bot2 - top2) * t
+          const st2 = new THREE.BoxGeometry(2.2, 0.16, 0.85); const m4s = new THREE.Matrix4().makeRotationY(Math.atan2(hx1 - hx0, hz1 - hz0)); st2.applyMatrix4(m4s); st2.translate(sx2, sy2 + 0.02, sz2); sg2.push(st2) }
+        for (const side of [-1, 1]) { const nx2 = (hz1 - hz0), nz2 = -(hx1 - hx0), nl = Math.hypot(nx2, nz2), ox = nx2 / nl * 1.15 * side, oz = nz2 / nl * 1.15 * side
+          for (const [tt, hh] of [[0, 0.8], [1, 0.8]]) { const px = hx0 + (hx1 - hx0) * tt + ox, pz = hz0 + (hz1 - hz0) * tt + oz, c = new THREE.CylinderGeometry(0.03, 0.03, hh, 5); c.translate(px, top2 + (bot2 - top2) * tt + hh / 2, pz); sg2.push(c) }
+          const A = new THREE.Vector3(hx0 + ox, top2 + 0.8, hz0 + oz), B = new THREE.Vector3(hx1 + ox, bot2 + 0.8, hz1 + oz), d = new THREE.Vector3().subVectors(B, A), rl = new THREE.CylinderGeometry(0.035, 0.035, d.length(), 6)
+          const q2 = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); rl.applyQuaternion(q2); rl.translate((A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2); sg2.push(rl) }
+        const sm2 = new THREE.Mesh(mergeGeometries(sg2, false), toon(0xb8b4aa)); sg2.forEach((d) => d.dispose()); sm2.castShadow = sm2.receiveShadow = true; scene.add(sm2) }
+      // 土手の茂み（写真3＝階段まわりのこんもりした藪）
+      for (const [bx3, bz3, br3] of [[3044, 21, 0.9], [3043, 24.5, 0.8], [3049, 24, 0.85], [3052, 21.5, 0.7]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br3, 1), toon(0x47713d)); b.position.set(bx3, heightAtYato(bx3, bz3) + br3 * 0.5, bz3); b.castShadow = true; scene.add(b) }
+      // 青い鉄棒（写真3＝園庭の土手ぎわ・3本柱で高さ違いの2連）
+      { const tg = [], baseX = 3051.5, baseZ = 16.5, dirX = Math.cos(-0.5), dirZ = Math.sin(-0.5)
+        const py2 = (lx) => heightAtYato(baseX + dirX * lx, baseZ + dirZ * lx)
+        for (const [lx, hh] of [[-1.5, 1.25], [0, 1.05], [1.5, 0.85]]) { const c = new THREE.CylinderGeometry(0.04, 0.04, hh, 6); c.translate(baseX + dirX * lx, py2(lx) + hh / 2, baseZ + dirZ * lx); tg.push(c) }
+        for (const [l0, l1, hh] of [[-1.5, 0, 1.18], [0, 1.5, 0.98]]) { const A = new THREE.Vector3(baseX + dirX * l0, py2(l0) + hh, baseZ + dirZ * l0), B = new THREE.Vector3(baseX + dirX * l1, py2(l1) + hh - 0.2, baseZ + dirZ * l1), d = new THREE.Vector3().subVectors(B, A)
+          const rl = new THREE.CylinderGeometry(0.025, 0.025, d.length(), 6), q2 = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); rl.applyQuaternion(q2); rl.translate((A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2); tg.push(rl) }
+        const tm = new THREE.Mesh(mergeGeometries(tg, false), toon(0x2f6ab8)); tg.forEach((d) => d.dispose()); tm.castShadow = true; scene.add(tm) } }
     // ── 1990年代の街角の生活ディテール：公衆電話ボックス（夜ぼんやり灯る）・町内会の掲示板・追加の自販機/丸ポスト（忠実な密集はそのまま“あの頃の手触り”を足す・ユーザー要望2026-06-24）──
     const PM = (g, geo, mat, px, py, pz) => { const mm = new THREE.Mesh(geo, mat); mm.position.set(px, py, pz); g.add(mm); return mm }
     const makePhoneBox = (x, z, rot) => { const g = new THREE.Group(), frame = toon(0xc6ccc4), glass = new THREE.MeshToonMaterial({ color: 0xbcd8de, gradientMap: GRAD, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
