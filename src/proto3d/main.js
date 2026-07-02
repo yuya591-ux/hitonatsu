@@ -13466,12 +13466,12 @@ if (startBtn) startBtn.addEventListener('click', () => {
 
 // ── せってい（おと・モーション軽減）。localStorage に永続化 ──
 const settingsEl = document.getElementById('settings')
-// A4：開発ツール（飛行/ばしょマップ/ビエント）を本番の設定画面から隠す＝商品の手ざわり。localhost か ?dev か localStorage の時だけ表示（body.dev-on）。ユーザーは飛行を使うので「せってい」見出しの5連打 か ?dev=1 で簡単に出せる（持続）
-;(() => { try { const q = new URLSearchParams(location.search); if (q.has('dev')) localStorage.setItem('hn3d_dev', q.get('dev') === '0' ? '0' : '1')
-  const dev = /localhost|127\.0\.0\.1/.test(location.hostname) || localStorage.getItem('hn3d_dev') === '1'
-  if (dev) document.body.classList.add('dev-on')
-  const title = settingsEl && settingsEl.querySelector('h2'); let taps = 0, tapT = 0 // 「せってい」見出しを5回タップ＝開発モードのON/OFF（URL無しでも出せる隠しジェスチャ）
-  const toggleDev = (how) => { const on = document.body.classList.toggle('dev-on'); localStorage.setItem('hn3d_dev', on ? '1' : '0'); showToast(on ? '開発ツールを表示しました' : '開発ツールを隠しました'); if (on && navigator.vibrate) { try { navigator.vibrate(18) } catch (e) {} } try { if (typeof syncDevFloat === 'function') syncDevFloat() } catch (e) {} } // 浮遊中にdev-onを切り替えても座標読みUIが即追従
+// 開発ツール（飛行/ばしょマップ/📐座標）＝ユーザーの明確な指示があるまで毎ロード必ずON（2026-07-02 強い要望・勝手に消すの禁止）。
+// 以前は localStorage の hn3d_dev 頼み＋見出し長押し0.8秒でOFFが恒久保存される作りで、誤タッチや保存消失のたびに「勝手に消えた」が再発していた。
+// 見出し5連打/長押しで“その場だけ”隠せるが、恒久保存はしない＝次に開くと必ず戻る。完全撤去はユーザーの明示指示があった時のみ行うこと
+;(() => { try { document.body.classList.add('dev-on')
+  const title = settingsEl && settingsEl.querySelector('h2'); let taps = 0, tapT = 0 // 「せってい」見出しを5回タップ＝その場だけの表示/非表示（隠しジェスチャ）
+  const toggleDev = (how) => { const on = document.body.classList.toggle('dev-on'); showToast(on ? '開発ツールを表示しました' : '開発ツールを隠しました（次に開くと戻ります）'); if (on && navigator.vibrate) { try { navigator.vibrate(18) } catch (e) {} } try { if (typeof syncDevFloat === 'function') syncDevFloat() } catch (e) {} } // 浮遊中にdev-onを切り替えても座標読みUIが即追従
   if (title) {
     title.addEventListener('click', () => { const now = performance.now(); if (now - tapT > 1200) taps = 0; tapT = now; if (++taps >= 5) { taps = 0; toggleDev('tap') } })
     // 「せってい」見出しを長押し(0.8秒)でも開発モードON/OFF＝5連打より確実(モバイル)。世界観を邪魔しない隠しジェスチャ（ユーザー要望2026-06-28＝飛行モードを分かりにくい所に復活）
