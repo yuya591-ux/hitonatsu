@@ -2545,7 +2545,7 @@ function buildShishigaya() {
     grp.add(mk(new THREE.BoxGeometry(6.5, 3, 0.5), toon(0x60656b), ex, eg + 1.6, ez)) // シャッター本体
     for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(6.5, 0.12, 0.56), toon(0x808790), ex, eg + 0.55 + i * 0.55, ez)) // シャッターの横桟
     grp.add(mk(new THREE.BoxGeometry(8, 0.4, 2.6), toon(0xb0b0aa), ex, eg + 3.4, ez + 1.3, true)) // 入口の庇
-    const sx = 2898, sz = -63, sg = heightAtYato(sx, sz), sry = faceRoad(sx, sz), shop = new THREE.Group(); shop.position.set(sx, sg, sz); shop.rotation.y = sry; shop.scale.set(1.5, 1.05, 1.4); grp.add(shop) // (2) ゲームショップ「ビスコ」：店先(+z)を最寄りの道に正対（旧hardcode 2.554は裏向き=鏡文字だった・2026-06-24修正）
+    const sx = 2898, sz = -51, sg = heightAtYato(sx, sz), sry = faceRoad(sx, sz), shop = new THREE.Group(); shop.position.set(sx, sg, sz); shop.rotation.y = sry; shop.scale.set(1.5, 1.05, 1.4); grp.add(shop) // (2) ゲームショップ「ビスコ」：店先(+z)を最寄りの道に正対。旧(2898,-63)はOSM実位置の無線塔(2893,-67)が屋根を貫通→塔の真横(南12m)へ移設＝現実も塔の真横（ユーザー2026-07-02）
     addBox(sx, sz, 12, 9, sry, 0.3) // ビスコの当たり判定（移設先・見た目と同じ角度に統一）
     shop.add(mk(new THREE.BoxGeometry(11, 6, 8), toon(0xd9cdb0), 0, 3, 0, true))
     shop.add(mk(new THREE.BoxGeometry(11.8, 0.6, 8.8), toon(0x65696e), 0, 6.3, 0, true)) // 陸屋根
@@ -3766,7 +3766,7 @@ function buildShishigaya() {
               pos.push(A.x + (B.x - A.x) * t0, A.y + (B.y - A.y) * t0 - sagf(t0), A.z + (B.z - A.z) * t0,
                 A.x + (B.x - A.x) * t1, A.y + (B.y - A.y) * t1 - sagf(t1), A.z + (B.z - A.z) * t1) } } }
         if (pos.length) { const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-          const ln = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.6 }))
+          const ln = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x4c4c46, transparent: true, opacity: 0.32 })) // 送電線は「目立たないけど見える」薄さ（0.6は濃すぎて景観を崩す・ユーザー2026-07-02）
           ln.layers.set(1); scene.add(ln) } } // インクの法線パスから除外（細線のエッジ暴れ防止＝drawWireと同じ作法）
       // 鋼管の無線塔（写真3枚目・OSM実位置(2893,-67)＝獅子ヶ谷バス停ぎわに現存する円筒モノポール＝テーパー鋼管＋中腹のリング台＋頂部のアンテナ群）
       { const cx = 2893, cz = -67, gy = heightAtYato(cx, cz), TH = 26, gp = []
@@ -4105,8 +4105,8 @@ function buildShishigaya() {
     //   見かけ高さ = 実高/実距離 × R。LMK=1.0で“実物の角直径そのまま”＝6kmのLMTは小さく・28kmのスカイツリーはさらに小さく＝正しい遠近。
     //   1.1は「言われれば分かる」最小限の上乗せ（角直径数pxでは小さすぎるため）。近景/遠景で倍率を変えない＝距離どおりの大小関係を素直に出す（旧LMK_FARの恣意的縮小を廃止）。
     //   参考(R=700,LMK=1.1)：LMT≒38m / プリンス≒29m / 東京タワー≒13m / スカイツリー≒17m。十分小さく遠い。
-    const LMK = 1.1 // 全ランドマーク共通の見かけ高さ倍率。1.0=実角そのまま／1.1=ごく僅か上乗せ。これ以上大きくしない（実物の遠近を守る）
-    const LMK_FAR = LMK // 遠景も近景と同じ倍率＝距離どおりに自然と小さくなる（恣意的な縮小をしない）
+    const LMK = 1.9 // 全ランドマーク共通の見かけ高さ倍率。1.1では屋上の目線から「地平の街並みシルエット帯(8〜28m)」に全部埋もれて何も見えなかった（ユーザー実機確認2026-07-02）。相対比は保ったまま、帯の上に頭が出て「それと分かる」大きさへ
+    const LMK_FAR = 2.9 // 遠景2本(東京タワー/スカイツリー)専用の上乗せ。LMKと同値だと屋上目線で街並みシルエット帯(〜28m)に頭まで埋まり見えない（実機2026-07-02）＝帯の上に頭が出る最小限へ。それでも近景勢よりずっと小さい＝遠近は保つ
     farBackdrop = new THREE.Group(); farBackdrop.name = 'farBackdrop'; farBackdrop.userData.noChunk = true // チャンク距離カリング対象外（常に地平に見える）
     // 方位（コンパス方位°＝北0/東90/南180/西270）→ Group内の方向ベクトル：北=-z なので dz=-cos(θ)、東=+x なので dx=+sin(θ)
     const dirOf = (deg) => { const t = deg * Math.PI / 180; return [Math.sin(t), -Math.cos(t)] }
@@ -4203,7 +4203,7 @@ function buildShishigaya() {
     }
     const lmMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }) // 近景ランドマーク共通（不透明・色は頂点カラーで個別・陰影なしで黒面ゼロ）
     // 遠景の2本(東京タワー/スカイツリー)専用＝わずかに透過させて“遠くにぼんやり”薄める（存在感を下げる・ユーザー要望2026-06-29）
-    const lmMatFaint = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, transparent: true, opacity: 0.78, depthWrite: false })
+    const lmMatFaint = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, transparent: true, opacity: 0.88, depthWrite: false }) // 0.78→0.88：屋上から「うっすらだけど確かに分かる」へ（2026-07-02）
     const addLM = (deg, geo, name, ry, mat) => { const [dx, dz] = dirOf(deg); const m = new THREE.Mesh(geo, mat || lmMat)
       m.position.set(dx * R, 0, dz * R); if (ry != null) m.rotation.y = ry; m.name = name; m.castShadow = m.receiveShadow = false; m.layers.set(1); m.userData.noChunk = true; farBackdrop.add(m); return m }
     // 地平の下へ伸びる裾（足元の切れ目を消す細い角柱／円柱）。本体の最下部と同断面で下へ。見下ろしでも“霞へ続く”
@@ -4223,7 +4223,7 @@ function buildShishigaya() {
 
     // ── ジャスコ駒岡店（現イオン駒岡店・鶴見区駒岡5-6-1＝35.5312,139.6481→北から僅かに西354°・約1.75km・住所ジオコーディング2026-07-02）。
     //    サンライズ屋上から見えた「屋上駐車場のいちばん上の四角い看板（の箱）」（ユーザー実体験）。ロゴは付けない＝形だけ。1.75kmと近い＝遠景では一番大きく低く見える
-    { const D = 1745, W = appH(110, D), Hb = appH(21, D, LMK), Dp = appH(55, D)
+    { const D = 1745, W = appH(110, D, LMK), Hb = appH(21, D, LMK), Dp = appH(55, D, LMK) // 幅も同倍率＝箱の比率を保つ
       const bx = (w, h, d, x, y) => { const b = new THREE.BoxGeometry(w, h, d); b.translate(x, y, 0); return b }
       const sS = appH(9, D, LMK) // 屋上の四角い看板の箱
       const g = mergeGeometries([
@@ -4269,7 +4269,7 @@ function buildShishigaya() {
       const cap = new THREE.CylinderGeometry(r * 0.74, r * 0.9, H * 0.08, 16); cap.translate(0, H * 0.96, 0); parts.push(cap) // 頂部の段
       parts.push(skirtCyl(r, 16))
       const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
-      addLM(270, bakeHaze(g, 0xc6d2dd, 0, H, 0.34), 'lmPrinceHotel') // 白〜銀の円筒（やや霞ませる）
+      addLM(270, bakeHaze(g, 0x8da0b2, 0, H, 0.22), 'lmPrinceHotel') // 青灰の円筒。旧0xc6d2dd/0.34は空色に溶けて屋上から見えなかった（実機2026-07-02）＝少し濃く・霞ひかえめ＝「うっすらだけど確かに円筒」
     }
     // ── 東京タワー（333m・約20km・NE=45°）。4本脚が裾で大きく広がる三角錐の鉄塔（脚間隔88m）＋メインデッキ(約150m・2層の箱)＋トップデッキ(約250m)＋頂部の筒型アンテナ。色＝インターナショナルオレンジと白（遠景＝霞んだ淡赤茶＋白段）。
     //    出典：ja.wikipedia「東京タワー」(333m/塔脚88m/メインデッキ約150m/トップデッキ223.55m/筒型アンテナ)。20km＝小さく霞む。
@@ -4287,7 +4287,7 @@ function buildShishigaya() {
       parts.push(skirtCyl(legR * 0.5, 4)) // 裾（脚の下・地平下へ）
       const g = mergeGeometries(parts); parts.forEach((p) => p.dispose())
       // 赤白：縦グラデで強く霞ませ“言われれば分かる”赤み程度に（hazeMix 0.40→0.55＝より空気色寄り）。faint材で透過＝遠くに薄く
-      addLM(45, bakeHaze(g, 0xc99a8f, 0, H, 0.55), 'lmTokyoTower', null, lmMatFaint)
+      addLM(45, bakeHaze(g, 0xc99a8f, 0, H, 0.45), 'lmTokyoTower', null, lmMatFaint) // 霞0.55→0.45＝「ほんとにちっちゃいけど確かに東京タワー」（実機2026-07-02）
     }
     // ── 東京スカイツリー（634m・約28km・NE=40°）。根元は正三角形(一辺68m)→地上315mで円に変化する細い塔(稜線にそり/むくり)＋天望デッキ(350m・円盤)＋天望回廊(450m)＋頂部の細い円筒ゲイン塔。色＝スカイツリーホワイト（淡い青白）。
     //    出典：tokyo-skytree.jp/about/design 公式＋ja.wikipedia（断面が三角→315mで円・天望デッキ350m/天望回廊450m・円筒ゲイン塔）。28km＝最小だが最高634mで地平に立つ。
@@ -6915,9 +6915,14 @@ function makeBoy() {
   // 網袋は輪(口)から“重力でしんなり下へ垂れる”：bagPivot を輪(y=0.93)に置き、柄の傾き(NET_REST=-0.85)を打ち消して
   //   ふだんはほぼ真下＋わずかに後ろへ下垂（rotation.x=1.0で body 角≈+0.15＝下＋少し背中側）。採取で柄を振ると袋も前へなびく。
   //   以前は袋が輪の外＝天井へピンと伸び“重力に逆らって不自然”だった（2026-06-29・ユーザー指摘）。
-  const bagPivot = new THREE.Group(); bagPivot.position.y = 0.93; bagPivot.rotation.x = 1.0; net.add(bagPivot)
-  const bag = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.56, 18, 1, true), netMat); bag.position.y = -0.28; bag.rotation.x = Math.PI; bagPivot.add(bag) // 口=輪(0)／先=下(-0.56)＝垂れ下がる深い網袋
-  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI; bagTip.position.y = -0.54; bagPivot.add(bagTip) // 袋の底（丸み・垂れた先端）
+  const bagPivot = new THREE.Group(); bagPivot.position.y = 0.93; bagPivot.rotation.x = 0; net.add(bagPivot) // ※傾き1.0で袋ごと回すと口金の輪と袋の口が2点でしか接せず「輪と網が離れる」（ユーザー指摘2026-07-02）→口は輪に固定し生地だけ曲げる
+  const bagGeo = new THREE.ConeGeometry(0.19, 0.56, 18, 8, true) // 口(半径)＝口金の輪と同径・縦8分割＝しなりを滑らかに
+  bagGeo.rotateX(Math.PI); bagGeo.translate(0, -0.28, 0) // 口=y0(輪の面)／先=下-0.56
+  { const pa = bagGeo.attributes.position // 生地のしなり：口は輪に全周で縫い付いたまま、深いほど重力方向(後ろ下)へ曲げる＝本物の垂れた網袋
+    for (let i = 0; i < pa.count; i++) { const t = -pa.getY(i) / 0.56; pa.setZ(i, pa.getZ(i) + Math.pow(t, 1.35) * 0.40); pa.setY(i, pa.getY(i) * (1 - 0.20 * t)) }
+    bagGeo.computeVertexNormals() }
+  const bag = new THREE.Mesh(bagGeo, netMat); bagPivot.add(bag)
+  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI + 0.7; bagTip.position.set(0, -0.446, 0.40); bagPivot.add(bagTip) // 袋の底（しなった先端の丸み）
   net.position.set(0.15, 1.27, -0.01); net.rotation.set(NET_REST, 0, -0.06) // 柄の支点を右肩に乗せる＝肩に触れて網は頭の真後ろ上へ（横に飛び出さない・浮き解消）。rotation.xは虫採りアニメがNET_RESTで上書き
   net.traverse((o) => { if (o.isMesh) { o.layers.set(1); o.userData.noOutline = true } }) // 網は細い棒/輪＋透明な袋＝(1)法線パスから除外＋(2)背面法の黒い輪郭ハルも付けない＝透明な網に黒い線が重なってバグって見えるのを解消（後段 outlineObj(boy) が拾わないよう noOutline・2026-06-29 ユーザー指摘）
   g.add(net)
