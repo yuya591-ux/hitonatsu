@@ -2571,24 +2571,47 @@ function buildShishigaya() {
       const gAt = (lx, lz) => { const [wx, wz] = lg2w(lx, lz); return heightAtYato(wx, wz) - ent.position.y } // 実地面（ローカルy）
       // ── 実物写真(2026-07-02)を基準にしたエントランス：黒い大アーチのポータル(扇の飾り桟＋館名の帯＋太い黒柱)→かまぼこ屋根→黒枠の自動ドア。前はレンガ敷きの車路 ──
       const dk = toon(0x2e3237), dkPost = toon(0x24282b)
-      { const vault = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.55, 5.0, 16, 1, true, 0, Math.PI), new THREE.MeshToonMaterial({ color: 0x2e3237, gradientMap: GRAD, side: THREE.DoubleSide }))
-        vault.rotation.z = Math.PI / 2; vault.rotation.y = Math.PI / 2; vault.position.set(0, 2.5, 2.7); vault.castShadow = true; ent.add(vault) } // かまぼこ（軸＝通路方向・壁ぎわz0.2〜先端z5.2）
+      { const vault = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.55, 5.0, 16, 1, true, 0, Math.PI), new THREE.MeshToonMaterial({ color: 0x2e3237, gradientMap: GRAD, side: THREE.DoubleSide, emissive: 0x101216 }))
+        vault.rotation.z = Math.PI / 2; vault.rotation.y = Math.PI / 2; vault.position.set(0, 2.5, 2.7); vault.castShadow = true; ent.add(vault) } // かまぼこ（軸＝通路方向・壁ぎわz0.2〜先端z5.2）。emissive＝中のホールの天井が昼に真っ黒に潰れない下駄
       { const rim = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.07, 6, 16, Math.PI), dk); rim.position.set(0, 2.5, 0.25); rim.castShadow = true; ent.add(rim) } // 壁ぎわの縁
       for (const sx of [-1.55, 1.55]) lmk(new THREE.BoxGeometry(0.14, 0.14, 5.0), dk, sx, 2.5, 2.7, true) // 側桁（アーチの根元のライン）
-      // 正面の大アーチ（ポータル）＝太い黒柱2本＋半円アーチ＋扇形の飾り桟＋「サンライズ北寺尾」の帯（実物のエントランスの顔）
-      for (const sx of [-1.8, 1.8]) { const wy = gAt(sx, 5.2); lmk(new THREE.CylinderGeometry(0.15, 0.17, 2.6 - wy, 10), dkPost, sx, wy + (2.6 - wy) / 2, 5.2, true) }
-      { const arc = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.1, 8, 20, Math.PI), dkPost); arc.position.set(0, 2.6, 5.2); arc.castShadow = true; ent.add(arc)
-        const fan = [] // 扇の飾り桟（アーチの中の放射状の割り）
-        for (const a of [0.35, 0.9, Math.PI / 2, Math.PI - 0.9, Math.PI - 0.35]) { const c = new THREE.CylinderGeometry(0.03, 0.03, 1.62, 5); c.applyMatrix4(new THREE.Matrix4().makeRotationZ(a - Math.PI / 2)); c.translate(Math.cos(a) * 0.86, 2.6 + Math.sin(a) * 0.86, 5.2); fan.push(c) }
-        const fm = new THREE.Mesh(mergeGeometries(fan, false), dk); fan.forEach((d) => d.dispose()); fm.castShadow = true; ent.add(fm) }
-      { const bandTex = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#25282b'; x.fillRect(0, 0, 512, 64); x.fillStyle = '#d9c98e'; x.font = 'bold 40px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('サンライズ北寺尾', 256, 34); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t })()
-        lmk(new THREE.BoxGeometry(4.0, 0.52, 0.16), dkPost, 0, 2.62, 5.2, true) // 館名の帯（アーチの根元を渡す）
-        lmk(new THREE.PlaneGeometry(3.8, 0.44), new THREE.MeshBasicMaterial({ map: bandTex, toneMapped: false }), 0, 2.62, 5.29) }
-      // 自動ドア＝横に広いガラス面＋黒い枠/方立て（実物）
-      lmk(new THREE.PlaneGeometry(5.0, 2.6), new THREE.MeshToonMaterial({ color: 0x8fb0bf, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), 0, 1.5, 0.3)
-      for (const sx of [-2.45, -1.25, 0, 1.25, 2.45]) lmk(new THREE.BoxGeometry(0.12, 2.6, 0.12), dkPost, sx, 1.5, 0.31, true) // 方立て
-      lmk(new THREE.BoxGeometry(5.1, 0.14, 0.14), dkPost, 0, 2.83, 0.31, true) // 上枠
-      lmk(new THREE.BoxGeometry(3.6, 0.18, 1.4), toon(0xbdb6a8), 0, 0.09, 0.9, true) // 入口の御影石の踏み段
+      // ── エントランス棟（風除室）＝実物写真(2026-07-02)：建物から出っ張った箱＝雨の日も濡れない。正面は弧の黒い看板帯(アーチに沿う館名の文字)＋全面ガラス（戸は開け放し＝夏の日中）。
+      //    中に入ると小さなホール＝左手に管理人室の小窓・突き当りにオートロックのガラス戸（ユーザー実体験） ──
+      const glassM = new THREE.MeshToonMaterial({ color: 0x8fb0bf, gradientMap: GRAD, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+      for (const sx of [-1.62, 1.62]) lmk(new THREE.BoxGeometry(0.12, 2.5, 4.7), new THREE.MeshToonMaterial({ color: 0x3a4046, gradientMap: GRAD, emissive: 0x15181c }), sx, 1.25, 2.7, true) // 側壁（濃いパネル・かまぼこ屋根の縁の内側）＝“箱”の実体。emissive＝中が黒潰れしない下駄
+      for (const sx of [-1.2, 1.2]) lmk(new THREE.PlaneGeometry(0.84, 2.4), glassM, sx, 1.2, 5.05) // 正面ガラス（袖）。真ん中1.6mは戸を開け放した入口
+      for (const sx of [-1.58, -0.78, 0.78, 1.58]) lmk(new THREE.BoxGeometry(0.09, 2.4, 0.09), dkPost, sx, 1.2, 5.06, true) // 方立て
+      lmk(new THREE.BoxGeometry(3.3, 0.12, 0.16), dkPost, 0, 2.46, 5.06, true) // 戸の上枠
+      // 弧の看板帯＝黒地のドーナツ半分にアーチ状の館名（透過テクスチャの一枚看板）。端は黒い袖柱で受ける
+      { const bandTex = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d')
+          x.translate(256, 256)
+          x.fillStyle = '#24272b'; x.beginPath(); x.arc(0, 0, 248, Math.PI, 0); x.arc(0, 0, 148, 0, Math.PI, true); x.closePath(); x.fill() // 帯（弧）
+          x.strokeStyle = '#878d94'; x.lineWidth = 5; x.beginPath(); x.arc(0, 0, 245, Math.PI, 0); x.stroke() // 上縁の銀ライン
+          x.fillStyle = '#eae6da'; x.font = 'bold 46px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'
+          const s = 'サンライズ北寺尾'
+          for (let i = 0; i < s.length; i++) { const a = Math.PI * 0.87 - (Math.PI * 0.74) * (i / (s.length - 1)) // 弧に沿って左→右
+            x.save(); x.translate(Math.cos(a) * 197, -Math.sin(a) * 197); x.rotate(Math.PI / 2 - a); x.fillText(s[i], 0, 0); x.restore() }
+          const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t })()
+        const band = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 2.25), new THREE.MeshBasicMaterial({ map: bandTex, transparent: true, toneMapped: false, side: THREE.DoubleSide }))
+        band.position.set(0, 2.82, 5.22); ent.add(band) } // 下端1.7・頂3.94＝奥のかまぼこ屋根が上に少しのぞく（実物と同じ層構成）
+      for (const sx of [-2.0, 2.0]) { const wy = gAt(sx, 5.15); lmk(new THREE.BoxGeometry(0.5, 2.7 - wy, 0.5), toon(0x2a2e33), sx, wy + (2.7 - wy) / 2, 5.15, true) } // 帯の端を受ける黒い袖柱
+      lmk(new THREE.BoxGeometry(3.2, 0.18, 1.3), toon(0xbdb6a8), 0, 0.09, 5.6, true) // 入口の御影石の踏み段（戸の前）
+      // ── 中のホール ──
+      lmk(new THREE.BoxGeometry(3.2, 0.1, 4.6), new THREE.MeshToonMaterial({ color: 0xc9c4b8, gradientMap: GRAD, emissive: 0x35322c }), 0, 0.05, 2.7, true) // たたき（明るい土間床・emissive＝屋根の影でも読める明るさ）
+      { lmk(new THREE.BoxGeometry(0.1, 0.9, 1.1), toon(0x2b2f34), -1.54, 1.45, 2.9, true) // 管理人室の小窓＝入って左手の壁（枠）
+        const km = lmk(new THREE.PlaneGeometry(1.0, 0.78), new THREE.MeshBasicMaterial({ color: 0xf3e2b8, toneMapped: false }), -1.47, 1.45, 2.9); km.rotation.y = Math.PI / 2 // 小窓のあかり＝管理人さんの気配
+        lmk(new THREE.BoxGeometry(0.24, 0.05, 1.24), toon(0xb8b2a4), -1.42, 0.97, 2.9, true) // 受付の小さなカウンター
+        const kp = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 32; const x = c.getContext('2d'); x.fillStyle = '#e8e2d2'; x.fillRect(0, 0, 128, 32); x.fillStyle = '#4a4438'; x.font = 'bold 17px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('管理人室', 64, 17); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t })()
+        const pl = lmk(new THREE.PlaneGeometry(0.52, 0.13), new THREE.MeshBasicMaterial({ map: kp, toneMapped: false }), -1.47, 2.05, 2.9); pl.rotation.y = Math.PI / 2 } // 「管理人室」の札
+      lmk(new THREE.PlaneGeometry(3.2, 2.5), glassM, 0, 1.25, 0.3) // 突き当り＝オートロックのガラス戸
+      for (const sx of [-1.6, 0, 1.6]) lmk(new THREE.BoxGeometry(0.1, 2.5, 0.1), dkPost, sx, 1.25, 0.31, true) // 戸の框
+      lmk(new THREE.BoxGeometry(3.3, 0.12, 0.12), dkPost, 0, 2.56, 0.31, true)
+      for (const sx of [-0.2, 0.2]) lmk(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), toon(0x9aa0a6), sx, 1.1, 0.38, true) // 取っ手
+      { lmk(new THREE.BoxGeometry(0.16, 0.46, 0.08), toon(0x8f959b), 0.95, 1.3, 0.4, true) // オートロックの操作盤
+        lmk(new THREE.PlaneGeometry(0.05, 0.05), new THREE.MeshBasicMaterial({ color: 0x7ae08a, toneMapped: false }), 0.95, 1.46, 0.45) } // 小さな緑ランプ
+      lmk(new THREE.CylinderGeometry(0.16, 0.2, 0.08, 10), toon(0xe4e0d2), 0, 3.02, 2.7, true) // 天井の灯具
+      { const cl = lmk(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ color: 0xffe9b8, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }), 0, 2.96, 2.7)
+        cl.rotation.x = Math.PI / 2; townNightLights.push({ m: cl, base: 0.75, ph: Math.random() * 6, fa: 0.04 }) } // 夜はホールが灯る
       // 車止めのボラード（実物＝入口前の低い黒柱の列）＝レンガ路の両縁に3本ずつ
       { const bg2 = []
         for (const sx of [-4.3, 4.3]) for (const lz of [7.5, 11, 14.5]) { const wy = gAt(sx, lz)
@@ -3859,7 +3882,8 @@ function buildShishigaya() {
       for (const [bx2, bz2, br2] of [[2995.2, 14.2, 0.8], [2993.5, 18.5, 0.7], [3003, 27, 0.75], [3016, 15.5, 0.7], [3006.3, 12.6, 0.8], [2998.1, 8.5, 0.7]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br2, 1), toon(0x4c7a42)); b.position.set(bx2, heightAtYato(bx2, bz2) + br2 * 0.55, bz2); b.castShadow = true; scene.add(b) } // レンガ車路の両縁＋ポータル脇に配置（旧(3000,16)(2997.5,20)は新しい車路の真上・2026-07-02）
       for (const [lx2, lz2] of [[3006.9, 10.3], [3006, 28.5]]) { const gy2 = heightAtYato(lx2, lz2), lp = new THREE.Group(); lp.position.set(lx2, gy2, lz2); scene.add(lp)
         const po = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.9, 6), toon(0x4a4e52)); po.position.y = 0.45; po.castShadow = true; lp.add(po)
-        const gl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 7), new THREE.MeshBasicMaterial({ color: 0xf2ecd8 })); gl.position.y = 1.0; lp.add(gl); townNightLights.push({ m: gl, base: 0.9, ph: Math.random() * 6, fa: 0.05 }) }
+        const hd = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 7), toon(0xd9d6c8)); hd.position.y = 1.0; hd.castShadow = true; lp.add(hd) // 灯具の実体（乳白ガラス）＝昼はただの庭園灯
+        const gl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 7), new THREE.MeshBasicMaterial({ color: 0xf2ecd8, fog: false, transparent: true, opacity: 0, depthWrite: false })); gl.position.y = 1.0; lp.add(gl); townNightLights.push({ m: gl, base: 0.9, ph: Math.random() * 6, fa: 0.05 }) } // 夜のにじみ。※transparent必須＝無いと昼も真っ白な球が「白いピン」のように刺さって見える（ユーザー指摘2026-07-02）
       // (3) 地下前の一本道＝谷側(NW)に緑の金網フェンス＋木立（写真2）。1メッシュに支柱、網はnetTexを緑がけ
       { const pts = [[2986, -26], [2970, -41], [2960, -60]], posts = []
         for (let s = 0; s < pts.length - 1; s++) { const [ax, az] = pts[s], [bx, bz] = pts[s + 1], L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 2.2)
