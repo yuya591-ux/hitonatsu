@@ -11961,10 +11961,10 @@ function sunGoRoof() {
   boy.userData._cy = SUN_ROOF.top; boy.userData._cx = tx; boy.userData._cz = tz
   camCtl.yaw = facing + Math.PI; camManualTimer = 0; todayFlags.climbedRoof = true
 }
-function sunLeaveRoof() { // 屋上から地上（入口）へ
+function sunLeaveRoof() { // 屋上から地上（入口＝風除室の表）へ
   if (mode !== 'walk') return
   endPuni(); vel.set(0, 0, 0); moving = false
-  const gx = 3012, gz = 25; boy.position.set(gx, heightAt(gx, gz), gz); facing = Math.atan2(3010 - gx, 6 - gz); boy.rotation.y = facing
+  const gx = 2999, gz = 16.5; boy.position.set(gx, heightAt(gx, gz), gz); facing = Math.atan2(2994.9 - gx, 25.1 - gz); boy.rotation.y = facing // 風除室から表へ出て、レンガ坂を数歩のぼった所に立ち、町(坂上=道)の方へ向き直る。2026-07-02にお願いで着地点を旧(3012,25)からここへ
   boy.userData._cy = null; boy.userData._cx = gx; boy.userData._cz = gz // _cy=null＝屋上から落ちたと誤判定して引き戻されないように
 }
 
@@ -13150,7 +13150,7 @@ function update(dt) {
     const nearSwing = area === 'town' && Math.hypot(boy.position.x - SWING.x, boy.position.z - (SWING.z - 2.4)) < 2.8
     const nearSwingY = area === 'yato' && Math.hypot(boy.position.x - SWING_Y.x, boy.position.z - (SWING_Y.z - 2.4)) < 2.8 // P2：yatoの公園のブランコ
     const onSunRoof = area === 'yato' && climbYAt(boy.position.x, boy.position.z, boy.position.y) != null // サンライズ屋上/外階段にいる
-    const nearSunDoor = area === 'yato' && !onSunRoof && Math.hypot(boy.position.x - 3012, boy.position.z - 25) < 6 // 入口の前（坂上=南側）
+    const nearSunDoor = area === 'yato' && !onSunRoof && Math.hypot(boy.position.x - 3002.5, boy.position.z - 10) < 6.5 // 風除室の中に入る／十分近づくと「屋上へのぼる」を出す。2026-07-02にお願いで判定点を旧(3012,25)＝入口から東にズレていた→実物の入口=風除室(戸口3002.3,10.4/中3003.5,8)へ移設
     const nearSlideTop = area === 'yato' && slideRide && Math.hypot(boy.position.x - slideRide.top[0], boy.position.z - slideRide.top[1]) < 5.5 // ローラーすべり台のてっぺん（塔の足元）
     activeYatoSeat = null // P2：yatoの座れる場所（バス停ベンチ/二ツ池の畔）に近いか＝最寄りを採用
     if (area === 'yato') { let bd = 3.0; for (const s of YATO_SEATS) { const d = Math.hypot(boy.position.x - s.x, boy.position.z - s.z); if (d < bd) { bd = d; activeYatoSeat = s } } }
@@ -14053,7 +14053,7 @@ window.__proto3d = {
   placeBoy(x, z) { standUp(); boy.position.set(x, heightAt(x, z), z) }, // 検証用
   __taiso(on) { if (on) { area = 'yato'; dayAuto = false; tday = 0.08; setTimeOfDay(tday); boy.position.set(3118, heightAtYato(3118, -186), -180); startTaiso() } else stopTaiso(); return doingTaiso }, // 検証用：ラジオ体操に参加（姿勢確認）
   get _doingTaiso() { return doingTaiso }, // 検証用
-  sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(3012, heightAt(3012, 25), 25) } boy.userData._cy = null }, // 検証用：屋上/入口に置く
+  sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(2999, heightAt(2999, 16.5), 16.5) } boy.userData._cy = null }, // 検証用：屋上/入口(風除室の表)に置く
   sunRoofY: { get top() { return SUN_ROOF.top } }, // 検証用：屋上top
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
   setFpv(v) { fpv = !!v }, get fpv() { return fpv }, // 検証用：主観視点ON/OFF
