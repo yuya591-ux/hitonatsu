@@ -267,6 +267,11 @@ for (const rd of [...SG.roads].sort((a, b) => ((b.k !== 'path') - (a.k !== 'path
         const id = rmaskIdx(cx + nx * s, cz + nz * s); if (id >= 0 && w > roadProfW[id]) { roadProfW[id] = w; roadProfH[id] = hh } } } }
 }
 addFlatRoad(2995, -25, 2977, -44, 16, 37.7, 36.2) // サンライズ地下前の前庭＝基壇と下の道のあいだの土手をならし「道が基壇(B1)に寄り添う」実態に（ストリートビュー5枚目・2026-07-02）
+// 前庭と下の道(road88)のあいだの“山なり”を撤去＝地下から出たらそのまま道路（ユーザー指摘2026-07-02）。前庭の西縁→道の路肩まで2本の回廊で一定勾配に切り下げる
+addFlatRoad(2996, -28.5, 2976, -48, 9, 37.5, 35.2) // 前庭と道(2998,-31)→(2975,-51)のあいだの帯
+addFlatRoad(2981, -40, 2970, -52, 10, 36.4, 34.6) // 前庭の西端の先の残丘（道カーブの内側のこぶ）
+addFlatRoad(3014.5, 11, 3005.5, 31, 10) // 正面のリング柄の車路スロープ＝通り→正面シャッターへ一定勾配（横断方向も平ら）＝ドーナツ舗装が地面メッシュに斑に埋もれない
+addFlatRoad(3016, 21.5, 3020.5, 27, 7) // 路肩のベンチ(3018,24)の小さな段地＝スロープ回廊の路肩の切土がベンチの真下を崖にして宙に浮いて見えるのを防ぐ（後に登録＝この段地が勝つ）
 // 第三公園への道のり（ユーザーピン）を一定勾配の坂に＝仕切りの木の高まり(自然49)が道を崖にしないよう、4区間で47.2→42.0へなだらかに下ろす（2026-07-02）
 addFlatRoad(3021, 17, 3040, 26, 5, 47.2, 46.8) // 駐輪場の先の路地（ほぼ平ら）
 addFlatRoad(3040, 26, 3043, 28, 5, 46.8, 45.4) // 仕切りの木の回り込み（下り始め）
@@ -2484,7 +2489,7 @@ function buildShishigaya() {
   // ───── サンライズ鶴見北寺尾I：実輪郭(雁行型)を7階RCで忠実再現。斜面の途中に建ち、NW端(谷=二ツ池/眺望側)の7階は部屋でなく開放テラス＋下から上がる階段室 ─────
   { const poly = SUNRISE_POLY
     let gmin = 1e9, gmax = -1e9; for (const [x, z] of poly) { const e = heightAtYato(x, z); gmin = Math.min(gmin, e); gmax = Math.max(gmax, e) }
-    for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len > 1) addBox((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, len / 2, 0.6, Math.atan2(b[1] - a[1], b[0] - a[0]), 0.3) } // 雁行の各辺を壁コライダーに＝外周ですり抜け防止
+    for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len > 1) addBox((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, len / 2, 0.6, Math.atan2(-(b[1] - a[1]), b[0] - a[0]), 0.3) } // 雁行の各辺を壁コライダーに＝外周ですり抜け防止。回転はaddBoxの規約どおり atan2(-dz,dx)＝dzの符号を誤ると壁コライダーが鏡像になり“隣の公園を横切る見えない壁”になる（2026-07-02に実害・パラペットと同じ罠）
     const F = 3, base = gmax + 1.5, top = base + 7 * F, wc = [0.93, 0.88, 0.80], conc = [0.82, 0.80, 0.75] // 斜面：床を最高地盤+1.5の基壇に。屋上は平ら(top=base+21)に統一＝足場がガタつかない
     // サンライズの屋根/塔屋/基礎は専用バッファ→専用メッシュ(layer1=インク線パスから除外)。真上から見たとき屋上に物差し状の黒線が散らばるのを防ぐ（ユーザー要望2026-06-23）
     const srv = [], src = [], srvidx = [], sruv = [], sRef = { o: 0 }
@@ -2555,13 +2560,24 @@ function buildShishigaya() {
     shop.add(mk(new THREE.PlaneGeometry(9.4, 2.0), new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide }), 0, 4.7, 4.05)) // 看板「ゲーム ビスコ」
     // ───── (3) サンライズの歩行者エントランス（南面）＝実物の“立派なエントランス”。道→ちょっとした上り坂→ポーチ(柱＋庇＋自動ドア)。出て左手(東)の敷地内路地で隣の獅子ヶ谷第三公園へ抜けられる（ユーザー実体験＋Web調査「公園が隣接」2026-06-22）─────
     // ポーチ＝建物南面(3001,3)-(3009,7)の向きに合わせて角度をつける（ユーザー座標2026-06-22）。グループを回転＝床/柱/庇/ドアがまとめて南面に正対
-    { const fth = Math.atan2(-(7 - 3), 3009 - 3001), ent = new THREE.Group(); ent.position.set(3003.8, heightAtYato(3003.8, 7.5), 7.5); ent.rotation.y = fth; grp.add(ent) // 建物に埋もれないよう南へ少し手前に出す（ユーザー要望2026-06-22）
+    { const fth = Math.atan2(-(7 - 3), 3009 - 3001), ent = new THREE.Group(); ent.position.set(3004.8, heightAtYato(3004.8, 5.35), 5.35); ent.rotation.y = fth; grp.add(ent) // 原点＝実際の壁面の上（旧(3003.8,7.5)は壁から2.4m浮いて「ガラスの箱が独立で建つ」変な見た目だった・2026-07-02）
       const lmk = (geo, mat, lx, ly, lz, sh) => { const m = new THREE.Mesh(geo, mat); m.position.set(lx, ly, lz); if (sh) { m.castShadow = true; m.receiveShadow = true } ent.add(m); return m }
-      lmk(new THREE.BoxGeometry(8, 0.3, 4), toon(0xbdb6a8), 0, 0.16, 2.0, true) // 御影石風のポーチ床（外へ張り出す）
-      for (const dx of [-3.2, 3.2]) lmk(new THREE.CylinderGeometry(0.22, 0.22, 3.0, 8), toon(0xe7e3d7), dx, 1.6, 3.4, true) // 柱2本
-      lmk(new THREE.BoxGeometry(8.6, 0.4, 3.2), toon(0xb6b0a2), 0, 3.2, 2.4, true) // 庇（エントランスキャノピー）
-      lmk(new THREE.PlaneGeometry(5.0, 2.6), new THREE.MeshToonMaterial({ color: 0x8fb0bf, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), 0, 1.5, 0.3) // 自動ドアのガラス（建物面）
-      lmk(new THREE.BoxGeometry(0.16, 2.6, 0.16), toon(0x6a6f76), 0, 1.5, 0.3, true) } // ドアの中桟
+      lmk(new THREE.BoxGeometry(8, 0.3, 4), toon(0xbdb6a8), 0, 0.16, 2.0, true) // 御影石風のポーチ床（壁から外へ張り出す）
+      // 黒いアーチ屋根の歩行者エントランス（ユーザー写真1・2026-07-02）＝濃い色のかまぼこ屋根が壁からまっすぐ張り出し、先端を細い黒柱2本で支える。旧・平らな庇＋クリーム柱は写真に合わせてこの形へ置換
+      const dk = toon(0x2e3237), dkPost = toon(0x3a3f45)
+      { const vault = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.55, 5.0, 16, 1, true, 0, Math.PI), new THREE.MeshToonMaterial({ color: 0x2e3237, gradientMap: GRAD, side: THREE.DoubleSide }))
+        vault.rotation.z = Math.PI / 2; vault.rotation.y = Math.PI / 2; vault.position.set(0, 2.5, 2.7); vault.castShadow = true; ent.add(vault) } // かまぼこ（軸＝通路方向・壁ぎわz0.2〜先端z5.2）
+      for (const lz of [0.25, 5.15]) { const rim = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.07, 6, 16, Math.PI), dk); rim.position.set(0, 2.5, lz); rim.castShadow = true; ent.add(rim) } // 両端の縁（アーチの厚み）
+      for (const sx of [-1.55, 1.55]) lmk(new THREE.BoxGeometry(0.14, 0.14, 5.0), dk, sx, 2.5, 2.7, true) // 側桁（アーチの根元のライン）
+      for (const sx of [-1.35, 1.35]) { const wy = heightAtYato(3004.8 + Math.cos(fth) * sx + Math.sin(fth) * 4.8, 5.35 - Math.sin(fth) * sx + Math.cos(fth) * 4.8) - ent.position.y // 先端の柱の足元＝実地面に接地
+        lmk(new THREE.CylinderGeometry(0.075, 0.09, 2.5 - wy, 8), dkPost, sx, wy + (2.5 - wy) / 2, 4.8, true) } // 先端の支柱2本（細い黒柱）
+      lmk(new THREE.PlaneGeometry(5.0, 2.6), new THREE.MeshToonMaterial({ color: 0x8fb0bf, gradientMap: GRAD, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), 0, 1.5, 0.3) // 自動ドアのガラス（壁面）
+      lmk(new THREE.BoxGeometry(0.16, 2.6, 0.16), toon(0x6a6f76), 0, 1.5, 0.3, true) // ドアの中桟
+      // アーチ下〜前の敷石アプローチ＝地形追従の一枚（浮く角板をやめ、エントランス前を草でなく舗装に）
+      { const apr = new THREE.PlaneGeometry(9, 7.5, 8, 6); apr.rotateX(-Math.PI / 2); apr.rotateY(fth)
+        const pa = apr.attributes.position, cxA = 3002.9, czA = 9.2, byA = heightAtYato(cxA, czA)
+        for (let i = 0; i < pa.count; i++) { const wx = cxA + pa.getX(i), wz = czA + pa.getZ(i); pa.setY(i, heightAtYato(wx, wz) - byA + 0.21) } apr.computeVertexNormals()
+        const am2 = new THREE.Mesh(apr, new THREE.MeshToonMaterial({ color: 0xc5c0b4, gradientMap: GRAD })); am2.position.set(cxA, byA, czA); am2.receiveShadow = true; scene.add(am2) } }
     makeRoadRibbon(2999, 11.5, 2991, 22.5, 8, false) // 茶色の太い道（土・ユーザー座標範囲）＝エントランス西側の前庭
     makeRoadRibbon(3014.5, 11, 3005.5, 31, 10, false, true) // コンクリートの道（ユーザー座標範囲）＝エントランス前〜開始位置の本通り
     // 出て東の敷地内路地＝駐輪場の前(3021,17)まで。その先は土の道(SG.roads)が仕切りの木を回り込んで園庭へ（ユーザーピン2026-07-02。旧ルートは建物に食い込んでカーブしていたため引き直し）
@@ -3508,8 +3524,16 @@ function buildShishigaya() {
   // 公園の柵＝公園の敷地だとわかるように低いパイプ柵で囲う（ユーザー要望2026-06-23）。各公園の周囲(半8m)に3m間隔・南は出入口で開ける。建物/水に当たる区間は飛ばす。1ドロー。※cellOf定義後に置く（parkPosは外側スコープ）
   if (parkPos.length) { const pfP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
     for (const [px, pz] of parkPos) { const R = 8
+      if (px === 3058 && pz === 11) continue // 第三公園＝軸そろえのリングだと回転した園庭の中を柵が横切る→下の専用外周柵で（2026-07-02）
       for (const [ex, ez, ang, side] of [[0, -R, 0, 'n'], [0, R, 0, 's'], [-R, 0, Math.PI / 2, 'w'], [R, 0, Math.PI / 2, 'e']]) { if (side === 's') continue // 南は出入口
         for (let t = -R + 1.5; t <= R - 1.5; t += 3) { const fx = px + ex + (ang ? 0 : t), fz = pz + ez + (ang ? t : 0); if (occAt(fx, fz) || inWater(fx, fz) || heightAtYato(fx, fz) < 3) continue; pfP.push([fx, fz, ang]) } } }
+    { // 第三公園の専用柵＝園庭（ユーザーピン4点の回転長方形・中心(3058.5,11.5)・u=(-0.4138,0.9103)）の外周に沿って回す。入口の西角(+u)と、マンション側の階段の角(-v側のdu>7)は開ける
+      const cx3 = 3058.5, cz3 = 11.5, ux3 = -0.4138, uz3 = 0.9103, vx3 = 0.9103, vz3 = 0.4138
+      const aU = Math.atan2(-uz3, ux3), aV = Math.atan2(-vz3, vx3) // PARKFENCE(長辺=ローカル+x)を辺方向に合わせる＝atan2(-dz,dx)
+      for (let du = -12; du <= 12; du += 3) {
+        pfP.push([cx3 + ux3 * du + vx3 * 7.2, cz3 + uz3 * du + vz3 * 7.2, aU]) // 北東の長辺（崖下）
+        if (du <= 7) pfP.push([cx3 + ux3 * du - vx3 * 7.2, cz3 + uz3 * du - vz3 * 7.2, aU]) } // マンション側の長辺（階段の下り口は開ける）
+      for (let dv = -6; dv <= 6; dv += 3) pfP.push([cx3 - ux3 * 13.2 + vx3 * dv, cz3 - uz3 * 13.2 + vz3 * dv, aV]) } // 奥(南東)の短辺。西角の短辺＝入口なので柵なし
     if (pfP.length) { const pf = new THREE.InstancedMesh(PARKFENCE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), pfP.length); pf.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); pfP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); pf.setMatrixAt(i, m4) }); scene.add(pf); console.log('[shishigaya] 公園の柵', pfP.length) } }
   // ガードレール（坂・崖ぞいの道の下り側）＋カーブミラー（急カーブ）＝山あいの道の定番（ユーザー要望2026-06-22）。各1インスタンスメッシュ
   { const TR = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z), RX = (x, y, z, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0)), new THREE.Vector3(1, 1, 1))
@@ -3700,14 +3724,15 @@ function buildShishigaya() {
         for (const lx of [-2.85, 2.85]) sAdd(new THREE.BoxGeometry(0.5, 3.7, 0.6), 0x8a8f96, lx, 1.85, 0.75)
         sAdd(new THREE.BoxGeometry(5.2, 3.2, 0.4), 0x565b62, 0, 1.6, 0.8) // シャッター本体
         for (let i = 0; i < 6; i++) sAdd(new THREE.BoxGeometry(5.0, 0.1, 0.46), 0x7a818a, 0, 0.55 + i * 0.5, 0.82)
-        makeRoadRibbon(2994, -27, 2980, -42, 9, false, true) } } // 地下前の前庭の舗装（基壇沿い＝駐車場入口の車路・停め置きの余地）
+        makeRoadRibbon(2994, -27, 2980, -42, 9, false, true) // 地下前の前庭の舗装（基壇沿い＝駐車場入口の車路・停め置きの余地）
+        makeRoadRibbon(2990, -29, 2975, -48, 10, false, true) } } // 前庭→下の道(road88)への取り付き舗装＝「地下から出たらそのまま道路」（山なりの丘は回廊で切り下げ済・2026-07-02）
     // ── 公園とマンションのあいだの“林”（ストリートビュー2・3枚目＝木立の奥でマンションとつながっている）──
-    for (const [tx2, tz2, ts2] of [[3048, -14.5, 1.1], [3041, -17, 0.95], [3033, -15, 1.05], [3026, -18.5, 0.9], [3051, -20, 1.0], [3054, -27, 0.9]]) makeTree(tx2, tz2, ts2)
+    for (const [tx2, tz2, ts2] of [[3048, -14.5, 1.1], [3041, -17, 0.95], [3036, -19, 1.05], [3029, -23, 0.9], [3051, -20, 1.0], [3054, -27, 0.9]]) makeTree(tx2, tz2, ts2) // (3033,-15)(3026,-18.5)は道路(road88)の真上だった→道の谷側へ移設（「道路の中に木」ユーザー指摘2026-07-02）
     // 軒先の鉢を開始地点の家に追加（既存の自動配置に、最も長く見る開始の通りだけ手で厚みを足す）
     hachi(3009, 33, Math.PI / 4); hachi(3027, 31, -Math.PI / 2); hachi(3038, 44, Math.PI)
     hoshi(3035, 52, Math.PI / 6) // 開始の通りの2階の干し物
     // サンライズの東面の壁ぎわ＝街路樹＋生垣＋電柱で“団地の壁”を背景へ退かせる（第三公園への道沿い・C⑪のNE開始と合わせて壁を正面から外す）
-    for (const [tx, tz, ts] of [[3050, 4, 1.05], [3052, -3, 0.95], [3046, 27.5, 1.0], [2987, 27, 1.0]]) makeTree(tx, tz, ts) // (3057,6)と(3045,26)は園庭・新しい道の上になったため土手側へ移設(2026-07-02)
+    for (const [tx, tz, ts] of [[3050, 4, 1.05], [3052, -3, 0.95], [3046, 27.5, 1.0], [2984, 30, 1.0]]) makeTree(tx, tz, ts) // (3057,6)と(3045,26)は園庭・新しい道の上に、(2987,27)は坂の道(road7)の上になったため道の外へ移設(2026-07-02)
     for (const [tx3, tz3] of [[3041, 22], [3040, 24], [3040, 25]]) makeTree(tx3, tz3, 0.68) // 園庭と道の“仕切り”の細めの木3本（ユーザーピン2026-07-02）＝道はこれを北から回り込んで園庭へ入る
     makeHedge(3036, 21, 3041, 23.5) // 壁ぎわの生垣（旧(3057,0-11)は園庭の中になったため、道とマンションのあいだへ移設2026-07-02）
     makePole(3030, 28); makePole(3045, 30) // 路傍の電柱（電線の気配。旧(3052,17)は園庭の中になったため道の曲がりぎわへ移設2026-07-02）
@@ -3781,18 +3806,16 @@ function buildShishigaya() {
         g.position.set(cx, gy, cz); g.castShadow = true; scene.add(g)
         addBox(cx, cz, 1.3, 1.3, 0, 0.3) } }
     // ── マンション周りの作り込み（ユーザー写真3枚・2026-07-02）──
-    { // (1) 正面＝リング模様(ドーナツ柄)の舗装坂：エントランス前の車路(3014.5,11)→(3005.5,31)に洗い出し風の輪々テクスチャを敷く
+    { // (1) 正面＝リング模様(ドーナツ柄)の舗装坂：エントランス前の車路(3014.5,11)→(3005.5,31)の全面に洗い出し風の輪々テクスチャ。
+      //     地形はaddFlatRoad(車路スロープ回廊)で一定勾配に均してあるので、細かい格子で地形追従＝地面メッシュに斑に埋もれない（「一部しか再現されていない」の修正・2026-07-02）
       const rtx = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d')
-        x.fillStyle = '#c6c2b8'; x.fillRect(0, 0, 128, 128); x.strokeStyle = '#918d83'; x.lineWidth = 3
+        x.fillStyle = '#c9c5bb'; x.fillRect(0, 0, 128, 128); x.strokeStyle = '#8f8b81'; x.lineWidth = 4
         for (let r = 0; r < 4; r++) for (let q = 0; q < 4; q++) { x.beginPath(); x.arc(16 + q * 32 + (r % 2) * 16, 16 + r * 32, 9 + (q + r) % 3, 0, 6.29); x.stroke() }
-        const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 6); return t })()
-      const pg2 = new THREE.PlaneGeometry(10, 21, 1, 8); pg2.rotateX(-Math.PI / 2); pg2.rotateY(Math.atan2(-9, 20))
-      { const pa = pg2.attributes.position; for (let i = 0; i < pa.count; i++) { const wx = 3010 + pa.getX(i), wz = 21 + pa.getZ(i); pa.setY(i, heightAtYato(wx, wz) - 46.9 + 0.14) } pg2.computeVertexNormals() } // +0.14＝下の白コンクリのリボン(+0.05〜0.08)より必ず上＝斑に埋もれない
+        const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3.2, 7.4); return t })()
+      const pg2 = new THREE.PlaneGeometry(10, 23, 8, 20); pg2.rotateX(-Math.PI / 2); pg2.rotateY(Math.atan2(-9, 20))
+      { const pa = pg2.attributes.position; for (let i = 0; i < pa.count; i++) { const wx = 3010 + pa.getX(i), wz = 21 + pa.getZ(i); pa.setY(i, heightAtYato(wx, wz) - 46.9 + 0.26) } pg2.computeVertexNormals() } // +0.26＝下の白コンクリのリボン(舗装面+0.19)より必ず上＝リボンに隠れて模様が消えない
       const donut = new THREE.Mesh(pg2, new THREE.MeshToonMaterial({ map: rtx, gradientMap: GRAD })); donut.position.set(3010, 46.9, 21); donut.receiveShadow = true; scene.add(donut)
-      // (2) 歩行者エントランスの黒いアーチ庇（写真1＝丸い黒屋根）＝既存ポーチの庇の上にかぶせる
-      { const fth = Math.atan2(-4, 8), ag = new THREE.Group(); ag.position.set(3003.8, heightAtYato(3003.8, 7.5), 7.5); ag.rotation.y = fth; scene.add(ag)
-        const arch = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 5.4, 14, 1, true, 0, Math.PI), toon(0x2e3237))
-        arch.rotation.z = Math.PI / 2; arch.rotation.y = Math.PI / 2; arch.position.set(0, 3.35, 2.6); arch.castShadow = true; ag.add(arch) }
+      // (2) 黒いアーチ庇は歩行者エントランス本体(sunriseSurroundのポーチ)へ統合済＝ここでの後乗せを廃止（浮いたバス停屋根のようだった・2026-07-02）
       // 植込みの玉つげ＋低い庭園灯（写真1の左手）
       for (const [bx2, bz2, br2] of [[3000, 16, 0.8], [2997.5, 20, 0.7], [3003, 27, 0.75], [3016, 15.5, 0.7]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br2, 1), toon(0x4c7a42)); b.position.set(bx2, heightAtYato(bx2, bz2) + br2 * 0.55, bz2); b.castShadow = true; scene.add(b) }
       for (const [lx2, lz2] of [[2999, 18.5], [3006, 28.5]]) { const gy2 = heightAtYato(lx2, lz2), lp = new THREE.Group(); lp.position.set(lx2, gy2, lz2); scene.add(lp)
@@ -3817,14 +3840,18 @@ function buildShishigaya() {
           const q2 = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); rl.applyQuaternion(q2); rl.translate((A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2); sg2.push(rl) }
         const sm2 = new THREE.Mesh(mergeGeometries(sg2, false), toon(0xb8b4aa)); sg2.forEach((d) => d.dispose()); sm2.castShadow = sm2.receiveShadow = true; scene.add(sm2) }
       // 土手の茂み（写真3＝階段まわりのこんもりした藪）
-      for (const [bx3, bz3, br3] of [[3044, 21, 0.9], [3043, 24.5, 0.8], [3049, 24, 0.85], [3052, 21.5, 0.7]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br3, 1), toon(0x47713d)); b.position.set(bx3, heightAtYato(bx3, bz3) + br3 * 0.5, bz3); b.castShadow = true; scene.add(b) }
+      for (const [bx3, bz3, br3] of [[3044, 21, 0.9], [3043, 24.5, 0.8], [3049, 24, 0.85], [3057, 26.5, 0.7]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br3, 1), toon(0x47713d)); b.position.set(bx3, heightAtYato(bx3, bz3) + br3 * 0.5, bz3); b.castShadow = true; scene.add(b) } // (3052,21.5)は園庭の床の上だった→北東の土手(柵の外)へ（2026-07-02）
       // 青い鉄棒（写真3＝園庭の土手ぎわ・3本柱で高さ違いの2連）
       { const tg = [], baseX = 3051.5, baseZ = 16.5, dirX = Math.cos(-0.5), dirZ = Math.sin(-0.5)
         const py2 = (lx) => heightAtYato(baseX + dirX * lx, baseZ + dirZ * lx)
         for (const [lx, hh] of [[-1.5, 1.25], [0, 1.05], [1.5, 0.85]]) { const c = new THREE.CylinderGeometry(0.04, 0.04, hh, 6); c.translate(baseX + dirX * lx, py2(lx) + hh / 2, baseZ + dirZ * lx); tg.push(c) }
         for (const [l0, l1, hh] of [[-1.5, 0, 1.18], [0, 1.5, 0.98]]) { const A = new THREE.Vector3(baseX + dirX * l0, py2(l0) + hh, baseZ + dirZ * l0), B = new THREE.Vector3(baseX + dirX * l1, py2(l1) + hh - 0.2, baseZ + dirZ * l1), d = new THREE.Vector3().subVectors(B, A)
           const rl = new THREE.CylinderGeometry(0.025, 0.025, d.length(), 6), q2 = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); rl.applyQuaternion(q2); rl.translate((A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2); tg.push(rl) }
-        const tm = new THREE.Mesh(mergeGeometries(tg, false), toon(0x2f6ab8)); tg.forEach((d) => d.dispose()); tm.castShadow = true; scene.add(tm) } }
+        const tm = new THREE.Mesh(mergeGeometries(tg, false), toon(0x2f6ab8)); tg.forEach((d) => d.dispose()); tm.castShadow = true; scene.add(tm) }
+      // 園庭の土の地面（写真3＝草地でなく踏み固められた土の広場）＝回転長方形の床に合わせた地形追従の一枚。柵(±7.2)の足元まで
+      { const aG = Math.atan2(-0.9103, -0.4138), pg3 = new THREE.PlaneGeometry(26.4, 14.6, 16, 10); pg3.rotateX(-Math.PI / 2); pg3.rotateY(aG)
+        const pa3 = pg3.attributes.position; for (let i = 0; i < pa3.count; i++) { const wx = 3058.5 + pa3.getX(i), wz = 11.5 + pa3.getZ(i); pa3.setY(i, heightAtYato(wx, wz) - 42 + 0.07) } pg3.computeVertexNormals()
+        const dirt = new THREE.Mesh(pg3, new THREE.MeshToonMaterial({ color: 0xcdbd96, gradientMap: GRAD })); dirt.position.set(3058.5, 42, 11.5); dirt.receiveShadow = true; scene.add(dirt) } }
     // ── 1990年代の街角の生活ディテール：公衆電話ボックス（夜ぼんやり灯る）・町内会の掲示板・追加の自販機/丸ポスト（忠実な密集はそのまま“あの頃の手触り”を足す・ユーザー要望2026-06-24）──
     const PM = (g, geo, mat, px, py, pz) => { const mm = new THREE.Mesh(geo, mat); mm.position.set(px, py, pz); g.add(mm); return mm }
     const makePhoneBox = (x, z, rot) => { const g = new THREE.Group(), frame = toon(0xc6ccc4), glass = new THREE.MeshToonMaterial({ color: 0xbcd8de, gradientMap: GRAD, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
@@ -4130,6 +4157,10 @@ function buildShishigaya() {
       else { x = SG.gx0 - SG.half + Math.random() * SG.half * 2; z = SG.gz0 - SG.half + Math.random() * SG.half * 2 } // 3割は全域に点々と
       const c = cellOf(x, z); if (c < 0 || occ[c] || roadOcc[c]) continue
       const y = heightAtYato(x, z); if (y < 2.5 || inWater(x, z) || inBare(x, z)) continue // 水際のごく低い所/水面/学校の裸地は除外
+      { const dxq = x - 3058.5, dzq = z - 11.5, duq = dxq * -0.4138 + dzq * 0.9103, dvq = Math.abs(dxq * 0.9103 + dzq * 0.4138)
+        if (duq > -14 && duq < 14 && dvq < 8) continue } // 第三公園の園庭＝踏み固められた土の広場（緑の塊が遊び場に浮いて見える・2026-07-02）
+      { const near = (ax, az, bx, bz, hw) => { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1; let t = ((x - ax) * dx + (z - az) * dz) / L2; t = Math.max(0, Math.min(1, t)); return Math.hypot(x - (ax + dx * t), z - (az + dz * t)) < hw }
+        if (near(3014.5, 11, 3005.5, 31, 6) || near(2990, -29, 2975, -48, 6.5) || near(2994, -27, 2980, -42, 6)) continue } // サンライズ正面のリング柄スロープ/地下の前庭と道への取り付き＝舗装の上に草株を出さない
       const slope = Math.abs(heightAtYato(x + 5, z) - heightAtYato(x - 5, z)) + Math.abs(heightAtYato(x, z + 5) - heightAtYato(x, z - 5)); if (slope > 6) continue // 急斜面は山肌の木に任せる＝草は平〜緩斜面
       const s = 0.6 + Math.random() * 0.95, yh = Math.random() < 0.4 ? 1.2 + Math.random() * 0.8 : 0.7 + Math.random() * 0.5 // 約4割は丈のあるこんもり夏草
       q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, 0)); sc.set(s, s * yh, s); m4.compose(new THREE.Vector3(x, y + 0.15, z), q, sc); gI.setMatrixAt(ng, m4)
