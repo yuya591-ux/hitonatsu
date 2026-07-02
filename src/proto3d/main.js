@@ -6919,7 +6919,7 @@ function makeBoy() {
   const bagGeo = new THREE.ConeGeometry(0.19, 0.56, 18, 8, true) // 口(半径)＝口金の輪と同径・縦8分割＝しなりを滑らかに
   bagGeo.rotateX(Math.PI); bagGeo.translate(0, -0.28, 0) // 口=y0(輪の面)／先=下-0.56
   { const pa = bagGeo.attributes.position // 生地のしなり：口は輪に全周で縫い付いたまま、深いほど重力方向(後ろ下)へ曲げる＝本物の垂れた網袋
-    for (let i = 0; i < pa.count; i++) { const t = -pa.getY(i) / 0.56; pa.setZ(i, pa.getZ(i) + Math.pow(t, 1.35) * 0.40); pa.setY(i, pa.getY(i) * (1 - 0.20 * t)) }
+    for (let i = 0; i < pa.count; i++) { const t = Math.max(0, -pa.getY(i) / 0.56); pa.setZ(i, pa.getZ(i) + Math.pow(t, 1.35) * 0.40); pa.setY(i, pa.getY(i) * (1 - 0.20 * t)) } // max(0,)＝口の頂点の浮動小数誤差でpowがNaNになるのを防ぐ
     bagGeo.computeVertexNormals() }
   const bag = new THREE.Mesh(bagGeo, netMat); bagPivot.add(bag)
   const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI + 0.7; bagTip.position.set(0, -0.446, 0.40); bagPivot.add(bagTip) // 袋の底（しなった先端の丸み）
