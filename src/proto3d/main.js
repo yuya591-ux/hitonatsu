@@ -3766,7 +3766,7 @@ function buildShishigaya() {
               pos.push(A.x + (B.x - A.x) * t0, A.y + (B.y - A.y) * t0 - sagf(t0), A.z + (B.z - A.z) * t0,
                 A.x + (B.x - A.x) * t1, A.y + (B.y - A.y) * t1 - sagf(t1), A.z + (B.z - A.z) * t1) } } }
         if (pos.length) { const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-          const ln = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x4c4c46, transparent: true, opacity: 0.32 })) // 送電線は「目立たないけど見える」薄さ（0.6は濃すぎて景観を崩す・ユーザー2026-07-02）
+          const ln = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x6a6a62, transparent: true, opacity: 0.18 })) // 送電線は「近くで見上げれば分かる」程度まで薄く＝遠景の眺めを邪魔しない（0.32でもまだ目立つ・ユーザー2026-07-02）
           ln.layers.set(1); scene.add(ln) } } // インクの法線パスから除外（細線のエッジ暴れ防止＝drawWireと同じ作法）
       // 鋼管の無線塔（写真3枚目・OSM実位置(2893,-67)＝獅子ヶ谷バス停ぎわに現存する円筒モノポール＝テーパー鋼管＋中腹のリング台＋頂部のアンテナ群）
       { const cx = 2893, cz = -67, gy = heightAtYato(cx, cz), TH = 26, gp = []
@@ -4223,7 +4223,7 @@ function buildShishigaya() {
 
     // ── ジャスコ駒岡店（現イオン駒岡店・鶴見区駒岡5-6-1＝35.5312,139.6481→北から僅かに西354°・約1.75km・住所ジオコーディング2026-07-02）。
     //    サンライズ屋上から見えた「屋上駐車場のいちばん上の四角い看板（の箱）」（ユーザー実体験）。ロゴは付けない＝形だけ。1.75kmと近い＝遠景では一番大きく低く見える
-    { const D = 1745, W = appH(110, D, LMK), Hb = appH(21, D, LMK), Dp = appH(55, D, LMK) // 幅も同倍率＝箱の比率を保つ
+    { const D = 1745, W = appH(110, D), Hb = appH(21, D, LMK), Dp = appH(55, D) // 幅は実寸比のまま（倍率をかけると白い壁のようにそびえて気持ち悪い・ユーザー2026-07-02）
       const bx = (w, h, d, x, y) => { const b = new THREE.BoxGeometry(w, h, d); b.translate(x, y, 0); return b }
       const sS = appH(9, D, LMK) // 屋上の四角い看板の箱
       const g = mergeGeometries([
@@ -4232,7 +4232,9 @@ function buildShishigaya() {
         bx(sS, sS, sS * 0.3, -W * 0.28, Hb + sS * 0.62), // 駐車場のいちばん上の四角い看板
         skirtBox(W, Dp),
       ], false)
-      addLM(354, bakeHaze(g, 0xd8d2c4, 0, Hb + sS, 0.30), 'lmJusco')
+      // ★fog:true専用材＝地上(霧470m)では完全に霞に溶けて見えない／屋上(霧1200m)でだけ淡く現れる。
+      //   共通のlmMat(fog:false)だと地上でも霧を突き抜けて「白い影が二ツ池の上にそびえる」不気味さ（ユーザー2026-07-02）
+      addLM(354, bakeHaze(g, 0xb0a894, 0, Hb + sS, 0.18), 'lmJusco', null, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }))
     }
     // ── 横浜ランドマークタワー（296m・70F・約6km・SW=225°）。Hugh Stubbins基本設計／三菱地所。一番近い6km＝見かけ最大。
     //    ★実物のシルエット（Web調査2026-06-29）：
@@ -6919,10 +6921,10 @@ function makeBoy() {
   const bagGeo = new THREE.ConeGeometry(0.19, 0.56, 18, 8, true) // 口(半径)＝口金の輪と同径・縦8分割＝しなりを滑らかに
   bagGeo.rotateX(Math.PI); bagGeo.translate(0, -0.28, 0) // 口=y0(輪の面)／先=下-0.56
   { const pa = bagGeo.attributes.position // 生地のしなり：口は輪に全周で縫い付いたまま、深いほど重力方向(後ろ下)へ曲げる＝本物の垂れた網袋
-    for (let i = 0; i < pa.count; i++) { const t = Math.max(0, -pa.getY(i) / 0.56); pa.setZ(i, pa.getZ(i) + Math.pow(t, 1.35) * 0.40); pa.setY(i, pa.getY(i) * (1 - 0.20 * t)) } // max(0,)＝口の頂点の浮動小数誤差でpowがNaNになるのを防ぐ
+    for (let i = 0; i < pa.count; i++) { const t = Math.max(0, -pa.getY(i) / 0.56); pa.setZ(i, pa.getZ(i) - Math.pow(t, 1.35) * 0.40); pa.setY(i, pa.getY(i) * (1 - 0.20 * t)) } // max(0,)＝NaN防止。しなりは-z＝体と反対の後ろ下へ（+zだと先端が主人公の頭へ向いて不自然・ユーザー2026-07-02）
     bagGeo.computeVertexNormals() }
   const bag = new THREE.Mesh(bagGeo, netMat); bagPivot.add(bag)
-  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI + 0.7; bagTip.position.set(0, -0.446, 0.40); bagPivot.add(bagTip) // 袋の底（しなった先端の丸み）
+  const bagTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.55), netMat); bagTip.rotation.x = Math.PI - 0.7; bagTip.position.set(0, -0.446, -0.40); bagPivot.add(bagTip) // 袋の底（しなった先端の丸み・体と反対側）
   net.position.set(0.15, 1.27, -0.01); net.rotation.set(NET_REST, 0, -0.06) // 柄の支点を右肩に乗せる＝肩に触れて網は頭の真後ろ上へ（横に飛び出さない・浮き解消）。rotation.xは虫採りアニメがNET_RESTで上書き
   net.traverse((o) => { if (o.isMesh) { o.layers.set(1); o.userData.noOutline = true } }) // 網は細い棒/輪＋透明な袋＝(1)法線パスから除外＋(2)背面法の黒い輪郭ハルも付けない＝透明な網に黒い線が重なってバグって見えるのを解消（後段 outlineObj(boy) が拾わないよう noOutline・2026-06-29 ユーザー指摘）
   g.add(net)
