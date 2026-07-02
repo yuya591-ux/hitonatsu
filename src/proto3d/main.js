@@ -243,7 +243,7 @@ function heightAtYato(x, z, forGround) { // 生標高＋道形プロファイル
 // ②人・車・小物が路面にぴったり立つ（今まで舗装の持ち上げ0.42のぶん埋まっていた） ③道のでこぼこ・横傾斜が消え“造成された道路”に。
 // 坂の勾配・カーブはそのまま＝全道の一括平坦化ではない（3点移動平均で小さな凹凸だけ均す。端点は生値＝交差点で隣の道と高さが合う）
 const roadProfH = new Float32Array(RMASK_N * RMASK_N), roadProfW = new Float32Array(RMASK_N * RMASK_N)
-for (const rd of SG.roads) {
+for (const rd of [...SG.roads].sort((a, b) => ((b.k !== 'path') - (a.k !== 'path')) || (b.w - a.w))) { // 広い舗装路→細い道→土の小道の順に焼く＝歩道(小道)が車道の脇では車道と同じ平らな面に乗る（自分の高さを主張して車道とねじれない）
   const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2) + 2.3, sh = Math.max(3.5, rd.w / 2), p = rd.p // hw=描画幅+2.3mの“ベンチ”＝完全に路面高さの帯（狭い小道でも7m格子の地形頂点が必ずベンチに乗る＝突き抜け根絶）。sh=ベンチから元地形へ戻す幅
   const sts = [] // 中心線を約8m刻みでサンプル
   for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, n = Math.max(1, Math.round((Math.hypot(dx, dz) || 1) / 8))
@@ -2250,6 +2250,24 @@ function buildShishigaya() {
         + '#include <fog_fragment>')
   }
   const gm = new THREE.Mesh(ggeo, gMat); gm.position.set(gcx, 0, SG.gz0); gm.receiveShadow = true; gm.name = 'yatoGround'; gm.userData.yatoGround = true; scene.add(gm)
+  // 実際に描画される地形サーフェスの高さ（実メッシュの三角形分割そのままで補間）＝道路リボンを“地面の凸に必ず勝つ”高さへ持ち上げるために使う（P0-1b・2026-07-02）
+  const groundYAt = (() => { const idx = ggeo.index.array, X1 = seg + 1
+    const gx00 = gp.getX(0) + gcx, gz00 = gp.getZ(0) + SG.gz0
+    const dxc = gp.getX(1) - gp.getX(0), dzr = gp.getZ(X1) - gp.getZ(0) // 列＝ワールドx刻み／行＝ワールドz刻み（符号込み）
+    return (x, z) => {
+      let fc = (x - gx00) / dxc, fr = (z - gz00) / dzr
+      fc = Math.max(0, Math.min(seg - 1e-6, fc)); fr = Math.max(0, Math.min(segZ - 1e-6, fr))
+      const base = (Math.floor(fr) * seg + Math.floor(fc)) * 6
+      for (let t = 0; t < 2; t++) { // セルの2三角形から点を含む方を重心座標で補間（1つ目に外れたら2つ目）
+        const i0 = idx[base + t * 3], i1 = idx[base + t * 3 + 1], i2 = idx[base + t * 3 + 2]
+        const ax = gp.getX(i0) + gcx, az = gp.getZ(i0) + SG.gz0, bx = gp.getX(i1) + gcx, bz = gp.getZ(i1) + SG.gz0, ccx = gp.getX(i2) + gcx, ccz = gp.getZ(i2) + SG.gz0
+        const den = (bz - ccz) * (ax - ccx) + (ccx - bx) * (az - ccz); if (!den) continue
+        const w0 = ((bz - ccz) * (x - ccx) + (ccx - bx) * (z - ccz)) / den, w1 = ((ccz - az) * (x - ccx) + (ax - ccx) * (z - ccz)) / den, w2 = 1 - w0 - w1
+        if (t === 0 && (w0 < -0.001 || w1 < -0.001 || w2 < -0.001)) continue
+        return w0 * gp.getY(i0) + w1 * gp.getY(i1) + w2 * gp.getY(i2)
+      }
+      return heightAtYato(x, z, true)
+    } })()
   // 建物：種別で描き分け。集合住宅(apartments)=陸屋根の中層棟＋バルコニー面／家(house等)=低い切妻／事務所・大箱=陸屋根。中心のサンライズ北寺尾は7階の主役マンション
   const bv = [], bc = [], bidx = [], buv = [], rfv = [], rfc = [], rfidx = [], rfuv = [], av = [], ac = [], auv = [], aidx = []; let vo = 0, ao = 0; const oRef = { o: 0 }
   // 接地AO（疑似AO・A1）：建物フットプリント直下に放射状グラデの暗い敷物を1枚に合成＝壁が地面からスパッと生える“ダンボール感”を消し、足元に陰を落として地に足を付ける。
@@ -3217,19 +3235,20 @@ function buildShishigaya() {
     x.lineCap = 'round'; for (let i = 0; i < 64; i++) { const px = Math.random() * 64, py = Math.random() * 64, s = 1.3 + Math.random() * 2.0, dark = Math.random() < 0.5; x.globalAlpha = 0.38 + Math.random() * 0.30; x.fillStyle = dark ? '#7a623c' : '#e0cd9e'; x.beginPath(); x.ellipse(px, py, s, s * 0.68, Math.random() * 3.1, 0, 6.283); x.fill() } // 小石（明暗の小粒＝足元の手ざわり）
     x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // 土の道＝黄土＋轍＋小石（のっぺり解消・目線の手ざわり）
   const buildRoads = (kind, tex, lift, edgeCol) => { const rv = [], ruv = [], ridx = [], ev = [], eidx = [], clv = [], clidx = [], gv = [], gidx = []; let ro = 0, eo = 0, clo = 0, go = 0 // clv=中央の白破線（幅広の主要道だけ・F1）／gv=側溝のU字溝の細い線（見た目だけ・当たり判定なし・道マスク不変）
+    const rsY = (qx, qz) => Math.max(heightAtYato(qx, qz), groundYAt(qx, qz)) // 路面の基準高さ＝道形プロファイルと“実際の地形サーフェス”の高い方＝急な土手の三角形が路面を食い破れない（P0-1b）
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = Math.max(kind === 'path' ? 1.25 : 2.0, rd.w / 2) // 細い道も見える/歩ける最低幅を確保
       const gutter = kind === 'paved' && rd.w >= 4 // 側溝＝舗装の主要道だけ（昭和の道らしいコンクリのU字溝。細い路地/土道には引かない）
-      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, n = Math.max(2, Math.ceil(l / 4)) // 4m刻み＋中央頂点で地形に沿わせる（埋もれ防止・三角数を抑える）
+      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, n = Math.max(2, Math.ceil(l / 2.5)) // 2.5m刻み＋中央頂点で地形に沿わせる（埋もれ防止。4m→2.5m＝サンプル間の地形の凸も拾う）
         const rb = ro, eb = eo, gb = go
         for (let s = 0; s <= n; s++) { const t = s / n, cx = x0 + dx * t, cz = z0 + dz * t // 中心線に沿って 左/中央/右 の3点を地形高で（中央頂点があるので尾根で地形が路面を突き抜けない＝埋もれ防止）
-          for (const sd of [-1, 0, 1]) { const qx = cx + nx * hw * sd, qz = cz + nz * hw * sd; rv.push(qx, heightAtYato(qx, qz) + lift, qz); ruv.push((sd + 1) / 2, l * t / 3) }
-          for (const sd of [-1, 1]) { const ex = cx + nx * (hw + 0.4) * sd, ez = cz + nz * (hw + 0.4) * sd; ev.push(ex, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift - 0.14, ez) } // 道のふち（少し広い下地）＝路肩。★高さは路面の外端基準−14cm＝横斜面/交差点でも縁が路面より上に出て黒帯(黒いモヤ)になるのを防ぐ（−6cmでは交差点で重なって突き抜けた・ユーザー指摘2026-06-24で深く下げ＋色も路面グレーに）
-          if (gutter) for (const sd of [-1, 1]) { const i0 = hw - 0.05, i1 = hw + 0.22; for (const ig of [i0, i1]) { const gx = cx + nx * ig * sd, gz = cz + nz * ig * sd; gv.push(gx, heightAtYato(cx + nx * hw * sd, cz + nz * hw * sd) + lift + 0.015, gz) } } } // 側溝＝路面の外端ぎわ(hw-0.05〜hw+0.22)に細い帯。路面のすぐ脇＝路面の上には乗らない＝歩ける幅は不変。高さは路面+1.5cm＝面が暴れない
+          for (const sd of [-1, 0, 1]) { const qx = cx + nx * hw * sd, qz = cz + nz * hw * sd; rv.push(qx, rsY(qx, qz) + lift, qz); ruv.push((sd + 1) / 2, l * t / 3) }
+          for (const sd of [-1, 1]) { const ex = cx + nx * (hw + 0.4) * sd, ez = cz + nz * (hw + 0.4) * sd; ev.push(ex, rsY(cx + nx * hw * sd, cz + nz * hw * sd) + lift - 0.14, ez) } // 道のふち（少し広い下地）＝路肩。★高さは路面の外端基準−14cm＝横斜面/交差点でも縁が路面より上に出て黒帯(黒いモヤ)になるのを防ぐ（−6cmでは交差点で重なって突き抜けた・ユーザー指摘2026-06-24で深く下げ＋色も路面グレーに）
+          if (gutter) for (const sd of [-1, 1]) { const i0 = hw - 0.05, i1 = hw + 0.22; for (const ig of [i0, i1]) { const gx = cx + nx * ig * sd, gz = cz + nz * ig * sd; gv.push(gx, rsY(cx + nx * hw * sd, cz + nz * hw * sd) + lift + 0.015, gz) } } } // 側溝＝路面の外端ぎわ(hw-0.05〜hw+0.22)に細い帯。路面のすぐ脇＝路面の上には乗らない＝歩ける幅は不変。高さは路面+1.5cm＝面が暴れない
         for (let s = 0; s < n; s++) { const a = rb + s * 3; ridx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4, a + 1, a + 4, a + 2, a + 2, a + 4, a + 5); const e = eb + s * 2; eidx.push(e, e + 2, e + 1, e + 1, e + 2, e + 3) }
         if (gutter) for (let s = 0; s < n; s++) { for (const side of [0, 1]) { const a = gb + s * 4 + side * 2; gidx.push(a, a + 4, a + 1, a + 1, a + 4, a + 5) } } // 左右それぞれ2頂点（内/外）×セグメント＝細い帯
         if (kind === 'paved' && rd.w >= 6) { const ux = dx / l, uz = dz / l // 幅広の主要道だけ中央の白破線（昭和の主要道らしさ・F1・2026-06-25）。狭い生活道路には引かない
           for (let td = 0.4; td < l - 0.4; td += 3.2) { const t2 = Math.min(l - 0.2, td + 1.6), ax = x0 + ux * td, az = z0 + uz * td, bx = x0 + ux * t2, bz = z0 + uz * t2, wl = 0.085
-            for (const [px, pz] of [[ax + nx * wl, az + nz * wl], [ax - nx * wl, az - nz * wl], [bx + nx * wl, bz + nz * wl], [bx - nx * wl, bz - nz * wl]]) clv.push(px, heightAtYato(px, pz) + lift + 0.02, pz)
+            for (const [px, pz] of [[ax + nx * wl, az + nz * wl], [ax - nx * wl, az - nz * wl], [bx + nx * wl, bz + nz * wl], [bx - nx * wl, bz - nz * wl]]) clv.push(px, rsY(px, pz) + lift + 0.02, pz)
             clidx.push(clo, clo + 2, clo + 1, clo + 1, clo + 2, clo + 3); clo += 4 } }
         ro += (n + 1) * 3; eo += (n + 1) * 2; if (gutter) go += (n + 1) * 4 } }
     if (gv.length) { const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gv, 3)); gg.setIndex(gidx); gg.computeVertexNormals(); const gm = new THREE.Mesh(gg, new THREE.MeshToonMaterial({ color: 0x70726e, gradientMap: GRAD, emissive: new THREE.Color(0x2a2c2c), side: THREE.DoubleSide })); gm.layers.set(1); gm.name = 'yatoGutter'; scene.add(gm) } // 側溝の細い線（全舗装道で1メッシュ＝+1ドローコール・当たり判定/道マスクは不変・インク線から除外）
