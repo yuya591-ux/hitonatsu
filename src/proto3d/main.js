@@ -294,6 +294,7 @@ addFlatRoad(3047, 22, 3050, 18, 5, 43.2, 42.0) // 園庭の床(42.0)への取り
 // ── 獅子ヶ谷小学校（ユーザー実体験2026-07-03）：校舎の南沿いを真っ直ぐな道／平らなコンクリのピロティ広場／北西の正門へゆるい下り坂 を一定高さに ──
 addFlatRoad(3010, -176.5, 3082, -177, 6, 26.4, 30.0) // 正門〜裏門〜校舎の南の真横を真っ直ぐ東へ（正門側が低い＝ゆるい下り坂）
 addFlatRoad(3082, -181, 3094, -181, 11, 30, 30)      // ピロティ＝平らなコンクリの広場（山なりを解消・2F翼の下）
+addFlatRoad(3082, -171, 3014, -175, 5, 30, 26.5)     // 階段→裏門の細道の下を一定勾配に（道の途切れ解消・ユーザー修正2026-07-03）
 // ── サンライズ北寺尾(獅子ヶ谷・実物)の屋上：7階建てRC。平らな陸屋上を歩いて、街側の外階段を一段ずつ登り降りできる（昔よく屋上から景色を見渡した実体験の再現） ──
 const SUN_POLY = [[2997.5, 2.1], [3041.8, 21.8], [3053.7, -0.9], [3040.7, -6.7], [3037.3, 0.8], [3032.3, -1.0], [3030.6, 2.1], [3006.3, -9.7], [3007.6, -13.0], [2999.8, -16.7], [3001.4, -19.6], [2996.9, -21.9], [2998.6, -25.2], [2985.9, -30.8], [2981.0, -20.7], [2990.8, -15.7], [2989.0, -10.3], [2994.4, -7.6], [2993.2, -5.2], [2999.0, -2.0]] // SUNRISE_POLYのz反転後（makeShishigayaと同一の値）
 function pointInSunPoly(x, z) { let inside = false; for (let i = 0, j = SUN_POLY.length - 1; i < SUN_POLY.length; j = i++) { const xi = SUN_POLY[i][0], zi = SUN_POLY[i][1], xj = SUN_POLY[j][0], zj = SUN_POLY[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) inside = !inside } return inside } // 屋上の輪郭(雁行)の内側か
@@ -3108,7 +3109,7 @@ function buildShishigaya() {
       fenceRect(3062, -154, 32, 34) // 広場をぐるりと低い柵で囲う＝ここが小学校の広場だと一目でわかる（緑一色の原っぱと区別）
       for (const [tx, tz, ts, cc] of [[3052, -144, 1.15, 0x5f8a40], [3074, -146, 1.0, 0x6f9a47], [3050, -166, 1.05, 0x577e3a], [3076, -168, 0.95, 0x5f8a40], [3058, -140, 0.9, 0x6a9445]]) { const ty = heightAtYato(tx, tz) // 広場の木立（緑をたくさん）
         grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5 * ts, 5), toon(0x6a4e34), tx, ty + 0.75 * ts, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(1.8 * ts, 0), toon(cc), tx, ty + 1.5 * ts + 1.2 * ts, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) }
-      { const px = 3062, pz = -158, py = heightAtYato(px, pz) + 0.1 // 広場の池＝角丸の長方形＋中央に岩の噴水（湧き水）。ユーザー記憶2026-07-03（丸い池を作り直し）。少し校舎側(北)へ寄せた
+      { const px = 3053, pz = -165, py = heightAtYato(px, pz) + 0.1 // 広場の池＝角丸の長方形＋中央に岩の噴水（湧き水）。ユーザー記憶2026-07-03（丸い池を作り直し）。北西へ寄せた
         const rr = (w, h, r) => { const s = new THREE.Shape(); s.moveTo(-w / 2 + r, -h / 2); s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r); s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2); const g = new THREE.ShapeGeometry(s); const pa = g.attributes.position, ua = g.attributes.uv; for (let i = 0; i < pa.count; i++) ua.setXY(i, (pa.getX(i) + w / 2) / w, (pa.getY(i) + h / 2) / h); ua.needsUpdate = true; return g }
         const edge = new THREE.Mesh(rr(9.4, 6.4, 1.7), toon(0x9a8b66)); edge.rotation.x = -Math.PI / 2; edge.position.set(px, py + 0.04, pz); grp.add(edge) // 石の縁（角丸長方形）
         const pond = new THREE.Mesh(rr(8.6, 5.6, 1.5), waterMat); pond.rotation.x = -Math.PI / 2; pond.position.set(px, py + 0.09, pz); grp.add(pond) // 水面＝本物の水シェーダ
@@ -3125,11 +3126,11 @@ function buildShishigaya() {
       { const scz = -170, sx0 = 3083, sx1 = 3098, sy0 = heightAtYato(sx0, scz), sy1 = heightAtYato(sx1, scz)
         for (let s = 0; s <= 7; s++) { const t = s / 7, x = sx0 + (sx1 - sx0) * t, y = sy0 + (sy1 - sy0) * t; grp.add(mk(new THREE.BoxGeometry(1.9, 0.28, 10), toon(0xcac4b8), x, y + 0.14, scz, 0, true)) } }
       // 階段から裏門へ：階段の半分くらいの細い道をまっすぐ→裏門の手前で門の向き(東西)に合わせて曲げる（ユーザー修正2026-07-03）
-      makeRoadRibbon(3080, -171, 3040, -173, 5, false, true)
-      makeRoadRibbon(3040, -173, 3016, -176, 5, false, true)
+      makeRoadRibbon(3082, -171, 3038, -173, 3, false, true)
+      makeRoadRibbon(3044, -173, 3014, -176, 3, false, true)
       // 階段のすぐ南に緩やかな坂（車椅子スロープ）＝池の上あたりから東のグラウンドへ（階段でなく坂・ユーザー修正2026-07-03）
-      { const rcz = -162, rx0 = 3068, rx1 = 3098, ry0 = heightAtYato(rx0, rcz), ry1 = heightAtYato(rx1, rcz), rn = 16
-        for (let s = 0; s < rn; s++) { const tm = (s + 0.5) / rn, x = rx0 + (rx1 - rx0) * tm, y = ry0 + (ry1 - ry0) * tm; grp.add(mk(new THREE.BoxGeometry((rx1 - rx0) / rn + 0.3, 0.2, 4.5), toon(0xc7c3ba), x, y + 0.12, rcz, 0, true)) } }
+      { const rcz = -160, rx0 = 3068, rx1 = 3098, ry0 = heightAtYato(rx0, rcz), ry1 = heightAtYato(rx1, rcz), rn = 16
+        for (let s = 0; s < rn; s++) { const tm = (s + 0.5) / rn, x = rx0 + (rx1 - rx0) * tm, y = ry0 + (ry1 - ry0) * tm; grp.add(mk(new THREE.BoxGeometry((rx1 - rx0) / rn + 0.3, 0.2, 10), toon(0xc7c3ba), x, y + 0.12, rcz, 0, true)) } } // 太く(幅10)＋南方向へ（ユーザー修正2026-07-03）
       // ── 校舎＝実物(OSM/DEM)に忠実な櫛形3F：南に長い教室ファサード＋北へ伸びる櫛の歯。西の低いテラス(≒30m)に建つ ──
       schoolBldg(3058, -181, 46, 9, 3, 0, 0x9a4f3e)   // 南の長い棟＝南向きの教室ファサード（棟=背）
       schoolBldg(3044, -191, 9, 12, 3, 0, 0x9a4f3e)   // 北へ伸びる櫛の歯・西
