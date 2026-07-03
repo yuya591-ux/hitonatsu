@@ -3928,10 +3928,7 @@ function buildShishigaya() {
       // (2) 黒いアーチ庇は歩行者エントランス本体(sunriseSurroundのポーチ)へ統合済＝ここでの後乗せを廃止（浮いたバス停屋根のようだった・2026-07-02）
       // 植込みの玉つげ＋低い庭園灯（写真1の左手）
       for (const [bx2, bz2, br2] of [[2995.2, 14.2, 0.8], [2993.5, 18.5, 0.7], [3003, 27, 0.75], [3016, 15.5, 0.7], [3006.3, 12.6, 0.8], [2998.1, 8.5, 0.7]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br2, 1), toon(0x4c7a42)); b.position.set(bx2, heightAtYato(bx2, bz2) + br2 * 0.55, bz2); b.castShadow = true; scene.add(b) } // レンガ車路の両縁＋ポータル脇に配置（旧(3000,16)(2997.5,20)は新しい車路の真上・2026-07-02）
-      for (const [lx2, lz2] of [[3006.9, 10.3], [3006, 28.5]]) { const gy2 = heightAtYato(lx2, lz2), lp = new THREE.Group(); lp.position.set(lx2, gy2, lz2); scene.add(lp)
-        const po = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.9, 6), toon(0x4a4e52)); po.position.y = 0.45; po.castShadow = true; lp.add(po)
-        const hd = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 7), toon(0xd9d6c8)); hd.position.y = 1.0; hd.castShadow = true; lp.add(hd) // 灯具の実体（乳白ガラス）＝昼はただの庭園灯
-        const gl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 7), new THREE.MeshBasicMaterial({ color: 0xf2ecd8, fog: false, transparent: true, opacity: 0, depthWrite: false })); gl.position.y = 1.0; lp.add(gl); townNightLights.push({ m: gl, base: 0.9, ph: Math.random() * 6, fa: 0.05 }) } // 夜のにじみ。※transparent必須＝無いと昼も真っ白な球が「白いピン」のように刺さって見える（ユーザー指摘2026-07-02）
+      // ※サンライズ正面の低い庭園灯(3006.9,10.3)(3006,28.5)は「細いポール＋丸い頭＝ピンのように刺さって見える」＝ユーザー要望で撤去（2026-07-04・写真で指摘）
       // (3) 地下前の一本道＝谷側(NW)に緑の金網フェンス＋木立（写真2）。1メッシュに支柱、網はnetTexを緑がけ
       { const pts = [[2986, -26], [2970, -41], [2960, -60]], posts = []
         for (let s = 0; s < pts.length - 1; s++) { const [ax, az] = pts[s], [bx, bz] = pts[s + 1], L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 2.2)
