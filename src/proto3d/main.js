@@ -218,6 +218,8 @@ function addFlatRoad(x0, z0, x1, z1, width, h0, h1) { // h0/h1省略時は端点
   const hw = width / 2, sh = Math.max(2.6, width * 0.75) // 路肩でなめらかに地形へ戻す幅
   flatRoads.push({ x0, z0, x1, z1, hw, sh, h0: h0 != null ? h0 : heightAtYatoRaw(x0, z0), h1: h1 != null ? h1 : heightAtYatoRaw(x1, z1) })
 }
+// マリノスのグラウンド（yato）の外周4隅（時計回り凸・2026-06-23ユーザー指定）＝ heightAtYato の平坦化と、原っぱ/金網/ゴールの配置で共用
+const MARINOS_QUAD = [[2888, -105], [2954, -87], [2989, -151], [2924, -168]]
 function heightAtYato(x, z, forGround) { // 生標高＋道形プロファイル＋登録された道の回廊の平坦化。forGround=地面メッシュ用＝路面の下だけ少し沈めて突き抜けの余白を作る
   let h = heightAtYatoRaw(x, z)
   { // 道形プロファイル格子（P0-1）：道の回廊内は「なめらかな路面高さ」へブレンド＝地形/路面/歩行/配置が同じ面に揃う
@@ -245,6 +247,13 @@ function heightAtYato(x, z, forGround) { // 生標高＋道形プロファイル
     const target = r.h0 + (r.h1 - r.h0) * t // 中心線＝端点を結ぶ一定勾配（でこぼこ無し・坂は勾配に沿う）
     const k = d <= r.hw ? 1 : smoothstep01((r.hw + r.sh - d) / r.sh) // 路面内は完全平ら→路肩でなめらかに元地形へ
     h = h * (1 - k) + target * k
+  }
+  { // マリノスのグラウンドの内側を平らに＝実標高だと約22〜32mの段差(“山乗り”)でグラウンドらしくない（ユーザー要望2026-07-03・基準ピン2953,-90≒27m）。縁の外6mで元地形へなめらかに＝高い北西側は切土の草土手・低い南東側は盛り土になる
+    const q = MARINOS_QUAD, flat = 27.0, sh = 6.0
+    let din = 1e9 // 時計回り凸四角形の各辺の“内側への符号付き距離”の最小＝内側なら正（辺までの距離）・外側なら負
+    for (let k = 0; k < 4; k++) { const a = q[k], b = q[(k + 1) & 3], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz) || 1
+      din = Math.min(din, -(dx * (z - a[1]) - dz * (x - a[0])) / len) }
+    if (din > -sh) { const kk = din >= 0 ? 1 : smoothstep01((din + sh) / sh); h = h * (1 - kk) + flat * kk }
   }
   return h
 }
@@ -3283,7 +3292,7 @@ function buildShishigaya() {
       for (const [px, pz] of parkPos) { const seed = Math.abs(Math.round(px) + Math.round(pz) * 3); e2.set(0, (seed % 4) * 1.5708, 0); q2.setFromEuler(e2); m4b.compose(new THREE.Vector3(px, heightAtYato(px, pz), pz), q2, s2); pgI.setMatrixAt(pn++, m4b) }
       pgI.count = pn; scene.add(pgI); console.log('[shishigaya] 公園遊具', pn) }
     // マリノスのグラウンド＝ユーザー指定の4隅(2026-06-23移設)に。膝丈の雑草の原っぱ＋4辺の金網＋サッカーゴール2基(向かい合う)
-    { const quad = [[2888, -105], [2954, -87], [2989, -151], [2924, -168]], m4 = new THREE.Matrix4(), sc = new THREE.Vector3()
+    { const quad = MARINOS_QUAD, m4 = new THREE.Matrix4(), sc = new THREE.Vector3()
       const pinq = (x, z) => { let inside = false; for (let i = 0, j = quad.length - 1; i < quad.length; j = i++) { const xi = quad[i][0], zi = quad[i][1], xj = quad[j][0], zj = quad[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) inside = !inside } return inside }
       let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const [x, z] of quad) { mnx = Math.min(mnx, x); mxx = Math.max(mxx, x); mnz = Math.min(mnz, z); mxz = Math.max(mxz, z) }
       const weed = new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 0.55, 4), new THREE.MeshToonMaterial({ color: 0x6f8a3e, gradientMap: GRAD }), 280); let wi = 0
@@ -4595,8 +4604,8 @@ function cullYatoChunks() {
 // ── 道しるべ（素朴な木の標識）＝開始地点(サンライズ前)で「どっちへ行こう」の手がかりに。
 //   実在の地物の方角へそっと示すだけ。クエストにはしない。makeSignpost(x,z,rot,文字)は placeProp→heightAt で接地し、
 //   板の文字面は rot=0 で +z(北)向き／rot=Math.PI で -z(南)向き＝歩いてくる人に正対させる。道の舗装の上は避けて路肩に立てる（_signposts で点検）。
-// マンション(サンライズ)正面に観光案内板のように林立していたのを解消＝本数を4→2に減らし、実際に道が分かれる地点へさりげなく散らす（ユーザー指摘2026-06-29「マンションの前にいろんな場所の道標が固まって不自然」）。
-makeSignpost(3017.5, 17, 0, '↓ 小学校・ふたつ池') // 南へ下る道の肩＝小学校/神社/ふたつ池はみな南。1本にまとめて北(spawn側)から来る人へ正対。マンション前庭ではなく南の分岐点に置く
+// マンション(サンライズ)正面に観光案内板のように林立していたのを解消（ユーザー指摘2026-06-29「マンションの前にいろんな場所の道標が固まって不自然」）。
+// 2026-07-03：サンライズ正面の「↓ 小学校・ふたつ池」道標は実際には無かった＝ユーザー要望で撤去（このマンションの目の前に行き先看板は置かない）。北の谷口の横溝やしき道標だけ残す。
 makeSignpost(3030, 49, Math.PI, '横溝やしき・田んぼ →') // 北の谷口の分岐＝横溝屋敷と谷戸田。マンション正面から十分北へ離れた路肩。南(spawn側)から来る人へ正対
 const yatoBugs = [] // 獅子ヶ谷の生き物（とんぼ・蝶）＝池/田の上に。area非依存で常時アニメ（update参照）
 {
