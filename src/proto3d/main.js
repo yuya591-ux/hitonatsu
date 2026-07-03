@@ -3997,7 +3997,7 @@ function buildShishigaya() {
       for (let i = 0; i < np; i++) PM(g, new THREE.PlaneGeometry(0.3 + Math.random() * 0.08, 0.22 + Math.random() * 0.08), new THREE.MeshToonMaterial({ color: [0xf4f0e4, 0xf0e2c4, 0xe6eef4][i % 3], gradientMap: GRAD, side: THREE.DoubleSide }), -0.52 + (i % 2) * 0.58, 1.42 - (i >> 1) * 0.34, 0.05) // 貼り紙
       if (poster) PM(g, new THREE.PlaneGeometry(0.34, 0.46), new THREE.MeshBasicMaterial({ map: poster, transparent: true, toneMapped: false }), 0.5, 1.3, 0.055) // 読めるお知らせ（toneMapped:false＝ACESで白飛びさせない）
       placeProp(g, x, z, rot || 0, 0.02, 1.0) }
-    makePhoneBox(3023, 24, -0.5); makePhoneBox(2958, -512, 0.6) // 開始の通りの路肩(駐輪場の新設で路地の反対側へ移設・2026-07-02)＋二ツ池の道
+    makePhoneBox(2958, -512, 0.6) // 二ツ池の道。※サンライズ正面(3023,24)の公衆電話は実際には無い＝ユーザー要望で撤去(2026-07-04)
     makeBoard(3013, 41, 0.1, rajioPoster); makeBoard(2968, -455, -0.4, toroPoster); makeBoard(3046, -55, 1.0, bonPoster) // 開始地点の道(ラジオ体操)・二ツ池(灯ろう流し)・核(盆踊り)
     makeVending(3010, -205, 0.3, 0xc23a2c); makeVending(2972, -360, -0.5, 0x2a7ab0) // 追加の自販機
     makePostBox(3038, -178) } // 追加の丸ポスト
@@ -11590,7 +11590,8 @@ function reel() {
   } else if (fishState === 'wait') endFishing('はやい！ にげられた')
 }
 function endFishing(msg) { fishState = 'idle'; clearTimeout(fishTimer); floatMesh.visible = false; castPond = null; if (fishEl) fishEl.textContent = 'つる'; if (msg) showToast(msg) }
-tapBtn(fishEl, () => { if (fishState === 'idle') castLine(); else reel() })
+function dismountBike() { if (riding) { riding = false; document.body.classList.remove('riding'); const be = document.getElementById('bike'); if (be) be.classList.remove('on') } } // 自転車中に釣り/寝転ぶ/座る等をしたら、まず自転車を降りて歩きに戻す（ユーザー要望2026-07-04）
+tapBtn(fishEl, () => { dismountBike(); if (fishState === 'idle') castLine(); else reel() })
 
 // ぷにコン（指でスライドした方向へ歩く・白猫プロジェクト風）
 const stickEl = document.getElementById('stick')
@@ -11820,11 +11821,11 @@ if (hintEl) { setTimeout(() => hintEl.classList.add('gone'), 6500); canvas.addEv
 tapBtn(actBtn, () => {
   const spot = actBtn.dataset.spot
   if (spot === 'taisostop') { stopTaiso(); return } // ラジオ体操をやめる（参加中はmodeはwalkのまま）
-  if (mode === 'walk') { if (spot === 'taiso') startTaiso(); else if (spot === 'swing') rideSwing(SWING); else if (spot === 'swingY') rideSwing(SWING_Y); else if (spot === 'slide') rideSlide(); else if (spot === 'sunup') sunGoRoof(); else if (spot === 'sundown') sunLeaveRoof(); else sitDown(spot || 'bench') }
+  if (mode === 'walk') { dismountBike(); if (spot === 'taiso') startTaiso(); else if (spot === 'swing') rideSwing(SWING); else if (spot === 'swingY') rideSwing(SWING_Y); else if (spot === 'slide') rideSlide(); else if (spot === 'sunup') sunGoRoof(); else if (spot === 'sundown') sunLeaveRoof(); else sitDown(spot || 'bench') } // 動作の前に自転車を降りる（ユーザー要望2026-07-04）
   else if (mode === 'swing' && spot === 'offswing') getOffSwing()
   else if (mode === 'sliding' && spot === 'slideview' && sliding) { sliding.pov = sliding.pov === 'first' ? 'third' : 'first'; camSnap = true } // すべり台の視点きりかえ（主観⇄背中ごし）
 })
-tapBtn(lieBtn, () => { if (mode === 'walk' && !doingTaiso) lieDown() })
+tapBtn(lieBtn, () => { if (mode === 'walk' && !doingTaiso) { dismountBike(); lieDown() } })
 
 let lieT = 0 // 横になる所作のタイマー（mode='lying' の進行）
 function lieDown() {
