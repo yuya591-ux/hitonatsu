@@ -3108,23 +3108,28 @@ function buildShishigaya() {
       fenceRect(3062, -154, 32, 34) // 広場をぐるりと低い柵で囲う＝ここが小学校の広場だと一目でわかる（緑一色の原っぱと区別）
       for (const [tx, tz, ts, cc] of [[3052, -144, 1.15, 0x5f8a40], [3074, -146, 1.0, 0x6f9a47], [3050, -166, 1.05, 0x577e3a], [3076, -168, 0.95, 0x5f8a40], [3058, -140, 0.9, 0x6a9445]]) { const ty = heightAtYato(tx, tz) // 広場の木立（緑をたくさん）
         grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5 * ts, 5), toon(0x6a4e34), tx, ty + 0.75 * ts, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(1.8 * ts, 0), toon(cc), tx, ty + 1.5 * ts + 1.2 * ts, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) }
-      { const px = 3062, pz = -150, py = heightAtYato(px, pz) + 0.1 // 広場の池＝角丸の長方形＋中央に岩の噴水（湧き水）。ユーザー記憶2026-07-03（丸い池を作り直し）
+      { const px = 3062, pz = -158, py = heightAtYato(px, pz) + 0.1 // 広場の池＝角丸の長方形＋中央に岩の噴水（湧き水）。ユーザー記憶2026-07-03（丸い池を作り直し）。少し校舎側(北)へ寄せた
         const rr = (w, h, r) => { const s = new THREE.Shape(); s.moveTo(-w / 2 + r, -h / 2); s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r); s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2); const g = new THREE.ShapeGeometry(s); const pa = g.attributes.position, ua = g.attributes.uv; for (let i = 0; i < pa.count; i++) ua.setXY(i, (pa.getX(i) + w / 2) / w, (pa.getY(i) + h / 2) / h); ua.needsUpdate = true; return g }
         const edge = new THREE.Mesh(rr(9.4, 6.4, 1.7), toon(0x9a8b66)); edge.rotation.x = -Math.PI / 2; edge.position.set(px, py + 0.04, pz); grp.add(edge) // 石の縁（角丸長方形）
         const pond = new THREE.Mesh(rr(8.6, 5.6, 1.5), waterMat); pond.rotation.x = -Math.PI / 2; pond.position.set(px, py + 0.09, pz); grp.add(pond) // 水面＝本物の水シェーダ
         const rock = mk(new THREE.IcosahedronGeometry(0.85, 0), toon(0x8f8a80), px, py + 0.32, pz, 0, true); rock.scale.set(1.1, 0.7, 1.0); grp.add(rock) // 中央の岩
         grp.add(mk(new THREE.CylinderGeometry(0.045, 0.13, 0.75, 8), new THREE.MeshToonMaterial({ color: 0xcfe8ec, gradientMap: GRAD, transparent: true, opacity: 0.55 }), px, py + 0.85, pz, 0)) } // 湧き出る水
       // ── 正門（西〜北西の低い側＝谷の主要通り側。裏門より低く、ゆるい下り坂の先。ユーザー確定2026-07-03）──
+      // ── 裏門（旧・正門を置き換え＝ユーザー指摘2026-07-03。ここが本当の裏門の位置。西/谷側の坂の下・道の西端）──
       { const gx = 3014, gz = -176, gm = toon(0xcabfa0), gy0 = heightAtYato(gx, gz)
-        for (const gzz of [gz - 2.6, gz + 2.6]) { const gy = heightAtYato(gx, gzz); grp.add(mk(new THREE.BoxGeometry(1.5, 3.8, 1.5), gm, gx, gy + 1.9, gzz, 0, true)); addBox(gx, gzz, 0.75, 0.75, 0, 0.2) } // りっぱな門柱2本＝正門
+        for (const gzz of [gz - 2.6, gz + 2.6]) { const gy = heightAtYato(gx, gzz); grp.add(mk(new THREE.BoxGeometry(1.5, 3.8, 1.5), gm, gx, gy + 1.9, gzz, 0, true)); addBox(gx, gzz, 0.75, 0.75, 0, 0.2) } // 門柱2本
         grp.add(mk(new THREE.BoxGeometry(1.9, 0.8, 7.4), toon(0x8a6f48), gx, gy0 + 4.0, gz, 0, true)) // 門の梁
-        grp.add(mk(new THREE.PlaneGeometry(5.8, 1.0), new THREE.MeshBasicMaterial({ map: signTex('せいもん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), gx - 0.8, gy0 + 4.0, gz, Math.PI / 2)) // 「せいもん」札
+        grp.add(mk(new THREE.PlaneGeometry(5.8, 1.0), new THREE.MeshBasicMaterial({ map: signTex('うらもん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), gx - 0.8, gy0 + 4.0, gz, -Math.PI / 2)) // 「うらもん」札（西=谷からの人へ正対＝鏡文字を修正）
         for (const s of [-1, 1]) grp.add(mk(new THREE.BoxGeometry(0.14, 2.5, 2.3), toon(0x6a7a82), gx, gy0 + 1.35, gz + s * 1.3, 0, true)) } // 両開きの門扉
-      // ── ピロティ(30m)→校庭(34.2m)の階段＋車椅子スロープ（スロープは北側へ回る＝ユーザー確定2026-07-03。旧・広場階段z-154を置換）──
-      { const py0 = heightAtYato(3093, -181), py1 = heightAtYato(3099, -181)
-        for (let s = 0; s <= 6; s++) { const t = s / 6, x = 3093 + 5 * t, y = py0 + (py1 - py0) * t; grp.add(mk(new THREE.BoxGeometry(1.1, 0.28, 6), toon(0xcac4b8), x, y + 0.14, -179.5, 0, true)) } // 階段（南寄り・幅6m）
-        const rx0 = 3092, rz0 = -185, rx1 = 3099, rz1 = -194, ry0 = heightAtYato(rx0, rz0), ry1 = heightAtYato(rx1, rz1)
-        for (let s = 0; s <= 9; s++) { const t = s / 9, x = rx0 + (rx1 - rx0) * t, z = rz0 + (rz1 - rz0) * t, y = ry0 + (ry1 - ry0) * t; grp.add(mk(new THREE.BoxGeometry(2.8, 0.24, 2.6), toon(0xc7c3ba), x, y + 0.13, z, 0, true)) } } // 車椅子スロープ（北へ回り込む一定勾配）
+      // ── 校庭への幅広い階段（校舎のすぐ南＝上から見て校舎に被らない位置から、グラウンドへ生える。ピロティくらいの幅。ユーザー確認済2026-07-03）──
+      { const scz = -170, sx0 = 3083, sx1 = 3098, sy0 = heightAtYato(sx0, scz), sy1 = heightAtYato(sx1, scz)
+        for (let s = 0; s <= 7; s++) { const t = s / 7, x = sx0 + (sx1 - sx0) * t, y = sy0 + (sy1 - sy0) * t; grp.add(mk(new THREE.BoxGeometry(1.9, 0.28, 10), toon(0xcac4b8), x, y + 0.14, scz, 0, true)) } }
+      // 階段から裏門へ：階段の半分くらいの細い道をまっすぐ→裏門の手前で門の向き(東西)に合わせて曲げる（ユーザー修正2026-07-03）
+      makeRoadRibbon(3080, -171, 3040, -173, 5, false, true)
+      makeRoadRibbon(3040, -173, 3016, -176, 5, false, true)
+      // 階段のすぐ南に緩やかな坂（車椅子スロープ）＝池の上あたりから東のグラウンドへ（階段でなく坂・ユーザー修正2026-07-03）
+      { const rcz = -162, rx0 = 3068, rx1 = 3098, ry0 = heightAtYato(rx0, rcz), ry1 = heightAtYato(rx1, rcz), rn = 16
+        for (let s = 0; s < rn; s++) { const tm = (s + 0.5) / rn, x = rx0 + (rx1 - rx0) * tm, y = ry0 + (ry1 - ry0) * tm; grp.add(mk(new THREE.BoxGeometry((rx1 - rx0) / rn + 0.3, 0.2, 4.5), toon(0xc7c3ba), x, y + 0.12, rcz, 0, true)) } }
       // ── 校舎＝実物(OSM/DEM)に忠実な櫛形3F：南に長い教室ファサード＋北へ伸びる櫛の歯。西の低いテラス(≒30m)に建つ ──
       schoolBldg(3058, -181, 46, 9, 3, 0, 0x9a4f3e)   // 南の長い棟＝南向きの教室ファサード（棟=背）
       schoolBldg(3044, -191, 9, 12, 3, 0, 0x9a4f3e)   // 北へ伸びる櫛の歯・西
@@ -3139,17 +3144,12 @@ function buildShishigaya() {
         grp.add(mk(new THREE.BoxGeometry(0.5, 2.9, 7), toon(0xd7dade), 3081, pfloor + 1.45, pcz, 0, true)) // 昇降口＝主校舎の東面（ピロティ側から校舎に入る）
         grp.add(mk(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshBasicMaterial({ map: signTex('しょうこうぐち', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), 3081.4, pfloor + 2.5, pcz, -Math.PI / 2)) } // 「しょうこうぐち」札
       // ── 体育館（主校舎のすぐ北西の隣・くっつくように。ユーザー実体験2026-07-03）──
-      { const bx = 3035, bz = -197, bw = 15, bd = 11, bg = gmin4(bx, bz, bw, bd), bh = 8.5
+      { const bx = 3059, bz = -201, bw = 14, bd = 10, bg = gmin4(bx, bz, bw, bd), bh = 8 // 体育館＝二つの突起(北の櫛の歯)の真上・少し近づけた（ユーザー修正2026-07-03。道にはみ出ない位置に）
         grp.add(mk(new THREE.BoxGeometry(bw, bh, bd), toon(0xd0c8b6), bx, bg + bh / 2, bz, 0, true)) // 体育館の胴
         grp.add(mk(new THREE.BoxGeometry(bw + 0.6, 1.0, bd + 0.6), toon(0x8a9298), bx, bg + bh + 0.4, bz, 0, true)) // 屋根（低ポリの箱）
         addBox(bx, bz, bw / 2, bd / 2, 0, 0.3)
         grp.add(mk(new THREE.PlaneGeometry(6.5, 1.1), new THREE.MeshBasicMaterial({ map: signTex('たいいくかん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), bx, bg + bh - 1.2, bz + bd / 2 + 0.08, 0)) } // 「たいいくかん」札
-      { const gx = 3033, gN = -173, gS = -181, gm = toon(0xcabfa0) // 裏門＝校舎の南沿いの真っ直ぐな道の上（門柱は道の南北・間を東西に通る）。2026-07-03に道を校舎の真横へ直したのに合わせ移設
-        for (const gz of [gN, gS]) { const gy = heightAtYato(gx, gz); grp.add(mk(new THREE.BoxGeometry(1.6, 3.4, 1.6), gm, gx, gy + 1.7, gz, 0, true)); addBox(gx, gz, 0.8, 0.8, 0, 0.2) } // 門柱2本（柱だけ当たり判定＝間は通れる）
-        const by = heightAtYato(gx, (gN + gS) / 2); grp.add(mk(new THREE.BoxGeometry(2.2, 0.7, gS - gN + 1.6), toon(0x8a6f48), gx, by + 3.6, (gN + gS) / 2, 0, true)) // 梁
-        grp.add(mk(new THREE.PlaneGeometry(6, 0.95), new THREE.MeshBasicMaterial({ map: signTex('うらもん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), gx - 1.25, by + 3.6, (gN + gS) / 2, Math.PI / 2)) // 「うらもん」札
-        const ffm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.36, side: THREE.DoubleSide })
-        for (const fz of [-169, -185]) grp.add(mk(new THREE.PlaneGeometry(6, 1.4), ffm, gx, heightAtYato(gx, fz) + 0.8, fz, Math.PI / 2)) } // 門の両脇の短いフェンス
+      // 元々作った裏門(3033)は削除＝ユーザー指摘2026-07-03「その一つ前(西/谷側)の門の位置が本当の裏門」。下の門(旧・正門3014)をうらもんに置き換える
       { const pcx = 3055, pcz = -104, pg = gmin4(pcx, pcz, 24, 18) // プール（実位置3055,-104）
         grp.add(mk(new THREE.BoxGeometry(24, 1.0, 18), toon(0xd0ccc0), pcx, pg + 0.5, pcz, 0, true))
         const pw = new THREE.Mesh(new THREE.PlaneGeometry(19, 13), waterMat); pw.rotation.x = -Math.PI / 2; pw.position.set(pcx, pg + 1.02, pcz); grp.add(pw) // 水面＝本物の水シェーダ(さざ波/きらめき/空の映り込み)
