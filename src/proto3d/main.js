@@ -291,6 +291,9 @@ addFlatRoad(3021, 17, 3040, 26, 5, 47.2, 46.8) // 駐輪場の先の路地（ほ
 addFlatRoad(3040, 26, 3043, 28, 5, 46.8, 45.4) // 仕切りの木の回り込み（下り始め）
 addFlatRoad(3043, 28, 3047, 22, 5, 45.4, 43.2) // 入口へ下る坂
 addFlatRoad(3047, 22, 3050, 18, 5, 43.2, 42.0) // 園庭の床(42.0)への取り付き
+// ── 獅子ヶ谷小学校（ユーザー実体験2026-07-03）：校舎の南沿いを真っ直ぐな道／平らなコンクリのピロティ広場／北西の正門へゆるい下り坂 を一定高さに ──
+addFlatRoad(3010, -176.5, 3082, -177, 6, 26.4, 30.0) // 正門〜裏門〜校舎の南の真横を真っ直ぐ東へ（正門側が低い＝ゆるい下り坂）
+addFlatRoad(3082, -181, 3094, -181, 11, 30, 30)      // ピロティ＝平らなコンクリの広場（山なりを解消・2F翼の下）
 // ── サンライズ北寺尾(獅子ヶ谷・実物)の屋上：7階建てRC。平らな陸屋上を歩いて、街側の外階段を一段ずつ登り降りできる（昔よく屋上から景色を見渡した実体験の再現） ──
 const SUN_POLY = [[2997.5, 2.1], [3041.8, 21.8], [3053.7, -0.9], [3040.7, -6.7], [3037.3, 0.8], [3032.3, -1.0], [3030.6, 2.1], [3006.3, -9.7], [3007.6, -13.0], [2999.8, -16.7], [3001.4, -19.6], [2996.9, -21.9], [2998.6, -25.2], [2985.9, -30.8], [2981.0, -20.7], [2990.8, -15.7], [2989.0, -10.3], [2994.4, -7.6], [2993.2, -5.2], [2999.0, -2.0]] // SUNRISE_POLYのz反転後（makeShishigayaと同一の値）
 function pointInSunPoly(x, z) { let inside = false; for (let i = 0, j = SUN_POLY.length - 1; i < SUN_POLY.length; j = i++) { const xi = SUN_POLY[i][0], zi = SUN_POLY[i][1], xj = SUN_POLY[j][0], zj = SUN_POLY[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) inside = !inside } return inside } // 屋上の輪郭(雁行)の内側か
@@ -3099,22 +3102,54 @@ function buildShishigaya() {
       dirtPatch(3124, -186, 56, 96, 0xc9b487); netFence(grp, 3124, -186, 56, 96, 2.8) // 校庭（東の一段高い平地）＝まわりは金網フェンス（実物どおり・ユーザー要望2026-06-22）
       for (const nz2 of [-234, -138]) { const tex = netTex.clone(); tex.repeat.set(28, 3); tex.needsUpdate = true; const nh = 6, nm2 = mk(new THREE.PlaneGeometry(56, nh), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.8 }), 3124, heightAtYato(3124, nz2) + nh / 2, nz2); nm2.layers.set(1); grp.add(nm2) } // 南北の高い防球ネット
       // 広場＝緑で覆い、裏門→校舎沿いに細い一本道→渡り切ると校庭への階段（ユーザー修正2026-06-22）。緑一色で他の原っぱと紛れないよう低い柵で囲い“小学校の広場”とわかるように
-      makeRoadRibbon(3038, -164, 3058, -161, 2.3, false) // 裏門から校舎に沿って東へ（細い土の通路・前半）
-      makeRoadRibbon(3058, -161, 3076, -155, 2.3, false) // 階段の手前まで（渡り切ると目の前が校庭への階段）
+      makeRoadRibbon(3010, -176.5, 3082, -177, 4.5, false, true) // 裏門・正門→校舎の南の真横をまっすぐ東へ（コンクリ舗装・ピロティまで一直線）
+      // ピロティ＝2F翼の下の平らなコンクリの広場（山なりでなく水平・その西が昇降口）
+      { const pcx = 3088, pcz = -181, py = heightAtYato(pcx, pcz); grp.add(mk(new THREE.BoxGeometry(13, 0.25, 9), toon(0xc7c3ba), pcx, py + 0.13, pcz, 0, true)) }
       fenceRect(3062, -154, 32, 34) // 広場をぐるりと低い柵で囲う＝ここが小学校の広場だと一目でわかる（緑一色の原っぱと区別）
       for (const [tx, tz, ts, cc] of [[3052, -144, 1.15, 0x5f8a40], [3074, -146, 1.0, 0x6f9a47], [3050, -166, 1.05, 0x577e3a], [3076, -168, 0.95, 0x5f8a40], [3058, -140, 0.9, 0x6a9445]]) { const ty = heightAtYato(tx, tz) // 広場の木立（緑をたくさん）
         grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5 * ts, 5), toon(0x6a4e34), tx, ty + 0.75 * ts, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(1.8 * ts, 0), toon(cc), tx, ty + 1.5 * ts + 1.2 * ts, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) }
-      { const px = 3062, pz = -150, py = heightAtYato(px, pz) + 0.1 // 広場の小さな池（ユーザー記憶）
-        const edge = new THREE.Mesh(new THREE.CircleGeometry(3.9, 24), toon(0x9a8b66)); edge.rotation.x = -Math.PI / 2; edge.position.set(px, py + 0.04, pz); grp.add(edge)
-        const pond = new THREE.Mesh(new THREE.CircleGeometry(3.3, 24), waterMat); pond.rotation.x = -Math.PI / 2; pond.position.set(px, py + 0.09, pz); grp.add(pond) } // 水面＝本物の水シェーダ
-      for (let s = 0; s < 7; s++) { const x = 3078 + s * 2.4, y = heightAtYato(x, -154); grp.add(mk(new THREE.BoxGeometry(20, 0.3, 1.7), toon(0xcac4b8), x, y + 0.12, -154, 0, true)) } // 広場→校庭の幅広い階段（西から東の一段高い校庭へ・実斜面を登る。実物どおり幅広＝ユーザー指摘2026-06-22）
-      schoolBldg(3061, -178, 50, 12, 3, 0, 0x9a4f3e) // 校舎（北西の長い3F）
-      { const gx = 3037, gN = -156, gS = -172, gm = toon(0xcabfa0) // 裏門（西の道から入る門・人が通れる）＝ユーザー指定の建物(3037,-164)を門に
+      { const px = 3062, pz = -150, py = heightAtYato(px, pz) + 0.1 // 広場の池＝角丸の長方形＋中央に岩の噴水（湧き水）。ユーザー記憶2026-07-03（丸い池を作り直し）
+        const rr = (w, h, r) => { const s = new THREE.Shape(); s.moveTo(-w / 2 + r, -h / 2); s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r); s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2); const g = new THREE.ShapeGeometry(s); const pa = g.attributes.position, ua = g.attributes.uv; for (let i = 0; i < pa.count; i++) ua.setXY(i, (pa.getX(i) + w / 2) / w, (pa.getY(i) + h / 2) / h); ua.needsUpdate = true; return g }
+        const edge = new THREE.Mesh(rr(9.4, 6.4, 1.7), toon(0x9a8b66)); edge.rotation.x = -Math.PI / 2; edge.position.set(px, py + 0.04, pz); grp.add(edge) // 石の縁（角丸長方形）
+        const pond = new THREE.Mesh(rr(8.6, 5.6, 1.5), waterMat); pond.rotation.x = -Math.PI / 2; pond.position.set(px, py + 0.09, pz); grp.add(pond) // 水面＝本物の水シェーダ
+        const rock = mk(new THREE.IcosahedronGeometry(0.85, 0), toon(0x8f8a80), px, py + 0.32, pz, 0, true); rock.scale.set(1.1, 0.7, 1.0); grp.add(rock) // 中央の岩
+        grp.add(mk(new THREE.CylinderGeometry(0.045, 0.13, 0.75, 8), new THREE.MeshToonMaterial({ color: 0xcfe8ec, gradientMap: GRAD, transparent: true, opacity: 0.55 }), px, py + 0.85, pz, 0)) } // 湧き出る水
+      // ── 正門（西〜北西の低い側＝谷の主要通り側。裏門より低く、ゆるい下り坂の先。ユーザー確定2026-07-03）──
+      { const gx = 3014, gz = -176, gm = toon(0xcabfa0), gy0 = heightAtYato(gx, gz)
+        for (const gzz of [gz - 2.6, gz + 2.6]) { const gy = heightAtYato(gx, gzz); grp.add(mk(new THREE.BoxGeometry(1.5, 3.8, 1.5), gm, gx, gy + 1.9, gzz, 0, true)); addBox(gx, gzz, 0.75, 0.75, 0, 0.2) } // りっぱな門柱2本＝正門
+        grp.add(mk(new THREE.BoxGeometry(1.9, 0.8, 7.4), toon(0x8a6f48), gx, gy0 + 4.0, gz, 0, true)) // 門の梁
+        grp.add(mk(new THREE.PlaneGeometry(5.8, 1.0), new THREE.MeshBasicMaterial({ map: signTex('せいもん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), gx - 0.8, gy0 + 4.0, gz, Math.PI / 2)) // 「せいもん」札
+        for (const s of [-1, 1]) grp.add(mk(new THREE.BoxGeometry(0.14, 2.5, 2.3), toon(0x6a7a82), gx, gy0 + 1.35, gz + s * 1.3, 0, true)) } // 両開きの門扉
+      // ── ピロティ(30m)→校庭(34.2m)の階段＋車椅子スロープ（スロープは北側へ回る＝ユーザー確定2026-07-03。旧・広場階段z-154を置換）──
+      { const py0 = heightAtYato(3093, -181), py1 = heightAtYato(3099, -181)
+        for (let s = 0; s <= 6; s++) { const t = s / 6, x = 3093 + 5 * t, y = py0 + (py1 - py0) * t; grp.add(mk(new THREE.BoxGeometry(1.1, 0.28, 6), toon(0xcac4b8), x, y + 0.14, -179.5, 0, true)) } // 階段（南寄り・幅6m）
+        const rx0 = 3092, rz0 = -185, rx1 = 3099, rz1 = -194, ry0 = heightAtYato(rx0, rz0), ry1 = heightAtYato(rx1, rz1)
+        for (let s = 0; s <= 9; s++) { const t = s / 9, x = rx0 + (rx1 - rx0) * t, z = rz0 + (rz1 - rz0) * t, y = ry0 + (ry1 - ry0) * t; grp.add(mk(new THREE.BoxGeometry(2.8, 0.24, 2.6), toon(0xc7c3ba), x, y + 0.13, z, 0, true)) } } // 車椅子スロープ（北へ回り込む一定勾配）
+      // ── 校舎＝実物(OSM/DEM)に忠実な櫛形3F：南に長い教室ファサード＋北へ伸びる櫛の歯。西の低いテラス(≒30m)に建つ ──
+      schoolBldg(3058, -181, 46, 9, 3, 0, 0x9a4f3e)   // 南の長い棟＝南向きの教室ファサード（棟=背）
+      schoolBldg(3044, -191, 9, 12, 3, 0, 0x9a4f3e)   // 北へ伸びる櫛の歯・西
+      schoolBldg(3074, -191, 9, 12, 3, 0, 0x9a4f3e)   // 北へ伸びる櫛の歯・東
+      // ── ピロティ＋2F翼（主校舎のすぐ東。柱の吹き抜けの“上を”、校舎2F＝校庭の高さからグラウンドへ伸びる校舎が覆う＝グラウンドから2Fへ直接入れる。ユーザー実体験2026-07-03）──
+      { const px0 = 3081, px1 = 3097, pcz = -181, pd = 9, pmid = (px0 + px1) / 2, pw = px1 - px0
+        const pfloor = gmin4(3058, -181, 46, 9), wy = heightAtYato(3099, pcz) // ピロティの床=校舎テラス／2F翼の床=校庭の高さ
+        const wtex = schoolTex.clone(); wtex.repeat.set(5, 1); wtex.needsUpdate = true
+        grp.add(mk(new THREE.BoxGeometry(pw, 3.3, pd), new THREE.MeshToonMaterial({ color: 0xd2cab6, gradientMap: GRAD, map: wtex }), pmid, wy + 1.85, pcz, 0, true)) // 2F翼の本体（床が校庭の高さ＝グラウンドと地続き）
+        grp.add(mk(new THREE.BoxGeometry(pw + 0.6, 0.5, pd + 0.6), toon(0x9a4f3e), pmid, wy + 3.65, pcz, 0, true)) // 2F翼の陸屋根
+        for (const cxp of [px0 + 1.6, pmid, px1 - 1.6]) for (const czp of [pcz - pd / 2 + 1.3, pcz + pd / 2 - 1.3]) { const gy = heightAtYato(cxp, czp); grp.add(mk(new THREE.CylinderGeometry(0.33, 0.33, Math.max(1, wy - gy), 8), toon(0xcabfb0), cxp, (gy + wy) / 2, czp, 0, true)); addBox(cxp, czp, 0.4, 0.4, 0, 0.2) } // ピロティの柱6本（下は開放の吹き抜け）
+        grp.add(mk(new THREE.BoxGeometry(0.5, 2.9, 7), toon(0xd7dade), 3081, pfloor + 1.45, pcz, 0, true)) // 昇降口＝主校舎の東面（ピロティ側から校舎に入る）
+        grp.add(mk(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshBasicMaterial({ map: signTex('しょうこうぐち', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), 3081.4, pfloor + 2.5, pcz, -Math.PI / 2)) } // 「しょうこうぐち」札
+      // ── 体育館（主校舎のすぐ北西の隣・くっつくように。ユーザー実体験2026-07-03）──
+      { const bx = 3035, bz = -197, bw = 15, bd = 11, bg = gmin4(bx, bz, bw, bd), bh = 8.5
+        grp.add(mk(new THREE.BoxGeometry(bw, bh, bd), toon(0xd0c8b6), bx, bg + bh / 2, bz, 0, true)) // 体育館の胴
+        grp.add(mk(new THREE.BoxGeometry(bw + 0.6, 1.0, bd + 0.6), toon(0x8a9298), bx, bg + bh + 0.4, bz, 0, true)) // 屋根（低ポリの箱）
+        addBox(bx, bz, bw / 2, bd / 2, 0, 0.3)
+        grp.add(mk(new THREE.PlaneGeometry(6.5, 1.1), new THREE.MeshBasicMaterial({ map: signTex('たいいくかん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), bx, bg + bh - 1.2, bz + bd / 2 + 0.08, 0)) } // 「たいいくかん」札
+      { const gx = 3033, gN = -173, gS = -181, gm = toon(0xcabfa0) // 裏門＝校舎の南沿いの真っ直ぐな道の上（門柱は道の南北・間を東西に通る）。2026-07-03に道を校舎の真横へ直したのに合わせ移設
         for (const gz of [gN, gS]) { const gy = heightAtYato(gx, gz); grp.add(mk(new THREE.BoxGeometry(1.6, 3.4, 1.6), gm, gx, gy + 1.7, gz, 0, true)); addBox(gx, gz, 0.8, 0.8, 0, 0.2) } // 門柱2本（柱だけ当たり判定＝間は通れる）
         const by = heightAtYato(gx, (gN + gS) / 2); grp.add(mk(new THREE.BoxGeometry(2.2, 0.7, gS - gN + 1.6), toon(0x8a6f48), gx, by + 3.6, (gN + gS) / 2, 0, true)) // 梁
         grp.add(mk(new THREE.PlaneGeometry(6, 0.95), new THREE.MeshBasicMaterial({ map: signTex('うらもん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), gx - 1.25, by + 3.6, (gN + gS) / 2, Math.PI / 2)) // 「うらもん」札
         const ffm = new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.36, side: THREE.DoubleSide })
-        for (const fz of [-146, -182]) grp.add(mk(new THREE.PlaneGeometry(10, 1.4), ffm, gx, heightAtYato(gx, fz) + 0.8, fz, Math.PI / 2)) } // 門の両脇の短いフェンス
+        for (const fz of [-169, -185]) grp.add(mk(new THREE.PlaneGeometry(6, 1.4), ffm, gx, heightAtYato(gx, fz) + 0.8, fz, Math.PI / 2)) } // 門の両脇の短いフェンス
       { const pcx = 3055, pcz = -104, pg = gmin4(pcx, pcz, 24, 18) // プール（実位置3055,-104）
         grp.add(mk(new THREE.BoxGeometry(24, 1.0, 18), toon(0xd0ccc0), pcx, pg + 0.5, pcz, 0, true))
         const pw = new THREE.Mesh(new THREE.PlaneGeometry(19, 13), waterMat); pw.rotation.x = -Math.PI / 2; pw.position.set(pcx, pg + 1.02, pcz); grp.add(pw) // 水面＝本物の水シェーダ(さざ波/きらめき/空の映り込み)
