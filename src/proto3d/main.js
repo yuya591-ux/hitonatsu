@@ -12222,11 +12222,15 @@ function update(dt) {
     pa.needsUpdate = true
   }
   // 雨音：weather に合わせて音量を上げ下げ（クリックしないよう setTargetAtTime でなめらかに）。遠雷もたまに
-  if (rainGain) { const rctx = listener.context, tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.62, 0, AUDIO.rainVol); rainGain.gain.setTargetAtTime(tgt, rctx.currentTime, 0.6)
+  if (rainGain) { const rctx = listener.context, tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.62, 0, AUDIO.rainVol)
+    if (tgt <= 0.0001 && rainGain.gain.value < 0.008) { rainGain.gain.cancelScheduledValues(rctx.currentTime); rainGain.gain.setValueAtTime(0, rctx.currentTime) } // 雨が止んだら完全に0へスナップ＝setTargetAtTimeの漸近で残る雨音の余韻を断つ（ユーザー要望2026-07-04）
+    else rainGain.gain.setTargetAtTime(tgt, rctx.currentTime, 0.6)
     if (rainLP) rainLP.frequency.setTargetAtTime(480 + weather * weather * 1950, rctx.currentTime, 0.7) } // 弱い雨=やわらかく(LPF閉じ＝癒しのポツポツ)・本降り=はっきり(開く)
   dropletCd -= dt // やさしい雨のポツポツ（弱〜中の雨で個々の雫が聞こえる＝ASMR）
   if (audioStarted && weather > 0.12 && weather < 0.78 && dropletCd <= 0) { playDroplet(); dropletCd = 0.16 + Math.random() * 0.5 * (1.3 - weather) }
-  if (rainBgmGain) { const tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.8, 0, AUDIO.rainBgmVol); rainBgmGain.gain.setTargetAtTime(tgt, listener.context.currentTime, 1.8) } // 雨のときだけ神秘的BGMをゆっくり立ち上げ／止むとフェードアウト
+  if (rainBgmGain) { const bctx = listener.context, tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.8, 0, AUDIO.rainBgmVol)
+    if (tgt <= 0.0001 && rainBgmGain.gain.value < 0.008) { rainBgmGain.gain.cancelScheduledValues(bctx.currentTime); rainBgmGain.gain.setValueAtTime(0, bctx.currentTime) } // 雨が止んだら完全に0へ＝低いパッド(Am7)の漸近残響=“変な音がうねって残る”を根絶（ユーザー要望2026-07-04・徹底追及）
+    else rainBgmGain.gain.setTargetAtTime(tgt, bctx.currentTime, 1.8) } // 雨のときだけ神秘的BGMをゆっくり立ち上げ／止むとフェードアウト
   maybeThunder(dt)
   updateFestival(dt) // 縁日のお囃子（屋台からの距離で音量が変わる＝音をたどって縁日へ）
   updateToro(dt) // 灯籠流し（二ツ池・夏の夕暮れ〜夜だけ流れる）
@@ -12314,12 +12318,12 @@ function update(dt) {
     if (cicBreathT > 0) cicBreathT -= dt
     const cicBreath = cicBreathT > 0 ? (0.22 + 0.78 * Math.abs((cicBreathT - 3) / 3)) : 1 // 6→3秒で下がり3→0で戻る（中央が谷0.22）
     // ★near-silence「ふっと鳴き止む」＝息継ぎとは別レイヤー。稀(約2.5〜5.5分に一度)だが深い。非対称＝速く止んで(0.7s)・静寂を保ち(1.9s)・ゆっくり戻る(2.9s)＝合唱が崩れてまた連鎖で戻る生命感。夕方ほど谷が深い
-    cicHushCd -= dt; if (cicHushCd <= 0 && cicHushT <= 0) { cicHushCd = 150 + Math.random() * 180; cicHushT = 5.5 }
+    cicHushCd -= dt; if (cicHushCd <= 0 && cicHushT <= 0) { cicHushCd = 55 + Math.random() * 75; cicHushT = 11.6 } // 鳴き止む瞬間をもっと多く(約55〜130秒に一度)＋静寂を長く＝日常の環境音を忠実に（ユーザー要望2026-07-04）
     if (cicHushT > 0) cicHushT -= dt
     const eveDeep = THREE.MathUtils.clamp((tday - 0.5) / 0.18, 0, 1) // 夕方ほど1＝谷を深く
     let cicHush = 1
-    if (cicHushT > 0) { const el = 5.5 - cicHushT, floor = 0.16 - eveDeep * 0.09 // 昼0.16/夕0.07
-      cicHush = el < 0.7 ? 1 - (1 - floor) * (el / 0.7) : el < 2.6 ? floor : floor + (1 - floor) * Math.min(1, (el - 2.6) / 2.9) }
+    if (cicHushT > 0) { const el = 11.6 - cicHushT, floor = 0.16 - eveDeep * 0.09 // 昼0.16/夕0.07
+      cicHush = el < 0.7 ? 1 - (1 - floor) * (el / 0.7) : el < 8.7 ? floor : floor + (1 - floor) * Math.min(1, (el - 8.7) / 2.9) } // 0.7sで落ち→8s静寂を保つ(前は1.9s＝約4.2倍長く)→2.9sで戻る（鳴き出すまでを長く）
     cicHushFactor = cicHush // 風の持ち上げに使う（次フレームの風ブロックで参照）
     // G6：世界全体の凪。約2.5〜5分に一度、9秒かけて環境音と生活音が一緒にすっと引いて、また戻る（−最大35%）。
     //   蝉だけのhushより緩く・広く・稀＝「風が止んで、everything がひと息つく」郷愁の集合的な間。完全な無音にはしない。
@@ -13241,7 +13245,7 @@ function update(dt) {
     else if (!nearNpc && !dialogue && nearSwingY) { actBtn.textContent = 'ブランコに のる'; actBtn.dataset.spot = 'swingY'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && activeYatoSeat) { actBtn.textContent = activeYatoSeat.label; actBtn.dataset.spot = 'yatoseat'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && nearSlideTop) { actBtn.textContent = 'すべりだいで すべる'; actBtn.dataset.spot = 'slide'; actBtn.style.display = 'block' }
-    else if (!nearNpc && !dialogue && onSunRoof) { actBtn.textContent = 'おりる'; actBtn.dataset.spot = 'sundown'; actBtn.style.display = 'block' }
+    else if (!nearNpc && !dialogue && onSunRoof && !fpv) { actBtn.textContent = 'おりる'; actBtn.dataset.spot = 'sundown'; actBtn.style.display = 'block' } // 主観視点(fpv)では「おりる」を出さない＝見わたし中にボタンが被るUIミスの解消（ユーザー要望2026-07-04）
     else if (!nearNpc && !dialogue && nearSunDoor) { actBtn.textContent = '屋上へ のぼる'; actBtn.dataset.spot = 'sunup'; actBtn.style.display = 'block' }
     else actBtn.style.display = 'none'
     lieBtn.style.display = (dialogue || boy.userData._high) ? 'none' : 'block' // 屋上(高所)では「ねころぶ」を出さない（地面の高さに落ちるため）
