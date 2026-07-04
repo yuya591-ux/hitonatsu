@@ -1127,6 +1127,12 @@ function makeFrog(x, z) {
 makeFrog(POND.x - 9, POND.z + 4); makeFrog(POND.x + 7, POND.z - 6); makeFrog(-16, 32) // 池のほとり×2・小川のほとり
 
 // ── 低ポリの木（幹＋葉のかたまり）──
+// 簡易ツリーの樹冠＝単一の低ポリ玉(近くで“六角の宝石”に見える)をやめ、小玉を寄せた“こんもり”1ジオメトリに。呼び出し側の mk(geo,...) にそのまま渡せる（2026-07-05・オブジェクト点検）
+function bushyCanopy(r) {
+  const blobs = [[0, 0, 0, r], [r * 0.5, r * 0.2, r * 0.16, r * 0.6], [-r * 0.46, r * 0.14, -r * 0.3, r * 0.56], [r * 0.12, r * 0.46, -r * 0.08, r * 0.5], [-r * 0.16, -r * 0.12, r * 0.4, r * 0.46]]
+  const gs = blobs.map(([bx, by, bz, br]) => { const ic = new THREE.IcosahedronGeometry(br, 1); ic.translate(bx, by, bz); return ic })
+  const m = mergeGeometries(gs, false); m.computeVertexNormals(); gs.forEach((gg) => gg.dispose()); return m
+}
 function makeTree(x, z, s = 1) {
   const g = new THREE.Group()
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.45 * s, 3.4 * s, 12), toonMap(0x7a5a3a, woodTex))
@@ -2691,7 +2697,7 @@ function buildShishigaya() {
         for (const sx of [-3.4, 3.4]) grp.add(mk(new THREE.BoxGeometry(1.0, 3.2, 1.0), toon(0xcabfa0), gx + sx, gg + 1.6, gz, 0, true))
         grp.add(mk(new THREE.BoxGeometry(8.2, 0.5, 0.6), toon(0x8a6f48), gx, gg + 3.3, gz, 0, true)) // 門の梁（木）
         grp.add(mk(new THREE.PlaneGeometry(5.0, 0.95), new THREE.MeshBasicMaterial({ map: signTex(name, '#2f5a8a', '#fff8e8'), side: THREE.DoubleSide }), gx - 3.4, gg + 1.8, gz, Math.PI / 2)) }
-      for (const [tx, tz] of [[cx - 24, cz - 16], [cx + 14, cz + 4], [cx - 2, cz - 21], [cx + 27, cz + 12]]) { const ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.28, 1.7, 5), toon(0x6a4e34), tx, ty + 0.85, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(2.0, 0), toon(0x5f8a40), tx, ty + 1.7 + 1.5, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) } // 夏の緑の木立
+      for (const [tx, tz] of [[cx - 24, cz - 16], [cx + 14, cz + 4], [cx - 2, cz - 21], [cx + 27, cz + 12]]) { const ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.28, 1.7, 5), toon(0x6a4e34), tx, ty + 0.85, tz, 0, true)); const cv = mk(bushyCanopy(2.0), toon(0x5f8a40), tx, ty + 1.7 + 1.5, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) } // 夏の緑の木立
       signOn(cx - 6, cz - 16, 14, gmax4(cx - 6, cz - 9, 36, 12), floors * 3.3 + 1.4, name, '#2f5a8a') }
     // 幼稚園/保育園＝低い2階のカラフルな園舎(クリーム壁＋オレンジ寄棟＋丸窓)＋砂の園庭＋遊具1セット＋低いカラフルな門。子どもが通う明るさ
     const buildKinder = (cx, cz, name) => {
@@ -2901,7 +2907,7 @@ function buildShishigaya() {
         addCollider(bx, bz, 2.4) }
       // 玉垣（本殿のまわりの低い木柵）
       { const bz = cz - 6; for (const [px, pz, w, a] of [[cx, bz - 2.0, 6, 0], [cx - 3, bz, 4, Math.PI / 2], [cx + 3, bz, 4, Math.PI / 2]]) grp.add(mk(new THREE.BoxGeometry(w, 1.0, 0.12), toon(0xbfae8a), px, heightAtYato(px, pz) + 0.5, pz, a, true)) }
-      grp.add(mk(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 6), toon(0x6a5236), cx - 6, gy + 1.75, cz - 2, 0, true)); grp.add(mk(new THREE.IcosahedronGeometry(2.6, 0), toon(0x4f7a3a), cx - 6, gy + 4.8, cz - 2, 0, true)) // 御神木
+      grp.add(mk(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 6), toon(0x6a5236), cx - 6, gy + 1.75, cz - 2, 0, true)); grp.add(mk(bushyCanopy(2.6), toon(0x4f7a3a), cx - 6, gy + 4.8, cz - 2, 0, true)) // 御神木
       signOn(cx, cz + 12.5, 4, gy, 2.4, name, '#2e6b3a'); addCollider(cx, cz, 3.2) }
     // 旧横溝家住宅（横溝屋敷）＝獅子ヶ谷の名主の屋敷(幕末〜明治)。長屋門→主屋(木造2階・寄棟・茅葺)＋文庫蔵(白漆喰の土蔵)＋穀蔵(板蔵)＋蚕小屋＋生垣。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildYokomizo = (cx, cz, name) => { const gy = gmin4(cx, cz, 20, 20)
@@ -2930,7 +2936,7 @@ function buildShishigaya() {
       // 蚕小屋（木造の小屋・瓦）東前(cx+11, cz+6)
       { const cx2 = cx + 11, cz2 = cz + 6, cy = heightAtYato(cx2, cz2); grp.add(mk(new THREE.BoxGeometry(6.0, 2.6, 4.0), board, cx2, cy + 1.3, cz2, 0, true)); mr(new THREE.ConeGeometry(4.6, 1.5, 4), tile, cx2, cy + 3.3, cz2, 0, Math.PI / 4).scale.set(1.0, 1, 0.7); addBox(cx2, cz2, 3.1, 2.1, 0, 0.3) } // 蚕小屋
       precinctFence(grp, cx, cz + 1, 34, 32, 0x5f7a44, 1.3, 's') // 生垣（屋敷の境・南＝長屋門側を開ける）
-      for (const [tx2, tz2, ts] of [[cx - 14, cz + 8, 1.3], [cx + 15, cz - 12, 1.4], [cx - 5, cz - 12, 1.2]]) { const ty2 = heightAtYato(tx2, tz2); grp.add(mk(new THREE.CylinderGeometry(0.3, 0.42, 3.2 * ts, 6), woodD, tx2, ty2 + 1.6 * ts, tz2, 0, true)); grp.add(mk(new THREE.IcosahedronGeometry(2.4 * ts, 0), toon(0x4f7a3a), tx2, ty2 + 3.2 * ts + 1.6 * ts, tz2, 0, true)) } // 屋敷林
+      for (const [tx2, tz2, ts] of [[cx - 14, cz + 8, 1.3], [cx + 15, cz - 12, 1.4], [cx - 5, cz - 12, 1.2]]) { const ty2 = heightAtYato(tx2, tz2); grp.add(mk(new THREE.CylinderGeometry(0.3, 0.42, 3.2 * ts, 6), woodD, tx2, ty2 + 1.6 * ts, tz2, 0, true)); grp.add(mk(bushyCanopy(2.4 * ts), toon(0x4f7a3a), tx2, ty2 + 3.2 * ts + 1.6 * ts, tz2, 0, true)) } // 屋敷林
       grp.add(mk(new THREE.CylinderGeometry(0.6, 0.6, 1.0, 8), toon(0x8a8f88), cx + 6, gy + 0.5, cz + 4, 0, true)) // 井戸
       signOn(cx, cz + 15, 10, gy, 3.5, name, '#5a4a2a') }
     // 光明寺＝獅子ヶ谷の天台宗寺院(1356開創・本尊薬師如来)。山門(表門1841)→参道(石灯籠)→本堂(瓦の入母屋大堂)＋庫裡＋鐘楼＋地蔵＋築地塀。南(+z)向き（ユーザー要望2026-06-23・Web調査）
@@ -3108,7 +3114,7 @@ function buildShishigaya() {
       { const pcx = 3088, pcz = -181, py = heightAtYato(pcx, pcz); grp.add(mk(new THREE.BoxGeometry(13, 0.25, 9), toon(0xc7c3ba), pcx, py + 0.13, pcz, 0, true)) }
       fenceRect(3062, -154, 32, 34) // 広場をぐるりと低い柵で囲う＝ここが小学校の広場だと一目でわかる（緑一色の原っぱと区別）
       for (const [tx, tz, ts, cc] of [[3052, -144, 1.15, 0x5f8a40], [3074, -146, 1.0, 0x6f9a47], [3050, -166, 1.05, 0x577e3a], [3076, -168, 0.95, 0x5f8a40], [3058, -140, 0.9, 0x6a9445]]) { const ty = heightAtYato(tx, tz) // 広場の木立（緑をたくさん）
-        grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5 * ts, 5), toon(0x6a4e34), tx, ty + 0.75 * ts, tz, 0, true)); const cv = mk(new THREE.IcosahedronGeometry(1.8 * ts, 0), toon(cc), tx, ty + 1.5 * ts + 1.2 * ts, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) }
+        grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5 * ts, 5), toon(0x6a4e34), tx, ty + 0.75 * ts, tz, 0, true)); const cv = mk(bushyCanopy(1.8 * ts), toon(cc), tx, ty + 1.5 * ts + 1.2 * ts, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) }
       { const px = 3053, pz = -165, py = heightAtYato(px, pz) + 0.1 // 広場の池＝角丸の長方形＋中央に岩の噴水（湧き水）。ユーザー記憶2026-07-03（丸い池を作り直し）。北西へ寄せた
         const rr = (w, h, r) => { const s = new THREE.Shape(); s.moveTo(-w / 2 + r, -h / 2); s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r); s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2); const g = new THREE.ShapeGeometry(s); const pa = g.attributes.position, ua = g.attributes.uv; for (let i = 0; i < pa.count; i++) ua.setXY(i, (pa.getX(i) + w / 2) / w, (pa.getY(i) + h / 2) / h); ua.needsUpdate = true; return g }
         const edge = new THREE.Mesh(rr(13.6, 6, 1.7), toon(0x9a8b66)); edge.rotation.x = -Math.PI / 2; edge.position.set(px, py + 0.04, pz); grp.add(edge) // 石の縁（横に長い角丸長方形＝左右に引き伸ばし）
@@ -3348,7 +3354,7 @@ function buildShishigaya() {
     // サンライズの地下一階(裏=谷側)の出口の先＝当時は森（今は橘学苑のグラウンド）。エラ時代として木立を置く
     const trMat = new THREE.MeshToonMaterial({ gradientMap: GRAD }), grn = [0x4f7a38, 0x5f8a40, 0x6f9a47, 0x577e3a]
     for (let i = 0; i < 16; i++) { const fx = 3012 + (Math.random() - 0.5) * 40, fz = -56 + (Math.random() - 0.5) * 34, fy = heightAtYato(fx, fz), s = 1.7 + Math.random() * 1.2
-      const cn = mk(new THREE.IcosahedronGeometry(s, 0), trMat, fx, fy + 1.3 + s * 0.7, fz, 0, true); cn.material = new THREE.MeshToonMaterial({ color: grn[i % grn.length], gradientMap: GRAD }); grp.add(cn)
+      const cn = mk(bushyCanopy(s), trMat, fx, fy + 1.3 + s * 0.7, fz, 0, true); cn.material = new THREE.MeshToonMaterial({ color: grn[i % grn.length], gradientMap: GRAD }); grp.add(cn)
       grp.add(mk(new THREE.CylinderGeometry(0.18, 0.26, 1.5, 5), toon(0x6a4e34), fx, fy + 0.75, fz)) }
     // サンライズの表入口＝1階のみ(坂上=南東側・幹線通り側)。ドア＋小さな庇
     const fg = heightAtYato(3034, 10); grp.add(mk(new THREE.BoxGeometry(2.2, 2.6, 0.3), toon(0x5a4636), 3034, fg + 1.3, 10)); grp.add(mk(new THREE.BoxGeometry(4, 0.4, 1.8), toon(0xb0b0aa), 3034, fg + 2.8, 9, 0, true)) } // 表玄関(1F・z反転後)
@@ -4022,7 +4028,7 @@ function buildShishigaya() {
       [[0, 0.0, 0, 0.92, 0], [0.52, 0.12, 0.12, 0.58, 0], [-0.48, 0.06, -0.22, 0.54, 0], [0.06, 0.36, 0.16, 0.5, 1]],                     // 2 低い茂み（横広）
       [[0, 0.1, 0, 0.98, 1], [0.64, 0.52, 0.26, 0.5, 0], [-0.32, 0.2, -0.52, 0.64, 1], [0.36, 0.78, -0.22, 0.42, 0]],                     // 3 不揃い（枝が偏る）
     ]
-    const buildCanopy = (blobs) => { const bl = blobs.map(([bx, by, bz, br, det]) => { const ic = new THREE.IcosahedronGeometry(br, det); ic.translate(bx, by, bz); return ic })
+    const buildCanopy = (blobs) => { const bl = blobs.map(([bx, by, bz, br, det]) => { const ic = new THREE.IcosahedronGeometry(br, br >= 0.5 ? 1 : det); ic.translate(bx, by, bz); return ic }) // 半径0.5以上の大玉はdet1で丸く＝近くで見た「六角形の宝石」を解消（インスタンス描画なのでドローコール不変・tri増は予算内・2026-07-05）
       const cg = mergeGeometries(bl, false); cg.computeVertexNormals(); bl.forEach((b) => b.dispose())
       const pa = cg.attributes.position, cc = []; let mny = 1e9, mxy = -1e9; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); if (y < mny) mny = y; if (y > mxy) mxy = y }
       for (let i = 0; i < pa.count; i++) { const t = (pa.getY(i) - mny) / (mxy - mny || 1), v = 0.72 + t * 0.34; cc.push(v, v, v) } cg.setAttribute('color', new THREE.Float32BufferAttribute(cc, 3)); return cg } // 下=暗0.72→上=明1.06
