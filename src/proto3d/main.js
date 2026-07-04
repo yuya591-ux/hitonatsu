@@ -8326,6 +8326,79 @@ function updateFishers(dt) {
       else f.u.head.rotation.y *= 0.93 }
   }
 }
+// ── 昼の日陰でひと休み（暑い真昼、家の脇の縁台に腰かけてうちわであおぐ＝昭和の夏の昼下がりの生活感・B領域2026-07-04）。
+//    縁台は据え置きの家具（数脚・マージ静的）、座る人だけ真昼(tday0.34〜0.60)＋近接でLOD。釣り人と同じ流儀。──
+const resters = []
+let restersInit = false
+const benchWoodMat = toon(0x8a6a46), uchiwaPaperMat = charToon(0xefe7d2), uchiwaRibMat = toon(0xcaa96a)
+function makeEndai(wx, wz, ang) { // 縁台（低い木のベンチ）のジオメトリ配列を返す（マージ用）
+  const geos = [], co = Math.cos(ang), si = Math.sin(ang), gy = heightAtYato(wx, wz)
+  const L = 1.4, W = 0.42, H = 0.45 // 天板の高さ0.45＝座位で尻(原点+0.80)が乗り足(原点+0.35)が地面に着く
+  const lp = (lx, lz, ly, sx, sy, sz) => { const b = new THREE.BoxGeometry(sx, sy, sz); b.translate(wx + lx * co - lz * si, gy + ly, wz + lx * si + lz * co); geos.push(b) }
+  lp(0, -0.11, H, L, 0.05, 0.18); lp(0, 0.11, H, L, 0.05, 0.18) // 天板2枚
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) lp(sx * (L / 2 - 0.1), sz * (W / 2 - 0.08), H / 2, 0.07, H, 0.07) // 脚4本
+  return geos
+}
+function makeRester(px, pz, ry) {
+  const fpick = (a) => a[Math.floor(Math.random() * a.length)]
+  const kid = Math.random() < 0.3
+  const g = makeVillager(px, pz, { shirt: fpick([0x6a8a9a, 0x9a8a64, 0xb56a5a, 0x7a9a6a]), skirt: fpick([0x4a5a5a, 0x6a5a4a, 0x556070]), skin: fpick([0xf0c49c, 0xe8b890, 0xeab584]), hair: fpick([0x33291e, 0x4a3a2e, 0x8c8c86]), boy: fpick([true, false]), simple: false, adult: !kid, hairStyle: fpick(['short', 'bob', 'buzz', 'bun']), garment: kid ? 'shorts' : fpick(['shorts', 'dress']), scale: kid ? 0.8 : 1.06, face: 0, info: { name: '', byPhase: { noon: [''] } } })
+  const gy = heightAtYato(px, pz)
+  g.position.set(px, gy - 0.35, pz); g.rotation.y = ry // 原点を下げ、座位で足(原点+0.35)が地面・尻(原点+0.80)が天板0.45に乗る
+  const u = g.userData
+  if (u.legL) u.legL.rotation.x = -1.3; if (u.legR) u.legR.rotation.x = -1.3 // 座る＝太もも前
+  if (u.kneeL) u.kneeL.rotation.x = 1.3; if (u.kneeR) u.kneeR.rotation.x = 1.3 // すね下ろす
+  if (u.armL) u.armL.rotation.x = -0.16 // 左手はひざ
+  if (u.armR) { u.armR.rotation.x = -0.5; u.armR.rotation.z = -0.1 } // 右手はうちわを持ち上げ気味
+  if (Math.random() < 0.55) { const tn = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.34), charToon(fpick([0xe8e2d4, 0xd8d0c2]))); tn.position.set(-0.14, 0.9, 0.02); tn.rotation.z = 0.3; tn.castShadow = false; g.add(tn) } // 肩の手ぬぐい
+  const uchiwa = new THREE.Group() // うちわ（右手であおぐ）
+  const paper = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), uchiwaPaperMat) // 表(法線+z＝顔の側)
+  const back = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), uchiwaPaperMat); back.rotation.y = Math.PI // 裏
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 5), uchiwaRibMat); handle.position.y = -0.17
+  uchiwa.add(paper, back, handle); uchiwa.traverse((o) => { if (o.isMesh) o.castShadow = false })
+  uchiwa.position.set(0.2, 0.66, 0.34); uchiwa.rotation.x = -0.3; g.add(uchiwa) // 右ひざ前あたりで持つ
+  g.visible = false
+  return { g, u, uchiwa, ph: Math.random() * 6.28, kid, fan: 0, fanCd: 1 + Math.random() * 3 }
+}
+function initResters() {
+  if (restersInit || !builtBuildings.length) return; restersInit = true
+  const benchGeos = [], sunAng = Math.atan2(sunDir.x, sunDir.z) // 太陽の方位（その辺を避け日陰側へ）
+  let n = 0
+  for (let bi = 0; bi < builtBuildings.length && n < 3; bi++) {
+    const b = builtBuildings[bi], cx = b[0], cz = b[1], w = b[2], d = b[3], ang = b[4]
+    if (Math.max(w, d) > 13 || Math.min(w, d) < 3.4) continue
+    const seed = Math.abs(Math.round(cx) * 31 + Math.round(cz) * 19)
+    if (seed % 8 !== 3) continue // 洗濯物/ヒマワリ/消火栓 とは別の家に
+    const co = Math.cos(ang), si = Math.sin(ang)
+    let best = null, bestDot = 2 // 家の四辺で最も日陰(太陽と反対)の辺を選ぶ
+    for (const [ox0, oz0] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = ox0 * co - oz0 * si, nz = ox0 * si + oz0 * co // 外向き法線（ワールド）
+      const off = (ox0 !== 0 ? w / 2 : d / 2) + 1.35, px = cx + nx * off, pz = cz + nz * off
+      if (npcInWater(px, pz) || onYatoRoadCore(px, pz) || npcInCollider(px, pz)) continue
+      const dot = nx * Math.sin(sunAng) + nz * Math.cos(sunAng) // 太陽方向との内積（小さいほど日陰）
+      if (dot < bestDot) { bestDot = dot; best = { px, pz, ry: Math.atan2(nx, nz) } } // 外を向いて座る
+    }
+    if (!best) continue
+    benchGeos.push(...makeEndai(best.px, best.pz, ang)); resters.push(makeRester(best.px, best.pz, best.ry)); n++
+  }
+  if (benchGeos.length) { const m = new THREE.Mesh(mergeGeometries(benchGeos), benchWoodMat); m.castShadow = true; benchGeos.forEach((g) => g.dispose()); scene.add(m); if (typeof yatoStatics !== 'undefined') yatoStatics.push(m) }
+}
+function updateResters(dt) {
+  initResters(); if (!resters.length) return
+  const active = onYato && tday > 0.34 && tday < 0.60 // 暑い真昼だけ日陰で涼む
+  for (const r of resters) {
+    const vis = active && Math.hypot(boy.position.x - r.g.position.x, boy.position.z - r.g.position.z) < 90 // 近接時だけ描画
+    if (r.g.visible !== vis) r.g.visible = vis
+    if (!vis) continue
+    r.ph += dt
+    r.fanCd -= dt; if (r.fan <= 0 && r.fanCd <= 0) { r.fan = 1.4 + Math.random() * 1.2; r.fanCd = 3 + Math.random() * 4 } // ときどきパタパタあおぐ
+    if (r.fan > 0) { r.fan -= dt; const f = Math.sin(r.ph * 12) * 0.5 * Math.min(1, r.fan); r.uchiwa.rotation.x = -0.3 + f; if (r.u.armR) r.u.armR.rotation.x = -0.5 + f * 0.25 }
+    else { r.uchiwa.rotation.x += (-0.3 - r.uchiwa.rotation.x) * Math.min(1, dt * 3) }
+    if (r.u.head) { const bx = boy.position.x - r.g.position.x, bz = boy.position.z - r.g.position.z, bd = Math.hypot(bx, bz) // 近づくと顔をこちらへ
+      if (bd < 11) { let ha = Math.atan2(bx, bz) - r.g.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832; r.u.head.rotation.y += (THREE.MathUtils.clamp(ha, -1, 1) - r.u.head.rotation.y) * Math.min(1, dt * 4) }
+      else r.u.head.rotation.y *= 0.94 }
+  }
+}
 // ── 打ち水（夕方、家の前で桶の水を路面にまいて涼をとる＝昭和の夏のいちばんの所作・C14）。距離＋時間ゲートで負荷ゼロ運用 ──
 const uchimizu = []
 let uchimizuInit = false
@@ -12239,6 +12312,7 @@ function update(dt) {
   updateUchimizu(dt) // 打ち水（夕方・家の前・近接時のみ）
   updateDogWalkers(dt) // 犬の散歩（朝夕・住宅街の道・近接時のみ）
   updateTownWalkers(dt) // 目的を持って歩く通行人（日中・買い物袋・商店街の道・近接時のみ・生きてる感C）
+  updateResters(dt) // 日陰の縁台で涼む人（真昼・家の日陰側・うちわ・近接時のみ）
   updateBikeRiders(dt) // 自転車で通る人（日中〜夕方・道を往復・近接時のみ・生きてる感C後半）
   updateChickens(dt) // にわとり（横溝屋敷の前庭・日中・近接時のみ）
   updateStriders(dt) // あめんぼ（二ツ池/三ツ池の水面・日中・近接時のみ）
@@ -14494,6 +14568,8 @@ window.__proto3d = {
   get day() { return day },
   _clouds() { return thunderheads.map((t) => ({ x: +t.position.x.toFixed(1), z: +t.position.z.toFixed(1), y: +t.position.y.toFixed(1), az: +t.userData.az.toFixed(3), dist: t.userData.dist })) }, // 検証用：雲のワールド位置（パララックス確認）
   _fishers() { initFishers(); return fishers.map((f) => ({ x: +f.g.position.x.toFixed(0), y: +f.g.position.y.toFixed(0), z: +f.g.position.z.toFixed(0), fx: +f.flo.position.x.toFixed(0), fz: +f.flo.position.z.toFixed(0) })) }, // 検証用：釣り人の位置
+  _resters() { initResters(); return resters.map((r) => ({ x: +r.g.position.x.toFixed(1), y: +r.g.position.y.toFixed(1), z: +r.g.position.z.toFixed(1), ry: +r.g.rotation.y.toFixed(2), kid: r.kid })) }, // 検証用：日陰で涼む人の位置
+  _showResters() { initResters(); for (const r of resters) r.g.visible = true; return resters.length }, // 検証用：涼む人を強制表示（時間帯/距離ゲートを無視して接写）
   _striders() { initStriders(); return { n: striderSt.length, vis: striderIM ? striderIM.visible : false, inPond: striderSt.filter((s) => pip(s.x, s.z, s.P.p)).length, sample: striderSt.slice(0, 3).map((s) => ({ x: +s.x.toFixed(0), z: +s.z.toFixed(0) })) } }, // 検証用：あめんぼ数・表示・池内にいる数
   _chickens() { initChickens(); return { yard: yokomizoYard, list: chickens.map((c) => ({ x: +c.position.x.toFixed(1), y: +c.position.y.toFixed(1), z: +c.position.z.toFixed(1), st: c.userData.state, vis: c.visible, hz: +c.userData.head.rotation.z.toFixed(2) })) } }, // 検証用：にわとりの位置・状態・頭の角度
   _dogwalkers() { initDogWalkers(); return dogWalkers.map((w) => ({ px: +w.person.position.x.toFixed(1), py: +w.person.position.y.toFixed(1), pz: +w.person.position.z.toFixed(1), dx: +w.dog.position.x.toFixed(1), dz: +w.dog.position.z.toFixed(1), vis: w.person.visible, gap: +Math.hypot(w.person.position.x - w.dog.position.x, w.person.position.z - w.dog.position.z).toFixed(2) })) }, // 検証用：犬の散歩（人と犬の位置・間隔）
