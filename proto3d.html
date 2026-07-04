@@ -353,7 +353,7 @@
       /* 開発座標モードのトグル（dev-on＋空中＝浮遊/飛行で出る小さなボタン1つ）。既定は通常UIのまま＝開発UIは出さない。押すとbody.dev-coordが付き座標UIが出る・ユーザー要望2026-06-29 */
       #devcoord-btn { display: none; }
       body.dev-aerial #devcoord-btn { display: block; position: fixed; pointer-events: auto; z-index: 10;
-        left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + env(safe-area-inset-top));
+        left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + env(safe-area-inset-top) + 52px);
         appearance: none; border: none; cursor: pointer; font-family: inherit; color: #fdf7ec;
         background: rgba(60,66,98,0.6); border-radius: 12px; padding: 0.4em 0.7em; font-size: 13px; line-height: 1.2; }
       #devcoord-btn.on { background: rgba(60,90,150,0.92); }
