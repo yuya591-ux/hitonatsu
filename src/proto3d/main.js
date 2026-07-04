@@ -9162,7 +9162,7 @@ const senko = (() => {
   ball.scale.set(0.16, 0.16, 1); ball.visible = false; scene.add(ball)
   return { pts, pos, col, ball, N, life: new Float32Array(N), vel: new Float32Array(N * 3), tip: new THREE.Vector3(), active: false, t: 0, dur: 15, crackleCd: 0, dropped: false }
 })()
-function startSenko() {
+function startSenko() { if (!seenSummer.senko) { seenSummer.senko = day; saveSummer() }
   if (senko.active) return
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd)
   senko.tip.copy(camera.position).addScaledVector(fwd, 1.15); senko.tip.y -= 0.32 // カメラの少し前・下に手持ち花火の玉
@@ -11260,6 +11260,27 @@ function taisoAward() { // 皆勤賞＝金の検印
   x.font = 'bold 16px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('皆勤', 32, 24); x.fillText('賞', 32, 43)
   return c.toDataURL()
 }
+// 「なつ」タブ：夏みつけた（その夏はじめての情景を集める＝本作の主題「夏を集める」の可視化・2026-07-04）
+const SUMMER_FINDS = [
+  { k: 'sunset', n: '夕やけ' }, { k: 'nyudo', n: '入道雲' }, { k: 'rain', n: 'ゆうだち' },
+  { k: 'stars', n: '星空' }, { k: 'roof', n: '屋上の ながめ' }, { k: 'asagao', n: '朝顔の 花' }, { k: 'senko', n: '線香花火' },
+]
+const ASAGAO_STAGES = ['め', 'ふたば', 'つる', 'つぼみ', 'はな', 'まんかい']
+function asagaoArt(stage) { // 朝顔の成長を水彩で（0芽→5満開）
+  const c = document.createElement('canvas'); c.width = 64; c.height = 74; const x = c.getContext('2d'); x.lineCap = x.lineJoin = 'round'
+  x.fillStyle = '#b5714a'; x.beginPath(); x.moveTo(21, 62); x.lineTo(43, 62); x.lineTo(40, 74); x.lineTo(24, 74); x.closePath(); x.fill()
+  x.fillStyle = '#96603e'; x.fillRect(20, 59, 24, 5)
+  x.strokeStyle = '#5a8a3e'; x.fillStyle = '#5a8a3e'; x.lineWidth = 2.4
+  if (stage <= 0) { x.beginPath(); x.moveTo(32, 59); x.lineTo(32, 52); x.stroke(); x.beginPath(); x.arc(32, 50, 3, 0, 7); x.fill(); return c.toDataURL() }
+  const top = stage >= 4 ? 16 : stage >= 3 ? 20 : stage >= 2 ? 26 : 40
+  x.beginPath(); x.moveTo(32, 59); x.quadraticCurveTo(27, 42, 32, top); x.stroke()
+  if (stage === 1) { x.beginPath(); x.ellipse(27, 51, 5, 3.5, -0.4, 0, 7); x.fill(); x.beginPath(); x.ellipse(37, 51, 5, 3.5, 0.4, 0, 7); x.fill() }
+  else { for (const [lx, ly, s] of [[26, 48, -1], [37, 40, 1], [27, 32, -1]]) if (ly >= top) { x.beginPath(); x.ellipse(lx, ly, 6, 4, s * 0.5, 0, 7); x.fill() } }
+  if (stage === 3) { x.fillStyle = '#7a5aa0'; x.beginPath(); x.ellipse(32, top - 1, 3.5, 6, 0, 0, 7); x.fill() }
+  if (stage >= 4) { const fs = stage >= 5 ? [[32, top - 1, 11], [21, top + 7, 8], [43, top + 9, 8]] : [[32, top - 1, 11]]
+    for (const [fx, fy, fr] of fs) { x.fillStyle = '#6a4ea0'; x.beginPath(); x.arc(fx, fy, fr, 0, 7); x.fill(); x.fillStyle = '#f0e7f5'; x.beginPath(); x.arc(fx, fy, fr * 0.4, 0, 7); x.fill(); x.strokeStyle = '#8f6fc4'; x.lineWidth = 1; for (let p = 0; p < 5; p++) { const a = p / 5 * 6.283 - 1.2; x.beginPath(); x.moveTo(fx, fy); x.lineTo(fx + Math.cos(a) * fr, fy + Math.sin(a) * fr); x.stroke() } } }
+  return c.toDataURL()
+}
 // I1：絵日記の本文を組み立てる（openDiaryと「おもいで帳」ビューアで共用）。{title, body}を返す
 function buildDiaryEntry() {
   const body = []
@@ -11425,7 +11446,7 @@ function waterPlants() {
   playPlop()
   // P3：毎日の水やりで朝顔が育つ（1日1回・世話が世界に残る）
   if (asagaoWaterDay !== day && asagaoStage < 5) {
-    asagaoWaterDay = day; asagaoStage = Math.min(5, asagaoStage + 1)
+    asagaoWaterDay = day; asagaoStage = Math.min(5, asagaoStage + 1); if (asagaoStage >= 4 && !seenSummer.asagao) { seenSummer.asagao = day; saveSummer() }
     try { localStorage.setItem('hn3d_asagao', asagaoStage); localStorage.setItem('hn3d_asagao_day', day) } catch (e) {}
     setAsagaoStage(asagaoStage)
     const grew = ['めが でた。', '双葉が ひらいた。', 'つるが、ぐんと のびた。', 'つぼみが ついた。…あした 咲くかな。', 'はじめての 花が 咲いた！', '満開に なった。'][asagaoStage]
@@ -12054,7 +12075,7 @@ function sunGoRoof() {
   const tx = 3010, tz = 6; boy.position.set(tx, SUN_ROOF.top, tz) // 屋上の中央あたりに立つ
   facing = Math.atan2(2989 - tx, -23 - tz); boy.rotation.y = facing // 眺望(NW)の方を向く
   boy.userData._cy = SUN_ROOF.top; boy.userData._cx = tx; boy.userData._cz = tz
-  camCtl.yaw = facing + Math.PI; camManualTimer = 0; todayFlags.climbedRoof = true
+  camCtl.yaw = facing + Math.PI; camManualTimer = 0; todayFlags.climbedRoof = true; if (!seenSummer.roof) { seenSummer.roof = day; saveSummer() }
 }
 function sunLeaveRoof() { // 屋上から地上（入口＝風除室の表）へ
   if (mode !== 'walk') return
@@ -12097,6 +12118,7 @@ function update(dt) {
     // P3：その夏はじめて見た情景（夕やけ・入道雲）を記録＝夜の絵日記に「初めて」の一行を刻む（夏ごとにリセット）
     if (!diaryOpen && !seenSummer.sunset && tday > 0.58 && tday < 0.72) { seenSummer.sunset = day; todayFlags.firstSunset = true; saveSummer() }
     if (!diaryOpen && !seenSummer.nyudo && tday > 0.26 && tday < 0.48 && weather < 0.2) { seenSummer.nyudo = day; todayFlags.firstNyudo = true; saveSummer() }
+    if (!diaryOpen && !seenSummer.stars && nightFactor(tday) > 0.86 && weather < 0.25) { seenSummer.stars = day; saveSummer() } // 星空／天の川を見上げた夜（夏みつけた）
     // 昭和の日課（1日1回）：朝のラジオ体操・夕飯の呼び声・就寝のうながし
     // D3：朝のひとことを日替りに＝一日ごとに“手ざわり”が違う（初日のときめき→2日目のおまつり予感→最終日の名残）。ラジオ体操は共通の日課
     if (!dayEvents.radio && tday < 0.22) { dayEvents.radio = true
@@ -13865,13 +13887,29 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     .tc-count{text-align:center;margin-top:1.3em;color:#7a6038;font-weight:700;font-family:"KleeOne",serif;letter-spacing:0.06em;font-size:15px;}
     .tc-award{text-align:center;margin-top:1.1em;color:#3a2c15;font-weight:700;font-family:"KleeOne",serif;}
     .tc-award img{display:block;width:66px;height:66px;margin:0 auto 0.4em;}
+    /* なつ＝夏の総括＋朝顔観察＋夏みつけた */
+    .ns-sum{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;margin:0.3em 0 0.2em;}
+    .ns-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dotted #d8c9a4;padding:0.4em 0.2em;}
+    .ns-row span{font-size:12.5px;color:#7a6a48;}
+    .ns-row b{font-size:14px;color:#4a3a24;font-family:"KleeOne","Hiragino Mincho ProN",serif;}
+    .ns-asa{display:flex;align-items:center;gap:0.9em;margin:1.1em 0 0.4em;background:#fffdf6;border:1px solid #e6dabc;border-radius:8px;padding:0.6em 0.9em;}
+    .ns-asa img{width:54px;height:62px;flex:none;}
+    .ns-asa-h{font-size:14px;font-weight:700;color:#3b3024;font-family:"KleeOne",serif;}
+    .ns-asa-s{font-size:12px;color:#7a6a48;margin-top:3px;}
+    .ns-finds{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:5px 10px;}
+    .ns-find{display:flex;align-items:center;gap:0.5em;font-size:13px;padding:0.32em 0.2em;font-family:"KleeOne","Hiragino Mincho ProN",serif;}
+    .ns-find.got{color:#3b3024;}
+    .ns-find.no{color:#b3a684;}
+    .ns-find .ns-mk{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:11px;flex:none;}
+    .ns-find.got .ns-mk{background:#c98a4a;color:#fff;}
+    .ns-find.no .ns-mk{background:rgba(120,90,50,0.12);color:#b3a684;}
   `
   document.head.appendChild(style)
   const btn = $('button', '', document.body); btn.id = 'mb-btn'; btn.textContent = '📔'; btn.title = 'おもいで'
   const modal = $('div', '', document.body); modal.id = 'mb-modal'
   modal.innerHTML = '<div id="mb-card"><button id="mb-close" title="とじる">×</button>'
     + '<div id="mb-head">なつやすみの おもいで帳<small>なつやすみの きろく</small></div>'
-    + '<div id="mb-tabs"><button class="mb-tab on" data-t="diary">えにっき</button><button class="mb-tab" data-t="photo">しゃしん</button><button class="mb-tab" data-t="zukan">ずかん</button><button class="mb-tab" data-t="taiso">たいそう</button></div>'
+    + '<div id="mb-tabs"><button class="mb-tab on" data-t="diary">えにっき</button><button class="mb-tab" data-t="photo">しゃしん</button><button class="mb-tab" data-t="zukan">ずかん</button><button class="mb-tab" data-t="taiso">たいそう</button><button class="mb-tab" data-t="natsu">なつ</button></div>'
     + '<div id="mb-body"></div>'
     + '<div id="mb-detail"><div id="mb-detail-card"></div></div></div>'
   const bodyEl = modal.querySelector('#mb-body'), tabs = [...modal.querySelectorAll('.mb-tab')]
@@ -13949,7 +13987,21 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     html += '</div>'
     bodyEl.innerHTML = html
   }
-  function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : cur === 'zukan' ? renderZukan() : renderTaisoCard() }
+  function renderNatsu() {
+    let zt = 0, zh = 0; for (const grp in CREATURES) for (const cc of CREATURES[grp]) { zt++; if (((grp === 'さかな' ? fish.kinds : caught.kinds)[cc.k] || 0) > 0) zh++ }
+    const taisoN = taisoCard.filter(Boolean).length; let photoN = 0; try { photoN = photoMode.count } catch (e) {}
+    const findN = SUMMER_FINDS.filter((f) => seenSummer[f.k]).length
+    const rows = [['なつやすみ', `${day} / ${TOTAL_DAYS} にち`], ['ずかん', `${zh} / ${zt} しゅるい`], ['ラジオ体操', `${taisoN} / 7 日`], ['しゃしん', `${photoN} まい`], ['夏みつけた', `${findN} / ${SUMMER_FINDS.length}`]]
+    let html = '<div id="mb-zk-head"><h4>なつの おもいで</h4></div>'
+    html += '<div class="ns-sum">' + rows.map((r) => `<div class="ns-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>'
+    const as = asagaoStage || 0
+    html += `<div class="ns-asa"><img src="${asagaoArt(as)}" alt="朝顔"><div class="ns-asa-t"><div class="ns-asa-h">朝顔の かんさつ</div><div class="ns-asa-s">${ASAGAO_STAGES[as] || 'め'}${as >= 5 ? '　まいにち 水を やった たからもの' : as >= 4 ? '　はじめて 花が さいた' : '　まいあさ 水を やろう'}</div></div></div>`
+    html += '<div class="mb-zk-cat">なつ みつけた</div><div class="ns-finds">'
+    for (const f of SUMMER_FINDS) { const got = seenSummer[f.k]; html += `<div class="ns-find ${got ? 'got' : 'no'}"><span class="ns-mk">${got ? '✓' : '・'}</span>${f.n}</div>` }
+    html += '</div>'
+    bodyEl.innerHTML = html
+  }
+  function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : cur === 'zukan' ? renderZukan() : cur === 'taiso' ? renderTaisoCard() : renderNatsu() }
   function open() { modal.classList.add('on'); diaryView = null; const hs = modal.querySelector('#mb-head small'); if (hs) hs.textContent = `なつやすみ ${day}にちめ ・ ${timeWord(tday)}`; render() }
   function close() { modal.classList.remove('on') }
   btn.addEventListener('click', open)
