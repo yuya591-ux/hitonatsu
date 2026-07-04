@@ -21,6 +21,7 @@
 4. 実装後の**自己検証必須**: ビルド／lint／headlessブラウザでの表示確認（描画が崩れていないか、コンソールエラーが出ていないか）まで済ませてから報告する
 5. 人間の手作業は認証・デプロイ承認類のみ。CLIで完結できない操作はまとめてチェックリスト形式で提示する
 6. デプロイまで Claude Code が実行する
+7. **デプロイの確認必須（2026-07-04の事故の恒久対策）**: `main` へ push したら「公開した」と言う前に必ず、①GitHub Actions の該当 run が **success**（`gh run watch <id> --exit-status`）②本番サイトの更新（`curl -s https://yuya591-ux.github.io/hitonatsu/proto3d.html | grep -oE 'assets/proto3d-[A-Za-z0-9_]+\.js'` のハッシュが変わった）——の両方を確認する。CI失敗が続くと購読者に失敗メールが届く。検証系スクリプトのブラウザ実行ファイルは必ず `scripts/browser-path.mjs` の `resolveBrowser` を使う（各所に直書きしない＝環境変数の読み忘れでCIが全滅する）。deployが「try again later」で固着したら、Pages設定を再適用（`gh api --method PUT repos/OWNER/REPO/pages -f build_type=workflow`）→クリーンに1回 dispatch（むやみな連続再実行はメールを増やすので避ける）。
 
 ## 差し替え可能性（重要・後からの格上げ前提）
 - 背景・キャラクターは「コード描画」で作るが、**後で画像ファイル（Geminiで作った水彩画風の絵など）に差し替えられる構造**にしておく

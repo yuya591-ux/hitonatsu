@@ -16,12 +16,12 @@ import { readFile } from 'node:fs/promises'
 import { mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, extname } from 'node:path'
+import { resolveBrowser } from './browser-path.mjs' // ★ブラウザ解決は共有ヘルパー1箇所に集約（分岐禁止＝CIでdeployが落ちる事故の再発防止・2026-07-04）
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = join(ROOT, 'dist')
 const BASE = '/hitonatsu/'
-// ブラウザの実行ファイル：CI等は環境変数で明示（PUPPETEER_EXECUTABLE_PATH / CHROME_PATH）。無ければローカル同梱chrome→Windows Edgeの順。
-const EDGE = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || (() => { const c = join(ROOT, 'chrome'); if (existsSync(c)) for (const d of readdirSync(c)) { const p = join(c, d, 'chrome-win64', 'chrome.exe'); if (existsSync(p)) return p } return 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' })()
+const EDGE = resolveBrowser(ROOT)
 const outDir = join(ROOT, '.verify'); mkdirSync(outDir, { recursive: true })
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.json': 'application/json', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav' }
 
