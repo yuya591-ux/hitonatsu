@@ -7779,7 +7779,8 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     const woman = sf.kind === 'green' || sf.kind === 'flower' || (sf.kind === 'eat' && Math.random() < 0.6) || (sf.kind === 'rice' && Math.random() < 0.4) // 八百屋/花屋はおばさん中心
     const adult = true
     const p = makeVillager(px, pz, { shirt: rpick(yPal), skirt: rpick([0x3a4a6a, 0xb8a888, 0x46688a, 0x6a6a66, 0x8a6a4a]), skin: rpick([0xf0c49c, 0xe8b890, 0xeab584, 0xd8a878]),
-      hair: rpick([0x3a2e22, 0x4a3a2e, 0x5a4a3a, 0x8c8c86, 0x6a5440]), boy: !woman, simple: false, adult,
+      hair: rpick([0x4a3828, 0x4a3a2e, 0x5a4a3a, 0x8c8c86, 0x6a5440]), boy: !woman, simple: false, adult, // 近黒0x3a2e22→暖茶0x4a3828（WARD準拠・2026-07-04）。8c8c86は年配の胡麻塩
+
       garment: woman ? 'dress' : (Math.random() < 0.5 ? 'tank' : 'jinbei'), apron: woman ? (Math.random() < 0.6 ? 0xe8e2d4 : 0x9aa0a8) : false,
       hat: !woman && sf.kind !== 'eat' && Math.random() < 0.4 ? 'bucket' : false, hairStyle: woman ? rpick(['bob', 'pony', 'short']) : 'short',
       build: 1.0 + Math.random() * 0.2, headW: 0.94 + Math.random() * 0.1, eyeSc: 0.9 + Math.random() * 0.2, brow: Math.random() < 0.5, browTilt: 0.6 + Math.random() * 1.1,
@@ -8975,7 +8976,7 @@ function addParkKids(px, pz) {
   // ローカル座標→世界（Three の +Y 回転：x'=x·cos+z·sin, z'=-x·sin+z·cos）。PLAYGROUND_GEO はブランコ席が x≈-4.5（席は±0.8）、砂場が (4,4)
   const toWorld = (lx, lz) => [px + lx * ca + lz * sa, pz - lx * sa + lz * ca]
   const cpick = (arr) => arr[Math.floor(Math.random() * arr.length)]
-  const skins = [0xf0c49c, 0xe8b890, 0xeab584, 0xd8a878], hairs = [0x2a2218, 0x35291c, 0x46371f]
+  const skins = [0xf0c49c, 0xe8b890, 0xeab584, 0xd8a878], hairs = [0x4a3a2a, 0x5a4632, 0x6e4d34] // 子どもの髪＝WARD準拠の暖茶（最明成分0x4a以上）。旧0x2a2218等の近黒はliftHairColで救済されていたが源を規約どおりに（2026-07-04）
   // ブランコに乗る子（席は上バーの真下＝local(-4.5,*,0)）。席top y≈1.0。上のバー y≈2.55 が支点＝鎖はここから真下へ張る（枠から前へずれない・2026-07-01）
   { const [sx, sz] = toWorld(-4.5, 0), pivot = gy + 2.55, seatTop = gy + 1.0
     const boyP = Math.random() < 0.6
@@ -12776,10 +12777,7 @@ function update(dt) {
         p.position.y = gy + Math.abs(Math.sin(tsec * 1.5 + u.wph)) * 0.01; u.head.rotation.y = sw * 0.25 // 手元を見る
       } else {
         p.position.y = gy + Math.abs(Math.sin(tsec * 1.1 + u.wph)) * 0.012 // ほんのり息づかい
-        const bx = boy.position.x - p.position.x, bz = boy.position.z - p.position.z, bd = Math.hypot(bx, bz)
-        if (bd < 8) { let ha = Math.atan2(bx, bz) - p.rotation.y; while (ha > Math.PI) ha -= 6.2832; while (ha < -Math.PI) ha += 6.2832
-          u.head.rotation.y += (THREE.MathUtils.clamp(ha, -1.0, 1.0) - u.head.rotation.y) * Math.min(1, dt * 5) } // 客(主人公)に気づいて顔を向ける
-        else u.head.rotation.y *= 0.92
+        npcGaze(u, u, dt, p.position.x, p.position.z, p.rotation.y, 8) // 客(主人公)に気づいて会釈→4秒で視線を外す→20秒クールダウン（視線の礼儀・釣り人/涼む人/打ち水と統一＝旧「無限凝視」の解消・2026-07-04）
       } }
   }
   // 子どもたちのキャッチボール（昼間だけ・夜は帰る）C12・2026-06-26
