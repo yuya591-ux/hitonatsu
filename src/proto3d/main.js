@@ -2352,7 +2352,7 @@ function buildShishigaya() {
   for (const p of SUNRISE_POLY) p[1] = -p[1] // 鏡像補正：zを反転
   // 実在の名前付きランドマーク（OSM POI＋iタウンページ等を国土地理院でジオコーディングした実位置）。[x,z,type,name,clearR]
   const NAMED = [
-    [2937, -54, 'shrine', '渋沢稲荷神社', 16], [2767, 188, 'rice', '香取米店', 14], [2767, 153, 'shop', 'しんみせ', 13], // 渋沢稲荷＝ユーザー飛行ピン9点の中心(game 2937,54)へ移設・2026-06-25
+    [2937, -54, 'shrine', '渋沢稲荷神社', 16], [2767, 188, 'rice', '香取米店', 14], [2775, 153, 'shop', 'しんみせ', 13], // 渋沢稲荷＝ユーザー飛行ピン9点の中心(game 2937,54)へ移設・2026-06-25／しんみせ＝ユーザーpin(world 2775,-153)へ精密配置(2026-07-04)。skipZoneも追従し両隣の汎用家を消す
     [2672, 17, 'eat', '泉屋', 14], [2901, 252, 'auto', 'マルワ自動車', 16], [2712, 76, 'koban', '北寺尾駐在所', 12], // セブン-イレブンは当時まだ無く、車販売店だった（ユーザーの記憶2026-06-24）→架空名の自動車販売店に
     // ユーザーの記憶で再現した昔の店（2026-06-24）。家→坂を登り橘学苑越え＝ファミマ＋向かいにたばこ屋／しんみせ→交差点左＝商店街(八百屋・花屋)／泉屋を越え左折＝スーパー マミート。位置は道沿いで仮置き＝記憶で要調整
     [3347, -44, 'conbini', 'ファミリーマート', 16], [3347, -65, 'tobacco', 'たばこ・酒', 13], [2737, 119, 'green', '八百屋', 13], [2737, 131, 'flower', '花屋', 13], [2681, -111, 'super', 'マミート', 24], // ユーザー飛行ピンで位置確定(game)：ファミマ3347,44/たばこ屋3347,65(ファミマの前)/八百屋2737,-119/花屋2737,-131(商店街の並び)/マミート2681,111。NAMEDはz反転前。2026-06-24
@@ -2847,7 +2847,16 @@ function buildShishigaya() {
         let fi = 0; for (const lx of [-2.8, -2.0, -1.2, -0.4, 0.4, 1.2]) { const [wx, wz] = f(lx, D / 2 + 1.0), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.CylinderGeometry(0.22, 0.18, 0.5, 8), toon(0x5a7a8a), wx, wy + 0.25, wz, ry, true)); for (let b = 0; b < 6; b++) grp.add(mk(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshToonMaterial({ color: fc[(fi + b) % fc.length], gradientMap: GRAD, emissive: 0x1a0a12 }), wx + ((b % 3) - 1) * 0.12 * Math.cos(ry), wy + 0.62 + (b > 2 ? 0.12 : 0), wz - ((b % 3) - 1) * 0.12 * Math.sin(ry), ry, true)); fi++ }
         const [bx, bz] = f(3.0, D / 2 + 1.3); bench(bx, bz, ry) }
       else { const [bx, bz] = f(2.6, D / 2 + 1.3); bench(bx, bz, ry); const [g1x, g1z] = f(-2.7, D / 2 + 0.9); gacha(g1x, g1z, ry); const [g2x, g2z] = f(-3.3, D / 2 + 0.9); gacha(g2x, g2z, ry); const [vx, vz] = f(3.5, D / 2 + 0.9); vending(vx, vz, ry, 0xc0392b) // 駄菓子屋＝縁台/ガチャ/自販機
-        const [scx, scz] = f(0, D / 2 + 1.1); grp.add(mk(new THREE.BoxGeometry(3.0, 0.9, 0.7), toon(0x8a6a44), scx, heightAtYato(scx, scz) + 0.45, scz, ry, true)); grp.add(mk(new THREE.BoxGeometry(2.9, 0.5, 0.6), new THREE.MeshToonMaterial({ color: 0xd0e0e4, gradientMap: GRAD, transparent: true, opacity: 0.5 }), scx, heightAtYato(scx, scz) + 1.1, scz, ry, true)) } // 店先の駄菓子のガラスケース
+        const [scx, scz] = f(0, D / 2 + 1.1); grp.add(mk(new THREE.BoxGeometry(3.0, 0.9, 0.7), toon(0x8a6a44), scx, heightAtYato(scx, scz) + 0.45, scz, ry, true)); grp.add(mk(new THREE.BoxGeometry(2.9, 0.5, 0.6), new THREE.MeshToonMaterial({ color: 0xd0e0e4, gradientMap: GRAD, transparent: true, opacity: 0.5 }), scx, heightAtYato(scx, scz) + 1.1, scz, ry, true)) // 店先の駄菓子のガラスケース
+        // 裏口＝−side面(WNW)の脇戸（入口=南西向きの左手側・道側。ユーザー確認2026-07-05）。実際によく出入りした side entrance。戸を半分開け、奥に暗がり＋踏み石
+        { const bdRy = ry - Math.PI / 2, bdY = gB + slope, bl = -1.2
+          const [odx, odz] = f(-W / 2 - 0.04, bl); grp.add(mk(new THREE.PlaneGeometry(1.15, 1.9), new THREE.MeshBasicMaterial({ color: 0x241d16 }), odx, bdY + 0.98, odz, bdRy)) // 開いた戸の奥の暗がり
+          const [sgx, sgz] = f(-W / 2 - 0.06, bl + 0.34); grp.add(mk(new THREE.PlaneGeometry(0.72, 1.7), fglass, sgx, bdY + 0.92, sgz, bdRy)) // 半分開いたすりガラス引き戸
+          for (const dl of [-0.62, 0.62]) { const [px, pz] = f(-W / 2 - 0.02, bl + dl); grp.add(mk(new THREE.BoxGeometry(0.1, 2.0, 0.12), toon(0x6a4e30), px, bdY + 1.0, pz, bdRy, true)) } // 引き戸の柱
+          const [ltx, ltz] = f(-W / 2 - 0.02, bl); grp.add(mk(new THREE.BoxGeometry(1.55, 0.16, 0.14), toon(0x6a4e30), ltx, bdY + 2.02, ltz, bdRy, true)) // まぐさ（上枠）
+          grp.add(mk(new THREE.BoxGeometry(1.45, 0.5, 0.1), toon(0x7a5a38), ltx, bdY + 0.28, ltz, bdRy, true)) // 腰板（下枠）
+          const [stx, stz] = f(-W / 2 - 0.62, bl); grp.add(mk(new THREE.BoxGeometry(1.1, 0.14, 0.8), toon(0x9a9186), stx, heightAtYato(stx, stz) + 0.07, stz, bdRy, true)) } // 外の踏み石
+        } // 店先の駄菓子のガラスケース＋南の裏口
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
     const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
       const hg = gmin4(cx + 7, cz, 6, 6); grp.add(mk(new THREE.BoxGeometry(6, 4, 6), toon(0xb8a576), cx + 7, hg + 2, cz, 0, true)); grp.add(mk(new THREE.ConeGeometry(5, 2.2, 4), toon(0x4a4a44), cx + 7, hg + 5.1, cz, Math.PI / 4, true)) // 社殿
@@ -3240,7 +3249,7 @@ function buildShishigaya() {
     for (const [x0n, z0n, type, name, clearR, floors] of NAMED) { // 名前付きランドマークを実位置に（業種に合った外観＋名前看板）
       // 小規模の店/施設は住所点が道の上に落ちることがある→最寄りの空き地へ少しずらす（道に乗った建物を排除・店先は道沿いのまま。寺社/屋敷/学校は実位置・形が大きいので動かさない）・ユーザー指摘2026-06-24
       const small = type === 'shop' || type === 'rice' || type === 'eat' || type === 'liquor' || type === 'tobacco' || type === 'conbini' || type === 'auto' || type === 'koban' || type === 'kinder' // 八百屋/花屋(green/flower)はユーザーの飛行ピン位置を厳守＝螺旋のnudgeはしない。代わりに向きを保つ最小押し出し(nudgeKeepFront)で道の上だけ回避（P0-2）
-      const [x, z] = small ? nudgeOffRoad(x0n, z0n, 9, 8) : (type === 'green' || type === 'flower') ? nudgeKeepFront(x0n, z0n, 8, 7, -Math.PI / 2) : [x0n, z0n]
+      const [x, z] = name === 'しんみせ' ? [x0n, z0n] : small ? nudgeOffRoad(x0n, z0n, 9, 8) : (type === 'green' || type === 'flower') ? nudgeKeepFront(x0n, z0n, 8, 7, -Math.PI / 2) : [x0n, z0n] // しんみせ＝ユーザー指定pinへ厳密配置（道よけの自動ずらしをしない・2026-07-04）
       if (onYatoRoadCore(x, z) || onYatoRoadCore(x - 5, z) || onYatoRoadCore(x + 5, z) || onYatoRoadCore(x, z - 5) || onYatoRoadCore(x, z + 5)) console.log('[NAMED×道] 道の描画幅に乗っている:', type, name, Math.round(x), Math.round(z)) // 監査：大型ランドマークは実位置忠実のため自動では動かさない＝ここに出たものを個別判断
       if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else if (name === '渋沢稲荷神社') buildInari(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
@@ -3264,9 +3273,9 @@ function buildShishigaya() {
       else if (type === 'flower') buildMise(x, z, name, 'flower', -Math.PI / 2) // 花屋＝店先のバケツに色とりどりの花。店先を西(道側)へ明示
       else if (type === 'rice') buildMise(x, z, name, 'rice') // 米店＝店先に米袋
       else if (type === 'eat') buildMise(x, z, name, 'eat') // 食堂＝赤提灯＋縁台＋サンプルケース
-      else buildMise(x, z, name, 'dagashi') // shop（しんみせ＝駄菓子屋）＝ガチャ＋縁台＋ガラスケース
+      else buildMise(x, z, name, 'dagashi', -0.545) // shop（しんみせ＝駄菓子屋）＝ガチャ＋縁台＋ガラスケース。入口＝南西向き（以前の向き・ユーザー確認2026-07-04）。裏口は−side面に自動追従
       // 店番を立てる店先(道側)の向きを覚える＝buildMiseと同じ faceRoad（店先・看板が正対する向き）。座標だけ集め、人物はbuildShishigaya後に生成
-      if (['green', 'flower', 'rice', 'eat', 'shop', 'liquor', 'tobacco'].includes(type)) {
+      if (['green', 'flower', 'rice', 'eat', 'liquor', 'tobacco'].includes(type)) { // しんみせ(shop)は名前付き住人(駄菓子屋のおばあちゃん)が店番＝汎用の店番を立てない（重なり・壁埋まりの解消・2026-07-04）
         const ry = (type === 'green' || type === 'flower') ? -Math.PI / 2 : faceRoad(x, z) // 八百屋/花屋は店先を西(道側)に明示＝buildMiseと同じ
         shopFronts.push({ x, z, dx: Math.sin(ry), dz: Math.cos(ry), kind: type }) }
     }
@@ -7881,7 +7890,7 @@ const yatoGrandpa = makeYatoResident(2732, -107, 2729, -107, {
 npcs.push(yatoShopLady, yatoFlowerLady, yatoGrandpa) // 話せる人の輪に加える（townLady と同じ talkTarget 検出に乗る）
 // ── 獅子ヶ谷の暮らしを満たす：話せる住人を町中に散らす（C13・商店街だけだったのを各所へ）。simpleでも会話/口パク/振り向きは完全に動く＝予算安全 ──
 // 駄菓子屋のおばあちゃん（しんみせ＝駄菓子屋の店先。10円玉とガチャと当てくじ＝昭和の子どもの聖地）
-const yatoDagashiBaa = makeYatoResident(2767, 150, 2768, 146, {
+const yatoDagashiBaa = makeYatoResident(2772.5, -148.5, 2769, -146, { // しんみせ(2775,-153・入口=南西)の店先へ。旧(2767,150)はz符号ミスで店から約300m北の倉庫地帯に取り残されていた（2026-07-04修正）
   scale: 1.06, adult: true, simple: true, build: 0.9, garment: 'dress', apron: 0xcdbfa0, shirt: 0xb0a48c, skirt: 0x6a6258, skin: 0xeab584,
   hair: 0xd8d4ca, hairStyle: 'bob', brow: true, browTilt: 0.55, browY: 0.004, eyeSc: 0.95,
   info: { name: '駄菓子屋の おばあちゃん',
@@ -8004,7 +8013,7 @@ const yatoTeraBaa = makeYatoResident(2735, -427, 2735, -420, {
 })
 npcs.push(yatoTeraBaa); yatoTeraBaa.userData.act = 'gaze' // 本堂を見上げて手を合わせる気配
 // 駄菓子屋の男の子（しんみせの店先で10円玉をにぎって駄菓子を選ぶ＝主人公と同い年の友達。話せる住人で唯一の子ども＝ぼくなつ的な“夏の友だち”の手ざわり）
-const yatoBoyKid = makeYatoResident(2773, 144, 2767, 150, {
+const yatoBoyKid = makeYatoResident(2773.5, -147.5, 2773, -151, { // しんみせの店先(南西)で駄菓子ケースをのぞく。旧(2773,144)はz符号ミスで取り残されていた（2026-07-04修正）
   boy: true, simple: true, scale: 0.92, garment: 'shorts', shirt: 0x4a8ac0, skirt: 0x33384a, skin: 0xf2c8a4,
   hair: 0x241d16, hairStyle: 'short', eyeSc: 1.12,
   info: { name: '駄菓子屋の 男の子',
@@ -8868,8 +8877,8 @@ function updateRunKids(dt) {
     lay(G.a, G.ph, 0); lay(G.b, G.ph - 0.55, 1.4) // bはaを追いかける
   }
 }
-function addChatPair(x, z, ang) {
-  const p = placeNPCOnLand(x, z, 1.6, 40); if (!p) { console.warn('chatPair配置不可(水/建物)', x, z); return } // 二人ぶんの足元が開けた地面に
+function addChatPair(x, z, ang, noSnap) {
+  const p = noSnap ? { x, z } : placeNPCOnLand(x, z, 1.6, 40); if (!p) { console.warn('chatPair配置不可(水/建物)', x, z); return } // 二人ぶんの足元が開けた地面に（noSnap=指定座標に直接＝狭い裏口脇などスナップで流れる所用）
   x = p.x; z = p.z
   const off = 0.82, adultPair = Math.random() < 0.7
   const cpick = (a) => a[Math.floor(Math.random() * a.length)]
@@ -9074,7 +9083,7 @@ function makeYatoLampAt(x, z) {
         if (put && makeYatoLampAt(put[0], put[1])) n++ } } }
 }
 addChatPair(3010, 22, 0.6)   // バス通りぎわ
-addChatPair(2762, -150, 1.9) // 商店街の道
+addChatPair(2770.9, -156.9, -0.545, true) // しんみせの裏口(−side＝WNWの脇戸)を出たすぐ外に立ち話の二人（ユーザー確認2026-07-05）。壁に平行(ang=ry)に並べ、noSnapで裏口脇へ直接（舗装路が迫り自動スナップだと南へ流れるため）
 addChatPair(2960, -330, 0.3) // 谷戸の道
 addChatPair(3818, -726, 1.0) // 三ツ池公園の池端（散歩の人の立ち話）
 addChatPair(3050, 13, 0.4)  // 第三公園のブランコぎわ（公園に必ず人を。園庭のユーザーピン移設2026-07-02に追従）
