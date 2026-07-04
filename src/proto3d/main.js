@@ -11539,7 +11539,9 @@ function nearPlace() {
 // ── 釣り（池）──
 const fishEl = document.getElementById('fish')
 const FISH_NAMES = ['フナ', 'メダカ', 'ドジョウ', 'ザリガニ', 'ナマズ', 'おたまじゃくし', 'ブラックバス', 'ブルーギル'] // 二ツ池は実際ブラックバス等の外来種がほとんど＝外来2種＋ドジョウを追加（ユーザー要望2026-07-04）
-const fish = { count: 0, kinds: {}, first: {} } // first[種]＝はじめて釣った{day,tw,place}（P2・後方互換で追加）
+const fish = { count: 0, kinds: {}, first: {}, max: {} } // first[種]＝はじめて釣った{day,tw,place}／max[種]＝最大サイズcm（記録＝自慢の一匹・2026-07-04）
+const FISH_CM = { 'メダカ': [2, 4], 'フナ': [10, 26], 'ドジョウ': [8, 17], 'ザリガニ': [6, 13], 'ナマズ': [24, 55], 'おたまじゃくし': [2, 4], 'ブルーギル': [10, 22], 'ブラックバス': [20, 46], 'ぬし': [58, 82] }
+function rollFishSize(name) { const r = FISH_CM[name] || [8, 20]; return Math.round((r[0] + Math.random() * (r[1] - r[0])) * 10) / 10 } // 釣るたび妥当な範囲でサイズを引く＝最大を記録
 let fishState = 'idle'
 let fishTimer = null
 const FIELD_POND = { cx: POND.x, cz: POND.z, br: POND.r, y: WATER_Y + 0.15, yato: false } // はらっぱの円い池
@@ -11582,7 +11584,7 @@ try {
   if (st && (st.v == null || st.v === SAVE_VER)) { // 旧データ(v無し)は従来通り。版が違えば読まない（壊れた形を当てはめない）
 
     if (st.caught && typeof st.caught.count === 'number') { caught.count = st.caught.count; caught.kinds = st.caught.kinds || {}; caught.first = st.caught.first || {} }
-    if (st.fish && typeof st.fish.count === 'number') { fish.count = st.fish.count; fish.kinds = st.fish.kinds || {}; fish.first = st.fish.first || {} }
+    if (st.fish && typeof st.fish.count === 'number') { fish.count = st.fish.count; fish.kinds = st.fish.kinds || {}; fish.first = st.fish.first || {}; fish.max = st.fish.max || {} }
     if (st.day === day && st.flags) Object.assign(todayFlags, st.flags) // 同じ日だけ「見たこと」を引き継ぐ
   }
 } catch (e) {}
@@ -11650,6 +11652,7 @@ function reel() {
     const name = nushi ? 'ぬし' : pickFish(castPond, tday)
     if (!fish.kinds[name]) fish.first[name] = { day, tw: timeWord(tday), place: nearPlace() } // はじめて釣った日・時刻・場所
     fish.count++; fish.kinds[name] = (fish.kinds[name] || 0) + 1
+    { const sz = rollFishSize(name); if (!fish.max) fish.max = {}; if (!(fish.max[name] >= sz)) fish.max[name] = sz } // 最大サイズを更新（記録＝自慢の一匹）
     spawnRipple(floatMesh.position.x, floatMesh.position.z)
     if (nushi) { spawnRipple(floatMesh.position.x, floatMesh.position.z); playFound(); showToast('！！ ずっしり 重い…！ 池の ぬしを つり上げた！') } // 大物＝きらり音＋大きな波紋
     else { playPlop(); showToast(`${name}が つれた！`) }
@@ -13780,6 +13783,7 @@ const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fi
   ],
 }
 for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c.k) // 起動時に挿絵を1回だけ生成
+const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな']) for (const cc of CREATURES[grp]) CREATURE_NO[cc.k] = ++_i } // 標本の通し番号No.
 ;(function buildMemoryBook() {
   const $ = (tag, css, parent) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e }
   const style = document.createElement('style')
@@ -13903,6 +13907,8 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     .ns-find .ns-mk{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:11px;flex:none;}
     .ns-find.got .ns-mk{background:#c98a4a;color:#fff;}
     .ns-find.no .ns-mk{background:rgba(120,90,50,0.12);color:#b3a684;}
+    #mb-detail-card .mb-no{position:absolute;left:13px;top:11px;font-size:12px;color:#a99a78;font-family:"KleeOne","Hiragino Mincho ProN",serif;letter-spacing:0.05em;}
+    #mb-detail-card .mb-tag{display:inline-block;font-size:11px;color:#7a6038;background:rgba(201,138,74,0.16);border-radius:999px;padding:0.12em 0.85em;margin-bottom:0.3em;letter-spacing:0.1em;}
   `
   document.head.appendChild(style)
   const btn = $('button', '', document.body); btn.id = 'mb-btn'; btn.textContent = '📔'; btn.title = 'おもいで'
@@ -13919,7 +13925,8 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
   function openDetail(k) {
     const isFish = CREATURES['さかな'].some((c) => c.k === k), c = CREATURES[isFish ? 'さかな' : 'むし'].find((x) => x.k === k)
     if (!c) return; const n = (isFish ? fish.kinds : caught.kinds)[k] || 0, f = (isFish ? fish.first : caught.first)[k]
-    detailCard.innerHTML = `<button id="mb-detail-x">×</button><img class="big" src="${c.e}"><h3>${c.k}</h3><div class="dd">${c.d}</div><div class="meta">つかまえた かず：${tally(n)} <span style="font-weight:400;color:#8a7550">(${n})</span></div>` + (f ? `<div class="fst">はじめて：${f.day}にちめ ${f.tw}${f.place ? '・' + f.place + 'で' : ''}</div>` : '')
+    const mx = isFish && fish.max && fish.max[k]
+    detailCard.innerHTML = `<button id="mb-detail-x">×</button><div class="mb-no">No.${CREATURE_NO[k] || ''}</div><img class="big" src="${c.e}"><h3>${c.k}</h3><div class="mb-tag">なつ</div><div class="dd">${c.d}</div><div class="meta">つかまえた かず：${tally(n)} <span style="font-weight:400;color:#8a7550">(${n})</span></div>` + (mx ? `<div class="meta">いちばん 大きかったの：${mx}cm</div>` : '') + (f ? `<div class="fst">はじめて：${f.day}にちめ ${f.tw}${f.place ? '・' + f.place + 'で' : ''}</div>` : '')
     detail.classList.add('on'); detailCard.querySelector('#mb-detail-x').addEventListener('click', () => detail.classList.remove('on'))
   }
   let cur = 'diary', diaryView = null // diaryView=見ている日（null=当日）
