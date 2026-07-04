@@ -10243,6 +10243,17 @@ function playDlgBlip(pitch) {
     o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.09)
   } catch (e) {}
 }
+// おもいで帳のページめくり／タブ切替の紙音「ぱらり」＝バンドパスのノイズを短く上へ掃く（一冊の物の手ざわり・2026-07-04ブラッシュアップ）
+function playPageTurn() {
+  if (!audioStarted || !noiseBuf) return
+  try {
+    const ctx = listener.context, t0 = ctx.currentTime, out = getSfxOut()
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.7; bp.frequency.setValueAtTime(2100, t0); bp.frequency.exponentialRampToValueAtTime(4200, t0 + 0.13)
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.19)
+    src.connect(bp); bp.connect(g); g.connect(out); src.start(t0); src.stop(t0 + 0.21)
+  } catch (e) {}
+}
 // ── 効果音の自前合成（外部素材ゼロ。AudioContextで都度つくる）──
 let noiseBuf = null
 // SFX用マスターバス：ゆるいローパス＋リミッタ（コンプレッサ）で、効果音の耳ざわりなピーク/
@@ -13994,7 +14005,7 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     if (pic) html += `<div id="mb-pic" class="taped"><img src="${pic}"></div>`
     html += '</div>'
     bodyEl.innerHTML = '<div class="mb-diary">' + html + '</div>'
-    for (const b of bodyEl.querySelectorAll('.dnav-b')) b.addEventListener('click', () => { diaryView = Math.max(1, Math.min(curDay, vd + (+b.dataset.d))); renderDiary() })
+    for (const b of bodyEl.querySelectorAll('.dnav-b')) b.addEventListener('click', () => { playPageTurn(); diaryView = Math.max(1, Math.min(curDay, vd + (+b.dataset.d))); renderDiary() })
   }
   function renderPhoto() {
     let list = []; try { list = (photoMode.list && photoMode.list()) || [] } catch (e) {}
@@ -14057,12 +14068,12 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     bodyEl.innerHTML = html
   }
   function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : cur === 'zukan' ? renderZukan() : cur === 'taiso' ? renderTaisoCard() : renderNatsu() }
-  function open() { modal.classList.add('on'); diaryView = null; const hs = modal.querySelector('#mb-head small'); if (hs) hs.textContent = `なつやすみ ${day}にちめ ・ ${timeWord(tday)}`; render() }
+  function open() { modal.classList.add('on'); diaryView = null; let lt = null; try { lt = localStorage.getItem('hn3d_mbtab') } catch (e) {} if (lt && tabs.some((t) => t.dataset.t === lt)) { cur = lt; tabs.forEach((x) => x.classList.toggle('on', x.dataset.t === lt)) } const hs = modal.querySelector('#mb-head small'); if (hs) hs.textContent = `なつやすみ ${day}にちめ ・ ${timeWord(tday)}`; render() } // しおり＝最後に見たタブで開く
   function close() { modal.classList.remove('on') }
   btn.addEventListener('click', open)
   modal.querySelector('#mb-close').addEventListener('click', close)
   modal.addEventListener('click', (e) => { if (e.target === modal) close() })
-  for (const t of tabs) t.addEventListener('click', () => { cur = t.dataset.t; tabs.forEach((x) => x.classList.toggle('on', x === t)); render() })
+  for (const t of tabs) t.addEventListener('click', () => { if (cur !== t.dataset.t) playPageTurn(); cur = t.dataset.t; tabs.forEach((x) => x.classList.toggle('on', x === t)); try { localStorage.setItem('hn3d_mbtab', cur) } catch (e) {} render() })
   window.__memoryBook = { open, close, render } // 検証用
 })()
 // H4：線香花火ボタン（夜だけ出る手持ち花火）
