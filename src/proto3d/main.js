@@ -11293,6 +11293,17 @@ function asagaoArt(stage) { // 朝顔の成長を水彩で（0芽→5満開）
     for (const [fx, fy, fr] of fs) { x.fillStyle = '#6a4ea0'; x.beginPath(); x.arc(fx, fy, fr, 0, 7); x.fill(); x.fillStyle = '#f0e7f5'; x.beginPath(); x.arc(fx, fy, fr * 0.4, 0, 7); x.fill(); x.strokeStyle = '#8f6fc4'; x.lineWidth = 1; for (let p = 0; p < 5; p++) { const a = p / 5 * 6.283 - 1.2; x.beginPath(); x.moveTo(fx, fy); x.lineTo(fx + Math.cos(a) * fr, fy + Math.sin(a) * fr); x.stroke() } } }
   return c.toDataURL()
 }
+function findArt(key) { // 「なつ みつけた」の小さな手描きアイコン（絵文字でなく世界観に合わせる・2026-07-04ブラッシュアップ）
+  const c = document.createElement('canvas'); c.width = c.height = 26; const x = c.getContext('2d'); x.lineCap = x.lineJoin = 'round'; const cx = 13
+  if (key === 'sunset') { x.fillStyle = '#eaa23a'; x.beginPath(); x.arc(cx, 16, 7, Math.PI, 0); x.fill(); x.strokeStyle = '#e08a2e'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(2, 16); x.lineTo(24, 16); x.stroke(); for (let a = 0; a < 5; a++) { const an = Math.PI + (a + 0.5) / 5 * Math.PI; x.beginPath(); x.moveTo(cx + Math.cos(an) * 9, 16 + Math.sin(an) * 9); x.lineTo(cx + Math.cos(an) * 12, 16 + Math.sin(an) * 12); x.stroke() } }
+  else if (key === 'nyudo') { x.fillStyle = '#eef0ee'; x.strokeStyle = '#cac8be'; x.lineWidth = 1; x.beginPath(); x.arc(cx - 4, 15, 6, 0, 7); x.arc(cx + 4, 16, 5, 0, 7); x.arc(cx, 9, 6, 0, 7); x.fill(); x.stroke() }
+  else if (key === 'rain') { x.fillStyle = '#a2acb2'; x.beginPath(); x.arc(cx - 3, 9, 6, 0, 7); x.arc(cx + 3, 10, 5, 0, 7); x.fill(); x.strokeStyle = '#6a86c0'; x.lineWidth = 1.6; for (const dx of [-4, 1, 6]) { x.beginPath(); x.moveTo(cx + dx, 16); x.lineTo(cx + dx - 2, 22); x.stroke() } }
+  else if (key === 'stars') { x.strokeStyle = x.fillStyle = '#e6d06a'; x.lineWidth = 1.2; for (const [sx, sy, r] of [[7, 8, 2.6], [18, 6, 1.8], [14, 17, 2.2], [21, 16, 1.4]]) for (let a = 0; a < 4; a++) { const an = a / 4 * 6.283; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + Math.cos(an) * r * 2, sy + Math.sin(an) * r * 2); x.stroke() } }
+  else if (key === 'roof') { x.fillStyle = '#9a6a4a'; x.beginPath(); x.moveTo(3, 16); x.lineTo(13, 6); x.lineTo(23, 16); x.closePath(); x.fill(); x.fillStyle = '#cabfa6'; x.fillRect(6, 16, 14, 6); x.fillStyle = '#8a5a3a'; x.fillRect(11, 18, 4, 4) }
+  else if (key === 'asagao') { x.fillStyle = '#6a4ea0'; x.beginPath(); x.arc(cx, cx, 8, 0, 7); x.fill(); x.fillStyle = '#efe6f4'; x.beginPath(); x.arc(cx, cx, 3.4, 0, 7); x.fill(); x.strokeStyle = '#8f6fc4'; x.lineWidth = 1; for (let p = 0; p < 5; p++) { const a = p / 5 * 6.283; x.beginPath(); x.moveTo(cx, cx); x.lineTo(cx + Math.cos(a) * 8, cx + Math.sin(a) * 8); x.stroke() } }
+  else if (key === 'senko') { x.strokeStyle = '#8a6a4a'; x.lineWidth = 1.4; x.beginPath(); x.moveTo(20, 24); x.lineTo(cx, 13); x.stroke(); x.fillStyle = '#f0a03a'; x.beginPath(); x.arc(cx, 12, 2.2, 0, 7); x.fill(); x.strokeStyle = '#f6cc5e'; x.lineWidth = 1; for (let a = 0; a < 8; a++) { const an = a / 8 * 6.283; x.beginPath(); x.moveTo(cx, 12); x.lineTo(cx + Math.cos(an) * (5 + (a % 2) * 3), 12 + Math.sin(an) * (5 + (a % 2) * 3)); x.stroke() } }
+  return c.toDataURL()
+}
 // I1：絵日記の本文を組み立てる（openDiaryと「おもいで帳」ビューアで共用）。{title, body}を返す
 function buildDiaryEntry() {
   const body = []
@@ -13923,10 +13934,18 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     .ns-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dotted #d8c9a4;padding:0.4em 0.2em;}
     .ns-row span{font-size:12.5px;color:#7a6a48;}
     .ns-row b{font-size:14px;color:#4a3a24;font-family:"KleeOne","Hiragino Mincho ProN",serif;}
-    .ns-asa{display:flex;align-items:center;gap:0.9em;margin:1.1em 0 0.4em;background:#fffdf6;border:1px solid #e6dabc;border-radius:8px;padding:0.6em 0.9em;}
-    .ns-asa img{width:54px;height:62px;flex:none;}
-    .ns-asa-h{font-size:14px;font-weight:700;color:#3b3024;font-family:"KleeOne",serif;}
+    .ns-asa{display:flex;align-items:flex-start;gap:0.9em;margin:0.5em 0 0.4em;background:#fffdf6;border:1px solid #e6dabc;border-radius:8px;padding:0.7em 0.9em;}
+    .ns-asa-big{width:64px;height:74px;flex:none;}
+    .ns-asa-h{font-size:15px;font-weight:700;color:#3b3024;font-family:"KleeOne","Hiragino Mincho ProN",serif;letter-spacing:0.08em;}
     .ns-asa-s{font-size:12px;color:#7a6a48;margin-top:3px;}
+    .ns-asa-row{display:flex;gap:3px;margin-top:9px;}
+    .ns-asa-st{width:30px;height:35px;border-radius:4px;}
+    .ns-asa-st.past{opacity:0.5;}
+    .ns-asa-st.cur{background:rgba(201,138,74,0.16);box-shadow:0 0 0 1.5px #c98a4a;}
+    .ns-asa-st.fut{opacity:0.2;}
+    .ns-find-i{width:22px;height:22px;flex:none;}
+    .ns-find.no .ns-find-i{filter:grayscale(1) opacity(0.4);}
+    .ns-find.no{color:#a89a7a;}
     .ns-finds{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:5px 10px;}
     .ns-find{display:flex;align-items:center;gap:0.5em;font-size:13px;padding:0.32em 0.2em;font-family:"KleeOne","Hiragino Mincho ProN",serif;}
     .ns-find.got{color:#3b3024;}
@@ -14029,9 +14048,11 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     let html = '<div id="mb-zk-head"><h4>なつの おもいで</h4></div>'
     html += '<div class="ns-sum">' + rows.map((r) => `<div class="ns-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>'
     const as = asagaoStage || 0
-    html += `<div class="ns-asa"><img src="${asagaoArt(as)}" alt="朝顔"><div class="ns-asa-t"><div class="ns-asa-h">朝顔の かんさつ</div><div class="ns-asa-s">${ASAGAO_STAGES[as] || 'め'}${as >= 5 ? '　まいにち 水を やった たからもの' : as >= 4 ? '　はじめて 花が さいた' : '　まいあさ 水を やろう'}</div></div></div>`
+    let stageRow = ''
+    for (let s = 0; s <= 5; s++) stageRow += `<img class="ns-asa-st ${s === as ? 'cur' : s < as ? 'past' : 'fut'}" src="${asagaoArt(s)}" alt="">`
+    html += `<div class="mb-zk-cat">朝顔の かんさつ</div><div class="ns-asa"><img class="ns-asa-big" src="${asagaoArt(as)}" alt="朝顔"><div class="ns-asa-t"><div class="ns-asa-h">${ASAGAO_STAGES[as] || 'め'}${as >= 5 ? '・満開' : ''}</div><div class="ns-asa-s">${as >= 5 ? 'まいにち 水を やった、たからもの' : as >= 4 ? 'はじめて 花が さいた' : 'まいあさ 水を やろう'}</div><div class="ns-asa-row">${stageRow}</div></div></div>`
     html += '<div class="mb-zk-cat">なつ みつけた</div><div class="ns-finds">'
-    for (const f of SUMMER_FINDS) { const got = seenSummer[f.k]; html += `<div class="ns-find ${got ? 'got' : 'no'}"><span class="ns-mk">${got ? '✓' : '・'}</span>${f.n}</div>` }
+    for (const f of SUMMER_FINDS) { const got = seenSummer[f.k]; html += `<div class="ns-find ${got ? 'got' : 'no'}"><img class="ns-find-i" src="${findArt(f.k)}" alt="">${f.n}</div>` }
     html += '</div>'
     bodyEl.innerHTML = html
   }
