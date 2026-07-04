@@ -2467,6 +2467,12 @@ function buildShishigaya() {
         const c4 = [[tcx - tw, tcz - tw], [tcx + tw, tcz - tw], [tcx + tw, tcz + tw], [tcx - tw, tcz + tw]]
         for (let k = 0; k < 4; k++) { const a = c4[k], b = c4[(k + 1) % 4]; pushTri(rtBox, L(a[0], t0, a[1]), L(b[0], t0, b[1]), L(b[0], t1, b[1])); pushTri(rtBox, L(a[0], t0, a[1]), L(b[0], t1, b[1]), L(a[0], t1, a[1])) } // 側面
         pushTri(rtBox, L(c4[0][0], t1, c4[0][1]), L(c4[1][0], t1, c4[1][1]), L(c4[2][0], t1, c4[2][1])); pushTri(rtBox, L(c4[0][0], t1, c4[0][1]), L(c4[2][0], t1, c4[2][1]), L(c4[3][0], t1, c4[3][1])) } // 天面
+      // 屋上の生活クラッタ＝室外機/物干し/アンテナ（陸屋根の単調さ解消。壁も屋根もmerged=描画コスト0・種で変化・2026-07-05オブジェクト点検）
+      if (!isHome && hw > 2.6 && hd > 2.6) { const rbox = (lx0, lz0, lx1, lz1, y0, y1) => { const c4 = [[lx0, lz0], [lx1, lz0], [lx1, lz1], [lx0, lz1]]; for (let k = 0; k < 4; k++) { const a = c4[k], b = c4[(k + 1) % 4]; pushTri(rtBox, L(a[0], y0, a[1]), L(b[0], y0, b[1]), L(b[0], y1, b[1])); pushTri(rtBox, L(a[0], y0, a[1]), L(b[0], y1, b[1]), L(a[0], y1, a[1])) } pushTri(rtBox, L(lx0, y1, lz0), L(lx1, y1, lz0), L(lx1, y1, lz1)); pushTri(rtBox, L(lx0, y1, lz0), L(lx1, y1, lz1), L(lx0, y1, lz1)) }
+        const rr = (n) => (((seed >> n) & 15) / 15) * 2 - 1 // -1..1 の擬似乱数（種で毎回同じ）
+        const nac = 1 + ((seed >> 4) % 3); for (let ai = 0; ai < nac; ai++) { const ax = rr(ai * 3) * (hw - 1.4), az = rr(ai * 3 + 2) * (hd - 1.4); rbox(ax - 0.5, az - 0.32, ax + 0.5, az + 0.32, h, h + 0.62) } // 室外機1-3台
+        if ((seed % 20) < 9) { const px = -hw * 0.15, z0 = -hd * 0.42, z1 = hd * 0.42; rbox(px - 0.05, z0 - 0.05, px + 0.05, z0 + 0.05, h, h + 1.25); rbox(px - 0.05, z1 - 0.05, px + 0.05, z1 + 0.05, h, h + 1.25); rbox(px - 0.05, z0, px + 0.05, z1, h + 1.14, h + 1.22) } // 物干し（約45%＝支柱2本＋横棒）
+        if ((seed % 20) >= 14 && hw > 3) { const px = hw * 0.35, pz = -hd * 0.3; rbox(px - 0.04, pz - 0.04, px + 0.04, pz + 0.04, h, h + 2.5); rbox(px - 0.35, pz - 0.04, px + 0.35, pz + 0.04, h + 1.9, h + 2.0); rbox(px - 0.28, pz - 0.04, px + 0.28, pz + 0.04, h + 2.2, h + 2.3) } } // アンテナ（約30%＝支柱＋横木2本）
     } else { // ── 低い切妻の家 ──
       let stories = tc === 4 ? 1 : (area < 95 ? 1 : (area > 330 ? 3 : 2)); if (stories === 2 && seed % 3 === 0) stories = 1; if (stories === 1 && seed % 7 === 0 && tc !== 4) stories = 2 // P1：平屋の判定面積を広げ(65→95)＋2→1の頻度を上げ(4→3)＋3階は大きい棟だけ(230→330)＝平屋比率を上げ“田舎の低い家並み”へ
       if (villageLevel) stories = Math.min(stories, 2) // 田舎寄せ：3階の大きな家を2階までに（低い田舎家へ）
@@ -2854,14 +2860,15 @@ function buildShishigaya() {
         const [bx, bz] = f(3.0, D / 2 + 1.3); bench(bx, bz, ry) }
       else { const [bx, bz] = f(2.6, D / 2 + 1.3); bench(bx, bz, ry); const [g1x, g1z] = f(-2.7, D / 2 + 0.9); gacha(g1x, g1z, ry); const [g2x, g2z] = f(-3.3, D / 2 + 0.9); gacha(g2x, g2z, ry); const [vx, vz] = f(3.5, D / 2 + 0.9); vending(vx, vz, ry, 0xc0392b) // 駄菓子屋＝縁台/ガチャ/自販機
         const [scx, scz] = f(0, D / 2 + 1.1); grp.add(mk(new THREE.BoxGeometry(3.0, 0.9, 0.7), toon(0x8a6a44), scx, heightAtYato(scx, scz) + 0.45, scz, ry, true)); grp.add(mk(new THREE.BoxGeometry(2.9, 0.5, 0.6), new THREE.MeshToonMaterial({ color: 0xd0e0e4, gradientMap: GRAD, transparent: true, opacity: 0.5 }), scx, heightAtYato(scx, scz) + 1.1, scz, ry, true)) // 店先の駄菓子のガラスケース
-        // 裏口＝−side面(WNW)の脇戸（入口=南西向きの左手側・道側。ユーザー確認2026-07-05）。実際によく出入りした side entrance。戸を半分開け、奥に暗がり＋踏み石
-        { const bdRy = ry - Math.PI / 2, bdY = gB + slope, bl = -1.2
-          const [odx, odz] = f(-W / 2 - 0.04, bl); grp.add(mk(new THREE.PlaneGeometry(1.15, 1.9), new THREE.MeshBasicMaterial({ color: 0x241d16 }), odx, bdY + 0.98, odz, bdRy)) // 開いた戸の奥の暗がり
-          const [sgx, sgz] = f(-W / 2 - 0.06, bl + 0.34); grp.add(mk(new THREE.PlaneGeometry(0.72, 1.7), fglass, sgx, bdY + 0.92, sgz, bdRy)) // 半分開いたすりガラス引き戸
-          for (const dl of [-0.62, 0.62]) { const [px, pz] = f(-W / 2 - 0.02, bl + dl); grp.add(mk(new THREE.BoxGeometry(0.1, 2.0, 0.12), toon(0x6a4e30), px, bdY + 1.0, pz, bdRy, true)) } // 引き戸の柱
-          const [ltx, ltz] = f(-W / 2 - 0.02, bl); grp.add(mk(new THREE.BoxGeometry(1.55, 0.16, 0.14), toon(0x6a4e30), ltx, bdY + 2.02, ltz, bdRy, true)) // まぐさ（上枠）
-          grp.add(mk(new THREE.BoxGeometry(1.45, 0.5, 0.1), toon(0x7a5a38), ltx, bdY + 0.28, ltz, bdRy, true)) // 腰板（下枠）
-          const [stx, stz] = f(-W / 2 - 0.62, bl); grp.add(mk(new THREE.BoxGeometry(1.1, 0.14, 0.8), toon(0x9a9186), stx, heightAtYato(stx, stz) + 0.07, stz, bdRy, true)) } // 外の踏み石
+        // 裏口＝−side面(WNW)の脇戸（入口=南西向きの左手側・道側）。人が通れる縦長の戸を、建物の一番下(地面)のすぐ上から立ち上げる（ユーザー指摘：窓のように高すぎ・小さすぎたのを修正＝斜面嵩上げbdY基準をやめ地面基準に・下の腰板を薄い敷居に・2026-07-05）
+        { const bdRy = ry - Math.PI / 2, bl = -1.2, DH = 2.25 // DH＝戸の高さ（キャラが通れる縦長）
+          const [odx, odz] = f(-W / 2 - 0.04, bl); const bdY = heightAtYato(odx, odz) + 0.02 // 戸の下端＝建物の一番下(地面)のすぐ上
+          grp.add(mk(new THREE.PlaneGeometry(1.2, DH), new THREE.MeshBasicMaterial({ color: 0x241d16 }), odx, bdY + DH / 2, odz, bdRy)) // 開いた戸の奥の暗がり（縦長・地面から）
+          const [sgx, sgz] = f(-W / 2 - 0.06, bl + 0.36); grp.add(mk(new THREE.PlaneGeometry(0.78, DH - 0.1), fglass, sgx, bdY + (DH - 0.1) / 2 + 0.03, sgz, bdRy)) // 半分開いたすりガラス引き戸
+          for (const dl of [-0.64, 0.64]) { const [px, pz] = f(-W / 2 - 0.02, bl + dl); grp.add(mk(new THREE.BoxGeometry(0.1, DH + 0.12, 0.12), toon(0x6a4e30), px, bdY + (DH + 0.12) / 2, pz, bdRy, true)) } // 引き戸の柱（縦長）
+          const [ltx, ltz] = f(-W / 2 - 0.02, bl); grp.add(mk(new THREE.BoxGeometry(1.6, 0.16, 0.14), toon(0x6a4e30), ltx, bdY + DH + 0.08, ltz, bdRy, true)) // まぐさ（上枠）
+          grp.add(mk(new THREE.BoxGeometry(1.5, 0.12, 0.14), toon(0x6a4e30), ltx, bdY + 0.06, ltz, bdRy, true)) // 敷居（下枠・低く＝またいで出入りできる）
+          const [stx, stz] = f(-W / 2 - 0.62, bl); grp.add(mk(new THREE.BoxGeometry(1.1, 0.12, 0.85), toon(0x9a9186), stx, heightAtYato(stx, stz) + 0.06, stz, bdRy, true)) } // 外の踏み石
         } // 店先の駄菓子のガラスケース＋南の裏口
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
     const buildShrine = (cx, cz, name) => { const gy = heightAtYato(cx, cz); for (const sx of [-1.4, 1.4]) grp.add(mk(new THREE.CylinderGeometry(0.16, 0.18, 3, 6), toon(0xb5462f), cx + sx, gy + 1.5, cz)); grp.add(mk(new THREE.BoxGeometry(4.2, 0.35, 0.4), toon(0xa83f2e), cx, gy + 3.1, cz)); grp.add(mk(new THREE.BoxGeometry(3.4, 0.25, 0.3), toon(0xa83f2e), cx, gy + 2.6, cz)) // 鳥居
