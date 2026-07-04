@@ -94,17 +94,21 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
       transition:left 0.55s cubic-bezier(.35,0,.2,1),top 0.55s cubic-bezier(.35,0,.2,1),width 0.55s cubic-bezier(.35,0,.2,1),opacity 0.5s ease,transform 0.55s ease;}
     #pm-bar.pm-got #pm-album-side,.pm-got{animation:pmgot 0.5s ease;}
     @keyframes pmgot{0%,100%{transform:scale(1);}45%{transform:scale(1.22);}}
-    #pm-album{position:fixed;inset:0;z-index:44;display:none;background:rgba(20,24,40,0.86);backdrop-filter:blur(2px);
-      overflow:auto;padding:5vh 4vw;}
+    #pm-album{position:fixed;inset:0;z-index:44;display:none;overflow:auto;padding:6vh 5vw;
+      background:radial-gradient(120% 85% at 50% 0%,#4c3a26,#2e2416);backdrop-filter:blur(2px);}
     #pm-album.on{display:block;}
-    #pm-album h3{color:#fdf6e8;text-align:center;font-weight:600;letter-spacing:0.1em;margin:0 0 4vh;}
-    #pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;max-width:880px;margin:0 auto;}
-    #pm-grid img{width:100%;display:block;border:5px solid #f4ecda;border-bottom-width:11px;border-radius:2px;box-shadow:0 5px 14px rgba(0,0,0,0.4);
-      cursor:pointer;transform:rotate(-1deg);}
-    #pm-grid img:nth-child(even){transform:rotate(1.2deg);}
-    #pm-empty{color:#cdbfa6;text-align:center;font-size:15px;}
+    #pm-album h3{color:#f1e3c6;text-align:center;font-weight:600;letter-spacing:0.14em;margin:0 0 4vh;font-family:"KleeOne","Hiragino Mincho ProN","Yu Mincho",serif;}
+    #pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:22px 16px;max-width:900px;margin:0 auto;}
+    #pm-grid figure{position:relative;margin:0;background:#fbf3e2;padding:9px 9px 26px;border-radius:2px;box-shadow:0 7px 18px rgba(0,0,0,0.42);transform:rotate(-1deg);}
+    #pm-grid figure:nth-child(even){transform:rotate(1.3deg);}
+    #pm-grid figure:nth-child(3n){transform:rotate(0.5deg);}
+    #pm-grid img{width:100%;display:block;cursor:pointer;border-radius:1px;}
+    #pm-grid figcaption{font-size:11.5px;color:#6a5a3c;text-align:center;margin-top:7px;font-family:"KleeOne","Hiragino Mincho ProN","Yu Mincho",serif;letter-spacing:0.02em;line-height:1.3;}
+    #pm-empty{color:#e4d6b8;text-align:center;font-size:15px;line-height:2;font-family:"KleeOne","Hiragino Mincho ProN","Yu Mincho",serif;}
+    #pm-empty .slots{display:flex;justify-content:center;gap:16px;margin:2.4vh 0;}
+    #pm-empty .slots span{width:82px;height:62px;border:2px dashed rgba(228,214,184,0.42);border-radius:2px;}
     #pm-close-album{display:block;margin:5vh auto 0;appearance:none;border:none;cursor:pointer;padding:0.55em 2.2em;
-      font-size:17px;font-family:inherit;color:#fdf7ec;background:#6a7088;border-radius:999px;}
+      font-size:17px;font-family:inherit;color:#fdf7ec;background:#bd8a4e;border-radius:999px;box-shadow:0 3px 10px rgba(0,0,0,0.3);}
     #pm-view{position:fixed;inset:0;z-index:48;display:none;align-items:center;justify-content:center;
       background:radial-gradient(120% 120% at 50% 42%, rgba(38,27,19,0.9), rgba(18,13,10,0.95));padding:4vw;}
     #pm-view.on{display:flex;}
@@ -256,8 +260,8 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
   // ── アルバム表示 ──
   function openAlbum() {
     grid.innerHTML = ''
-    if (!photos.length) { grid.innerHTML = '<div id="pm-empty">まだ しゃしんが ありません。<br>📷で とってみよう。</div>' }
-    else for (let i = photos.length - 1; i >= 0; i--) { const im = document.createElement('img'); im.src = photos[i].url; im.dataset.idx = i; im.addEventListener('click', () => openView(i)); grid.appendChild(im) }
+    if (!photos.length) { grid.innerHTML = '<div id="pm-empty"><div class="slots"><span></span><span></span><span></span></div>まだ しゃしんが ありません。<br>📷で ひと夏を のこそう。</div>' }
+    else for (let i = photos.length - 1; i >= 0; i--) { const fig = document.createElement('figure'); const im = document.createElement('img'); im.src = photos[i].url; im.dataset.idx = i; im.addEventListener('click', () => openView(i)); fig.appendChild(im); if (photos[i].caption) { const cap = document.createElement('figcaption'); cap.textContent = photos[i].caption; fig.appendChild(cap) } grid.appendChild(fig) }
     album.classList.add('on')
   }
   let viewIdx = -1
@@ -279,6 +283,7 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
   finder.querySelector('#pm-date').addEventListener('click', (e) => { cfg.dateStamp = !cfg.dateStamp; e.currentTarget.textContent = '日付:' + (cfg.dateStamp ? 'ON' : 'OFF') })
   albumBtn.addEventListener('click', openAlbum)
   album.querySelector('#pm-close-album').addEventListener('click', () => album.classList.remove('on'))
+  album.addEventListener('click', (e) => { if (e.target === album) album.classList.remove('on') }) // 背景タップで閉じる（他レイヤーと操作統一）
   viewClose.addEventListener('click', () => view.classList.remove('on'))
   viewDel.addEventListener('click', () => { if (viewIdx >= 0) { const rec = photos[viewIdx]; if (rec && rec.id != null && idbOk) idbDel(rec.id); photos.splice(viewIdx, 1); view.classList.remove('on'); openAlbum() } })
   addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if (k === 'p') { on ? exit() : enter() } else if (on && k === ' ') takePhoto() })
@@ -289,6 +294,8 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
     get newCount() { return newCount }, // その日 新しく撮った枚数（絵日記用）
     clearNew() { newCount = 0 },
     latestPhoto() { return photos.length ? photos[photos.length - 1].url : null },
+    list() { return photos.map((p) => ({ url: p.url, day: p.day, caption: p.caption })) }, // I1改：おもいで帳「しゃしん」タブがサムネイルを直に並べるため一覧を公開（古い順）
+    viewPhoto(i) { if (i >= 0 && i < photos.length) openView(i) }, // タブのサムネから拡大ビューを開く
     _process(over) { const keys = over ? Object.keys(over) : [], bak = {}; for (const k of keys) bak[k] = cfg[k]; if (over) Object.assign(cfg, over); const url = processRetro(renderer.domElement); for (const k of keys) cfg[k] = bak[k]; return url }, // 検証用：今の画面を指定設定で現像（旧/新のA/B比較）
   }
 }

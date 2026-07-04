@@ -13812,6 +13812,18 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     #mb-pic.taped::before,#mb-pic.taped::after{content:'';position:absolute;top:-8px;width:48px;height:19px;background:rgba(214,196,116,0.5);box-shadow:0 1px 3px rgba(80,60,30,0.18);z-index:3;}
     #mb-pic.taped::before{left:-9px;transform:rotate(-9deg);}
     #mb-pic.taped::after{right:-9px;transform:rotate(7deg);}
+    /* しゃしん＝卓上に散らした写真の束（タブ内で直に見返せる・タップで拡大） */
+    .ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:16px 12px;margin-top:0.6em;}
+    .ph-item{position:relative;margin:0;background:#fdfaf0;padding:6px 6px 19px;border-radius:2px;box-shadow:0 4px 10px rgba(90,70,40,0.24);transform:rotate(-1.3deg);cursor:pointer;transition:transform .12s;}
+    .ph-item:nth-child(even){transform:rotate(1.5deg);}
+    .ph-item:nth-child(3n){transform:rotate(0.4deg);}
+    .ph-item:active{transform:scale(0.97) rotate(0deg);}
+    .ph-item img{width:100%;display:block;border-radius:1px;}
+    .ph-item figcaption{font-size:10px;color:#7a6a48;text-align:center;margin-top:4px;line-height:1.3;font-family:"KleeOne","Hiragino Mincho ProN","Yu Mincho",serif;}
+    .ph-empty{text-align:center;color:#9a8a6a;font-size:14px;line-height:2;padding:1.2em 0;}
+    .ph-empty .ph-slots{display:flex;justify-content:center;gap:14px;margin-bottom:1.3em;}
+    .ph-empty .ph-slots span{width:64px;height:50px;border:2px dashed rgba(150,120,80,0.34);border-radius:2px;}
+    #mb-detail-card .ph-big{width:100%;max-width:270px;display:block;margin:0 auto;border:5px solid #fff;border-radius:2px;box-shadow:0 5px 14px rgba(0,0,0,0.3);}
   `
   document.head.appendChild(style)
   const btn = $('button', '', document.body); btn.id = 'mb-btn'; btn.textContent = '📔'; btn.title = 'おもいで'
@@ -13853,8 +13865,20 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     for (const b of bodyEl.querySelectorAll('.dnav-b')) b.addEventListener('click', () => { diaryView = Math.max(1, Math.min(curDay, vd + (+b.dataset.d))); renderDiary() })
   }
   function renderPhoto() {
-    bodyEl.innerHTML = `<h4>なつやすみの しゃしん</h4><div id="mb-photo-n">アルバムに ${photoMode.count}まい</div><button id="mb-photo-btn">アルバムを ひらく</button>`
-    bodyEl.querySelector('#mb-photo-btn').addEventListener('click', () => { close(); try { photoMode.openAlbum() } catch (e) {} })
+    let list = []; try { list = (photoMode.list && photoMode.list()) || [] } catch (e) {}
+    let html = `<div id="mb-zk-head"><h4>なつやすみの しゃしん</h4><div id="mb-zk-prog">${list.length}まい</div></div>`
+    if (!list.length) html += '<div class="ph-empty"><div class="ph-slots"><span></span><span></span><span></span></div>まだ 1まいも とっていない。<br>📷で ひと夏を のこそう。</div>'
+    else {
+      html += '<div class="ph-grid">'
+      for (let i = list.length - 1; i >= 0; i--) html += `<figure class="ph-item" data-i="${i}"><img src="${list[i].url}" alt=""><figcaption>${list[i].caption || (list[i].day ? list[i].day + 'にちめ' : '')}</figcaption></figure>`
+      html += '</div>'
+    }
+    bodyEl.innerHTML = html
+    for (const el of bodyEl.querySelectorAll('.ph-item')) el.addEventListener('click', () => { const p = list[+el.dataset.i]; if (p) openPhotoDetail(p.url, p.caption) })
+  }
+  function openPhotoDetail(url, cap) {
+    detailCard.innerHTML = `<button id="mb-detail-x">×</button><img class="ph-big" src="${url}" alt=""><div class="fst" style="margin-top:0.7em">${cap || ''}</div>`
+    detail.classList.add('on'); detailCard.querySelector('#mb-detail-x').addEventListener('click', () => detail.classList.remove('on'))
   }
   function renderZukan() {
     const got = (k, isFish) => (isFish ? fish.kinds : caught.kinds)[k] || 0
