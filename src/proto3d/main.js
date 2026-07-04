@@ -11220,6 +11220,20 @@ function timeWord(t) { return t < 0.1 ? 'よあけ' : t < 0.22 ? 'あさ' : t < 
 let lastBadgeWord = ''
 function refreshBadge() { if (badgeEl) { lastBadgeWord = timeWord(tday); badgeEl.textContent = `なつやすみ ${day}にちめ ・ ${lastBadgeWord}` } } // 日数＋やさしい時刻の言葉。時刻が移るたびに更新（ループから）
 refreshBadge()
+// I1改：各日の絵日記を保存して過去日をめくって読み返せる（4役評価の最優先＝7日を積む本作の情緒の背骨・2026-07-04）
+let diaryLog = {}; try { diaryLog = JSON.parse(localStorage.getItem('hn3d_diarylog') || '{}') || {} } catch (e) {}
+function diaryWeather() { return (todayFlags.firstRain || todayFlags.sawRain) ? 'rain' : todayFlags.firstNyudo ? 'nyudo' : 'sun' } // その日の天気（絵日記のお天気マーク用）
+function saveDiaryDay(d, entry) { try { diaryLog[String(d)] = { body: entry.body, w: diaryWeather() }; localStorage.setItem('hn3d_diarylog', JSON.stringify(diaryLog)) } catch (e) {} }
+const KANJI_DIGIT = '〇一二三四五六七八九'
+function kanjiNum(n) { if (n < 10) return KANJI_DIGIT[n]; if (n === 10) return '十'; const t = Math.floor(n / 10), o = n % 10; return (t > 1 ? KANJI_DIGIT[t] : '') + '十' + (o ? KANJI_DIGIT[o] : '') } // 1〜31を漢数字に（縦組みの日付用）
+function diaryDateKanji(d) { return `八月${kanjiNum(14 + d)}日` } // 夏休みは8月15日始まり（最終日の消印8月${14+TOTAL_DAYS}日と一致）
+function weatherArt(w) { // お天気マーク＝小さな手描き（絵文字は昭和の世界観に合わないため・creatureArtと同じ思想）
+  const c = document.createElement('canvas'); c.width = c.height = 28; const x = c.getContext('2d'); x.lineCap = 'round'
+  if (w === 'rain') { x.fillStyle = '#9aa4ac'; x.beginPath(); x.arc(12, 11, 7, 0, 7); x.arc(18, 13, 5, 0, 7); x.arc(7, 13, 5, 0, 7); x.fill(); x.strokeStyle = '#6a86c0'; x.lineWidth = 1.7; for (const dx of [8, 13, 18]) { x.beginPath(); x.moveTo(dx, 18); x.lineTo(dx - 2, 25); x.stroke() } }
+  else if (w === 'nyudo') { x.fillStyle = '#f2c24a'; x.beginPath(); x.arc(19, 9, 6, 0, 7); x.fill(); x.fillStyle = '#efe8d6'; x.beginPath(); x.arc(11, 16, 7, 0, 7); x.arc(18, 17, 5, 0, 7); x.arc(6, 18, 4, 0, 7); x.fill() }
+  else { x.fillStyle = '#f0b53e'; x.beginPath(); x.arc(14, 14, 6, 0, 7); x.fill(); x.strokeStyle = '#f0b53e'; x.lineWidth = 1.8; for (let a = 0; a < 8; a++) { const an = a / 8 * 6.283; x.beginPath(); x.moveTo(14 + Math.cos(an) * 9, 14 + Math.sin(an) * 9); x.lineTo(14 + Math.cos(an) * 12.5, 14 + Math.sin(an) * 12.5); x.stroke() } }
+  return c.toDataURL()
+}
 // I1：絵日記の本文を組み立てる（openDiaryと「おもいで帳」ビューアで共用）。{title, body}を返す
 function buildDiaryEntry() {
   const body = []
@@ -11300,10 +11314,11 @@ function openDiary() {
   else lines.forEach((ln, i) => setTimeout(() => { if (diaryOpen) ln.classList.add('in') }, 300 + i * 165))
 }
 function nextDay() {
+  saveDiaryDay(day, buildDiaryEntry()) // その日の絵日記を確定保存＝過去日をめくって読み返せる（就寝で1日が綴じられる）
   diaryEl.classList.remove('show')
   diaryEl.style.display = 'none'; diaryOpen = false
   day = day >= TOTAL_DAYS ? 1 : day + 1 // ひと夏(7日)のあとは1日目へ（また来年の夏）
-  if (day === 1) { seenSummer = {}; try { localStorage.removeItem('hn3d_summer') } catch (e) {} } // 新しい夏＝「その夏はじめて」をリセット（また初めての夕やけに出会える）
+  if (day === 1) { seenSummer = {}; diaryLog = {}; try { localStorage.removeItem('hn3d_summer'); localStorage.removeItem('hn3d_diarylog') } catch (e) {} } // 新しい夏＝「その夏はじめて」と絵日記の綴りをリセット（また初めての夕やけに出会える）
   for (const k in todayFlags) todayFlags[k] = false
   tday = 0.18; dayAuto = true; setTimeOfDay(tday)
   dayEvents.radio = false; dayEvents.dinner = false; dayEvents.fest = false; dayEvents.sleep = false
@@ -13780,6 +13795,23 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     .mb-diary{max-width:25em;margin:0 auto;word-break:keep-all;overflow-wrap:break-word;line-break:strict;position:relative;}
     .mb-diary .line{font-size:13.5px;line-height:2.05;letter-spacing:0.03em;color:#493d2d;margin:0.1em 0;} /* えにっき本文＝小さく＋行間広め＋褪せた墨＝詩情（ユーザー要望2026-07-04） */
     .mb-diary h4{font-size:15px;color:#5a4526;letter-spacing:0.1em;}
+    /* えにっき＝罫線ノート＋縦組みの日付＋日めくり＋お天気＋写真のマステ留め */
+    .mb-diary{padding-right:1.7em;}
+    .ddate{writing-mode:vertical-rl;position:absolute;right:-0.1em;top:0.1em;font-size:16px;color:#6a5230;letter-spacing:0.2em;font-weight:700;} /* 縦組みの漢数字日付＝昭和の日記の柱 */
+    .dnav{display:flex;align-items:center;justify-content:center;gap:0.5em;margin:0 0 0.7em;}
+    .dnav-b{appearance:none;border:none;background:rgba(120,90,50,0.12);color:#7a6038;width:40px;height:40px;border-radius:50%;font-size:22px;line-height:1;cursor:pointer;font-family:inherit;}
+    .dnav-b:disabled{opacity:0.24;cursor:default;}
+    .dhead{text-align:center;min-width:9.5em;}
+    .dhead .dh-day{display:block;font-size:15px;font-weight:700;color:#5a4526;letter-spacing:0.12em;}
+    .dhead .dh-w{display:inline-flex;align-items:center;gap:0.3em;font-size:12px;color:#8a7550;margin-top:2px;}
+    .dhead .dh-w img{width:20px;height:20px;}
+    .dpage{position:relative;padding:0.15em 0.3em 0.5em 1.5em;background:repeating-linear-gradient(transparent 0 27px,rgba(110,140,165,0.14) 27px 28px);border-left:2px solid rgba(188,92,72,0.4);border-radius:2px;}
+    .dpage .line{line-height:28px;margin:0;}
+    #mb-pic.taped{display:block;width:min(320px,80%);margin:1.5em auto 0.4em;position:relative;}
+    #mb-pic.taped img{width:100%;transform:none;margin:0;}
+    #mb-pic.taped::before,#mb-pic.taped::after{content:'';position:absolute;top:-8px;width:48px;height:19px;background:rgba(214,196,116,0.5);box-shadow:0 1px 3px rgba(80,60,30,0.18);z-index:3;}
+    #mb-pic.taped::before{left:-9px;transform:rotate(-9deg);}
+    #mb-pic.taped::after{right:-9px;transform:rotate(7deg);}
   `
   document.head.appendChild(style)
   const btn = $('button', '', document.body); btn.id = 'mb-btn'; btn.textContent = '📔'; btn.title = 'おもいで'
@@ -13799,14 +13831,26 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     detailCard.innerHTML = `<button id="mb-detail-x">×</button><img class="big" src="${c.e}"><h3>${c.k}</h3><div class="dd">${c.d}</div><div class="meta">つかまえた かず：${tally(n)} <span style="font-weight:400;color:#8a7550">(${n})</span></div>` + (f ? `<div class="fst">はじめて：${f.day}にちめ ${f.tw}${f.place ? '・' + f.place + 'で' : ''}</div>` : '')
     detail.classList.add('on'); detailCard.querySelector('#mb-detail-x').addEventListener('click', () => detail.classList.remove('on'))
   }
-  let cur = 'diary'
+  let cur = 'diary', diaryView = null // diaryView=見ている日（null=当日）
   function renderDiary() {
-    const { title, body } = buildDiaryEntry()
-    let html = `<h4>${title}</h4>` + body.map((l) => `<div class="line">${l}</div>`).join('')
-    let pic = null; try { pic = photoMode.latestPhoto() } catch (e) {}
-    if (!pic) { try { pic = renderDiaryView() } catch (e) {} }
-    if (pic) html += `<div id="mb-pic"><img src="${pic}"></div>`
+    const curDay = day
+    if (diaryView == null || diaryView > curDay || diaryView < 1) diaryView = curDay
+    const vd = diaryView, live = vd === curDay
+    let entry
+    if (live) entry = buildDiaryEntry()
+    else { const e = diaryLog[String(vd)]; entry = (e && e.body && e.body.length) ? e : { body: ['この日の えにっきは、かいていない。'], w: 'sun' } }
+    const w = live ? diaryWeather() : (entry.w || 'sun')
+    const wL = { sun: 'はれ', nyudo: 'くもり ときどき 晴れ', rain: 'ゆうだち' }[w] || 'はれ'
+    let html = `<div class="ddate">${diaryDateKanji(vd)}</div>`
+      + `<div class="dnav"><button class="dnav-b" data-d="-1"${vd > 1 ? '' : ' disabled'} aria-label="まえの日">‹</button>`
+      + `<div class="dhead"><span class="dh-day">${vd}にちめ</span><span class="dh-w"><img src="${weatherArt(w)}" alt="">${wL}</span></div>`
+      + `<button class="dnav-b" data-d="1"${vd < curDay ? '' : ' disabled'} aria-label="つぎの日">›</button></div>`
+    html += '<div class="dpage">' + entry.body.map((l) => `<div class="line">${l}</div>`).join('')
+    let pic = null; if (live) { try { pic = photoMode.latestPhoto() } catch (e) {}; if (!pic) { try { pic = renderDiaryView() } catch (e) {} } }
+    if (pic) html += `<div id="mb-pic" class="taped"><img src="${pic}"></div>`
+    html += '</div>'
     bodyEl.innerHTML = '<div class="mb-diary">' + html + '</div>'
+    for (const b of bodyEl.querySelectorAll('.dnav-b')) b.addEventListener('click', () => { diaryView = Math.max(1, Math.min(curDay, vd + (+b.dataset.d))); renderDiary() })
   }
   function renderPhoto() {
     bodyEl.innerHTML = `<h4>なつやすみの しゃしん</h4><div id="mb-photo-n">アルバムに ${photoMode.count}まい</div><button id="mb-photo-btn">アルバムを ひらく</button>`
@@ -13838,7 +13882,7 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     bodyEl.innerHTML = html
   }
   function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : cur === 'zukan' ? renderZukan() : renderTaisoCard() }
-  function open() { modal.classList.add('on'); const hs = modal.querySelector('#mb-head small'); if (hs) hs.textContent = `なつやすみ ${day}にちめ ・ ${timeWord(tday)}`; render() }
+  function open() { modal.classList.add('on'); diaryView = null; const hs = modal.querySelector('#mb-head small'); if (hs) hs.textContent = `なつやすみ ${day}にちめ ・ ${timeWord(tday)}`; render() }
   function close() { modal.classList.remove('on') }
   btn.addEventListener('click', open)
   modal.querySelector('#mb-close').addEventListener('click', close)
