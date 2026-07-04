@@ -13913,6 +13913,7 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     #mb-pic.taped::before,#mb-pic.taped::after{content:'';position:absolute;top:-8px;width:48px;height:19px;background:rgba(214,196,116,0.5);box-shadow:0 1px 3px rgba(80,60,30,0.18);z-index:3;}
     #mb-pic.taped::before{left:-9px;transform:rotate(-9deg);}
     #mb-pic.taped::after{right:-9px;transform:rotate(7deg);}
+    .dpic-cap{text-align:center;font-size:11px;color:#8a7550;margin:0.35em auto 0;font-family:"KleeOne","Hiragino Mincho ProN",serif;letter-spacing:0.03em;}
     /* しゃしん＝卓上に散らした写真の束（タブ内で直に見返せる・タップで拡大） */
     .ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:16px 12px;margin-top:0.6em;}
     .ph-item{position:relative;margin:0;background:#fdfaf0;padding:6px 6px 19px;border-radius:2px;box-shadow:0 4px 10px rgba(90,70,40,0.24);transform:rotate(-1.3deg);cursor:pointer;transition:transform .12s;}
@@ -14001,8 +14002,8 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
       + `<div class="dhead"><span class="dh-day">${vd}にちめ</span><span class="dh-w"><img src="${weatherArt(w)}" alt="">${wL}</span></div>`
       + `<button class="dnav-b" data-d="1"${vd < curDay ? '' : ' disabled'} aria-label="つぎの日">›</button></div>`
     html += '<div class="dpage">' + entry.body.map((l) => `<div class="line">${l}</div>`).join('')
-    let pic = null; if (live) { try { pic = photoMode.latestPhoto() } catch (e) {}; if (!pic) { try { pic = renderDiaryView() } catch (e) {} } }
-    if (pic) html += `<div id="mb-pic" class="taped"><img src="${pic}"></div>`
+    let pic = null, picCap = ''; if (live) { try { const ls = photoMode.list(); if (ls && ls.length) { pic = ls[ls.length - 1].url; picCap = ls[ls.length - 1].caption || '' } } catch (e) {} if (!pic) { try { pic = renderDiaryView() } catch (e) {} } }
+    if (pic) html += `<div id="mb-pic" class="taped"><img src="${pic}"></div>` + (picCap ? `<div class="dpic-cap">${picCap}</div>` : '')
     html += '</div>'
     bodyEl.innerHTML = '<div class="mb-diary">' + html + '</div>'
     for (const b of bodyEl.querySelectorAll('.dnav-b')) b.addEventListener('click', () => { playPageTurn(); diaryView = Math.max(1, Math.min(curDay, vd + (+b.dataset.d))); renderDiary() })
