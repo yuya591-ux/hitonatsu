@@ -11351,6 +11351,7 @@ function buildDiaryEntry() {
   // P2：行動の組み合わせから立ち上がる、その日だけの一文（数えた記録でなく、心の機微）
   if (caught.count === 0 && fish.count === 0 && todayFlags.satHill) body.push('きょうは 何も つかまえなかった。でも、それで よかった きがする。')
   if (caught.count && fish.count) body.push('むしも さかなも つかまえた。…きょうは 大りょうだ。')
+  if (fish.first && fish.first['ぬし'] && fish.first['ぬし'].day === day) body.push('二ツ池の ぬしを つり上げた。ずっしりと 重くて、しばらく 手が ふるえた。この夏の 手がら。') // ⑥宝物イベントを絵日記に刻む（その日だけ）
   if (todayFlags.metGirl && todayFlags.sawView) body.push('女の子と はなした日に 見た 景色は、なんだか ずっと おぼえて いそうだ。')
   if (todayFlags.climbedRoof && todayFlags.layDown) body.push('高い ところと、草の上。きょうは ずいぶん いろんな 空を 見た。')
   if (!body.length) body.push(dpick(['きょうは のんびり あるいた。なんでもない 一日。', 'とくに なにも しなかった。でも、わるくない 一日だった。', 'ただ あるいた。せみの声を 聞きながら、ずっと あるいた。']))
