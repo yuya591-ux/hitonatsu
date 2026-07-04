@@ -11476,7 +11476,7 @@ function nearPlace() {
 
 // ── 釣り（池）──
 const fishEl = document.getElementById('fish')
-const FISH_NAMES = ['フナ', 'メダカ', 'ザリガニ', 'ナマズ', 'おたまじゃくし', 'ブラックバス', 'ブルーギル'] // 二ツ池は実際ブラックバス等の外来種がほとんど＝外来2種を追加（ユーザー要望2026-07-04）
+const FISH_NAMES = ['フナ', 'メダカ', 'ドジョウ', 'ザリガニ', 'ナマズ', 'おたまじゃくし', 'ブラックバス', 'ブルーギル'] // 二ツ池は実際ブラックバス等の外来種がほとんど＝外来2種＋ドジョウを追加（ユーザー要望2026-07-04）
 const fish = { count: 0, kinds: {}, first: {} } // first[種]＝はじめて釣った{day,tw,place}（P2・後方互換で追加）
 let fishState = 'idle'
 let fishTimer = null
@@ -11574,6 +11574,7 @@ function pickFish(pond, t) {
     'ザリガニ': (big ? 0.4 : 2) * (night ? 0.3 : 1),         // 小さな池・昼に多い
     'ナマズ': big ? (eve || night ? 1.2 : 0.4) : 0.2,        // 大きな池の どろの底・夕〜夜
     'おたまじゃくし': big ? 0.3 : 1.6,                        // 小さな池・田の用水
+    'ドジョウ': big ? 0.6 : 1.1,                              // どろ底・用水（在来）
   }
   let tot = 0; for (const k in w) tot += w[k]; let r = Math.random() * tot
   for (const k in w) { r -= w[k]; if (r <= 0) return k }
@@ -13623,17 +13624,78 @@ window.__photo = photoMode // 検証用
 // ── I1/H2：おもいで帳（えにっき・しゃしん・むしさかな図鑑をひとつに）。いつでも開いて夏をふり返れる。──
 // H2：図鑑の挿絵＝簡素な手描き風をcanvasで（絵文字は昭和の世界観に合わないため。絵日記の手描き感に揃える）
 function creatureArt(kind) {
-  const c = document.createElement('canvas'); c.width = c.height = 72; const x = c.getContext('2d')
-  x.lineWidth = 2.2; x.lineJoin = x.lineCap = 'round'; x.strokeStyle = '#4a3a2a'
-  const cx = 36, cy = 38, fill = (col) => { x.fillStyle = col }
-  const ell = (ex, ey, rx, ry, col, rot) => { x.save(); x.translate(ex, ey); if (rot) x.rotate(rot); x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, 7); fill(col); x.fill(); x.stroke(); x.restore() }
-  if (kind === 'チョウ') { ell(cx - 11, cy - 6, 11, 13, '#e8b94a', -0.3); ell(cx + 11, cy - 6, 11, 13, '#e8b94a', 0.3); ell(cx - 9, cy + 9, 8, 9, '#e0a23a', -0.2); ell(cx + 9, cy + 9, 8, 9, '#e0a23a', 0.2); ell(cx, cy, 2.4, 14, '#5a4632') }
-  else if (kind === 'カブトムシ') { ell(cx, cy + 5, 13, 17, '#5a3a22'); x.beginPath(); x.moveTo(cx, cy - 12); x.lineTo(cx - 3, cy - 26); x.lineTo(cx + 2, cy - 22); x.lineTo(cx + 3, cy - 26); x.stroke(); ell(cx, cy - 9, 7, 6, '#3e2a18') } // 体＋ツノ
-  else if (kind === 'セミ') { ell(cx, cy + 4, 9, 16, '#4a5a3a'); ell(cx - 12, cy, 13, 7, 'rgba(210,220,230,0.7)', -0.5); ell(cx + 12, cy, 13, 7, 'rgba(210,220,230,0.7)', 0.5); ell(cx, cy - 11, 7, 6, '#3a4a2e') } // 体＋透けた翅
-  else if (kind === 'ザリガニ') { ell(cx, cy + 6, 9, 14, '#c0402a'); for (const s of [-1, 1]) { x.beginPath(); x.moveTo(cx + s * 6, cy - 4); x.lineTo(cx + s * 18, cy - 12); x.stroke(); ell(cx + s * 20, cy - 14, 6, 4, '#c0402a', s * 0.6) } x.beginPath(); for (const s of [-1, 1]) { x.moveTo(cx, cy + 14); x.lineTo(cx + s * 8, cy + 20) } x.stroke() } // 体＋はさみ
-  else if (kind === 'おたまじゃくし') { ell(cx - 4, cy, 12, 11, '#3a4636'); x.beginPath(); x.moveTo(cx + 7, cy); x.quadraticCurveTo(cx + 22, cy - 8, cx + 26, cy + 4); x.stroke(); fill('#fff'); x.beginPath(); x.arc(cx - 7, cy - 3, 2.4, 0, 7); x.fill() } // 丸い頭＋しっぽ
-  else if (kind === 'ぬし') { ell(cx - 3, cy, 22, 14, '#39454e'); x.beginPath(); x.moveTo(cx + 15, cy); x.lineTo(cx + 30, cy - 13); x.lineTo(cx + 30, cy + 13); x.closePath(); fill('#39454e'); x.fill(); x.stroke(); ell(cx + 2, cy - 9, 8, 4, '#4e5c66', -0.3); fill('#fff'); x.beginPath(); x.arc(cx - 13, cy - 3, 3, 0, 7); x.fill(); fill('#2a333a'); x.beginPath(); x.arc(cx - 13, cy - 3, 1.4, 0, 7); x.fill() } // 大きな池の主＝黒っぽい大魚
-  else { const col = kind === 'メダカ' ? '#9aa66a' : kind === 'ナマズ' ? '#5a5a4a' : '#b0a070'; ell(cx - 4, cy, 17, 10, col); x.beginPath(); x.moveTo(cx + 11, cy); x.lineTo(cx + 24, cy - 9); x.lineTo(cx + 24, cy + 9); x.closePath(); fill(col); x.fill(); x.stroke(); fill('#fff'); x.beginPath(); x.arc(cx - 11, cy - 2, 2.6, 0, 7); x.fill(); if (kind === 'ナマズ') { x.beginPath(); x.moveTo(cx - 13, cy + 2); x.lineTo(cx - 24, cy - 1); x.moveTo(cx - 13, cy + 4); x.lineTo(cx - 24, cy + 7); x.stroke() } } // 魚＝胴＋尾びれ＋目（ナマズはひげ）
+  const S = 160, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d')
+  g.lineJoin = g.lineCap = 'round'
+  const INK = 'rgba(54,38,24,0.92)', cx = 80, cy = 84
+  const eP = (ex, ey, rx, ry, a) => { g.beginPath(); g.ellipse(ex, ey, rx, ry, a || 0, 0, 7) }
+  const wash = (ex, ey, rx, ry, ci, co, a) => { eP(ex, ey, rx, ry, a); const R = Math.max(rx, ry), gr = g.createRadialGradient(ex - rx * 0.22, ey - ry * 0.42, R * 0.08, ex, ey, R * 1.25); gr.addColorStop(0, ci); gr.addColorStop(1, co); g.fillStyle = gr; g.fill() }
+  const fillP = (col) => { g.fillStyle = col; g.fill() }
+  const line = (w, col) => { g.strokeStyle = col || INK; g.lineWidth = w == null ? 2.2 : w; g.stroke() }
+  const inkE = (ex, ey, rx, ry, a, w) => { eP(ex, ey, rx, ry, a); line(w) }
+  const mottle = (ex, ey, rx, ry, col, a, al) => { g.save(); g.globalAlpha = al == null ? 0.26 : al; eP(ex, ey, rx, ry, a); fillP(col); g.restore() }
+  const seg = (x1, y1, x2, y2, w) => { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); line(w) }
+  const eye = (ex, ey, r, tan) => { g.beginPath(); g.arc(ex, ey, r, 0, 7); fillP(tan ? '#e7ddc4' : '#fbfaf2'); g.beginPath(); g.arc(ex, ey, r, 0, 7); line(1); g.beginPath(); g.arc(ex + r * 0.1, ey, r * 0.52, 0, 7); fillP('#221d16'); g.beginPath(); g.arc(ex - r * 0.28, ey - r * 0.28, r * 0.24, 0, 7); fillP('#fff') }
+  if (kind === 'チョウ') { // アゲハ風＝後翅(尾状突起)→前翅→翅脈/紋→胴→触角
+    for (const s of [-1, 1]) { wash(cx + s * 17, cy + 20, 15, 19, '#f2d873', '#d69a36', s * 0.15); g.save(); g.globalAlpha = 0.85; inkE(cx + s * 17, cy + 20, 15, 19, s * 0.15, 1.4); g.restore(); seg(cx + s * 8, cy + 34, cx + s * 16, cy + 45, 3) }
+    for (const s of [-1, 1]) { wash(cx + s * 20, cy - 10, 18, 23, '#f8e08a', '#e2b048', s * 0.28); g.save(); g.globalAlpha = 0.85; inkE(cx + s * 20, cy - 10, 18, 23, s * 0.28, 1.4); g.restore() }
+    for (const s of [-1, 1]) { for (let v = 0; v < 4; v++) seg(cx + s * 6, cy - 6, cx + s * (12 + v * 6), cy - 26 + v * 12, 1.2); mottle(cx + s * 28, cy - 18, 6, 9, '#5a3a20', s * 0.3, 0.55); g.beginPath(); g.arc(cx + s * 15, cy + 24, 3, 0, 7); fillP('#c34a38'); g.beginPath(); g.arc(cx + s * 15, cy + 24, 3, 0, 7); line(1) }
+    wash(cx, cy + 2, 4, 27, '#4a3826', '#2c2016'); inkE(cx, cy + 2, 4, 27, 0, 1.2)
+    for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx + s * 2, cy - 22); g.quadraticCurveTo(cx + s * 12, cy - 42, cx + s * 17, cy - 35); line(1.4); g.beginPath(); g.arc(cx + s * 17, cy - 35, 2.4, 0, 7); fillP('#3a2c1c') }
+  } else if (kind === 'カブトムシ') { // 飴色の甲＋Y字頭角＋胸角＋6脚＋艶
+    for (const s of [-1, 1]) for (const ly of [0, 1]) seg(cx + s * 11, cy + ly * 13 - 2, cx + s * 27, cy + ly * 16 + 5, 3)
+    wash(cx, cy + 6, 22, 27, '#8f5f30', '#492e15'); inkE(cx, cy + 6, 22, 27, 0, 2.2); seg(cx, cy - 12, cx, cy + 31, 1.4); mottle(cx - 9, cy - 4, 9, 13, '#caa054', 0.1, 0.35)
+    wash(cx, cy - 18, 13, 11, '#6c4523', '#3a2410'); inkE(cx, cy - 18, 13, 11, 0, 2) // 前胸
+    wash(cx, cy - 30, 8, 6, '#5c4120', '#31230f') // 頭
+    g.beginPath(); g.moveTo(cx, cy - 32); g.quadraticCurveTo(cx - 3, cy - 50, cx + 1, cy - 61); line(6.5) // 頭角の太い幹（高く前へ反る＝カブトの象徴）
+    g.beginPath(); g.moveTo(cx + 1, cy - 61); g.lineTo(cx - 8, cy - 68); g.moveTo(cx + 1, cy - 61); g.lineTo(cx + 10, cy - 66); line(4.5) // 先の二又
+    seg(cx - 1, cy - 34, cx - 6, cy - 46, 4); seg(cx + 1, cy - 34, cx + 6, cy - 46, 4) // 胸角の小さなV
+    eye(cx - 8, cy - 20, 2.4, true); eye(cx + 8, cy - 20, 2.4, true)
+  } else if (kind === 'セミ') { // アブラゼミ＝褐色の胴(頭/胸/腹)＋屋根形の褐色半透明翅＋複眼
+    for (const s of [-1, 1]) { g.save(); g.globalAlpha = 0.48; eP(cx + s * 16, cy + 8, 12, 31, s * 0.22); fillP('#8f8060'); g.restore(); g.save(); g.globalAlpha = 0.8; inkE(cx + s * 16, cy + 8, 12, 31, s * 0.22, 1.2); g.restore(); for (let vv = 0; vv < 4; vv++) seg(cx + s * 8, cy - 10, cx + s * (18 + vv * 4), cy + 4 + vv * 8, 0.7) }
+    wash(cx, cy + 8, 11, 26, '#6e5d3c', '#3c3120'); for (let i = 0; i < 4; i++) seg(cx - 9, cy + i * 8, cx + 9, cy + i * 8, 1)
+    wash(cx, cy - 20, 12, 11, '#5c4c31', '#33281a'); inkE(cx, cy - 20, 12, 11, 0, 2); wash(cx, cy - 32, 9, 6, '#4a3c26', '#2a2013')
+    eye(cx - 8, cy - 33, 3.2, true); eye(cx + 8, cy - 33, 3.2, true)
+  } else if (kind === 'ザリガニ') { // アメリカザリガニ＝赤い体＋大ハサミ＋尾扇＋触角
+    for (const s of [-1, 1]) for (let l = 0; l < 3; l++) seg(cx + s * 4, cy + 4 + l * 7, cx + s * 21, cy + 2 + l * 10, 2)
+    for (const s of [-1, 1]) { seg(cx + s * 8, cy - 4, cx + s * 22, cy - 20, 4); wash(cx + s * 30, cy - 26, 11, 7, '#dd5c3c', '#9e2e1a', s * 0.5); g.beginPath(); g.moveTo(cx + s * 32, cy - 31); g.lineTo(cx + s * 43, cy - 35); g.moveTo(cx + s * 32, cy - 21); g.lineTo(cx + s * 43, cy - 23); line(2.4) }
+    wash(cx, cy + 6, 12, 26, '#d24e30', '#8c2513'); inkE(cx, cy + 6, 12, 26, 0, 2); for (let i = 0; i < 4; i++) seg(cx - 10, cy + 3 + i * 7, cx + 10, cy + 3 + i * 7, 1.1)
+    g.beginPath(); g.moveTo(cx - 11, cy + 30); g.lineTo(cx - 17, cy + 43); g.lineTo(cx, cy + 38); g.lineTo(cx + 17, cy + 43); g.lineTo(cx + 11, cy + 30); fillP('#b83a22'); line(1.6)
+    wash(cx, cy - 18, 9, 8, '#c04026', '#87230f'); for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx + s * 4, cy - 24); g.quadraticCurveTo(cx + s * 22, cy - 46, cx + s * 33, cy - 42); line(1.3) }
+    eye(cx - 5, cy - 23, 2.2); eye(cx + 5, cy - 23, 2.2)
+  } else if (kind === 'おたまじゃくし') { // 数匹＝丸い頭＋透ける尾
+    const tad = (tx, ty, sc, a) => { g.save(); g.translate(tx, ty); g.rotate(a); g.scale(sc, sc); g.save(); g.globalAlpha = 0.5; g.beginPath(); g.moveTo(10, 0); g.quadraticCurveTo(36, -13, 46, 3); g.quadraticCurveTo(34, 8, 10, 4); fillP('#454d3b'); g.restore(); wash(0, 0, 15, 13, '#4e5a44', '#2b3225'); inkE(0, 0, 15, 13, 0, 1.6); eye(-5, -3, 3); g.restore() }
+    tad(cx - 20, cy + 22, 0.72, 0.3); tad(cx + 4, cy - 8, 1.05, -0.15); tad(cx + 26, cy + 28, 0.6, 0.55)
+  } else if (kind === 'ぬし') { // 池の主＝黒々とした巨大な古鯉。ひげ＋金の照り
+    g.save(); g.globalAlpha = 0.35; eP(cx - 4, cy, 52, 30, 0); fillP('#28313a'); g.restore()
+    g.beginPath(); g.moveTo(cx + 28, cy); g.quadraticCurveTo(cx + 56, cy - 28, cx + 60, cy - 12); g.quadraticCurveTo(cx + 48, cy, cx + 60, cy + 12); g.quadraticCurveTo(cx + 56, cy + 28, cx + 28, cy); fillP('#333d46'); line(1.8)
+    wash(cx - 6, cy, 40, 24, '#505b64', '#222a30'); inkE(cx - 6, cy, 40, 24, 0, 2.6); mottle(cx + 8, cy - 8, 17, 8, '#8f7d3c', -0.2, 0.32)
+    g.beginPath(); g.moveTo(cx - 20, cy - 22); g.quadraticCurveTo(cx, cy - 42, cx + 22, cy - 20); line(2)
+    g.beginPath(); g.arc(cx - 32, cy - 2, 5, 0.3, 3.3); line(2); for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx - 33, cy + s * 4); g.quadraticCurveTo(cx - 50, cy + s * 15, cx - 55, cy + s * 6); line(1.6) }
+    eye(cx - 23, cy - 6, 4.5)
+  } else { // ── ふつうの魚（種で形/色/模様を変える）──
+    let ci = '#b7a76a', co = '#84702f', bw = 30, bh = 15
+    if (kind === 'メダカ') { const md = (mx, my, sc) => { g.save(); g.translate(mx, my); g.scale(sc, sc); g.beginPath(); g.moveTo(13, 0); g.lineTo(24, -8); g.lineTo(24, 8); g.closePath(); fillP('#a3924c'); wash(0, 0, 15, 8, '#d3c680', '#a3924c'); inkE(0, 0, 15, 8, 0, 1.4); eye(-9, -1, 2.3); g.restore() }
+      md(cx - 14, cy - 12, 0.85); md(cx + 10, cy + 2, 1.1); md(cx - 2, cy + 24, 0.7); return c.toDataURL() }
+    if (kind === 'フナ') { ci = '#b3985a'; co = '#77602e'; bw = 30; bh = 19 }
+    else if (kind === 'ナマズ') { ci = '#726a52'; co = '#3c3728'; bw = 35; bh = 15 }
+    else if (kind === 'ドジョウ') { ci = '#9c8858'; co = '#5c4b28'; bw = 42; bh = 8 }
+    else if (kind === 'ブラックバス') { ci = '#889459'; co = '#414c27'; bw = 35; bh = 17 }
+    else if (kind === 'ブルーギル') { ci = '#7b9070'; co = '#3d5240'; bw = 23; bh = 23 }
+    g.beginPath(); g.moveTo(cx + bw - 4, cy); g.lineTo(cx + bw + 15, cy - 14); g.lineTo(cx + bw + 10, cy); g.lineTo(cx + bw + 15, cy + 14); g.closePath(); fillP(co); line(1.6)
+    if (kind === 'ブラックバス') { g.beginPath(); g.moveTo(cx - 12, cy - bh + 2); for (let i = 0; i <= 6; i++) g.lineTo(cx - 12 + i * 5, cy - bh - (i % 2 ? 9 : 2)); line(1.8) }
+    else if (kind === 'ブルーギル') { g.beginPath(); g.moveTo(cx - 6, cy - bh + 1); g.quadraticCurveTo(cx, cy - bh - 10, cx + 9, cy - bh + 2); fillP(co); line(1.6) }
+    else { g.beginPath(); g.moveTo(cx - 8, cy - bh + 2); g.quadraticCurveTo(cx + 2, cy - bh - 7, cx + 12, cy - bh + 2); line(1.4) }
+    wash(cx, cy, bw, bh, ci, co, 0); inkE(cx, cy, bw, bh, 0, 2.2)
+    g.save(); g.globalAlpha = 0.5; g.beginPath(); g.ellipse(cx + 2, cy + bh * 0.5, bw * 0.7, bh * 0.4, 0, 0, 7); fillP('#efe9d6'); g.restore()
+    if (kind === 'ブラックバス') { g.save(); g.globalAlpha = 0.5; for (let i = -2; i <= 3; i++) { g.beginPath(); g.ellipse(cx + i * 9, cy - 1, 3, 6, 0, 0, 7); fillP('#2c3620') } g.restore(); seg(cx - bw + 4, cy + 1, cx + bw - 6, cy + 1, 1); seg(cx - bw + 2, cy - 3, cx - bw + 17, cy + 6, 2.2) }
+    else if (kind === 'ブルーギル') { g.save(); g.globalAlpha = 0.4; for (let i = -2; i <= 2; i++) seg(cx + i * 7, cy - bh + 5, cx + i * 7, cy + bh - 5, 3); g.restore(); g.beginPath(); g.arc(cx - bw + 9, cy - bh + 9, 4, 0, 7); fillP('#2b2a30'); mottle(cx + 3, cy + bh - 7, 9, 5, '#cb863a', 0, 0.55) }
+    else if (kind === 'フナ') { g.save(); g.globalAlpha = 0.3; for (let r = 0; r < 3; r++) for (let cc = 0; cc < 5; cc++) { g.beginPath(); g.arc(cx - 16 + cc * 8, cy - 6 + r * 7, 3, 3.6, 5.8); line(0.8) } g.restore() }
+    else if (kind === 'ナマズ') { for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx - bw + 6, cy + s * 2); g.quadraticCurveTo(cx - bw - 16, cy + s * 11, cx - bw - 22, cy + s * 4); line(1.6) } }
+    else if (kind === 'ドジョウ') { for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx - bw + 8, cy + s * 1); g.quadraticCurveTo(cx - bw - 7, cy + s * 6, cx - bw - 11, cy + s * 2); line(1.2) } mottle(cx, cy - 1, bw * 0.9, bh * 0.5, '#4a3c22', 0, 0.3) }
+    const ex0 = cx - bw + (kind === 'ナマズ' ? 9 : kind === 'ドジョウ' ? 10 : 10)
+    eye(ex0, cy - bh * 0.28, kind === 'ドジョウ' ? 2.3 : 3.3)
+    g.beginPath(); g.moveTo(ex0 + 7, cy - bh * 0.55); g.quadraticCurveTo(ex0 + 10, cy, ex0 + 7, cy + bh * 0.55); line(1.3)
+  }
   return c.toDataURL()
 }
 const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fish.kindsのキーと対応）。eは手描き挿絵のdataURL（H2）
@@ -13645,9 +13707,12 @@ const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fi
   さかな: [
     { k: 'フナ', d: '池の ぬしみたいに ゆったり。' },
     { k: 'メダカ', d: '近づくと さっと ちらばる 小さな いのち。' },
+    { k: 'ドジョウ', d: 'どろや 用水の 底を にゅるり。ひげが みじかい。' },
     { k: 'ザリガニ', d: 'はさみを ふりあげて おこる。赤い よろい。' },
     { k: 'ナマズ', d: 'どろの 底に ひそむ。ひげが ながい。' },
     { k: 'おたまじゃくし', d: 'やがて カエルに なる。しっぽが かわいい。' },
+    { k: 'ブルーギル', d: 'えらに 青い しみ。よその 国から きた 魚。' },
+    { k: 'ブラックバス', d: '大きな 口で なんでも のむ。二ツ池の あばれんぼう。' },
     { k: 'ぬし', d: '大きな池に、ごく たまに。…ぬしと よばれる 大物。' },
   ],
 }
@@ -13659,27 +13724,53 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     #mb-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 156px + env(safe-area-inset-top));z-index:38;appearance:none;border:none;cursor:pointer;
       width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(74,64,50,0.7);box-shadow:0 3px 10px rgba(20,24,40,0.3);}
     body.titling #mb-btn,body.pm-on #mb-btn{display:none !important;}
-    #mb-modal{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(20,22,34,0.82);backdrop-filter:blur(2px);padding:3vh 3vw;}
+    #mb-modal{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(18,20,30,0.8);backdrop-filter:blur(2px);padding:3vh 3vw;}
     #mb-modal.on{display:flex;}
-    #mb-card{position:relative;width:min(680px,94vw);max-height:90vh;display:flex;flex-direction:column;background:#fbf4e4;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.5);overflow:hidden;}
-    #mb-tabs{display:flex;border-bottom:2px solid #e3d8bf;background:#f4ebd6;}
-    .mb-tab{flex:1;appearance:none;border:none;cursor:pointer;padding:0.85em 0;font-size:15px;font-family:inherit;color:#7a6a4a;background:transparent;letter-spacing:0.06em;}
-    .mb-tab.on{color:#3b3024;font-weight:700;box-shadow:inset 0 -3px 0 #c98a4a;background:#fbf4e4;}
-    #mb-body{padding:4vh 5vw;overflow:auto;color:#3b3024;}
-    #mb-close{position:absolute;right:10px;top:8px;z-index:2;appearance:none;border:none;cursor:pointer;width:34px;height:34px;border-radius:50%;font-size:18px;background:rgba(120,108,86,0.18);color:#5a4a32;}
-    #mb-body h4{margin:0 0 0.7em;font-weight:700;letter-spacing:0.08em;}
-    #mb-body .line{margin:0.34em 0;line-height:1.7;font-size:15px;}
-    #mb-pic img{width:100%;max-width:360px;display:block;margin:1.4em auto 0;border:5px solid #fff;border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,0.3);transform:rotate(-1deg);}
-    #mb-zukan{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;}
-    .mb-cre{background:#fff;border-radius:8px;padding:0.8em;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.12);}
-    .mb-cre .em{height:52px;display:flex;align-items:center;justify-content:center;}
-    .mb-cre .em img{width:52px;height:52px;}
-    .mb-cre.got .nm{font-weight:700;color:#3b3024;font-size:14px;}
-    .mb-cre.no{opacity:0.8;}
-    .mb-cre.no .em img{filter:brightness(0) opacity(0.26);}
-    .mb-cre .nm{font-size:13px;color:#7a6a4a;margin-top:0.2em;}
-    .mb-cre .ds{font-size:11px;color:#9a8a6a;margin-top:0.3em;line-height:1.4;min-height:2.4em;}
-    .mb-cre .ct{font-size:11px;color:#c98a4a;margin-top:0.2em;}
+    /* 器＝夏休みの一冊の帳面：紙の質感＋綴じの影＋角丸 */
+    #mb-card{position:relative;width:min(700px,95vw);max-height:92vh;display:flex;flex-direction:column;border-radius:7px 12px 12px 7px;overflow:hidden;
+      background:repeating-linear-gradient(0deg,rgba(120,90,50,0.02) 0 3px,transparent 3px 6px),radial-gradient(120% 92% at 32% 10%,#fdf7e8 0%,#f3e7cc 76%,#ead9b6 100%);
+      box-shadow:0 18px 50px rgba(0,0,0,0.55),inset 0 0 0 1px rgba(140,110,70,0.18);}
+    #mb-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:15px;z-index:6;pointer-events:none;background:linear-gradient(90deg,rgba(85,62,36,0.3),rgba(85,62,36,0.05) 60%,transparent);}
+    #mb-head{position:relative;padding:0.8em 1em 0.66em 1.5em;background:linear-gradient(#cbaa70,#bd9a5a);color:#3a2c15;font-weight:700;letter-spacing:0.14em;font-size:15px;text-shadow:0 1px 0 rgba(255,246,222,0.4);box-shadow:0 2px 7px rgba(80,60,30,0.25);}
+    #mb-head small{display:block;font-weight:400;font-size:10.5px;letter-spacing:0.1em;color:#5a4526;opacity:0.9;margin-top:1px;}
+    #mb-tabs{display:flex;gap:4px;padding:6px 8px 0 1.5em;}
+    .mb-tab{flex:1;appearance:none;border:none;cursor:pointer;padding:0.58em 0 0.5em;font-size:14px;font-family:inherit;color:#8a7550;background:rgba(219,203,166,0.7);border-radius:8px 8px 0 0;letter-spacing:0.05em;box-shadow:inset 0 -3px 6px rgba(120,90,50,0.08);}
+    .mb-tab.on{color:#3b3024;font-weight:700;background:#fdf8ec;box-shadow:0 -2px 6px rgba(120,90,50,0.1);}
+    #mb-body{padding:1.15em 1.35em 1.6em;overflow:auto;color:#3b3024;background:#fdf8ec;flex:1;-webkit-overflow-scrolling:touch;}
+    #mb-close{position:absolute;right:9px;top:8px;z-index:9;appearance:none;border:none;cursor:pointer;width:32px;height:32px;border-radius:50%;font-size:18px;background:rgba(85,62,36,0.28);color:#fbf2df;}
+    #mb-body h4{margin:0 0 0.7em;font-weight:700;letter-spacing:0.08em;color:#4a3a24;}
+    #mb-body .line{margin:0.34em 0;line-height:1.75;font-size:15px;}
+    #mb-pic img{width:100%;max-width:340px;display:block;margin:1.2em auto 0;border:6px solid #fff;border-radius:2px;box-shadow:0 5px 14px rgba(0,0,0,0.3);transform:rotate(-1.2deg);}
+    /* ずかん＝標本プレート */
+    #mb-zk-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1em;margin-bottom:0.4em;}
+    #mb-zk-head h4{margin:0;}
+    #mb-zk-prog{font-size:12px;color:#8a7550;text-align:right;white-space:nowrap;}
+    #mb-zk-bar{width:104px;height:7px;border-radius:4px;background:rgba(120,90,50,0.16);overflow:hidden;margin-top:4px;}
+    #mb-zk-bar i{display:block;height:100%;background:linear-gradient(90deg,#c98a4a,#e2ac4c);}
+    .mb-zk-cat{font-size:12px;font-weight:700;color:#7a6038;letter-spacing:0.18em;margin:1.1em 0 0.55em;border-bottom:1px dashed #d8c9a4;padding-bottom:0.22em;}
+    .mb-zukan{display:grid;grid-template-columns:repeat(auto-fill,minmax(102px,1fr));gap:10px;}
+    .mb-cre{position:relative;background:#fffdf6;border:1px solid #e6dabc;border-radius:7px;padding:0.55em 0.4em 0.5em;text-align:center;box-shadow:0 2px 5px rgba(90,70,40,0.1);}
+    .mb-cre.got{cursor:pointer;transition:transform .1s;}
+    .mb-cre.got:active{transform:scale(0.96);}
+    .mb-cre .em{position:relative;height:68px;display:flex;align-items:flex-end;justify-content:center;}
+    .mb-cre .em::after{content:'';position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:50px;height:8px;border-radius:50%;background:rgba(90,70,40,0.13);}
+    .mb-cre .em img{width:64px;height:64px;object-fit:contain;position:relative;z-index:1;}
+    .mb-cre .nm{font-size:13px;color:#3b3024;font-weight:700;margin-top:0.3em;}
+    .mb-cre.no .nm{color:#ab9c7a;font-weight:400;}
+    .mb-cre.no .em img{filter:brightness(0) opacity(0.2);}
+    .mb-cre .tl{font-size:13px;color:#b06a2a;margin-top:0.12em;font-weight:700;letter-spacing:1px;line-height:1;}
+    .mb-cre .tl small{color:#ab9c7a;font-weight:400;font-size:0.78em;letter-spacing:0;}
+    .mb-cre .no-t{font-size:11px;color:#b6a984;margin-top:0.3em;}
+    /* 拡大の標本カード */
+    #mb-detail{position:absolute;inset:0;z-index:8;display:none;align-items:center;justify-content:center;background:rgba(40,32,18,0.5);backdrop-filter:blur(2px);padding:1em;}
+    #mb-detail.on{display:flex;}
+    #mb-detail-card{position:relative;width:min(320px,88%);background:#fffdf6;border-radius:10px;padding:1.5em 1.4em 1.3em;text-align:center;box-shadow:0 12px 34px rgba(0,0,0,0.45);border:1px solid #e6dabc;}
+    #mb-detail-card .big{width:150px;height:150px;object-fit:contain;}
+    #mb-detail-card h3{margin:0.1em 0;font-size:19px;color:#3b3024;letter-spacing:0.06em;}
+    #mb-detail-card .dd{font-size:13px;color:#6a5a3c;line-height:1.7;margin:0.4em 0.2em;}
+    #mb-detail-card .meta{font-size:12.5px;color:#b06a2a;margin-top:0.5em;font-weight:700;}
+    #mb-detail-card .fst{font-size:12px;color:#8a7550;margin-top:0.25em;}
+    #mb-detail-x{position:absolute;right:8px;top:5px;border:none;background:none;font-size:20px;color:#8a7550;cursor:pointer;}
     #mb-photo-btn{display:block;margin:1.5em auto 0.5em;appearance:none;border:none;cursor:pointer;padding:0.6em 2em;font-size:15px;font-family:inherit;color:#fff;background:#6a7088;border-radius:999px;}
     #mb-photo-n{text-align:center;color:#9a8a6a;font-size:13px;}
   `
@@ -13687,9 +13778,20 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
   const btn = $('button', '', document.body); btn.id = 'mb-btn'; btn.textContent = '📔'; btn.title = 'おもいで'
   const modal = $('div', '', document.body); modal.id = 'mb-modal'
   modal.innerHTML = '<div id="mb-card"><button id="mb-close" title="とじる">×</button>'
+    + '<div id="mb-head">なつやすみの おもいで帳<small>えにっき ・ しゃしん ・ ずかん ・ たいそう</small></div>'
     + '<div id="mb-tabs"><button class="mb-tab on" data-t="diary">えにっき</button><button class="mb-tab" data-t="photo">しゃしん</button><button class="mb-tab" data-t="zukan">ずかん</button><button class="mb-tab" data-t="taiso">たいそう</button></div>'
-    + '<div id="mb-body"></div></div>'
+    + '<div id="mb-body"></div>'
+    + '<div id="mb-detail"><div id="mb-detail-card"></div></div></div>'
   const bodyEl = modal.querySelector('#mb-body'), tabs = [...modal.querySelectorAll('.mb-tab')]
+  const detail = modal.querySelector('#mb-detail'), detailCard = modal.querySelector('#mb-detail-card')
+  detail.addEventListener('click', (e) => { if (e.target === detail) detail.classList.remove('on') })
+  const tally = (n) => { const gg = Math.floor(n / 5), r = n % 5; return '正'.repeat(gg) + (r ? '<span style="letter-spacing:2px">' + '丨'.repeat(r) + '</span>' : '') } // 数え＝正の字＋余りの棒
+  function openDetail(k) {
+    const isFish = CREATURES['さかな'].some((c) => c.k === k), c = CREATURES[isFish ? 'さかな' : 'むし'].find((x) => x.k === k)
+    if (!c) return; const n = (isFish ? fish.kinds : caught.kinds)[k] || 0, f = (isFish ? fish.first : caught.first)[k]
+    detailCard.innerHTML = `<button id="mb-detail-x">×</button><img class="big" src="${c.e}"><h3>${c.k}</h3><div class="dd">${c.d}</div><div class="meta">つかまえた かず：${tally(n)} <span style="font-weight:400;color:#8a7550">(${n})</span></div>` + (f ? `<div class="fst">はじめて：${f.day}にちめ ${f.tw}${f.place ? '・' + f.place + 'で' : ''}</div>` : '')
+    detail.classList.add('on'); detailCard.querySelector('#mb-detail-x').addEventListener('click', () => detail.classList.remove('on'))
+  }
   let cur = 'diary'
   function renderDiary() {
     const { title, body } = buildDiaryEntry()
@@ -13705,14 +13807,20 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
   }
   function renderZukan() {
     const got = (k, isFish) => (isFish ? fish.kinds : caught.kinds)[k] || 0
-    let html = '<h4>むし・さかな ずかん</h4><div id="mb-zukan">'
-    for (const [grp, isFish] of [['むし', false], ['さかな', true]]) for (const c of CREATURES[grp]) {
-      const n = got(c.k, isFish), has = n > 0
-      const f = has ? (isFish ? fish.first : caught.first)[c.k] : null // はじめて出会った思い出（あれば添える）
-      const fstHtml = f ? `<div class="ct" style="opacity:.78;font-size:.82em">はじめて：${f.day}にちめ ${f.tw}${f.place ? '・' + f.place + 'で' : ''}</div>` : ''
-      html += `<div class="mb-cre ${has ? 'got' : 'no'}"><div class="em"><img src="${c.e}"></div><div class="nm">${has ? c.k : '？？？'}</div>` + (has ? `<div class="ds">${c.d}</div><div class="ct">${n}ひき</div>${fstHtml}` : '<div class="ds">まだ つかまえていない</div>') + '</div>'
+    let total = 0, have = 0
+    for (const grp in CREATURES) for (const c of CREATURES[grp]) { total++; if (got(c.k, grp === 'さかな') > 0) have++ }
+    let html = `<div id="mb-zk-head"><h4>むし・さかな ずかん</h4><div id="mb-zk-prog">あつめた ${have} / ${total}<div id="mb-zk-bar"><i style="width:${Math.round(have / total * 100)}%"></i></div></div></div>`
+    for (const [grp, isFish, label] of [['むし', false, 'む　し'], ['さかな', true, 'さ か な']]) {
+      html += `<div class="mb-zk-cat">${label}</div><div class="mb-zukan">`
+      for (const c of CREATURES[grp]) { const n = got(c.k, isFish), has = n > 0
+        html += has
+          ? `<div class="mb-cre got" data-k="${c.k}"><div class="em"><img src="${c.e}"></div><div class="nm">${c.k}</div><div class="tl">${tally(n)} <small>${n}</small></div></div>`
+          : `<div class="mb-cre no"><div class="em"><img src="${c.e}"></div><div class="nm">？？？</div><div class="no-t">みはっけん</div></div>`
+      }
+      html += '</div>'
     }
-    bodyEl.innerHTML = html + '</div>'
+    bodyEl.innerHTML = html
+    for (const el of bodyEl.querySelectorAll('.mb-cre.got')) el.addEventListener('click', () => openDetail(el.dataset.k))
   }
   function renderTaisoCard() {
     const cnt = taisoCard.filter(Boolean).length
