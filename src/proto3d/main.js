@@ -11966,6 +11966,51 @@ canvas.addEventListener('pointercancel', onUp)
 addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; pokeUI(); if (e.key === ' ') doJump() })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 
+// ── コントローラー対応（Backbone One等の物理ゲームパッド）。ブラウザ標準の Gamepad API を毎フレームpoll＝タッチ/キーと完全併用・外部依存なし（ユーザー要望2026-07-05）──
+const pad = { on: false, lx: 0, ly: 0, rx: 0, ry: 0, btn: {}, prev: {} }
+const PAD_BTN = ['A', 'B', 'X', 'Y', 'L1', 'R1', 'L2', 'R2', 'SELECT', 'START', 'L3', 'R3', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'HOME'] // standard mapping のボタン順
+const padHit = (n) => !!pad.btn[n] && !pad.prev[n] // 押した瞬間（エッジ）
+const padAxis = (n) => pad.on && !!pad.btn[n] // 押している間（ホールド）
+function padTapEl(id) { const el = document.getElementById(id); if (el && el.style.display !== 'none' && !el.disabled) { try { el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true })) } catch (e) { if (el.click) el.click() } } } // 既存ボタン(tapBtn=pointerdownで発火)を合成イベントで再利用＝各ボタンのロジックをそのまま流用
+function pollGamepad() {
+  const gps = (navigator.getGamepads && navigator.getGamepads()) || []
+  let gp = null
+  for (const g of gps) { if (g && g.connected && g.mapping === 'standard') { gp = g; break } }
+  if (!gp) for (const g of gps) { if (g && g.connected) { gp = g; break } } // standard以外の物も一応拾う
+  if (!gp) { if (pad.on) { pad.on = false; document.body.classList.remove('gamepad-on') } pad.lx = pad.ly = pad.rx = pad.ry = 0; pad.btn = {}; pad.prev = {}; return }
+  if (!pad.on) { pad.on = true; document.body.classList.add('gamepad-on'); if (typeof showToast === 'function') showToast('🎮 コントローラーが つながったよ'); pokeUI() }
+  const dz = (v) => { v = v || 0; const a = Math.abs(v); return a < 0.16 ? 0 : Math.sign(v) * (a - 0.16) / 0.84 } // デッドゾーン＋再正規化
+  const ax = gp.axes || []; pad.lx = dz(ax[0]); pad.ly = dz(ax[1]); pad.rx = dz(ax[2]); pad.ry = dz(ax[3])
+  pad._n = (pad._n || 0) + 1; pad._raw = ax.length ? +(+ax[1]).toFixed(2) : 'noaxes' // 計器（検証用）：poll回数と生の左スティックY
+  pad.prev = pad.btn; pad.btn = {}
+  const b = gp.buttons || []
+  for (let i = 0; i < PAD_BTN.length; i++) pad.btn[PAD_BTN[i]] = !!(b[i] && b[i].pressed)
+  if (Math.hypot(pad.lx, pad.ly) > 0.12 || Math.hypot(pad.rx, pad.ry) > 0.12 || b.some((x) => x && x.pressed)) pokeUI() // 操作中はHUDを消さない
+  handlePadButtons()
+}
+function handlePadButtons() {
+  const aerial = floatMode || flying
+  if (dialogue) { if (padHit('A') || padHit('X') || padHit('B')) advanceDialogue(); return } // 会話中：A/X/Bで「次へ」
+  if (padHit('A')) { if (mode === 'walk' && !aerial) doJump(); else if (mode !== 'walk') padTapEl('act') } // A＝ジャンプ（座り/滑走等ではその場のボタン）
+  if (padHit('X')) { if (npcEl && npcEl.style.display !== 'none') padTapEl('npc'); else padTapEl('act') } // X＝話す/その場の行動（すわる・のる・する）
+  if (padHit('B')) { if (mode !== 'walk') { if (typeof standUp === 'function') standUp() } else if (floatMode && !floatExiting) padTapEl('float'); else if (fpv) toggleFpv() } // B＝もどる/立つ/降りる
+  if (padHit('Y')) padTapEl('pm-btn') // Y＝📷しゃしん
+  if (padHit('L1') && mode === 'walk' && !doingTaiso) toggleFpv() // L1＝🔭主観視点
+  if (padHit('R1')) padTapEl('bike') // R1＝🚲じてんしゃ
+  if (padHit('L3')) padTapEl('float') // 左スティック押込＝🎈浮遊トグル
+  if (padHit('START')) { if (typeof openSettings === 'function') openSettings() } // START＝⚙せってい
+  if (padHit('UP')) { if (typeof openDiary === 'function') openDiary() } // 十字上＝📔おもいで帳
+  if (!aerial) { if (padHit('R2')) zoomStep(0.8); if (padHit('L2')) zoomStep(1.25) } // 歩行時 L2/R2＝ズーム（飛行/浮遊時は上下＝各移動式で pad.btn を加算）
+}
+function applyPadLook(dt) {
+  if (!pad.on || (Math.abs(pad.rx) < 0.001 && Math.abs(pad.ry) < 0.001)) return
+  const s = 2.7 * dt * lookSens, cl = THREE.MathUtils.clamp
+  if (flying) { fly.yaw -= pad.rx * s; fly.pitch = cl(fly.pitch - pad.ry * s, -1.45, 1.45) }
+  else if (mode === 'sit' || mode === 'lie') { seatLook.yaw -= pad.rx * s; seatLook.pitch = cl(seatLook.pitch + pad.ry * s, -1.4, 1.45) }
+  else if (mode === 'sliding' && sliding) { sliding.lookYaw = cl(sliding.lookYaw - pad.rx * s, -1.4, 1.4); sliding.lookPitch = cl(sliding.lookPitch - pad.ry * s, -0.8, 0.95) }
+  else { camCtl.yaw -= pad.rx * s; const pLo = (fpv || floatMode) ? -1.4 : camCtl.minPitch, pHi = (fpv || floatMode) ? 1.4 : camCtl.maxPitch; camCtl.pitch = cl(camCtl.pitch - pad.ry * s, pLo, pHi); camManualTimer = 1.8 }
+}
+
 // ジャンプ・ズームの専用ボタン（一般的なゲーム配置：右下ジャンプ、右側＋／－ズーム）
 const jumpEl = document.getElementById('jump')
 const zinEl = document.getElementById('zin')
@@ -13229,6 +13274,7 @@ function update(dt) {
     let sx = 0, sy = 0
     if (puni.active && Math.hypot(puni.vx, puni.vy) > 0.06) { sx = puni.vx; sy = puni.vy }
     else if (kx || kz) { sx = kx; sy = kz }
+    else if (pad.on && Math.hypot(pad.lx, pad.ly) > 0.06) { sx = pad.lx; sy = pad.ly } // コントローラー左スティック（浮遊の水平移動もこの経路）
     if (dialogue || diaryOpen || fishState !== 'idle' || doingTaiso) { sx = 0; sy = 0 } // 会話・絵日記・釣り・ラジオ体操中は歩かない
     if (flying) { sx = 0; sy = 0 } // 飛行中は主人公は止まる（ぷにコンはカメラの移動に使う）
     const mag = Math.min(1, Math.hypot(sx, sy))
@@ -13284,7 +13330,7 @@ function update(dt) {
         boy.position.y -= Math.max(dt * 14, (boy.position.y - gFloor) * Math.min(1, dt * 3)); floatVel.set(0, 0, 0)
         if (boy.position.y <= gFloor + 0.05) { boy.position.y = gFloor; floatMode = false; floatExiting = false; document.body.classList.remove('floating'); if (!flying) { document.body.classList.remove('dev-float', 'dev-aerial'); setDevCoord(false); const fu = document.getElementById('flyui'); if (fu) fu.classList.remove('on') } if (fpv) { fpv = false; camSnap = true; const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.remove('on'); if (setFpvBtn) { setFpvBtn.classList.remove('on'); setFpvBtn.textContent = 'OFF' } } } // 着地したら主観視点は解除＋開発の座標読みUIも畳む（座標モード解除＝主人公を戻す。地上で一人称のまま取り残されない）
       } else {
-        const ty = (floatUp - floatDown) * 6.0 // ▲うく/▼おりる
+        const ty = (floatUp - floatDown + (padAxis('R2') ? 1 : 0) - (padAxis('L2') ? 1 : 0)) * 6.0 // ▲うく/▼おりる（＋コントローラー R2=上/L2=下）
         floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 1.6) // ふんわり上下＝慣性を強めて“ふわり”動き出し/止まりに（2.4→1.6・ユーザー要望2026-06-29）
         const ceil = gFloor + floatMaxH
         // 天井/地面ぎわは速度をやわらかく吸収＝限界で“カクッ”と止まらない（ふわり減速）
@@ -13782,6 +13828,7 @@ renderer.setAnimationLoop(() => { try {
   // 高い俯瞰で全域(約316万tri/フレーム)を描く重い構図を、表示時間が長いタイトルでスマホの発熱/電池に優しく（B⑩・far絞りはtri-8%で構図も痩せるため不採用＝近景が主因）
   if (frameAcc < (titleView ? 1 / 18 : 1 / 30)) return
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
+  pollGamepad(); applyPadLook(dt) // コントローラー：スティック/ボタンを読み、右スティックで視点を回す（移動は各移動式でpad.lx/lyを参照）
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
   if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'suspended') { try { listener.context.resume() } catch (e) {} } // suspendedからのみ自動復帰（!=='running'で毎フレームresumeするとiOS録画中の割り込みと競合して“じじじ”が悪化したため元に戻す・2026-06-24）
   // 遠くの音（電車・犬）＝たまに鳴って世界に奥行きと郷愁を。音ON＋再生中のときだけ（停止中ctxにスケジュールしない）
@@ -14481,9 +14528,10 @@ function flyCam(dt) {
   const rgtx = -Math.cos(fly.yaw), rgtz = Math.sin(fly.yaw)                     // 右（水平）＝歩きの camRight=(-fwd.z,fwd.x) と同じ向き（スワイプ方向＝進む向き。2026-06-19反転修正）
   let mf = 0, mr = 0
   if (puni.active) { mf = -puni.vy; mr = puni.vx } // 左スティック：上=前進・横=左右
+  if (pad.on) { mf += -pad.ly; mr += pad.lx } // コントローラー左スティック（飛行の水平移動）
   mf += (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0)
   mr += (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0)
-  const keyUp = (keys['e'] || keys[' '] ? 1 : 0) - (keys['q'] || keys['shift'] ? 1 : 0)
+  const keyUp = (keys['e'] || keys[' '] ? 1 : 0) - (keys['q'] || keys['shift'] ? 1 : 0) + (padAxis('R2') ? 1 : 0) - (padAxis('L2') ? 1 : 0) // ＋コントローラー R2=上/L2=下（飛行の縦移動）
   const spd = FLY_SPEEDS[fly.speedI]
   const tvx = (fwdx * mf + rgtx * mr) * spd                       // 前進は視線方向＝上を向いて進めば上昇
   const tvy = (fwdy * mf + (flyUp - flyDown) + keyUp) * spd       // ＋ボタン/キーで純粋な縦移動
@@ -14880,6 +14928,7 @@ window.__proto3d = {
   _perfOccl(hx, hz, cgx, cgz) { const t0 = performance.now(); for (let f = 0; f < 60; f++) { for (let s = 0.35; s <= 0.92; s += 0.12) { const px = hx + (cgx - hx) * s, pz = hz + (cgz - hz) * s; let blocked = false; const ci = Math.floor(px / CG_CELL), cj = Math.floor(pz / CG_CELL); for (let di = -1; di <= 1 && !blocked; di++) for (let dj = -1; dj <= 1 && !blocked; dj++) { const a = cgrid.get(cgKey(ci + di, cj + dj)); if (!a) continue; for (const idx of a) { const c = colliders[idx]; if (c.box) { const dx = px - c.x, dz = pz - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; if (Math.abs(lx) < c.hw + 0.3 && Math.abs(lz) < c.hd + 0.3) { blocked = true; break } } else { const rr = c.r + 0.3; if ((px - c.x) ** 2 + (pz - c.z) ** 2 < rr * rr) { blocked = true; break } } } } if (blocked) break } } return +(performance.now() - t0).toFixed(2) }, // 検証用：新しいグリッド版カメラ遮蔽の60フレーム所要ms（旧・全コライダー走査との比較）
   _mem() { const m = renderer.info.memory, pm = (performance && performance.memory) ? performance.memory : null; return { geometries: m.geometries, textures: m.textures, heapMB: pm ? +(pm.usedJSHeapSize / 1048576).toFixed(1) : null } }, // P6：常駐メモリ（GPUジオメトリ/テクスチャ＋JSヒープ）＝モバイル生存の予算ゲート用
   get _camYaw() { return camCtl.yaw }, get _facing() { return facing }, // 検証用：カメラ追従
+  get _pad() { return { on: pad.on, lx: +pad.lx.toFixed(2), ly: +pad.ly.toFixed(2), rx: +pad.rx.toFixed(2), ry: +pad.ry.toFixed(2), A: !!pad.btn.A, R1: !!pad.btn.R1, n: pad._n || 0, raw: pad._raw } }, // 検証用：コントローラーの読み取り状態＋poll計器
   _face(r) { facing = r; boy.rotation.y = r }, // 検証用：主人公の向きを固定（後ろ姿の撮影など。loopのlerpが facing に追従するので固定される）
   aimSun(t) { // 検証用：太陽の方を向いて座る（木漏れ日の確認）
     if (t !== undefined) { dayAuto = false; tday = t; setTimeOfDay(t) }
