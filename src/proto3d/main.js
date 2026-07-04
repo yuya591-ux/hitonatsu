@@ -11352,6 +11352,7 @@ function buildDiaryEntry() {
   if (caught.count === 0 && fish.count === 0 && todayFlags.satHill) body.push('きょうは 何も つかまえなかった。でも、それで よかった きがする。')
   if (caught.count && fish.count) body.push('むしも さかなも つかまえた。…きょうは 大りょうだ。')
   if (fish.first && fish.first['ぬし'] && fish.first['ぬし'].day === day) body.push('二ツ池の ぬしを つり上げた。ずっしりと 重くて、しばらく 手が ふるえた。この夏の 手がら。') // ⑥宝物イベントを絵日記に刻む（その日だけ）
+  if (typeof CREATURES !== 'undefined' && Object.keys(CREATURES).every((grp) => CREATURES[grp].every((cc) => (grp === 'さかな' ? fish.kinds : caught.kinds)[cc.k]))) body.push('ずかんが、ぜんぶ うまった。この夏、たくさんの いのちに 会えた きがする。') // ⑦全種コンプの喜び（皆勤は上のtaiso行が担当）
   if (todayFlags.metGirl && todayFlags.sawView) body.push('女の子と はなした日に 見た 景色は、なんだか ずっと おぼえて いそうだ。')
   if (todayFlags.climbedRoof && todayFlags.layDown) body.push('高い ところと、草の上。きょうは ずいぶん いろんな 空を 見た。')
   if (!body.length) body.push(dpick(['きょうは のんびり あるいた。なんでもない 一日。', 'とくに なにも しなかった。でも、わるくない 一日だった。', 'ただ あるいた。せみの声を 聞きながら、ずっと あるいた。']))
@@ -13964,6 +13965,12 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     .ns-find-i{width:22px;height:22px;flex:none;}
     .ns-find.no .ns-find-i{filter:grayscale(1) opacity(0.4);}
     .ns-find.no{color:#a89a7a;}
+    .ns-firsts{margin-top:2px;}
+    .ns-first{display:flex;align-items:baseline;gap:0.7em;padding:0.34em 0.2em;border-bottom:1px dotted #e6dabc;font-family:"KleeOne","Hiragino Mincho ProN",serif;}
+    .ns-first-d{color:#b06a2a;font-weight:700;font-size:14px;flex:none;width:2.8em;text-align:right;}
+    .ns-first-d small{font-size:0.72em;font-weight:400;}
+    .ns-first-n{color:#3b3024;font-weight:700;font-size:13px;flex:none;width:5.8em;}
+    .ns-first-p{color:#8a7550;font-size:12px;}
     .ns-finds{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:5px 10px;}
     .ns-find{display:flex;align-items:center;gap:0.5em;font-size:13px;padding:0.32em 0.2em;font-family:"KleeOne","Hiragino Mincho ProN",serif;}
     .ns-find.got{color:#3b3024;}
@@ -14073,6 +14080,11 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     html += '<div class="mb-zk-cat">なつ みつけた</div><div class="ns-finds">'
     for (const f of SUMMER_FINDS) { const got = seenSummer[f.k]; html += `<div class="ns-find ${got ? 'got' : 'no'}"><img class="ns-find-i" src="${findArt(f.k)}" alt="">${f.n}</div>` }
     html += '</div>'
+    // ⑧はじめて帳の年表＝初対面の虫魚を日付順に並べた夏の年表（既存のfirst[]を活用）
+    const firsts = []
+    for (const [grp, isFish] of [['むし', false], ['さかな', true]]) for (const cc of CREATURES[grp]) { const ff = (isFish ? fish.first : caught.first)[cc.k]; if (ff) firsts.push({ n: cc.k, day: ff.day, tw: ff.tw, place: ff.place }) }
+    firsts.sort((a, b) => (a.day - b.day) || 0)
+    if (firsts.length) { html += '<div class="mb-zk-cat">はじめて であった</div><div class="ns-firsts">'; for (const ff of firsts) html += `<div class="ns-first"><span class="ns-first-d">${ff.day}<small>にち</small></span><span class="ns-first-n">${ff.n}</span><span class="ns-first-p">${ff.tw}${ff.place ? '・' + ff.place : ''}</span></div>`; html += '</div>' }
     bodyEl.innerHTML = html
   }
   function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : cur === 'zukan' ? renderZukan() : cur === 'taiso' ? renderTaisoCard() : renderNatsu() }
