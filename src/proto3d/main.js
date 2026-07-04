@@ -6850,6 +6850,16 @@ function makeBug(x, y, z, kind) {
     const shine = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 7), toon(0x7a5c34)); shine.scale.set(0.86, 0.5, 1.1); shine.position.set(0, 0.11, 0.02); g.add(shine) // 背の照り（明度差のハイライト＝甲虫の艶）
     const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.32, 6), toon(0x73552f)); horn.position.set(0, 0.13, 0.34); horn.rotation.x = -0.7; g.add(horn) // 頭角（長く前へ反る・本体より明るい飴茶でシルエットを立てる）
     const thHorn = new THREE.Mesh(new THREE.ConeGeometry(0.038, 0.16, 6), toon(0x73552f)); thHorn.position.set(0, 0.15, 0.12); thHorn.rotation.x = -0.35; g.add(thHorn) // 胸角（短くヘラ状＝頭角と対になる2本目）
+  } else if (kind === 'クワガタ') {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), toon(0x3a2a18)); body.scale.set(1, 0.5, 1.45); g.add(body) // 平たい黒褐色の甲
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 7), toon(0x5a4228)); shine.scale.set(0.8, 0.4, 1.1); shine.position.set(0, 0.08, 0); g.add(shine) // 背の照り
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), toon(0x2c2013)); head.scale.set(1, 0.7, 0.9); head.position.set(0, 0.05, 0.32); g.add(head)
+    for (const s of [-1, 1]) { const mand = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.032, 0.26), toon(0x241a0f)); mand.position.set(s * 0.08, 0.06, 0.46); mand.rotation.y = s * 0.42; g.add(mand); const tip = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.032, 0.11), toon(0x241a0f)); tip.position.set(s * 0.03, 0.06, 0.6); tip.rotation.y = s * 1.15; g.add(tip) } // 大あご（前へ＋先が内へ＝クワガタ）
+  } else if (kind === 'バッタ') {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), toon(0x6f9040)); body.scale.set(0.85, 0.85, 2.3); g.add(body) // 緑の細長い胴
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), toon(0x7c9a48)); head.position.set(0, 0.02, 0.26); g.add(head)
+    for (const s of [-1, 1]) { const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.02, 0.22, 6), toon(0x5c7c34)); thigh.position.set(s * 0.1, 0.03, -0.08); thigh.rotation.set(0.7, 0, s * 0.4); g.add(thigh); const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.2, 5), toon(0x4c6a2c)); shin.position.set(s * 0.14, 0.06, -0.2); shin.rotation.set(-0.5, 0, s * 0.2); g.add(shin) } // 大きな後脚（跳ぶ足）
+    for (const s of [-1, 1]) { const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.22, 4), toon(0x4a5a2c)); ant.position.set(s * 0.03, 0.1, 0.36); ant.rotation.x = -0.7; g.add(ant) } // 触角
   } else {
     // セミ＝頭/胸/腹の節ある胴（合成）＋背に伏せた半透明のV字の翅2枚（合成）。“黒い球”からの脱却。各1draw call
     const body = new THREE.Mesh(CICADA_BODY_GEO, CICADA_BODY_MAT); g.add(body)
@@ -6865,8 +6875,10 @@ makeBug(-16, 2.6, 2.5, 'セミ')
 makeBug(9, 2.0, -21.5, 'セミ')
 // ── 獅子ヶ谷の木にも カブトムシ/セミ（夏休みの虫取り＝旧プロト町だけでなく今いる谷戸でも）。核の近くの木の幹に止める ──
 { const ts = yatoTreePos.slice(); for (let i = ts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = ts[i]; ts[i] = ts[j]; ts[j] = t } // シャッフル
-  ts.slice(0, 16).forEach(([x, z, y], i) => { const kind = i % 2 === 0 ? 'カブトムシ' : 'セミ', ang = Math.random() * 6.283, tr = 0.26
-    makeBug(x + Math.cos(ang) * tr, y + (kind === 'セミ' ? 2.0 : 1.3) + Math.random() * 0.3, z + Math.sin(ang) * tr, kind) }) } // カブトムシは幹の低め・セミは少し上
+  ts.slice(0, 18).forEach(([x, z, y], i) => { const kind = ['カブトムシ', 'クワガタ', 'セミ'][i % 3], ang = Math.random() * 6.283, tr = 0.26
+    makeBug(x + Math.cos(ang) * tr, y + (kind === 'セミ' ? 2.0 : 1.3) + Math.random() * 0.3, z + Math.sin(ang) * tr, kind) }) } // カブトムシ/クワガタは幹の低め・セミは少し上
+// 草むらのバッタ（木のそばの開けた草地・地面レベル）＝虫取りを谷戸で足す（2026-07-04 ユーザー要望「むしを増やす」）
+for (const [x, z] of yatoTreePos.slice(0, 6)) { const gx = x + 2.2, gz = z + 2.2, gy = heightAtYato(gx, gz); if (gy > 1.5) makeBug(gx, gy + 0.14, gz, 'バッタ') }
 
 // ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
 // 猫らしさの要＝①すらりと細い胴(犬と差別化) ②大きな三角の立ち耳 ③平たい顔＋小さな鼻面 ④大きなアーモンドの目＋縦長ひとみ ⑤ヒゲ ⑥上に立てた長い尾の先がくるり（ユーザー「全く猫っぽく見えない・大幅刷新を」2026-06-28）
@@ -13721,6 +13733,19 @@ function creatureArt(kind) {
     wash(cx, cy + 8, 11, 26, '#6e5d3c', '#3c3120'); for (let i = 0; i < 4; i++) seg(cx - 9, cy + i * 8, cx + 9, cy + i * 8, 1)
     wash(cx, cy - 20, 12, 11, '#5c4c31', '#33281a'); inkE(cx, cy - 20, 12, 11, 0, 2); wash(cx, cy - 32, 9, 6, '#4a3c26', '#2a2013')
     eye(cx - 8, cy - 33, 3.2, true); eye(cx + 8, cy - 33, 3.2, true)
+  } else if (kind === 'クワガタ') { // 黒褐色の平たい甲＋大きな湾曲した大あご＋6脚
+    for (const s of [-1, 1]) for (const ly of [0, 1]) seg(cx + s * 11, cy + ly * 12, cx + s * 27, cy + ly * 15 + 6, 3)
+    wash(cx, cy + 8, 20, 26, '#4a3420', '#231710'); inkE(cx, cy + 8, 20, 26, 0, 2.2); mottle(cx - 8, cy - 2, 9, 13, '#7c5c34', 0.1, 0.3); seg(cx, cy - 14, cx, cy + 32, 1.2)
+    wash(cx, cy - 19, 11, 9, '#3a2814', '#1e1309'); inkE(cx, cy - 19, 11, 9, 0, 2)
+    for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx + s * 6, cy - 26); g.quadraticCurveTo(cx + s * 22, cy - 42, cx + s * 7, cy - 54); line(4.5); g.beginPath(); g.moveTo(cx + s * 15, cy - 40); g.lineTo(cx + s * 8, cy - 43); g.moveTo(cx + s * 12, cy - 48); g.lineTo(cx + s * 6, cy - 50); line(2.4) } // 大あご（湾曲＋内歯）
+    eye(cx - 8, cy - 20, 2.4, true); eye(cx + 8, cy - 20, 2.4, true)
+  } else if (kind === 'バッタ') { // 緑の細長い体＋大きな後脚＋触角
+    wash(cx - 2, cy + 4, 11, 28, '#79993f', '#47672a', -0.12); inkE(cx - 2, cy + 4, 11, 28, -0.12, 2)
+    g.beginPath(); g.moveTo(cx - 2, cy + 2); g.lineTo(cx - 17, cy + 13); line(6); g.beginPath(); g.moveTo(cx - 17, cy + 13); g.lineTo(cx - 25, cy - 8); line(2.4) // 後脚（太もも＋すね）
+    for (const s of [0, 1, 2]) seg(cx + 4, cy + 2 + s * 8, cx + 16, cy + 8 + s * 8, 1.4) // 前脚
+    wash(cx + 4, cy - 24, 8, 7, '#84a24a', '#577a30'); inkE(cx + 4, cy - 24, 8, 7, 0, 1.7)
+    for (let k = 0; k < 2; k++) { g.beginPath(); g.moveTo(cx + 7, cy - 28); g.quadraticCurveTo(cx + 22 + k * 5, cy - 42, cx + 31 + k * 6, cy - 38); line(1.3) }
+    eye(cx + 2, cy - 25, 2.5)
   } else if (kind === 'ザリガニ') { // アメリカザリガニ＝赤い体＋大ハサミ＋尾扇＋触角
     for (const s of [-1, 1]) for (let l = 0; l < 3; l++) seg(cx + s * 4, cy + 4 + l * 7, cx + s * 21, cy + 2 + l * 10, 2)
     for (const s of [-1, 1]) { seg(cx + s * 8, cy - 4, cx + s * 22, cy - 20, 4); wash(cx + s * 30, cy - 26, 11, 7, '#dd5c3c', '#9e2e1a', s * 0.5); g.beginPath(); g.moveTo(cx + s * 32, cy - 31); g.lineTo(cx + s * 43, cy - 35); g.moveTo(cx + s * 32, cy - 21); g.lineTo(cx + s * 43, cy - 23); line(2.4) }
@@ -13768,7 +13793,9 @@ const CREATURES = { // むし・さかな図鑑のカタログ（caught.kinds/fi
   むし: [
     { k: 'チョウ', d: 'はらっぱを ひらひら。とまると はねを とじる。' },
     { k: 'カブトムシ', d: '木の みきに しがみつく。つのが りっぱ。' },
+    { k: 'クワガタ', d: '木の みきの ほら。大きな はさみが かっこいい。' },
     { k: 'セミ', d: 'ジリジリと 夏を ならす。さわると ビーッと とぶ。' },
+    { k: 'バッタ', d: 'くさむらから ぴょん。大きな あしで とおくへ とぶ。' },
   ],
   さかな: [
     { k: 'フナ', d: '池の ぬしみたいに ゆったり。' },
