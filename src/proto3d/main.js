@@ -13720,7 +13720,9 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
 ;(function buildMemoryBook() {
   const $ = (tag, css, parent) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e }
   const style = document.createElement('style')
+  const kleeUrl = ((import.meta.env && import.meta.env.BASE_URL) || '/') + 'fonts/klee-one-400.woff2' // 同梱の教科書体フォント(Klee One・SIL OFL)＝おもいで帳だけに使う。外部CDN不要で"自分がいなくても動く"。unicode-rangeでかな/漢字のみ担当し英数字はゴシックへ委譲
   style.textContent = `
+    @font-face{font-family:"KleeOne";src:url("${kleeUrl}") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+3000-303F,U+3040-30FF,U+31F0-31FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FF00-FFEF;}
     #mb-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 156px + env(safe-area-inset-top));z-index:38;appearance:none;border:none;cursor:pointer;
       width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(74,64,50,0.7);box-shadow:0 3px 10px rgba(20,24,40,0.3);}
     body.titling #mb-btn,body.pm-on #mb-btn{display:none !important;}
@@ -13728,7 +13730,7 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     #mb-modal.on{display:flex;}
     /* 器＝夏休みの一冊の帳面：紙の質感＋綴じの影＋角丸 */
     #mb-card{position:relative;width:min(700px,95vw);max-height:92vh;display:flex;flex-direction:column;border-radius:7px 12px 12px 7px;overflow:hidden;
-      background:repeating-linear-gradient(0deg,rgba(120,90,50,0.02) 0 3px,transparent 3px 6px),radial-gradient(120% 92% at 32% 10%,#fdf7e8 0%,#f3e7cc 76%,#ead9b6 100%);
+      background:radial-gradient(75% 55% at 90% 94%,rgba(150,112,60,0.16),transparent 62%),radial-gradient(60% 45% at 7% 6%,rgba(150,112,60,0.12),transparent 55%),repeating-linear-gradient(0deg,rgba(120,90,50,0.05) 0 3px,transparent 3px 6px),radial-gradient(120% 92% at 32% 10%,#fdf7e8 0%,#f3e7cc 76%,#ead9b6 100%);
       box-shadow:0 18px 50px rgba(0,0,0,0.55),inset 0 0 0 1px rgba(140,110,70,0.18);}
     #mb-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:15px;z-index:6;pointer-events:none;background:linear-gradient(90deg,rgba(85,62,36,0.3),rgba(85,62,36,0.05) 60%,transparent);}
     #mb-head{position:relative;padding:0.8em 1em 0.66em 1.5em;background:linear-gradient(#cbaa70,#bd9a5a);color:#3a2c15;font-weight:700;letter-spacing:0.14em;font-size:15px;text-shadow:0 1px 0 rgba(255,246,222,0.4);box-shadow:0 2px 7px rgba(80,60,30,0.25);}
@@ -13737,7 +13739,7 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     .mb-tab{flex:1;appearance:none;border:none;cursor:pointer;padding:0.58em 0 0.5em;font-size:14px;font-family:inherit;color:#8a7550;background:rgba(219,203,166,0.7);border-radius:8px 8px 0 0;letter-spacing:0.05em;box-shadow:inset 0 -3px 6px rgba(120,90,50,0.08);}
     .mb-tab.on{color:#3b3024;font-weight:700;background:#fdf8ec;box-shadow:0 -2px 6px rgba(120,90,50,0.1);}
     #mb-body{padding:1.15em 1.35em 1.6em;overflow:auto;color:#3b3024;background:#fdf8ec;flex:1;-webkit-overflow-scrolling:touch;}
-    #mb-close{position:absolute;right:9px;top:8px;z-index:9;appearance:none;border:none;cursor:pointer;width:32px;height:32px;border-radius:50%;font-size:18px;background:rgba(85,62,36,0.28);color:#fbf2df;}
+    #mb-close{position:absolute;right:9px;top:8px;z-index:9;appearance:none;border:none;cursor:pointer;width:40px;height:40px;border-radius:50%;font-size:19px;background:rgba(85,62,36,0.3);color:#fbf2df;}
     #mb-body h4{margin:0 0 0.7em;font-weight:700;letter-spacing:0.08em;color:#4a3a24;}
     #mb-body .line{margin:0.34em 0;line-height:1.75;font-size:15px;}
     #mb-pic img{width:100%;max-width:340px;display:block;margin:1.2em auto 0;border:6px solid #fff;border-radius:2px;box-shadow:0 5px 14px rgba(0,0,0,0.3);transform:rotate(-1.2deg);}
@@ -13770,15 +13772,20 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     #mb-detail-card .dd{font-size:13px;color:#6a5a3c;line-height:1.7;margin:0.4em 0.2em;}
     #mb-detail-card .meta{font-size:12.5px;color:#b06a2a;margin-top:0.5em;font-weight:700;}
     #mb-detail-card .fst{font-size:12px;color:#8a7550;margin-top:0.25em;}
-    #mb-detail-x{position:absolute;right:8px;top:5px;border:none;background:none;font-size:20px;color:#8a7550;cursor:pointer;}
-    #mb-photo-btn{display:block;margin:1.5em auto 0.5em;appearance:none;border:none;cursor:pointer;padding:0.6em 2em;font-size:15px;font-family:inherit;color:#fff;background:#6a7088;border-radius:999px;}
+    #mb-detail-x{position:absolute;right:6px;top:5px;border:none;background:none;font-size:22px;line-height:1;width:36px;height:36px;color:#8a7550;cursor:pointer;}
+    #mb-photo-btn{display:block;margin:1.5em auto 0.5em;appearance:none;border:none;cursor:pointer;padding:0.62em 2em;font-size:15px;font-family:inherit;color:#fff;background:#bd8a4e;border-radius:999px;box-shadow:0 3px 8px rgba(120,90,50,0.3);}
     #mb-photo-n{text-align:center;color:#9a8a6a;font-size:13px;}
+    /* 情緒書体（教科書体/明朝寄り・Klee One同梱で先頭が効く）＝見出し/日記本文/説明/表題。数字と極小の図鑑名はゴシック維持 */
+    #mb-head,#mb-body h4,#mb-detail-card h3,#mb-detail-card .dd,.mb-diary,.mb-diary .line{font-family:"KleeOne","Klee One","UD Digi Kyokasho NP-R","YuKyokasho","Hiragino Mincho ProN","Yu Mincho","Yu Gothic",serif;}
+    .mb-diary{max-width:25em;margin:0 auto;word-break:keep-all;overflow-wrap:break-word;line-break:strict;position:relative;}
+    .mb-diary .line{font-size:13.5px;line-height:2.05;letter-spacing:0.03em;color:#493d2d;margin:0.1em 0;} /* えにっき本文＝小さく＋行間広め＋褪せた墨＝詩情（ユーザー要望2026-07-04） */
+    .mb-diary h4{font-size:15px;color:#5a4526;letter-spacing:0.1em;}
   `
   document.head.appendChild(style)
   const btn = $('button', '', document.body); btn.id = 'mb-btn'; btn.textContent = '📔'; btn.title = 'おもいで'
   const modal = $('div', '', document.body); modal.id = 'mb-modal'
   modal.innerHTML = '<div id="mb-card"><button id="mb-close" title="とじる">×</button>'
-    + '<div id="mb-head">なつやすみの おもいで帳<small>えにっき ・ しゃしん ・ ずかん ・ たいそう</small></div>'
+    + '<div id="mb-head">なつやすみの おもいで帳<small>なつやすみの きろく</small></div>'
     + '<div id="mb-tabs"><button class="mb-tab on" data-t="diary">えにっき</button><button class="mb-tab" data-t="photo">しゃしん</button><button class="mb-tab" data-t="zukan">ずかん</button><button class="mb-tab" data-t="taiso">たいそう</button></div>'
     + '<div id="mb-body"></div>'
     + '<div id="mb-detail"><div id="mb-detail-card"></div></div></div>'
@@ -13799,7 +13806,7 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     let pic = null; try { pic = photoMode.latestPhoto() } catch (e) {}
     if (!pic) { try { pic = renderDiaryView() } catch (e) {} }
     if (pic) html += `<div id="mb-pic"><img src="${pic}"></div>`
-    bodyEl.innerHTML = html
+    bodyEl.innerHTML = '<div class="mb-diary">' + html + '</div>'
   }
   function renderPhoto() {
     bodyEl.innerHTML = `<h4>なつやすみの しゃしん</h4><div id="mb-photo-n">アルバムに ${photoMode.count}まい</div><button id="mb-photo-btn">アルバムを ひらく</button>`
@@ -13831,7 +13838,7 @@ for (const grp in CREATURES) for (const c of CREATURES[grp]) c.e = creatureArt(c
     bodyEl.innerHTML = html
   }
   function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : cur === 'zukan' ? renderZukan() : renderTaisoCard() }
-  function open() { modal.classList.add('on'); render() }
+  function open() { modal.classList.add('on'); const hs = modal.querySelector('#mb-head small'); if (hs) hs.textContent = `なつやすみ ${day}にちめ ・ ${timeWord(tday)}`; render() }
   function close() { modal.classList.remove('on') }
   btn.addEventListener('click', open)
   modal.querySelector('#mb-close').addEventListener('click', close)
