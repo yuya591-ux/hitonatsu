@@ -9,7 +9,8 @@ import { dirname, join, extname } from 'node:path'
 import { readdirSync, existsSync, mkdirSync } from 'node:fs'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = join(ROOT, 'dist'); const BASE = '/hitonatsu/'
-const EDGE = (() => { const c = join(ROOT, 'chrome'); if (existsSync(c)) for (const d of readdirSync(c)) { const p = join(c, d, 'chrome-win64', 'chrome.exe'); if (existsSync(p)) return p } return 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' })()
+// ブラウザの実行ファイル：CI等は環境変数で明示（PUPPETEER_EXECUTABLE_PATH / CHROME_PATH）。無ければローカル同梱chrome→Windows Edgeの順。※verify-proto3d.mjsと必ず同じ解決にすること（顔ゲートだけ環境変数を読まずCIのdeployが全て失敗した・2026-07-05）
+const EDGE = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || (() => { const c = join(ROOT, 'chrome'); if (existsSync(c)) for (const d of readdirSync(c)) { const p = join(c, d, 'chrome-win64', 'chrome.exe'); if (existsSync(p)) return p } return 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' })()
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.mp3': 'audio/mpeg', '.json': 'application/json', '.woff2': 'font/woff2' }
 const { createServer } = await import('node:http')
 const server = createServer(async (req, res) => { try { let p = decodeURIComponent(req.url.split('?')[0]); if (p.startsWith(BASE)) p = p.slice(BASE.length - 1); if (p === '/' || p === '') p = '/index.html'; const body = await readFile(join(DIST, p)); res.writeHead(200, { 'Content-Type': MIME[extname(join(DIST, p))] || 'application/octet-stream' }); res.end(body) } catch { res.writeHead(404); res.end('x') } })
