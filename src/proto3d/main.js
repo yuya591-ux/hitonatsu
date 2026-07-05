@@ -2425,7 +2425,10 @@ function buildShishigaya() {
     if (bi === sunIdx) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2; let gy = 1e9; for (const [sx, sz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) gy = Math.min(gy, heightAtYato(cx + sx * co - sz * si, cz + sx * si + sz * co)); pushGroundAO(cx, cz, w, d, ang, gy); return } // サンライズ＝実輪郭で別途描くが、足元の接地AOだけはここで敷く（最大の“浮き”対策）
     if (inSkip(cx, cz)) return // ランドマーク区画＝実物に置換
     if (inWaterAny(cx, cz) || fpCover(cx, cz, w + 6, d + 6, ang, inWaterAny) > 0.12) { nOnWater++; return } // 水面＋岸から約3mの緩衝帯に重なる建物は描かない（水に浮く/水際ギリギリの家を防ぐ＝最優先のユーザー指摘2026-06-23。フットプリントを6m膨らませて判定）
-    if (fpCover(cx, cz, w, d, ang, onYatoRoadCore) > 0.08) { nOnRoad++; return } // フットプリントの8%超が“道の描画幅(1m格子)”に乗る建物は描かない＝道の上に明らかに乗る家を排除（10%→8%にやや厳格化＝ユーザー指摘「道路の上に家」2026-06-27。密集した路傍の家は残す＝町をスカスカにしない）
+    { const roadCov = fpCover(cx, cz, w, d, ang, onYatoRoadCore)
+      // フットプリントの8%超が“道の描画幅(1m格子)”に乗る建物は描かない＝道の上に明らかに乗る家を排除（10%→8%にやや厳格化＝ユーザー指摘「道路の上に家」2026-06-27。密集した路傍の家は残す＝町をスカスカにしない）
+      // 追加：大きい建物(w*d>1400)は角のわずかな乗り上げでも“壁が道をまたぐ”ように目立つので4.5%で厳しく除外（ユーザー指摘2026-07-05：道路の上に大きな建物・座標(3297,-363)の45×49m棟が6.7%で残っていた）。大型棟は数が少なく密度に影響しない
+      if (roadCov > 0.08 || (w * d > 1400 && roadCov > 0.045)) { nOnRoad++; return } }
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     { const co0 = Math.cos(ang), si0 = Math.sin(ang), hw0 = w / 2, hd0 = d / 2; let ov = 0
       for (const [lx, lz] of [[0, 0], [-hw0, -hd0], [hw0, -hd0], [hw0, hd0], [-hw0, hd0], [-hw0, 0], [hw0, 0], [0, -hd0], [0, hd0]]) if (ptOverPlaced(cx + lx * co0 - lz * si0, cz + lx * si0 + lz * co0)) ov++
@@ -4163,9 +4166,10 @@ function buildShishigaya() {
     if (best) { const dx = best.b[0] - best.a[0], dz = best.b[1] - best.a[1], l = Math.hypot(dx, dz) || 1, ex = dx / l * 2, ez = dz / l * 2; buildTaiko(best.a[0] - ex, best.a[1] - ez, best.b[0] + ex, best.b[1] + ez) } // 両端を岸に2m延長
     else buildTaiko(pi.cx - 8, pi.cz, pi.cx + 8, pi.cz) }
   // ───── 三ツ池公園の名物：長いローラーすべり台（西の丘の上から大きく蛇行して下る・乗って滑れる）ユーザー要望2026-06-25 ─────
-  { const slideMat = toon(0xc6cace), railA = toon(0xd8663a), railB = toon(0x3f86b0), postMat = toon(0x7a5a38), deckMat = toon(0x9a7b4e), stepMat = toon(0xb8a986), sandMat = toon(0xdcc89a) // 支柱/台は木の色
+  { const GRAD_SLIDE = toonGradient(CEL.bands, 0.62) // すべり台専用の勾配＝側面/裏の暗バンドを0.62まで底上げ（正午は太陽がほぼ真上→横向き法線の面がNdotL≈0で黒く落ちる。色は保ったまま黒ずみだけ解消・ユーザー指摘2026-07-05「黒い影が怖い」）
+    const slideMat = new THREE.MeshToonMaterial({ color: 0xc6cace, gradientMap: GRAD_SLIDE }), railA = new THREE.MeshToonMaterial({ color: 0xd8663a, gradientMap: GRAD_SLIDE }), railB = new THREE.MeshToonMaterial({ color: 0x3f86b0, gradientMap: GRAD_SLIDE }), postMat = toon(0x7a5a38), deckMat = toon(0x9a7b4e), stepMat = toon(0xb8a986), sandMat = toon(0xdcc89a) // 支柱/台は木の色
     const V = THREE.Vector3, Q = THREE.Quaternion, M4 = THREE.Matrix4, ONE = new V(1, 1, 1), up = new V(0, 1, 0)
-    const wp = SLIDE_PATH, n = wp.length, platH = 5.0, width = 1.6, hw = width / 2, clr = 1.4
+    const wp = SLIDE_PATH, n = wp.length, platH = 5.0, width = 1.6, hw = width / 2, clr = 2.0 // 地面からの最低クリアランス（1.4→2.0：乗車中に前方の地形が視界へめり込むのを抑える・ユーザー指摘2026-07-05）
     // 高さプロファイル：てっぺんだけ塔の高さ・あとは地面に沿わせて低く（高すぎる支柱で浮かない）。下りつつ、地面+clrより下げない＝山に食い込まない（ユーザー指摘2026-06-26）
     const pts3 = wp.map(([x, z], i) => { const tg = heightAtYato(x, z); return new V(x, tg + (i === 0 ? platH : clr), z) })
     for (let i = 1; i < n; i++) { const tg = heightAtYato(pts3[i].x, pts3[i].z); pts3[i].y = Math.max(tg + clr, Math.min(pts3[i].y, pts3[i - 1].y - 0.3)) } // 必ず下る(前-0.3)＋地面+clrは死守(食い込み防止)
@@ -4177,7 +4181,17 @@ function buildShishigaya() {
     const rollG = [], rAG = [], rBG = [], postG = [], deckV = [], deckIdx = [], m4 = new M4(), q = new Q() // deck＝明るい連続の床リボン（上から見て暗い床下/隙間でなく明るい滑走面が見える＝“黒い二重”解消・2026-06-26）
     for (let i = 0; i <= N; i++) { const P = SP[i], T = ST[i], horiz = new V(T.x, 0, T.z).normalize(), perp = new V(-horiz.z, 0, horiz.x), yaw = Math.atan2(horiz.x, horiz.z)
       q.setFromUnitVectors(up, perp); { const rg = new THREE.CylinderGeometry(0.07, 0.07, width, 7); m4.compose(P, q, ONE); rg.applyMatrix4(m4); rollG.push(rg) } // ローラー軸
-      { const la = P.clone().addScaledVector(perp, hw).add(new V(0, -0.05, 0)), lb = P.clone().addScaledVector(perp, -hw).add(new V(0, -0.05, 0)); deckV.push(la.x, la.y, la.z, lb.x, lb.y, lb.z); if (i < N) { const k = i * 2; deckIdx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3) } } // 床リボン（ローラーのすぐ下に連続面）
+      { // 床＝閉じた明るい箱ビーム（天面＋明るい側面＋底）。以前は薄いリボン(DoubleSide)で裏面と支柱下の影が“黒い胴体/横の暗い影”に見えた（ユーザー指摘2026-07-05）。側面を明るく閉じて解消
+        const eo = 0.07, ty = -0.04, byy = -0.52 // 側面をわずかに外へ張り出し(eo)＝ローラー端を隠す。天面ty(ローラー直下)〜底byy
+        const tl = P.clone().addScaledVector(perp, hw + eo).add(new V(0, ty, 0)), tr = P.clone().addScaledVector(perp, -(hw + eo)).add(new V(0, ty, 0))
+        const bl = P.clone().addScaledVector(perp, hw + eo).add(new V(0, byy, 0)), br = P.clone().addScaledVector(perp, -(hw + eo)).add(new V(0, byy, 0))
+        deckV.push(tl.x, tl.y, tl.z, tr.x, tr.y, tr.z, br.x, br.y, br.z, bl.x, bl.y, bl.z)
+        if (i < N) { const k = i * 4, k2 = (i + 1) * 4
+          deckIdx.push(k, k2, k + 1, k + 1, k2, k2 + 1) // 天面
+          deckIdx.push(k + 1, k2 + 1, k + 2, k + 2, k2 + 1, k2 + 2) // 右側面（明るい壁で黒いギャップを隠す）
+          deckIdx.push(k + 2, k2 + 2, k + 3, k + 3, k2 + 2, k2 + 3) // 底
+          deckIdx.push(k + 3, k2 + 3, k, k, k2 + 3, k2) // 左側面
+        } }
       if (i < N) { const P2 = SP[i + 1]
         for (const sd of [-1, 1]) { const a = P.clone().addScaledVector(perp, sd * (hw + 0.1)).add(new V(0, 0.12, 0)), b = P2.clone().addScaledVector(perp, sd * (hw + 0.1)).add(new V(0, 0.12, 0))
           const mid = a.clone().add(b).multiplyScalar(0.5), dir = b.clone().sub(a), len = dir.length(); q.setFromUnitVectors(new V(0, 0, 1), dir.clone().normalize())
@@ -4187,7 +4201,7 @@ function buildShishigaya() {
     }
     const addMerged = (geos, mat, sh) => { if (!geos.length) return; const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = !!sh; m.receiveShadow = true; g.add(m); geos.forEach((x) => x.dispose()) }
     // 床/レール/手すりの細い影は地面に散らかって不気味なので影を落とさない＝接地は支柱の影だけで十分（ユーザー指摘2026-06-26）
-    { const dg2 = new THREE.BufferGeometry(); dg2.setAttribute('position', new THREE.Float32BufferAttribute(deckV, 3)); dg2.setIndex(deckIdx); dg2.computeVertexNormals(); const dm = new THREE.Mesh(dg2, new THREE.MeshToonMaterial({ color: 0xd4d6da, gradientMap: GRAD, side: THREE.DoubleSide })); dm.receiveShadow = true; dm.castShadow = false; g.add(dm) } // 明るい滑走面の床リボン
+    { const dg2 = new THREE.BufferGeometry(); dg2.setAttribute('position', new THREE.Float32BufferAttribute(deckV, 3)); dg2.setIndex(deckIdx); dg2.computeVertexNormals(); const dm = new THREE.Mesh(dg2, new THREE.MeshToonMaterial({ color: 0xdfe1e5, gradientMap: GRAD_SLIDE, side: THREE.DoubleSide })); dm.receiveShadow = true; dm.castShadow = false; g.add(dm) } // 明るい滑走面の箱ビーム（天面＋側面＝黒い影の解消）
     addMerged(rollG, slideMat, false); addMerged(rAG, railA, false); addMerged(rBG, railB, false); addMerged(postG, postMat, true)
     // 出発の木のやぐら（登り台）：太い木柱4本＋上下2段の貫＋筋交い＋中段の踊り場＋デッキ＝高い出発点を木組みで自然に支える（ユーザー要望2026-06-26）
     const add = (geo, mat, p, qq) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p); if (qq) m.quaternion.copy(qq); m.castShadow = true; g.add(m); return m }
@@ -4216,7 +4230,7 @@ function buildShishigaya() {
     // 着地（砂のマウンド）
     const PE = SP[N], hE = new V(ST[N].x, 0, ST[N].z).normalize(), runX = PE.x + hE.x * 1.6, runZ = PE.z + hE.z * 1.6, runY = heightAtYato(runX, runZ)
     add(new THREE.CylinderGeometry(2.2, 2.6, 0.24, 18), sandMat, new V(runX, runY + 0.06, runZ))
-    mergedOutline(g, 0.025); scene.add(g)
+    scene.add(g) // ★反転ハルの輪郭(mergedOutline)は付けない：密なローラーの反転ハルが遠景で本体を覆い“真っ黒なすべり台”に見えていた主因（ユーザー指摘2026-07-05）。エッジはポストプロセスのインク線が担うので見た目は保たれる
     addBox(deckC.x, deckC.z, hw + 0.4, 1.3, yaw0, 0.2) // 塔の足元だけ当たり判定
   }
   // ───── 三ツ池公園のプール（夏の児童プール＝25mプール・段地に作る）ユーザー要望2026-06-25 ─────
@@ -13932,8 +13946,8 @@ function update(dt) {
     const bob = Math.sin(clock.elapsedTime * 13) * 0.025 * (sliding.v / 8) // ローラーの上を滑る細かなガタガタ揺れ＝手ざわり
     if (sliding.pov === 'first') { // 主観（既定）：主人公の頭から滑走方向を見る＝自分が滑っている視点。体は隠す
       boy.visible = false
-      const ex = P.x + dh.x * 0.25, ey = P.y + 1.2 + bob, ez = P.z + dh.z * 0.25
-      const baseYaw = Math.atan2(Tn.x, Tn.z), basePitch = Math.asin(Math.max(-1, Math.min(1, Tn.y))) - 0.08
+      const ex = P.x + dh.x * 0.25, ey = P.y + 1.4 + bob, ez = P.z + dh.z * 0.25 // 目線を少し上げ(1.2→1.4)＝前方の地形が下端にめり込むのを抑える
+      const baseYaw = Math.atan2(Tn.x, Tn.z), basePitch = Math.asin(Math.max(-1, Math.min(1, Tn.y))) - 0.03 // 下向きバイアスを弱める(-0.08→-0.03)＝地面より少し先を見る
       const yaw = baseYaw + sliding.lookYaw, pitch = basePitch + sliding.lookPitch, cp = Math.cos(pitch)
       camGoal.set(ex, ey, ez); lookGoal.set(ex + Math.sin(yaw) * cp * 12, ey + Math.sin(pitch) * 12, ez + Math.cos(yaw) * cp * 12)
       camera.fov += (64 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix() // 少し広角で疾走感（速度は控えめ）
@@ -15326,6 +15340,18 @@ window.__proto3d = {
   _probe(x, z) { return { x, z, y: +heightAt(x, z).toFixed(2), onRoad: typeof onYatoRoadCore === 'function' ? onYatoRoadCore(x, z) : null } }, // 検証用：その地点の歩行面の高さ＋道の舗装の上か
   _signOk(x, z) { return { x, z, y: +heightAt(x, z).toFixed(2), inBldg: pointInSunPoly(x, z) || npcInCollider(x, z), onRoad: onYatoRoadCore(x, z), inWater: typeof inWaterAny === 'function' ? inWaterAny(x, z) : null } }, // 検証用：道標の置き場所点検（建物内/道上/水上でないか）
   _fwCount() { return fireworksGroup.children.length }, // 検証用：花火の現存オブジェクト数（余韻が消えたら0＝リーク無し）
+  _roadCov(cx, cz, w, d, ang) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2, nx = Math.max(2, Math.round(w / 2)), nz = Math.max(2, Math.round(d / 2)); let on = 0, tot = 0; for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) { const lx = -hw + w * i / nx, lz = -hd + d * j / nz; tot++; if (onYatoRoadCore(cx + lx * co - lz * si, cz + lx * si + lz * co)) on++ } return { core: +(on / tot).toFixed(4), area: +(w * d).toFixed(0), on, tot } }, // 検証用：建物footprintの道路被覆率(fpCoverと同じ格子)
+  _nearby(x, z, r = 12) { // 検証用：地点近傍のコライダー（建物の足形）と名前付きグループを列挙＝道上の建物などの特定に使う
+    const cols = []
+    for (const c of colliders) { const dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz)
+      if (c.box) { const ext = Math.hypot(c.hw, c.hd); if (d < r + ext) cols.push({ box: 1, x: +c.x.toFixed(1), z: +c.z.toFixed(1), hw: +c.hw.toFixed(1), hd: +c.hd.toFixed(1), rot: +Math.atan2(c.s, c.c).toFixed(2), d: +d.toFixed(1) }) }
+      else if (d < r + c.r) cols.push({ circ: 1, x: +c.x.toFixed(1), z: +c.z.toFixed(1), r: +c.r.toFixed(1), d: +d.toFixed(1) }) }
+    cols.sort((a, b) => a.d - b.d)
+    const grps = [], tmp = boy.position.clone()
+    scene.traverse((o) => { const nm = o.name || (o.userData && o.userData.name); if (!nm) return; o.getWorldPosition(tmp); const d = Math.hypot(tmp.x - x, tmp.z - z); if (d < r * 2) grps.push({ name: nm, x: +tmp.x.toFixed(1), z: +tmp.z.toFixed(1), d: +d.toFixed(1) }) })
+    grps.sort((a, b) => a.d - b.d)
+    return { probe: { gy: +heightAt(x, z).toFixed(2), road: onYatoRoadCore(x, z), bld: deepInBuilding(x, z) }, colliders: cols.slice(0, 12), groups: grps.slice(0, 8) }
+  },
 }
 
 // ── ばしょマップ（開発中だけの“場所をつたえる”道具・ユーザー要望。アプリ完成後に撤去する想定）──
