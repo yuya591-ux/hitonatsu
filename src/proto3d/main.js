@@ -2959,6 +2959,12 @@ function buildShishigaya() {
     // 旧横溝家住宅（横溝屋敷）＝獅子ヶ谷の名主の屋敷(幕末〜明治)。長屋門→主屋(木造2階・寄棟・茅葺)＋文庫蔵(白漆喰の土蔵)＋穀蔵(板蔵)＋蚕小屋＋生垣。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildYokomizo = (cx, cz, name) => { const gy = gmin4(cx, cz, 26, 28)
       YOKOMIZO = { x: cx, z: cz } // ご近所（おばあさん/無人販売所）が参照する屋敷中心（実地調査で道の窪みから谷戸側の平地へ移設・2026-07-05）
+      // ★向き直し(2026-07-05・ユーザー指摘「道路に対して斜め」)：屋敷一式を局所グループに集め、最後に最寄りの道へ正対させて回す（他の建物と同じ流儀）。当たり判定はaddBoxYで一緒に回す。谷底でほぼ平坦なので標高は不変
+      const grp = new THREE.Group() // ★以降のgrp.add/kayaRoof/tileHip/groundPatch(grp)/precinctFence(grp)は全部この局所グループへ（外のlandmarks2は末尾でadd）
+      const faceRoadDir = (fx, fz, ff) => { let bx = fx, bz = fz + 1, bd = 1e18; for (const pt of roadPtsForFace) { if (ff && !ff(pt)) continue; const dd = (pt[0] - fx) ** 2 + (pt[1] - fz) ** 2; if (dd < bd) { bd = dd; bx = pt[0]; bz = pt[1] } } return Math.atan2(bx - fx, bz - fz) }
+      const YROT = faceRoadDir(cx, cz, (pt) => pt[0] > cx + 5 && Math.abs(pt[1] - cz) < 22), cyd = Math.cos(YROT), syd = Math.sin(YROT) // 東(右)側のコンクリ道＝ほぼ真東(zがほぼ同じ)の点だけで正対（ユーザー指摘2026-07-05：真上スクショ右の縦の道に沿う。faceRoad/広い東フィルタはNEの別の道を拾っていた）
+      YOKOMIZO.rot = YROT; YOKOMIZO.cos = cyd; YOKOMIZO.sin = syd // 屋敷外のおばあさん/無人販売所が同じ回転で位置を合わせる
+      const addBoxY = (bx, bz, hw, hd, rot, pad) => { const dx = bx - cx, dz = bz - cz; addBox(cx + dx * cyd + dz * syd, cz - dx * syd + dz * cyd, hw, hd, (rot || 0) + YROT, pad) } // 当たり判定を(cx,cz)まわりにYROT回して登録（THREE rotation.y=YROT と同じ変換・箱の向きも+YROT）
       const wall = toonMap(0xcabfa2, plasterTex), woodD = toon(0x6a5236), kaya = toon(0xc3a86a), kayaEave = toon(0x8c7143), kura = toonMap(0xefeade, plasterTex), tile = toon(0x595d61), post = toon(0x7a6242), board = toonMap(0x9a7e54, woodTex) // kaya=暖色の藁・kayaEave=軒の濃い切り口
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m }
       // 茅葺の寄棟屋根＝急勾配で厚みのある暖色の藁。本体＋一回り広く低い「厚い軒の切り口」＋棟(むね)。灰色の薄いコーンだった旧版を作り直し
@@ -2981,7 +2987,7 @@ function buildShishigaya() {
         for (const s of [-1, 1]) grp.add(mk(new THREE.BoxGeometry(1.5, 2.5, 0.12), woodD, cx + s * 1.05, ty + 1.35, tz + 1.95, s * 0.55, true)) // 観音開きの門扉
         for (const sx of [-5.2, 5.2]) grp.add(mk(new THREE.BoxGeometry(4.7, 1.05, 0.1), board, cx + sx, ty + 0.55, tz + 1.73)) // 腰の下見板（両脇部屋）
         grp.add(mk(new THREE.BoxGeometry(11.4, 0.4, 0.22), woodD, cx, ty + 0.18, tz + 1.55, 0, true)) // 門の敷居（下框）
-        addBox(cx - 5.2, tz, 2.5, 1.9, 0, 0.3); addBox(cx + 5.2, tz, 2.5, 1.9, 0, 0.3) } // 両脇だけ当たり（中央は通れる）
+        addBoxY(cx - 5.2, tz, 2.5, 1.9, 0, 0.3); addBoxY(cx + 5.2, tz, 2.5, 1.9, 0, 0.3) } // 両脇だけ当たり（中央は通れる）
       // ② 主屋（茅葺・木造2階・寄棟）中央やや北(cz-4)＝屋敷の主役。縁側・障子・欄間・土間の大戸・2階窓
       { const mzc = cz - 4, my = heightAtYato(cx, mzc), ez = mzc + 5.2
         grp.add(mk(new THREE.BoxGeometry(14, 5.2, 10.4), wall, cx, my + 2.6, mzc, 0, true)) // 2階建の壁
@@ -3003,18 +3009,18 @@ function buildShishigaya() {
         for (const sx of [-6.3, 6.3]) grp.add(mk(new THREE.CylinderGeometry(0.1, 0.12, 2.3, 6), post, cx + sx, my + 1.75, ez + 1.35, 0, true)) // 縁先の柱（軒の出を受ける）
         grp.add(mk(new THREE.CylinderGeometry(0.48, 0.6, 0.3, 10), toon(0x8f887c), cx - 3.2, my + 0.3, ez + 1.5, 0, true)) // 沓脱ぎ石（縁側から降りる石）
         grp.add(mk(new THREE.BoxGeometry(0.45, 2.3, 1.7), woodD, cx - 6.95, my + 1.85, ez + 0.05, 0, true)) // 雨戸の戸袋（左端）
-        addBox(cx, mzc, 7, 5.2, 0, 0.4) } // 当たり
+        addBoxY(cx, mzc, 7, 5.2, 0, 0.4) } // 当たり
       // ③ 文庫蔵（白漆喰の土蔵＋なまこ壁の腰＋瓦）西(cx-13,cz+2)
       { const kx = cx - 13, kz = cz + 2, ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(5.0, 4.4, 6.0), kura, kx, ky + 2.2, kz, 0, true))
         grp.add(mk(new THREE.BoxGeometry(5.16, 1.5, 6.16), toon(0x545a62), kx, ky + 0.75, kz, 0, true)) // なまこ壁の腰（濃灰）
         for (const gz of [-1.6, 0, 1.6]) grp.add(mk(new THREE.BoxGeometry(0.1, 1.4, 0.14), toon(0xe6e2d6), kx + 2.55, ky + 0.75, kz + gz)) // なまこの白い目地（南面）
-        tileHip(kx, ky + 4.4, kz, 5.0, 6.0, 1.9); grp.add(mk(new THREE.BoxGeometry(1.0, 1.5, 0.2), woodD, kx, ky + 1.55, kz + 3.05)); addBox(kx, kz, 2.6, 3.1, 0, 0.3) } // 瓦＋扉
+        tileHip(kx, ky + 4.4, kz, 5.0, 6.0, 1.9); grp.add(mk(new THREE.BoxGeometry(1.0, 1.5, 0.2), woodD, kx, ky + 1.55, kz + 3.05)); addBoxY(kx, kz, 2.6, 3.1, 0, 0.3) } // 瓦＋扉
       // ④ 穀蔵（板張りの蔵＋瓦）西(cx-13,cz-6)
-      { const sx2 = cx - 13, sz2 = cz - 6, sy = heightAtYato(sx2, sz2); grp.add(mk(new THREE.BoxGeometry(5.0, 3.6, 5.4), board, sx2, sy + 1.8, sz2, 0, true)); tileHip(sx2, sy + 3.6, sz2, 5.0, 5.4, 1.7); grp.add(mk(new THREE.BoxGeometry(1.0, 1.4, 0.18), woodD, sx2, sy + 1.4, sz2 + 2.75)); addBox(sx2, sz2, 2.6, 2.8, 0, 0.3) }
+      { const sx2 = cx - 13, sz2 = cz - 6, sy = heightAtYato(sx2, sz2); grp.add(mk(new THREE.BoxGeometry(5.0, 3.6, 5.4), board, sx2, sy + 1.8, sz2, 0, true)); tileHip(sx2, sy + 3.6, sz2, 5.0, 5.4, 1.7); grp.add(mk(new THREE.BoxGeometry(1.0, 1.4, 0.18), woodD, sx2, sy + 1.4, sz2 + 2.75)); addBoxY(sx2, sz2, 2.6, 2.8, 0, 0.3) }
       // ⑤ 蚕小屋（茅葺・板壁＋格子窓＝養蚕の小屋）南西(cx-8,cz+9)。東の隣家/道を避け西へ寄せる
       { const cx2 = cx - 8, cz2 = cz + 9, cy = heightAtYato(cx2, cz2); grp.add(mk(new THREE.BoxGeometry(6.0, 2.7, 3.8), board, cx2, cy + 1.35, cz2, 0, true))
         for (let i = 0; i < 3; i++) grp.add(mk(new THREE.BoxGeometry(1.1, 1.0, 0.1), toon(0x4a4036), cx2 - 1.6 + i * 1.6, cy + 1.5, cz2 + 1.92)) // 格子窓
-        kayaRoof(cx2, cy + 2.7, cz2, 6.4, 4.2, 2.2); addBox(cx2, cz2, 3.1, 2.0, 0, 0.3) }
+        kayaRoof(cx2, cy + 2.7, cz2, 6.4, 4.2, 2.2); addBoxY(cx2, cz2, 3.1, 2.0, 0, 0.3) }
       precinctFence(grp, cx, cz + 1, 30, 30, 0x5f7a44, 1.3, 's') // 生垣（屋敷の境・南＝長屋門側を開ける）
       for (const [tx2, tz2, ts] of [[cx - 16, cz + 9, 1.3], [cx - 6, cz - 13, 1.2], [cx + 13, cz + 11, 1.3]]) { const ty2 = heightAtYato(tx2, tz2); grp.add(mk(new THREE.CylinderGeometry(0.3, 0.42, 3.2 * ts, 6), woodD, tx2, ty2 + 1.6 * ts, tz2, 0, true)); grp.add(mk(bushyCanopy(2.4 * ts), toon(0x4f7a3a), tx2, ty2 + 3.2 * ts + 1.6 * ts, tz2, 0, true)) } // 屋敷林
       // 竹林（屋敷の裏手＝北東の裏山側。細い竹＋先の葉・merged 1メッシュずつ）
@@ -3053,7 +3059,10 @@ function buildShishigaya() {
       // 裏山の森（北〜北西の斜面＝獅子ヶ谷城側。広葉樹を数本足して屋敷を森が抱くように）
       for (const [tx3, tz3, ts3] of [[cx - 26, cz - 30, 1.35], [cx - 36, cz - 38, 1.4], [cx - 18, cz - 40, 1.25], [cx - 40, cz - 26, 1.3], [cx - 12, cz - 34, 1.2]]) { const ty3 = heightAtYato(tx3, tz3); if (ty3 < 2 || onPaved(tx3, tz3)) continue
         grp.add(mk(new THREE.CylinderGeometry(0.3, 0.44, 3.4 * ts3, 6), woodD, tx3, ty3 + 1.7 * ts3, tz3, 0, true)); grp.add(mk(bushyCanopy(2.6 * ts3), toon(0x4c7638), tx3, ty3 + 3.4 * ts3 + 1.7 * ts3, tz3, 0, true)) }
-      signOn(cx, cz + 16, 10, gy, 3.5, name, '#5a4a2a') }
+      signOn(cx, cz + 16, 10, gy, 3.5, name, '#5a4a2a')
+      // ★屋敷一式を最寄りの道へ正対（軸そろえ→道に斜めを解消）。子を中心相対にしてからグループを(cx,cz)でYROT回す＝当たり判定はaddBoxYで別途回転済み
+      for (const o of grp.children) { o.position.x -= cx; o.position.z -= cz }
+      grp.position.set(cx, 0, cz); grp.rotation.y = YROT; const _lm2 = scene.getObjectByName('landmarks2'); if (_lm2) _lm2.add(grp) }
     // 光明寺＝獅子ヶ谷の天台宗寺院(1356開創・本尊薬師如来)。山門(表門1841)→参道(石灯籠)→本堂(瓦の入母屋大堂)＋庫裡＋鐘楼＋地蔵＋築地塀。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildKomyoji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
       const wall = toonMap(0xd9d0c2, plasterTex), woodD = toon(0x6a4f38), woodR = toon(0x7a3b2a), tile = toon(0x59616a), stone = toon(0xa8a59a), stoneL = toon(0xc8c4b8), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3) // wall=本堂身舎の側面/背面も土壁テクスチャ（N3・2026-06-29）
@@ -8178,7 +8187,8 @@ const yatoPondJii = makeYatoResident(3012, -480, 3006, -490, {
 })
 npcs.push(yatoPondJii)
 // 横溝屋敷の おばあさん（名主屋敷の縁側。古い家・養蚕・昔ばなし。遠い南西＝歩いて訪ねる甲斐のある人）
-const yatoYashikiBaa = makeYatoResident((YOKOMIZO?.x ?? 2344), (YOKOMIZO?.z ?? -674) + 4, (YOKOMIZO?.x ?? 2344), (YOKOMIZO?.z ?? -674) + 14, { // 主屋の縁側（屋敷中心の南）＝以前は前のNAMED値(z符号ミス)で1300m離れて取り残されていたのを屋敷へ戻す（2026-07-05）
+const yokoAt = (ox, oz) => { const Y = YOKOMIZO || { x: 2344, z: -674, cos: 1, sin: 0 }, c = Y.cos ?? 1, s = Y.sin ?? 0; return [Y.x + ox * c + oz * s, Y.z - ox * s + oz * c] } // 屋敷の回転YROTに合わせて中心相対offsetを世界座標へ（縁側/門前が回転で動くので追従）
+const yatoYashikiBaa = makeYatoResident(...yokoAt(0, 4), ...yokoAt(0, 14), { // 主屋の縁側（屋敷中心の南）＝以前は前のNAMED値(z符号ミス)で1300m離れて取り残されていたのを屋敷へ戻す（2026-07-05）
 
   scale: 1.05, adult: true, simple: true, build: 0.88, garment: 'dress', apron: 0xcfc6b2, shirt: 0x9a8c78, skirt: 0x4a4640, skin: 0xe0b08a,
   hair: 0xcac6bc, hairStyle: 'bob', brow: true, browTilt: 0.45, browY: 0.006, eyeSc: 0.92,
@@ -8307,7 +8317,7 @@ function makeMujinHanbai(x, z, rot, gy) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
   g.position.set(x, gy != null ? gy : heightAtYato(x, z), z); g.rotation.y = rot || 0; mergedOutline(g, 0.022); addContactShadow(g, 1.4); addCollider(x, z, 1.0); scene.add(g)
 }
-{ const mx = (YOKOMIZO?.x ?? 2344) + 6, mz = (YOKOMIZO?.z ?? -674) + 21; makeMujinHanbai(mx, mz, -2.3, heightAtYato(mx, mz)) } // 横溝屋敷の門前の水田のそば（以前はz符号ミスで屋敷から離れていたのを戻す・2026-07-05）
+{ const [mx, mz] = yokoAt(6, 21); makeMujinHanbai(mx, mz, -2.3 + (YOKOMIZO?.rot ?? 0), heightAtYato(mx, mz)) } // 横溝屋敷の門前の水田のそば（屋敷の回転YROTに追従・2026-07-05）
 // ザリガニ（二ツ池の岸＝夏の子どもの宝もの。はさみをゆっくり開閉し触角を揺らす。駄菓子屋の男の子の「二ツ池でザリガニとらない？」とつながる発見・C16残り）
 const crayfish = []
 function makeCrayfish(x, z, gy, rot) {
