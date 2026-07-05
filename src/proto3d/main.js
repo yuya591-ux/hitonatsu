@@ -2329,7 +2329,7 @@ function buildShishigaya() {
     x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })()
   const walls = [[0.90, 0.86, 0.76], [0.86, 0.80, 0.68], [0.82, 0.84, 0.80], [0.80, 0.76, 0.70], [0.88, 0.82, 0.72], [0.78, 0.80, 0.84], [0.84, 0.78, 0.66]]
   const roofs = [[0.40, 0.46, 0.52], [0.46, 0.34, 0.28], [0.34, 0.42, 0.36], [0.30, 0.34, 0.40], [0.52, 0.42, 0.30], [0.38, 0.32, 0.30]]
-  const aptWalls = [[0.86, 0.84, 0.80], [0.82, 0.80, 0.75], [0.80, 0.82, 0.84], [0.88, 0.85, 0.78], [0.79, 0.80, 0.82]], flatTop = [0.34, 0.36, 0.38], rtBox = [0.30, 0.31, 0.33]
+  const aptWalls = [[0.86, 0.84, 0.80], [0.82, 0.80, 0.75], [0.80, 0.82, 0.84], [0.88, 0.85, 0.78], [0.79, 0.80, 0.82]], flatTop = [0.50, 0.52, 0.54], rtBox = [0.44, 0.45, 0.47] // 陸屋根の色を近黒(0.34)→中間グレー(0.50)へ底上げ＝上から見て“黒い箱”に見えていた陸屋根の集合住宅を街に馴染ませる（ユーザー巡回点検2026-07-05・風化コンクリートらしい灰に）
   const balconyTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d') // マンションのバルコニー1戸を反復。窓=空の映り込み＋十字桟／床スラブ＋影／手すり=縦格子。2段陰影で団地の壁ののっぺりを解消（白基調＝壁色に掛け算）
     x.fillStyle = '#ffffff'; x.fillRect(0, 0, 128, 128)
     x.fillStyle = '#9a9488'; x.fillRect(0, 124, 128, 4) // 上階スラブが下階に落とす影＝戸の境（2段陰影の段差）
@@ -3267,7 +3267,7 @@ function buildShishigaya() {
         q.forEach((p, qi) => { vv.push(p[0], p[1], p[2]); uvv.push(uq[qi][0], uq[qi][1]) }); ix.push(o, o + 1, o + 2, o, o + 2, o + 3); o += 4 }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(vv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvv, 2)); g.setIndex(ix); g.computeVertexNormals()
       const am = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xcdc9c0, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = am.receiveShadow = true; grp.add(am); addBox(cx, cz, hw, hd, ry, 0.3) // 当たり判定
-      grp.add(mk(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), toon(0x42464c), cx, gB + h + 0.2, cz, ry, true)) // 陸屋根
+      grp.add(mk(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), toon(0x7c8088), cx, gB + h + 0.2, cz, ry, true)) // 陸屋根（近黒0x42464c→中間グレー0x7c8088＝上から見て“黒い箱”に見えた団地の屋根を街に馴染ませる・ユーザー巡回点検2026-07-05）
       if (name) grp.add(mk(new THREE.PlaneGeometry(Math.min(w * 0.9, 8), 1.6), new THREE.MeshBasicMaterial({ map: signTex(name, '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), cx + si * (hd + 0.12), gB + h - 1.3, cz + co * (hd + 0.12), ry)) } // 屋上ちかくの名前看板(正面)
     // ビエント横濱菊名Ａ棟（師岡町・市民の森の丘。5階建ての立派なマンションに格上げ＝豪華なバルコニー面tex＋立派なエントランス＋幅広い外階段で屋上に登って一望。A棟は軸そろえで屋上の歩行矩形BIENTO_POLYと一致）
     const buildBiento = (name) => { const B = BIENTO, hw = B.w / 2, hd = B.d / 2, gB = BIENTO_ROOF.gB, h = BIENTO_ROOF.h, top = BIENTO_ROOF.top
@@ -3350,7 +3350,13 @@ function buildShishigaya() {
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); FEST_VENUES.push({ name: '校庭', pos: new THREE.Vector2(3124, -186), days: [1], g: buildBonOdori(3124, heightAtYato(3124, -186), -186, null, FEST_VARIANTS['校庭']) }) } // 校庭(3124,-186)に夏の盆踊り会場＝開催日は1日目。お囃子/花火もこの会場（2026-06-24 ユーザー要望）
         else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else if (name === '上の宮中学校') { buildKaminomiya(x, z, name); FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22, null, FEST_VARIANTS['上の宮中学校']) }) } else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
-      else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 36, 30); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } // 団地3棟（設計どおりのL字配置を保つ＝棟どうしは重ねない）。塊ごと道よけ（判定footprintを36×30に広げて棟の端まで道に乗らない場所を探す）
+      else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { // 団地3棟のL字配置。3棟のどれも道/水に乗らない最小移動を“塊ごと”螺旋探索（ユーザー指摘2026-07-05：団地が道路に食い込む。従来の36×30 nudgeは翼棟の張り出し(+26z/-24x)を見きれず翼が道に乗っていた）
+          const parts = [[0, 0, 34, 11], [4, 26, 11, 28], [-24, 14, 28, 11]] // [offsetX, offsetZ, w, d]（設計どおりのL字＝棟どうしは重ねない）
+          const clusterBad = (dx, dz) => parts.some(([ox, oz, pw, pd]) => { const px = x + dx + ox, pz = z + dz + oz, pry = faceRoad(px, pz); return fpCover(px, pz, pw, pd, pry, onYatoRoad) > 0.04 || inWaterAny(px, pz) || fpCover(px, pz, pw + 4, pd + 4, pry, inWaterAny) > 0.04 })
+          let ddx = 0, ddz = 0
+          if (clusterBad(0, 0)) { search: for (let r = 4; r <= 60; r += 4) for (let a = 0; a < 24; a++) { const th = a / 24 * 6.2832, tx = Math.cos(th) * r, tz = Math.sin(th) * r; if (!clusterBad(tx, tz)) { ddx = tx; ddz = tz; break search } } }
+          const ax = x + ddx, az = z + ddz
+          buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') }
         else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
       else if (type === 'kinder') buildKinder(x, z, name) // 幼稚園/保育園＝カラフルな園舎＋砂の園庭＋遊具＋門
