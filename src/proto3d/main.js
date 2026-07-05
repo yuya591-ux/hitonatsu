@@ -1133,6 +1133,7 @@ function bushyCanopy(r) {
   const gs = blobs.map(([bx, by, bz, br]) => { const ic = new THREE.IcosahedronGeometry(br, 1); ic.translate(bx, by, bz); return ic })
   const m = mergeGeometries(gs, false); m.computeVertexNormals(); gs.forEach((gg) => gg.dispose()); return m
 }
+let TREE_CANOPY_MAT = null // C1：全木で共有する樹冠マテリアル（白×頂点カラーのトゥーン＋葉の透過光）。makeTree初回に生成
 function makeTree(x, z, s = 1) {
   const g = new THREE.Group()
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * s, 0.45 * s, 3.4 * s, 12), toonMap(0x7a5a3a, woodTex))
@@ -1146,17 +1147,18 @@ function makeTree(x, z, s = 1) {
     [1.55, 0.15, 4.05, -0.1], [1.3, 1.05, 4.2, 0.5], [1.3, -0.95, 4.25, -0.5], [1.25, 0.4, 4.0, 1.0], [1.2, -0.5, 4.1, -1.0],
     [1.3, 0.1, 4.75, 0.25], [1.05, 0.7, 4.9, -0.3], [1.15, 0.0, 3.85, 0.0],
   ]
-  const geos = []
-  for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 2); ge.translate(bx * s, by * s, bz * s); geos.push(ge) } // detail2＝丸い葉のかたまり（脱・低ポリ・モバイル性能とのバランス）
-  const canopyGeo = mergeGeometries(geos); canopyGeo.computeVertexNormals() // 重なりをなめらかな面に
   const tg = [[0x6f9a47, 0x9ec06c], [0x63903f, 0x96bb60], [0x7aa24c, 0xaecb7b], [0x5d8a3a, 0x8ab257], [0x86a44e, 0xb6cc83]][Math.floor(Math.random() * 5)] // 夏の緑に個体差＝同じ木が並ばない（自然さ）
-  const canopyMat = toon(tg[0]); canopyMat.onBeforeCompile = injectLeafGlow // A6：葉の透過光
-  const canopy = new THREE.Mesh(canopyGeo, canopyMat); canopy.castShadow = true; g.add(canopy)
+  // C1（省電力）：樹冠の本体＋陽の当たる明るい房(4個)を1メッシュに統合＝木1本あたり4ドロー削減。2色は頂点カラーで持たせる（見た目は従来と同一）。
+  //   材質は白×頂点カラーのトゥーン＋葉の透過光を全木で1つ共有（vertexColorsで色は幾何側＝マテリアルは1個で済む）。
+  if (!TREE_CANOPY_MAT) { TREE_CANOPY_MAT = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: GRAD, vertexColors: true }); TREE_CANOPY_MAT.onBeforeCompile = injectLeafGlow }
+  const _bodyC = new THREE.Color(tg[0]), _hiC = new THREE.Color(tg[1])
+  const setVCol = (ge, c) => { const n = ge.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b } ge.setAttribute('color', new THREE.BufferAttribute(a, 3)) }
+  const geos = []
+  for (const [r, bx, by, bz] of crown) { const ge = new THREE.IcosahedronGeometry(r * s, 2); ge.translate(bx * s, by * s, bz * s); setVCol(ge, _bodyC); geos.push(ge) } // detail2＝丸い葉のかたまり（本体色）
+  for (const [r, bx, by, bz] of [[1.15, 0.35, 4.8, 0.25], [0.98, -0.35, 5.05, -0.1], [1.05, 1.0, 4.5, 0.5], [0.9, -0.8, 4.7, -0.55]]) { const ge = new THREE.IcosahedronGeometry(r * s, 2); ge.translate(bx * s, by * s, bz * s); setVCol(ge, _hiC); geos.push(ge) } // 陽の当たる上の明るい房（明色）
+  const canopyGeo = mergeGeometries(geos); canopyGeo.computeVertexNormals() // 重なりをなめらかな面に
+  const canopy = new THREE.Mesh(canopyGeo, TREE_CANOPY_MAT); canopy.castShadow = true; g.add(canopy)
   geos.forEach((ge) => ge.dispose())
-  // 陽の当たる上の明るい房（立体感・木漏れ日の素）
-  for (const [r, bx, by, bz] of [[1.15, 0.35, 4.8, 0.25], [0.98, -0.35, 5.05, -0.1], [1.05, 1.0, 4.5, 0.5], [0.9, -0.8, 4.7, -0.55]]) {
-    const hb = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 2), toon(tg[1])); hb.position.set(bx * s, by * s, bz * s); hb.castShadow = true; g.add(hb)
-  }
   g.position.set(x, heightAt(x, z), z)
   mergedOutline(g, 0.08)
   addContactShadow(g, 2.0 * s)
