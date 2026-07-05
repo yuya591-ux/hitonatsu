@@ -531,7 +531,7 @@ SEAT.y = heightAt(SEAT.x, SEAT.z)
 
 // ── レンダラ ──
 // antialias は EffectComposer 経由だと最終ブリットにしか効かず実質無駄なので切る（軽量化）
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true }) // 絵日記に画面を取り込むため
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false }) // A4：preserveDrawingBuffer廃止（TBDR/iPhoneの毎フレーム保持コスト削減）。画面のキャプチャは「描画直後に同じタスク内でcanvasを読む」方式へ統一（requestFrameCapture／絵日記のrenderDiaryViewは自前render直後に同期読み）
 let pixelRatioCap = 1.25 // ピクセル比の上限（発熱対策）。軽量モード(C1 v2)では1.0に下げて描画画素を減らす＝resize()もこの上限を使う
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap)) // 発熱対策でさらに控えめ
 renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -14026,6 +14026,9 @@ function update(dt) {
 // 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
 let frameAcc = 0, nrtTick = 0 // nrtTick=法線/深度RTを2フレームに1回に間引く用
 let staticFrames = 0, __prepassRuns = 0 // A6：カメラ静止が続いたフレーム数／プリパス実行回数(検証用カウンタ)
+// A4：preserveDrawingBuffer無しでも画面を撮れるよう、キャプチャ要求をキューし composer.render() の直後に同期実行（＝空canvasにならない）
+let __captureQueue = []
+function requestFrameCapture(cb) { __captureQueue.push(cb) } // 描画直後にcanvasを渡してくれる（写真/共有）
 const _prevCamPos = new THREE.Vector3(), _prevCamQuat = new THREE.Quaternion() // 前フレームのカメラ姿勢＝動いている時だけ法線RTを毎フレーム更新し輪郭の残像を防ぐ（2026-06-26）
 // タイトルの“はがき”カメラ：谷の町を高めの斜めから、ゆっくり左右に流す（入道雲・サンライズの丘・二ツ池へ下る谷が一望＝どんなゲームか伝わる絵）
 function titleCam() {
@@ -14105,7 +14108,7 @@ renderer.setAnimationLoop(() => { try {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   // フレーム上限：通常は30fps。タイトル(はがき)中はカメラがごくゆっくり流れるだけなので18fpsに落とす＝
   // 高い俯瞰で全域(約316万tri/フレーム)を描く重い構図を、表示時間が長いタイトルでスマホの発熱/電池に優しく（B⑩・far絞りはtri-8%で構図も痩せるため不採用＝近景が主因）
-  if (frameAcc < (titleView ? 1 / 18 : 1 / 30)) return
+  if (frameAcc < (titleView ? 1 / 18 : 1 / 30) && !__captureQueue.length) return // A4：キャプチャ要求がある時は間引かず必ず描画→直後に読む
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   pollGamepad(); applyPadLook(dt) // コントローラー：スティック/ボタンを読み、右スティックで視点を回す（移動は各移動式でpad.lx/lyを参照）
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
@@ -14155,6 +14158,8 @@ renderer.setAnimationLoop(() => { try {
     renderer.setRenderTarget(null); scene.overrideMaterial = null; camera.layers.enable(1)
   }
   composer.render()
+  // A4：描画直後（このタスク内・ブラウザの合成前）にキャプチャ要求を処理＝preserveDrawingBuffer無しでもcanvasが空にならない
+  if (__captureQueue.length) { const q = __captureQueue; __captureQueue = []; for (const cb of q) { try { cb(renderer.domElement) } catch (e) {} } }
   if (!titleReady) { titleReady = true; markTitleReady() } // B⑩：本物の最初のフレームが出た＝「はじめる」を押せる状態に
   } catch (e) { onFrameError(e) } }) // J3：このフレームで例外が出ても次フレームへ（ループは止めない）
 
@@ -14182,7 +14187,7 @@ function photoCaption() {
   else if (area === 'town') place = '町なか'
   return place ? `${day}にちめ ・ ${tw} ― ${place}` : `${day}にちめ ・ ${tw}`
 }
-const photoMode = initPhotoMode({ renderer, getDay: () => day, playShutter, getCaption: photoCaption })
+const photoMode = initPhotoMode({ renderer, getDay: () => day, playShutter, getCaption: photoCaption, requestCapture: requestFrameCapture }) // A4：描画直後にcanvasを読む方式でキャプチャ
 window.__photo = photoMode // 検証用
 
 // ── I1/H2：おもいで帳（えにっき・しゃしん・むしさかな図鑑をひとつに）。いつでも開いて夏をふり返れる。──
@@ -14790,17 +14795,19 @@ applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); 
   const fzout = document.getElementById('fly-zout'); if (fzout) fzout.addEventListener('click', () => flyZ(1.16))
   // 速さ切替（ゆっくり→ふつう→はやい）
   if (flySpeedBtn) flySpeedBtn.addEventListener('click', () => { fly.speedI = (fly.speedI + 1) % FLY_SPEEDS.length; updFlySpeed() })
-  // 📷写真：今の画面をPNGで（preserveDrawingBuffer=true なので canvas から直接）。共有できなければ保存
+  // 📷写真：今の画面をPNGで。A4：preserveDrawingBuffer無しのため描画直後(requestFrameCapture)にcanvasを読む。共有できなければ保存
   const flyPhotoBtn = document.getElementById('fly-photo')
   if (flyPhotoBtn) flyPhotoBtn.addEventListener('click', () => {
-    try {
-      canvas.toBlob((blob) => {
-        if (!blob) return
-        const file = new File([blob], 'hitonatsu_' + Date.now() + '.png', { type: 'image/png' })
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {})
-        else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); showToast('写真を ほぞんしました') }
-      }, 'image/png')
-    } catch (e) { showToast('写真に しっぱい しました') }
+    requestFrameCapture((cnv) => {
+      try {
+        cnv.toBlob((blob) => {
+          if (!blob) return
+          const file = new File([blob], 'hitonatsu_' + Date.now() + '.png', { type: 'image/png' })
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {})
+          else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); showToast('写真を ほぞんしました') }
+        }, 'image/png')
+      } catch (e) { showToast('写真に しっぱい しました') }
+    })
   })
   // 📍ピン：画面中央の十字の下にピンを置き、その(x,z)を一覧に控える ／ 🗑：全消し
   const pinDropBtn = document.getElementById('pin-drop'); if (pinDropBtn) pinDropBtn.addEventListener('click', dropFlyPin)

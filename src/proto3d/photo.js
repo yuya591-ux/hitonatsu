@@ -47,7 +47,7 @@ export const PHOTO_PRESETS = {
   '強': { saturation: 0.68, contrast: 0.88, brightness: 1.03, softBlurPx: 1.0, wbR: 1.11, wbG: 1.0, wbB: 0.84, warmAdd: 11, vignette: 0.46, grain: 30, halation: 0.46, blackLift: 0.1, splitWarm: 16, splitCool: 11, lightLeak: 0.16 },
 }
 
-export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
+export function initPhotoMode({ renderer, getDay, playShutter, getCaption, requestCapture }) {
   const cfg = PHOTO_CFG
   const $ = (tag, css, parent) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e }
 
@@ -239,16 +239,18 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption }) {
   function takePhoto() {
     try { playShutter && playShutter() } catch (e) {} // カシャッ（自前合成）
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 30) // 一瞬の白フラッシュ
-    // 次フレームの描画結果を参照キャプチャ（preserveDrawingBuffer により可能）。ゲーム状態は無改変。
-    requestAnimationFrame(() => {
-      const url = processRetro(renderer.domElement)
+    // A4：描画直後のcanvasを読む（preserveDrawingBuffer無しでも空にならない・requestCaptureがrender直後に呼ぶ）。ゲーム状態は無改変。
+    const capture = (cnv) => {
+      const url = processRetro(cnv)
       if (!url) return
       const rec = { url, day: (getDay && getDay()) || 1, t: Date.now(), caption: (getCaption && getCaption()) || '' } // J:いつ・どこで撮ったかの一行（思い出装置）
       if (idbOk) idbAdd(rec).then((id) => { rec.id = id }).catch(() => { idbOk = false }) // IndexedDBへ非同期保存（同期ブロックしない・失敗してもメモリには残る）
       photos.push(rec); while (photos.length > cfg.maxPhotos) { const old = photos.shift(); if (old && old.id != null && idbOk) idbDel(old.id) } // 上限超過は古いものから消す（IDBからも）
       newCount++ // その日の絵日記に使えるよう「新しく撮った枚数」を数える
       popThumb(url) // 思い出が1枚 増える手応え
-    })
+    }
+    if (requestCapture) requestCapture(capture)
+    else requestAnimationFrame(() => capture(renderer.domElement)) // 保険：requestCapture未提供なら従来どおり
   }
   let newCount = 0
   // レトロ強度プリセット切替＆日付スタンプON/OFF
