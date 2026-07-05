@@ -2961,8 +2961,8 @@ function buildShishigaya() {
       YOKOMIZO = { x: cx, z: cz } // ご近所（おばあさん/無人販売所）が参照する屋敷中心（実地調査で道の窪みから谷戸側の平地へ移設・2026-07-05）
       // ★向き直し(2026-07-05・ユーザー指摘「道路に対して斜め」)：屋敷一式を局所グループに集め、最後に最寄りの道へ正対させて回す（他の建物と同じ流儀）。当たり判定はaddBoxYで一緒に回す。谷底でほぼ平坦なので標高は不変
       const grp = new THREE.Group() // ★以降のgrp.add/kayaRoof/tileHip/groundPatch(grp)/precinctFence(grp)は全部この局所グループへ（外のlandmarks2は末尾でadd）
-      const faceRoadDir = (fx, fz, ff) => { let bx = fx, bz = fz + 1, bd = 1e18; for (const pt of roadPtsForFace) { if (ff && !ff(pt)) continue; const dd = (pt[0] - fx) ** 2 + (pt[1] - fz) ** 2; if (dd < bd) { bd = dd; bx = pt[0]; bz = pt[1] } } return Math.atan2(bx - fx, bz - fz) }
-      const YROT = faceRoadDir(cx, cz, (pt) => pt[0] > cx + 5 && Math.abs(pt[1] - cz) < 22), cyd = Math.cos(YROT), syd = Math.sin(YROT) // 東(右)側のコンクリ道＝ほぼ真東(zがほぼ同じ)の点だけで正対（ユーザー指摘2026-07-05：真上スクショ右の縦の道に沿う。faceRoad/広い東フィルタはNEの別の道を拾っていた）
+      const YROT = Math.atan2(2368 - cx, -664 - cz), cyd = Math.cos(YROT), syd = Math.sin(YROT) // 長屋門(正面+z)がユーザー指定の実世界の入口(2368,-664)を向く向き（2026-07-05・ユーザーが入口座標を提示）
+      const rotPos = (px, pz) => [cx + (px - cx) * cyd + (pz - cz) * syd, cz - (px - cx) * syd + (pz - cz) * cyd] // 回転前の絶対(px,pz)→回転後の世界位置（道判定/高さをこの位置で見る）
       YOKOMIZO.rot = YROT; YOKOMIZO.cos = cyd; YOKOMIZO.sin = syd // 屋敷外のおばあさん/無人販売所が同じ回転で位置を合わせる
       const addBoxY = (bx, bz, hw, hd, rot, pad) => { const dx = bx - cx, dz = bz - cz; addBox(cx + dx * cyd + dz * syd, cz - dx * syd + dz * cyd, hw, hd, (rot || 0) + YROT, pad) } // 当たり判定を(cx,cz)まわりにYROT回して登録（THREE rotation.y=YROT と同じ変換・箱の向きも+YROT）
       const wall = toonMap(0xcabfa2, plasterTex), woodD = toon(0x6a5236), kaya = toon(0xc3a86a), kayaEave = toon(0x8c7143), kura = toonMap(0xefeade, plasterTex), tile = toon(0x595d61), post = toon(0x7a6242), board = toonMap(0x9a7e54, woodTex) // kaya=暖色の藁・kayaEave=軒の濃い切り口
@@ -3033,7 +3033,7 @@ function buildShishigaya() {
       const onPaved = (x, z) => SG.roads.some((rd) => { if (rd.w < 3) return false; const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const a = p[k], b = p[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1; let t = ((x - a[0]) * dx + (z - a[1]) * dz) / L2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(x - (a[0] + dx * t), z - (a[1] + dz * t)) < rd.w / 2 + 0.6) return true } return false })
       // 門前の水田（谷戸田＝南の開けた所。あぜ＋青田。小ぶりにして門前の舗装路を避ける・畦道は縁に許す）
       { const px = cx - 1, pz = cz + 22, py = heightAtYato(px, pz)
-        if (py >= 1 && !onPaved(px, pz) && !onPaved(px + 4, pz - 2.6) && !onPaved(px - 4, pz - 2.6)) { const paddy = mk(new THREE.PlaneGeometry(8.5, 5), new THREE.MeshToonMaterial({ color: 0x7faa4e, gradientMap: GRAD, map: watercolorTex }), px, py + 0.06, pz, 0); paddy.rotation.x = -Math.PI / 2; paddy.receiveShadow = true; grp.add(paddy)
+        if (py >= 1 && !onPaved(...rotPos(px, pz)) && !onPaved(...rotPos(px + 4, pz - 2.6)) && !onPaved(...rotPos(px - 4, pz - 2.6))) { const paddy = mk(new THREE.PlaneGeometry(8.5, 5), new THREE.MeshToonMaterial({ color: 0x7faa4e, gradientMap: GRAD, map: watercolorTex }), px, py + 0.06, pz, 0); paddy.rotation.x = -Math.PI / 2; paddy.receiveShadow = true; grp.add(paddy)
           for (const [ax, az, sw, sd] of [[px, pz - 2.5, 9.2, 0.6], [px, pz + 2.5, 9.2, 0.6], [px - 4.3, pz, 0.6, 5.6], [px + 4.3, pz, 0.6, 5.6]]) grp.add(mk(new THREE.BoxGeometry(sw, 0.24, sd), toon(0xb09a72), ax, py + 0.12, az, 0, true))
           const rc = new THREE.InstancedMesh(new THREE.ConeGeometry(0.1, 0.42, 4), toon(0x6f9a3e), 42), m4 = new THREE.Matrix4(); let n = 0
           for (let r = 0; r < 4; r++) for (let c = 0; c < 7; c++) { m4.makeTranslation(px - 3.6 + c * 1.2, py + 0.28, pz - 1.8 + r * 1.15); rc.setMatrixAt(n++, m4) }
@@ -3041,11 +3041,11 @@ function buildShishigaya() {
           const kk = new THREE.Group(); const kp = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 5), toon(0x8a6a44)); kp.position.y = 0.85; kk.add(kp); const ka = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.07, 0.07), toon(0x8a6a44)); ka.position.y = 1.2; kk.add(ka); const kh = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7), toon(0xd9c89a)); kh.position.y = 1.55; kk.add(kh); const kt = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.22, 10), toon(0xb89a5a)); kt.position.y = 1.66; kk.add(kt); kk.traverse((o) => { if (o.isMesh) o.castShadow = true }); kk.position.set(px + 3, py, pz); grp.add(kk) } } // かかし
       // 湧水の池（裏山＝獅子ヶ谷城側の北。小さな水面＋岸の葦）
       { const lx = cx + 6, lz = cz - 13, ly = heightAtYato(lx, lz)
-        if (ly >= 1 && !onPaved(lx, lz)) { const pond = mk(new THREE.CircleGeometry(3.2, 20), new THREE.MeshToonMaterial({ color: 0x4a6f74, gradientMap: GRAD, transparent: true, opacity: 0.92 }), lx, ly + 0.08, lz, 0); pond.rotation.x = -Math.PI / 2; grp.add(pond)
+        if (ly >= 1 && !onPaved(...rotPos(lx, lz))) { const pond = mk(new THREE.CircleGeometry(3.2, 20), new THREE.MeshToonMaterial({ color: 0x4a6f74, gradientMap: GRAD, transparent: true, opacity: 0.92 }), lx, ly + 0.08, lz, 0); pond.rotation.x = -Math.PI / 2; grp.add(pond)
           for (let a = 0; a < 7; a++) { const ra = a / 7 * 6.283, rx2 = lx + Math.cos(ra) * 2.9, rz2 = lz + Math.sin(ra) * 2.9; grp.add(mk(new THREE.ConeGeometry(0.12, 1.1, 4), toon(0x6f8a48), rx2, heightAtYato(rx2, rz2) + 0.55, rz2, 0, true)) } } } // 岸の葦
       // ── 作り込み(Step2)：門前の谷戸田を段々に増やす＋せせらぎ(用水路)＋裏山の森＝谷戸の名主屋敷らしく（実物調査2026-07-05・既存の田1枚/湧水池/井戸に連ねる）──
       const mkPaddy = (px, pz, pw, pd) => { const py = heightAtYato(px, pz)
-        if (py < 1 || onPaved(px, pz) || onPaved(px + pw / 2, pz) || onPaved(px - pw / 2, pz)) return
+        if (py < 1 || onPaved(...rotPos(px, pz)) || onPaved(...rotPos(px + pw / 2, pz)) || onPaved(...rotPos(px - pw / 2, pz))) return
         const paddy = mk(new THREE.PlaneGeometry(pw, pd), new THREE.MeshToonMaterial({ color: 0x7faa4e, gradientMap: GRAD, map: watercolorTex }), px, py + 0.06, pz, 0); paddy.rotation.x = -Math.PI / 2; paddy.receiveShadow = true; grp.add(paddy)
         for (const [ax, az, sw, sd] of [[px, pz - pd / 2, pw + 0.6, 0.5], [px, pz + pd / 2, pw + 0.6, 0.5], [px - pw / 2, pz, 0.5, pd + 0.4], [px + pw / 2, pz, 0.5, pd + 0.4]]) grp.add(mk(new THREE.BoxGeometry(sw, 0.22, sd), toon(0xb09a72), ax, py + 0.12, az, 0, true)) // あぜ
         const nx = Math.max(1, Math.round(pw / 1.2)), nz = Math.max(1, Math.round(pd / 1.15)), rc = new THREE.InstancedMesh(new THREE.ConeGeometry(0.1, 0.4, 4), toon(0x6f9a3e), nx * nz), m4 = new THREE.Matrix4(); let n = 0
@@ -3053,15 +3053,18 @@ function buildShishigaya() {
         rc.count = n; rc.instanceMatrix.needsUpdate = true; rc.castShadow = false; grp.add(rc) }
       mkPaddy(cx - 20, cz + 22, 8, 5); mkPaddy(cx - 8, cz + 28, 8, 5); mkPaddy(cx + 8, cz + 24, 8, 5); mkPaddy(cx + 13, cz + 38, 8, 5) // 段々の谷戸田（開けた帯・道よけで残った所に）
       // せせらぎ（谷戸の細い用水路＝田の手前を東西に流れる。薄い水面＋点々の石）
-      { const sz0 = cz + 41; for (let k = 0; k < 7; k++) { const sx = cx - 21 + k * 7, wz = sz0 + Math.sin(k * 0.9) * 1.6, wy = heightAtYato(sx, wz); if (wy < 1 || onPaved(sx, wz)) continue
+      { const sz0 = cz + 41; for (let k = 0; k < 7; k++) { const sx = cx - 21 + k * 7, wz = sz0 + Math.sin(k * 0.9) * 1.6, wy = heightAtYato(sx, wz); if (wy < 1 || onPaved(...rotPos(sx, wz))) continue
           const seg = mk(new THREE.PlaneGeometry(7.4, 1.0), new THREE.MeshToonMaterial({ color: 0x5b8f96, gradientMap: GRAD, transparent: true, opacity: 0.9 }), sx, wy + 0.05, wz, 0); seg.rotation.x = -Math.PI / 2; grp.add(seg)
           grp.add(mk(new THREE.SphereGeometry(0.22, 6, 5), toon(0x9a958a), sx + 2, wy + 0.11, wz + 0.62, 0, true)) } }
       // 裏山の森（北〜北西の斜面＝獅子ヶ谷城側。広葉樹を数本足して屋敷を森が抱くように）
-      for (const [tx3, tz3, ts3] of [[cx - 26, cz - 30, 1.35], [cx - 36, cz - 38, 1.4], [cx - 18, cz - 40, 1.25], [cx - 40, cz - 26, 1.3], [cx - 12, cz - 34, 1.2]]) { const ty3 = heightAtYato(tx3, tz3); if (ty3 < 2 || onPaved(tx3, tz3)) continue
+      for (const [tx3, tz3, ts3] of [[cx - 26, cz - 30, 1.35], [cx - 36, cz - 38, 1.4], [cx - 18, cz - 40, 1.25], [cx - 40, cz - 26, 1.3], [cx - 12, cz - 34, 1.2]]) { const [rwx, rwz] = rotPos(tx3, tz3); if (heightAtYato(rwx, rwz) < 2 || onPaved(rwx, rwz)) continue; const ty3 = heightAtYato(tx3, tz3) // 判定は回転後の位置／配置高さは回転前基準（末尾の再接地ループが回転後の地面へ補正）
         grp.add(mk(new THREE.CylinderGeometry(0.3, 0.44, 3.4 * ts3, 6), woodD, tx3, ty3 + 1.7 * ts3, tz3, 0, true)); grp.add(mk(bushyCanopy(2.6 * ts3), toon(0x4c7638), tx3, ty3 + 3.4 * ts3 + 1.7 * ts3, tz3, 0, true)) }
       signOn(cx, cz + 16, 10, gy, 3.5, name, '#5a4a2a')
       // ★屋敷一式を最寄りの道へ正対（軸そろえ→道に斜めを解消）。子を中心相対にしてからグループを(cx,cz)でYROT回す＝当たり判定はaddBoxYで別途回転済み
-      for (const o of grp.children) { o.position.x -= cx; o.position.z -= cz }
+      for (const o of grp.children) { const ax = o.position.x, az = o.position.z // 回転前の絶対位置
+        if (Math.abs(ax) > 100 && Math.abs(ax - cx) < 90 && Math.abs(az - cz) < 90) { const ox = ax - cx, oz = az - cz // 実座標メッシュのみ再接地（原点付近のbaked幾何=稲/竹は除外）
+          o.position.y += heightAtYato(cx + ox * cyd + oz * syd, cz - ox * syd + oz * cyd) - heightAtYato(ax, az) } // 回転後の地面へ再接地＝浮き/沈み解消（裏山の木が宙に浮く不具合）
+        o.position.x = ax - cx; o.position.z = az - cz }
       grp.position.set(cx, 0, cz); grp.rotation.y = YROT; const _lm2 = scene.getObjectByName('landmarks2'); if (_lm2) _lm2.add(grp) }
     // 光明寺＝獅子ヶ谷の天台宗寺院(1356開創・本尊薬師如来)。山門(表門1841)→参道(石灯籠)→本堂(瓦の入母屋大堂)＋庫裡＋鐘楼＋地蔵＋築地塀。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildKomyoji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
