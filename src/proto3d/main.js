@@ -9850,6 +9850,11 @@ for (let i = 0; i < CLOUD_N; i++) {
 // ── 夕立（時おり通り雨。空が陰り、雨が降って すぐ晴れる＝夏の通り雨）──
 let weather = 0, weatherTarget = 0, weatherTimer = 260 + Math.random() * 220 // 0=快晴 1=本降り。夏は基本晴れ＝最初の通り雨まで長く
 let rainGain = null, rainLP = null, rainStarted = false, thunderCd = 12, dropletCd = 0 // 雨音（自前合成）・LPF（weatherで開閉）・遠雷/しずくのクールダウン
+// ── A7（省電力）：無音のパッド/ノイズ源を、鳴らない時間帯は畳んで音声スレッドの常時仕事を減らす。──
+//   雨BGM(最大17osc)・夕夜BGM(6osc)・雨ノイズ源は「必要な時だけ」起動し、一定時間 無音が続いたら停止して作り直す。
+//   起動は必要になった瞬間・gainは常に0から立ち上げる＝プチノイズ無し（作者の「アンダーラン厳禁／start-once」設計を、無音区間だけ畳む形で踏襲）。
+let rainAudioNodes = [], rainBgmNodes = [], eveBgmNodes = [] // 停止対象の発振/ノイズ源（畳む時にstop）
+let rainSilentT = 0, eveSilentT = 0 // 無音が続いた秒数（ヒステリシス＝すぐには畳まない）
 const RAINN = 440, RAIN_BOX = 15, RAIN_H = 17 // 雨粒の数（増やして見やすく）
 const rainGeo = new THREE.BufferGeometry()
 const rainPos = new Float32Array(RAINN * 6)
@@ -10177,6 +10182,7 @@ function getMaster() {
 const audioUrls = loadAudioUrls()
 const ambients = {} // id -> THREE.Audio
 const ambientPan = {} // P5：id -> StereoPannerNode（面の環境音にごく低速のオートパンで広がりを出す）
+const ambSilentT = {} // A7：id -> ほぼ無音が続いた秒数（一定時間でMP3ループを一時停止＝デコードを止めて省電力）
 let audioStarted = false
 let chimeArmed = true
 ;(function initAmbients() {
@@ -10205,10 +10211,9 @@ function startAudio() {
     for (const id in ambients) { const a = ambients[id]; if (a.buffer && !a.isPlaying) a.play() }
     if (chimeAudio && chimeAudio.buffer && !chimeAudio.isPlaying) chimeAudio.play()
     for (const a of riverAudios) if (a.buffer && !a.isPlaying) try { a.play() } catch (e) {}
-    initRainAudio()
     initWindAudio() // 風の音（葉ずれ・草原を渡る風）＝突風windで増減・草/木/稲の揺れと同期
-    initRainBgm() // 雨のときだけ鳴る神秘的BGM（パッド）を用意
-    initEveningBgm() // 晴れた夕暮れ〜夜にそっと鳴る温かいBGM（パッド）を用意
+    // A7：雨音/雨BGM/夕夜BGMは startAudio では起動しない＝鳴らない時間帯の常時発振を無くす。
+    //   manageBgmLifecycle(update内・毎フレーム)が「雨のとき」「晴れた夕夜のとき」に起動し、無音が続いたら畳む。
     unlockIOSAudio() // iOSのミュートスイッチ/画面収録対策
   } catch (e) {}
   try { if (window.__applySound) window.__applySound() } catch (e) {} // 設定で「おとOFF」なら止める
@@ -10263,8 +10268,15 @@ function initRainAudio() {
     rainGain = ctx.createGain(); rainGain.gain.value = 0
     src.connect(hp); hp.connect(lp); lp.connect(rainGain); rainGain.connect(getSfxOut())
     src.start()
+    rainAudioNodes = [src] // A7：畳む時に停止するノイズ源
     rainStarted = true
   } catch (e) {}
+}
+function teardownRainAudio() { // A7：乾いて一定時間たったら雨ノイズ源を停止＝常時走るBufferSourceを畳む
+  for (const n of rainAudioNodes) { try { n.stop() } catch (e) {} }
+  rainAudioNodes = []
+  if (rainGain) { try { rainGain.disconnect() } catch (e) {} }
+  rainGain = null; rainLP = null; rainStarted = false
 }
 // やさしい雨の「ポツ…ポツ」＝近くの軒/葉に当たる雫（ASMR的な癒し）。弱〜中の雨で個々の雫が聞こえる感じに
 function playDroplet() {
@@ -10289,6 +10301,7 @@ function initRainBgm() {
     const flfo = ctx.createOscillator(); flfo.frequency.value = 0.06; const flg = ctx.createGain(); flg.gain.value = 320 // ゆっくり開閉＝神秘的なうねり
     flfo.connect(flg); flg.connect(lp.frequency); flfo.start()
     rainBgmGain.connect(lp); lp.connect(getMaster())
+    rainBgmNodes = [flfo] // A7：畳む時に停止する発振器を集める
     const chord = [220, 261.63, 329.63, 392.0] // Am7（A3 C4 E4 G4）＝しみじみ・神秘的
     for (const f of chord) for (const det of [-0.3, 0.3]) { // 少しデチューンして厚みを
       const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * (1 + det / 100)
@@ -10296,9 +10309,16 @@ function initRainBgm() {
       const alfo = ctx.createOscillator(); alfo.frequency.value = 0.04 + Math.random() * 0.05; const alg = ctx.createGain(); alg.gain.value = 0.045 // 各音バラバラの位相でゆっくり呼吸
       alfo.connect(alg); alg.connect(og.gain); alfo.start()
       o.connect(og); og.connect(rainBgmGain); o.start()
+      rainBgmNodes.push(o, alfo)
     }
     rainBgmStarted = true
   } catch (e) {}
+}
+function teardownRainBgm() { // A7：雨が止んで一定時間たったら雨BGMの17発振器を停止＝作り直し前提で畳む
+  for (const n of rainBgmNodes) { try { n.stop() } catch (e) {} }
+  rainBgmNodes = []
+  if (rainBgmGain) { try { rainBgmGain.disconnect() } catch (e) {} }
+  rainBgmGain = null; rainBgmStarted = false
 }
 // ── 夕暮れ〜夜の、晴れた日の主役級BGM（自前合成・温かいパッド）。
 //   雨BGM(rainBgm)が「雨の時だけ」鳴るのと対になる存在＝「晴れの夕夜だけ」そっと鳴る。
@@ -10319,7 +10339,7 @@ function initEveningBgm() {
       lp.connect(getMaster()) // ※ファイル版はトレモロLFOを通さず、loop音源をそのままLPF→マスターへ（曲側の表情を尊重）
       eveBgmGain.connect(lp)
       new THREE.AudioLoader().load(evUrl, (buf) => {
-        try { const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(eveBgmGain); if (audioStarted) src.start() } catch (e) {}
+        try { if (!eveBgmGain) return; const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(eveBgmGain); if (audioStarted) src.start(); eveBgmNodes.push(src) } catch (e) {} // A7：畳む前に読み込み完了したら停止対象に加える（既に畳まれていたら鳴らさない）
       }, undefined, () => {})
       eveBgmStarted = true
       return
@@ -10332,6 +10352,7 @@ function initEveningBgm() {
     const tremBase = ctx.createGain(); tremBase.gain.value = 1.0 // 中心1.0±0.06でゆっくり明滅
     trem.connect(tremG); tremG.connect(tremBase.gain); trem.start()
     eveBgmGain.connect(tremBase); tremBase.connect(lp); lp.connect(getMaster())
+    eveBgmNodes = [flfo, trem] // A7：畳む時に停止するLFO
     // 和音＝Cメジャー add9（C3 G3 E4 ＋ ゆっくり動く上声 D5/add9）。長調の素朴さに、加九度のひとさじの郷愁。
     //   maj7(B)は甘く/切なくなりすぎるので使わず、add9でやさしく開く。低めの三和音＝夕暮れの落ち着き。
     const voices = [
@@ -10344,9 +10365,27 @@ function initEveningBgm() {
       const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = v.f
       const og = ctx.createGain(); og.gain.value = v.g
       o.connect(og); og.connect(eveBgmGain); o.start()
+      eveBgmNodes.push(o)
     }
     eveBgmStarted = true
   } catch (e) {}
+}
+function teardownEveBgm() { // A7：夕夜の窓の外（昼/雨）で一定時間たったら夕夜BGMの発振器を停止＝作り直し前提で畳む
+  for (const n of eveBgmNodes) { try { n.stop() } catch (e) {} }
+  eveBgmNodes = []
+  if (eveBgmGain) { try { eveBgmGain.disconnect() } catch (e) {} }
+  eveBgmGain = null; eveBgmStarted = false; eveBgmLP = null
+}
+// A7：雨/夕夜のパッドとノイズ源の「起動・畳み」を毎フレーム司る。gainは既存のupdate側が0から静かに上下＝プチノイズ無し。
+function manageBgmLifecycle(dt) {
+  // 雨：weatherがrainStartを越えたら雨音＋雨BGMを起動、乾いて6秒たったら畳む（1日の大半＝乾いている間の常時発振を無くす）
+  const rainWant = weather > AUDIO.rainStart - 0.02
+  if (rainWant) { rainSilentT = 0; if (!rainStarted) initRainAudio(); if (!rainBgmStarted) initRainBgm() }
+  else if (rainStarted || rainBgmStarted) { rainSilentT += dt; if (rainSilentT > 6) { teardownRainAudio(); teardownRainBgm() } }
+  // 夕夜：夕方の窓(0.55〜)かつ晴れのときだけ夕夜BGMを起動、外れて6秒たったら畳む（朝〜昼の常時発振を無くす）
+  const eveWant = tday > 0.55 && tday < 0.995 && weather < 0.34
+  if (eveWant) { eveSilentT = 0; if (!eveBgmStarted) initEveningBgm() }
+  else if (eveBgmStarted) { eveSilentT += dt; if (eveSilentT > 6) teardownEveBgm() }
 }
 // 夕夜BGMの音量を、時間帯・天気・設定・ダッキングから決めて静かに反映（毎フレーム呼ぶ）。
 const EVE_BGM_VOL = 0.12 // 主役級だが控えめ＝環境音や“間”を消さない（迷ったら控えめに）。雨BGM(0.14)と同程度
@@ -12665,6 +12704,8 @@ function update(dt) {
     for (let i = 0; i < RAINN; i++) { rainY[i] -= fall; if (rainY[i] < 0) rainY[i] += RAIN_H; pa.array[i * 6 + 1] = rainY[i] + len; pa.array[i * 6 + 4] = rainY[i] }
     pa.needsUpdate = true
   }
+  // A7：雨/夕夜BGM・雨ノイズ源を「必要な時だけ」起動し無音区間は畳む（この後の gain 設定より前に呼ぶ＝降り出した最初のフレームで rainGain が存在する）
+  if (audioStarted) manageBgmLifecycle(dt)
   // 雨音：weather に合わせて音量を上げ下げ（クリックしないよう setTargetAtTime でなめらかに）。遠雷もたまに
   if (rainGain) { const rctx = listener.context, tgt = THREE.MathUtils.clamp((weather - AUDIO.rainStart) * 0.62, 0, AUDIO.rainVol)
     if (tgt <= 0.0001 && rainGain.gain.value < 0.008) { rainGain.gain.cancelScheduledValues(rctx.currentTime); rainGain.gain.setValueAtTime(0, rctx.currentTime) } // 雨が止んだら完全に0へスナップ＝setTargetAtTimeの漸近で残る雨音の余韻を断つ（ユーザー要望2026-07-04）
@@ -12796,7 +12837,11 @@ function update(dt) {
       if (id === 'night') v *= AUDIO.nightAmb       // 夜の虫(カエルのような音)を大きく下げる＝眠れる静けさ
       if (id === 'morning') v *= AUDIO.morningAmb
       if (areaAmb && areaAmb[id]) v *= areaAmb[id]
-      a.setVolume(Math.max(0, v))
+      const vol = Math.max(0, v)
+      // A7：ほぼ無音が4秒続いたMP3ループは一時停止＝デコードを止めて省電力（朝の鳥/夜のカエルは1日の半分ほど無音）。音量が戻る時は再生を先に戻す
+      if (vol < 0.002) { ambSilentT[id] = (ambSilentT[id] || 0) + dt; if (ambSilentT[id] > 4 && a.isPlaying) { try { a.pause() } catch (e) {} } }
+      else { ambSilentT[id] = 0; if (!a.isPlaying) { try { a.play() } catch (e) {} } }
+      a.setVolume(vol)
       // P5：ごく低速のオートパン（±0.32）＝idごとに位相をずらし“面”の環境音が頭の中でなく四方からに（素材はモノのまま広がりだけ付与）
       const pn = ambientPan[id]; if (pn) { const ph = { cicada: 0, higurashi: 2.1, morning: 4.2, night: 1.0 }[id] || 0; pn.pan.value = Math.sin(tsec * 0.05 + ph) * 0.32 }
     }
@@ -14999,6 +15044,8 @@ window.__proto3d = {
   _surf(x, z) { return yatoSurfKind(x, z) }, // 検証用：路面の種類（0=草地/1=舗装/2=土）＝足音の判定確認
   _footSurf(x, z) { const k = yatoSurfKind(x, z); return k === 1 ? 'pave' : k === 2 ? 'dirt' : (onYatoRoad(x, z) ? 'pave' : 'grass') }, // 検証用：実際に足音で使う路面分類
   _bgmPlay() { startAudio(); try { listener.context.resume() } catch (e) {} bgmWait = 0; updateMusicBox(0.016); return { bgm: !!bgmGain, started: audioStarted, state: listener.context.state } }, // 検証用：BGMを1フレーズ強制発音
+  _bgmCensus() { return { rainStarted, rainBgmStarted, eveBgmStarted, rainNodes: rainAudioNodes.length, rainBgmNodes: rainBgmNodes.length, eveNodes: eveBgmNodes.length, ambPlaying: Object.keys(ambients).filter((id) => ambients[id].isPlaying) } }, // 検証用(A7)：常時発振の在庫＝雨/夕夜パッド・雨ノイズ源の発振数と、再生中のMP3ループ
+  _bgmTickLife(n, d) { startAudio(); for (let i = 0; i < (n || 1); i++) manageBgmLifecycle(d || 0.05); return this._bgmCensus() }, // 検証用(A7)：BGMの起動/畳みライフサイクルをn回まわす（畳みは無音6秒＝dt0.05なら120回）
   _train() { startAudio(); try { listener.context.resume() } catch (e) {} playTrain(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの電車
   _dog() { startAudio(); try { listener.context.resume() } catch (e) {} playDog(); return { started: audioStarted, state: listener.context.state } }, // 検証用：遠くの犬
   _bell() { startAudio(); try { listener.context.resume() } catch (e) {} playTempleBell(); return { started: audioStarted, state: listener.context.state } }, // 検証用：寺の鐘
@@ -15069,7 +15116,7 @@ window.__proto3d = {
   get _festVol() { return festGain ? festGain.gain.value : -1 }, // 検証用：縁日の音量（距離で変わる）
   get _rainBgmVol() { return rainBgmGain ? rainBgmGain.gain.value : -1 }, // 検証用：雨のBGMの音量
   get _eveBgmVol() { return eveBgmGain ? eveBgmGain.gain.value : -1 }, // 検証用：晴れた夕夜BGM(パッド)の音量
-  _eveBgmTick(d) { startAudio(); try { listener.context.resume() } catch (e) {} updateEveningBgm(d || 0.016); return { started: eveBgmStarted, gain: eveBgmGain ? +eveBgmGain.gain.value.toFixed(4) : -1 } }, // 検証用：夕夜BGMの更新を1回回して目標へ近づける（setTargetは時定数2.2sなので複数回呼んで観測）
+  _eveBgmTick(d) { startAudio(); try { listener.context.resume() } catch (e) {} initEveningBgm(); updateEveningBgm(d || 0.016); return { started: eveBgmStarted, gain: eveBgmGain ? +eveBgmGain.gain.value.toFixed(4) : -1 } }, // 検証用：夕夜BGMの更新を1回回して目標へ近づける（A7で遅延起動になったので先にinit・setTargetは時定数2.2sなので複数回呼んで観測）
   _eveBgmStarted() { return eveBgmStarted }, // 検証用：夕夜BGMの発振器が起動済みか
   _audioOn() { return audioStarted }, // 検証用：オーディオが起動済みか（生活音の合成を実際に走らせられるか）
   _setVolBgm(v) { settings.volBgm = v }, // 検証用：BGM音量スライダーの値を直接置く（夕夜BGM/オルゴールが従うか）
