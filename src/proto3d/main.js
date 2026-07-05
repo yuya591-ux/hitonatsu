@@ -14040,6 +14040,7 @@ function update(dt) {
 // 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
 let frameAcc = 0, nrtTick = 0 // nrtTick=法線/深度RTを2フレームに1回に間引く用
 let staticFrames = 0, __prepassRuns = 0 // A6：カメラ静止が続いたフレーム数／プリパス実行回数(検証用カウンタ)
+let __fpsCap = 30 // B2：現在のフレーム上限(検証用)。放置/座り/寝で24・タイトル18・通常30
 // A4：preserveDrawingBuffer無しでも画面を撮れるよう、キャプチャ要求をキューし composer.render() の直後に同期実行（＝空canvasにならない）
 let __captureQueue = []
 function requestFrameCapture(cb) { __captureQueue.push(cb) } // 描画直後にcanvasを渡してくれる（写真/共有）
@@ -14122,7 +14123,12 @@ renderer.setAnimationLoop(() => { try {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   // フレーム上限：通常は30fps。タイトル(はがき)中はカメラがごくゆっくり流れるだけなので18fpsに落とす＝
   // 高い俯瞰で全域(約316万tri/フレーム)を描く重い構図を、表示時間が長いタイトルでスマホの発熱/電池に優しく（B⑩・far絞りはtri-8%で構図も痩せるため不採用＝近景が主因）
-  if (frameAcc < (titleView ? 1 / 18 : 1 / 30) && !__captureQueue.length) return // A4：キャプチャ要求がある時は間引かず必ず描画→直後に読む
+  // B2（省電力・ユーザー決定2026-07-05）：放置(3秒無操作)・座り/寝転びで景色を眺めている時は30→24fpsに落とす＝「ゆっくり浸る」時間の消費電力を削る。
+  //   操作した瞬間に30fpsへ即復帰。移動速度や時間の流れはdtベースなので不変（遠くの人/虫の動きがごくわずかに粗くなるだけ）。飛行/浮遊は滑らかさ優先で対象外。タイトルは従来18fps。
+  const _watching = !titleView && !floatMode && !flying && (mode === 'sit' || mode === 'lie' || (performance.now() - lastInteract > 3000))
+  const _fpsMin = titleView ? 1 / 18 : (_watching ? 1 / 24 : 1 / 30)
+  __fpsCap = titleView ? 18 : (_watching ? 24 : 30) // 検証用：現在のフレーム上限
+  if (frameAcc < _fpsMin && !__captureQueue.length) return // A4：キャプチャ要求がある時は間引かず必ず描画→直後に読む
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   pollGamepad(); applyPadLook(dt) // コントローラー：スティック/ボタンを読み、右スティックで視点を回す（移動は各移動式でpad.lx/lyを参照）
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
@@ -15174,6 +15180,8 @@ window.__proto3d = {
   _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
   get _passState() { return { ink: inkPass.enabled, dof: dofPass.enabled, aerial: floatMode || flying } }, // 検証用：ポストパスの状態（空中で二重描画を止めているか）
   _prepassInfo() { const r = __prepassRuns; __prepassRuns = 0; return { runsSinceLast: r, staticFrames } }, // 検証用(A6)：前回呼び出しからのプリパス実行回数（静止で減る）／静止フレーム数
+  _fpsCap() { return __fpsCap }, // 検証用(B2)：現在のフレーム上限（放置/座り/寝=24・通常=30）
+  _idleInfo() { return { cap: __fpsCap, idleMs: Math.round(performance.now() - lastInteract), mode, puni: !!(puni && puni.active) } }, // 検証用(B2)：フレーム上限/無操作経過ms/mode/移動スティック
   __setPrepassRuns() { __prepassRuns = 0 }, // 検証用(A6)：カウンタ0化
   _rain(v) { weather = v; weatherTarget = v }, get _wetness() { return wetness }, // 検証用：雨を強制（濡れの確認）
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
