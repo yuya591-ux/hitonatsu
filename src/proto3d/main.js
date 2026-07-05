@@ -2977,6 +2977,10 @@ function buildShishigaya() {
         grp.add(mk(new THREE.BoxGeometry(3.2, 0.55, 3.6), woodD, cx, ty + 2.75, tz, 0, true)) // 通路上の梁
         for (const px of [-1.55, 1.55]) grp.add(mk(new THREE.BoxGeometry(0.4, 3.0, 0.42), post, cx + px, ty + 1.5, tz + 1.55, 0, true)) // 門柱
         kayaRoof(cx, ty + 3.05, tz, 15.5, 5.6, 3.2) // 茅葺の寄棟（横長）
+        // ── 作り込み(Step1)：観音開きの門扉（内側へ半開き）＋両脇の腰の下見板＋敷居＝長屋門を堂々と（実物調査2026-07-05）──
+        for (const s of [-1, 1]) grp.add(mk(new THREE.BoxGeometry(1.5, 2.5, 0.12), woodD, cx + s * 1.05, ty + 1.35, tz + 1.95, s * 0.55, true)) // 観音開きの門扉
+        for (const sx of [-5.2, 5.2]) grp.add(mk(new THREE.BoxGeometry(4.7, 1.05, 0.1), board, cx + sx, ty + 0.55, tz + 1.73)) // 腰の下見板（両脇部屋）
+        grp.add(mk(new THREE.BoxGeometry(11.4, 0.4, 0.22), woodD, cx, ty + 0.18, tz + 1.55, 0, true)) // 門の敷居（下框）
         addBox(cx - 5.2, tz, 2.5, 1.9, 0, 0.3); addBox(cx + 5.2, tz, 2.5, 1.9, 0, 0.3) } // 両脇だけ当たり（中央は通れる）
       // ② 主屋（茅葺・木造2階・寄棟）中央やや北(cz-4)＝屋敷の主役。縁側・障子・欄間・土間の大戸・2階窓
       { const mzc = cz - 4, my = heightAtYato(cx, mzc), ez = mzc + 5.2
@@ -2990,6 +2994,15 @@ function buildShishigaya() {
         for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(2.3, 0.34, 0.13), toon(0x8a7658), cx - 5.6 + i * 2.6, my + 3.28, ez + 0.05)) // 欄間（細い横格子）
         for (let i = 0; i < 4; i++) grp.add(mk(new THREE.BoxGeometry(2.0, 0.95, 0.12), toon(0x6a5a48), cx - 5.4 + i * 2.6, my + 3.95, ez + 0.03)) // 2階の窓
         kayaRoof(cx, my + 5.2, mzc, 16.6, 12.6, 7.2) // 茅葺の大屋根（急勾配・厚い軒）
+        // ── 作り込み(Step1)：煙出し（越屋根）＝茅葺農家の象徴。大屋根の棟に小さな越屋根がのり、格子から囲炉裏の煙が抜ける（実物調査2026-07-05）──
+        { const yv = my + 10.8
+          grp.add(mk(new THREE.BoxGeometry(2.4, 1.3, 1.5), board, cx, yv, mzc, 0, true)) // 越屋根の胴
+          for (const sz of [-0.76, 0.76]) grp.add(mk(new THREE.BoxGeometry(2.0, 0.7, 0.08), toon(0x2a251d), cx, yv + 0.05, mzc + sz)) // 煙抜きの格子（暗い開口）
+          kayaRoof(cx, yv + 0.65, mzc, 3.0, 2.0, 1.2) } // 越屋根の小さな茅葺
+        // ── 作り込み(Step1)：縁側の深い軒を受ける縁先の柱＋沓脱ぎ石＋雨戸の戸袋 ──
+        for (const sx of [-6.3, 6.3]) grp.add(mk(new THREE.CylinderGeometry(0.1, 0.12, 2.3, 6), post, cx + sx, my + 1.75, ez + 1.35, 0, true)) // 縁先の柱（軒の出を受ける）
+        grp.add(mk(new THREE.CylinderGeometry(0.48, 0.6, 0.3, 10), toon(0x8f887c), cx - 3.2, my + 0.3, ez + 1.5, 0, true)) // 沓脱ぎ石（縁側から降りる石）
+        grp.add(mk(new THREE.BoxGeometry(0.45, 2.3, 1.7), woodD, cx - 6.95, my + 1.85, ez + 0.05, 0, true)) // 雨戸の戸袋（左端）
         addBox(cx, mzc, 7, 5.2, 0, 0.4) } // 当たり
       // ③ 文庫蔵（白漆喰の土蔵＋なまこ壁の腰＋瓦）西(cx-13,cz+2)
       { const kx = cx - 13, kz = cz + 2, ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(5.0, 4.4, 6.0), kura, kx, ky + 2.2, kz, 0, true))
