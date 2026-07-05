@@ -14025,6 +14025,7 @@ function update(dt) {
 
 // 30fps上限（スマホの発熱対策）。requestAnimationFrameは60で来るが、描画は約30回/秒に間引く。
 let frameAcc = 0, nrtTick = 0 // nrtTick=法線/深度RTを2フレームに1回に間引く用
+let staticFrames = 0, __prepassRuns = 0 // A6：カメラ静止が続いたフレーム数／プリパス実行回数(検証用カウンタ)
 const _prevCamPos = new THREE.Vector3(), _prevCamQuat = new THREE.Quaternion() // 前フレームのカメラ姿勢＝動いている時だけ法線RTを毎フレーム更新し輪郭の残像を防ぐ（2026-06-26）
 // タイトルの“はがき”カメラ：谷の町を高めの斜めから、ゆっくり左右に流す（入道雲・サンライズの丘・二ツ池へ下る谷が一望＝どんなゲームか伝わる絵）
 function titleCam() {
@@ -14139,7 +14140,13 @@ renderer.setAnimationLoop(() => { try {
   _prevCamPos.copy(camera.position); _prevCamQuat.copy(camera.quaternion)
   cullYatoChunks() // 谷戸の巨大メッシュをチャンク化したぶんの距離カリング（fog far+余裕より遠いチャンクを非表示・カメラ確定後＝この場フレームで反映）。フラスタムカリングは Three.js が描画時に自動で行う
   cullYatoFog() // A2：霧の彼方の個別の静的プロップ（木/杭/看板/家）もセル単位で非表示（fog.far+余裕の外＝霧色にしかならない描画を省く）
-  if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick & 1))) { // 動いている時は毎フレーム、静止中だけ半分の頻度＝残像なし＋静止時は発熱を抑える
+  // A6：カメラ静止中はプリパス(法線/深度の二重描画＝重い)の頻度を落として発熱を抑える。静止が続くほど間隔をのばす(2→6フレーム)。
+  //   動いた瞬間に毎フレームへ即復帰（2026-06-26の残像対策を維持）。動く物(NPC等)の輪郭は最大5フレーム遅れるが、
+  //   近くの動く物に対しては会話ズーム等でcamMoved=毎フレームになるため実害は小さい。完全に静的な景色ではプリパスは不変＝画は同一。
+  if (camMoved) staticFrames = 0; else staticFrames++
+  const prepassInterval = Math.min(6, 2 + (staticFrames >> 4)) // 静止16フレームごとに間隔+1（2→3→…→6でキャップ）
+  if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick % prepassInterval === 0))) {
+    __prepassRuns++
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     const _mainFar = camera.far // プリパスだけfarを絞って300m先を描かない（出力は同一＝上のPREPASS_FARの注記）。屋上のfog拡張等でcamera.farが変わっていてもmin側に倒す
     camera.far = (window.__prepassFar === false) ? _mainFar : Math.min(_mainFar, PREPASS_FAR); camera.updateProjectionMatrix()
@@ -15145,6 +15152,8 @@ window.__proto3d = {
   _vig(v) { gradePass.uniforms.vig.value = v }, // 検証/調整用：周辺減光の強さ
   _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
   get _passState() { return { ink: inkPass.enabled, dof: dofPass.enabled, aerial: floatMode || flying } }, // 検証用：ポストパスの状態（空中で二重描画を止めているか）
+  _prepassInfo() { const r = __prepassRuns; __prepassRuns = 0; return { runsSinceLast: r, staticFrames } }, // 検証用(A6)：前回呼び出しからのプリパス実行回数（静止で減る）／静止フレーム数
+  __setPrepassRuns() { __prepassRuns = 0 }, // 検証用(A6)：カウンタ0化
   _rain(v) { weather = v; weatherTarget = v }, get _wetness() { return wetness }, // 検証用：雨を強制（濡れの確認）
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
