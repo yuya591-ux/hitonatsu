@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "verify": "vite build && node scripts/verify-proto3d.mjs && node scripts/verify-face.mjs",
-    "verify:legacy": "vite build && node scripts/verify.mjs"
+    "verify:legacy": "vite build && node scripts/verify.mjs",
+    "patrol": "vite build && node scripts/patrol.mjs"
   },
   "devDependencies": {
     "puppeteer-core": "^25.1.0",

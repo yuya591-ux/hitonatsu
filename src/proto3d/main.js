@@ -15341,6 +15341,13 @@ window.__proto3d = {
   _signOk(x, z) { return { x, z, y: +heightAt(x, z).toFixed(2), inBldg: pointInSunPoly(x, z) || npcInCollider(x, z), onRoad: onYatoRoadCore(x, z), inWater: typeof inWaterAny === 'function' ? inWaterAny(x, z) : null } }, // 検証用：道標の置き場所点検（建物内/道上/水上でないか）
   _fwCount() { return fireworksGroup.children.length }, // 検証用：花火の現存オブジェクト数（余韻が消えたら0＝リーク無し）
   _roadCov(cx, cz, w, d, ang) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2, nx = Math.max(2, Math.round(w / 2)), nz = Math.max(2, Math.round(d / 2)); let on = 0, tot = 0; for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) { const lx = -hw + w * i / nx, lz = -hd + d * j / nz; tot++; if (onYatoRoadCore(cx + lx * co - lz * si, cz + lx * si + lz * co)) on++ } return { core: +(on / tot).toFixed(4), area: +(w * d).toFixed(0), on, tot } }, // 検証用：建物footprintの道路被覆率(fpCoverと同じ格子)
+  _buildingsOnRoad() { // 検証用(巡回)：実際に建った建物のうち“除外閾値を超えて”道に乗っているもの＝「道路の上に建物」の回帰検出。配置ループが小8%/大(area>1400)4.5%で除外するので通常は0。※5〜8%の路傍の家は設計どおり温存＝違反ではない
+    const out = []
+    for (const [cx, cz, w, d, ang] of builtBuildings) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2, nx = Math.max(2, Math.round(w / 2)), nz = Math.max(2, Math.round(d / 2)), area = w * d; let on = 0, tot = 0
+      for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) { const lx = -hw + w * i / nx, lz = -hd + d * j / nz; tot++; if (onYatoRoadCore(cx + lx * co - lz * si, cz + lx * si + lz * co)) on++ }
+      const cov = on / tot; if (cov > 0.08 || (area > 1400 && cov > 0.045)) out.push({ x: +cx.toFixed(0), z: +cz.toFixed(0), area: +area.toFixed(0), cov: +cov.toFixed(3) }) }
+    out.sort((a, b) => b.cov - a.cov); return { n: out.length, worst: out.slice(0, 20) }
+  },
   _nearby(x, z, r = 12) { // 検証用：地点近傍のコライダー（建物の足形）と名前付きグループを列挙＝道上の建物などの特定に使う
     const cols = []
     for (const c of colliders) { const dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz)
