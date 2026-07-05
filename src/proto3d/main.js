@@ -4307,6 +4307,46 @@ function buildShishigaya() {
       bloomI.instanceMatrix.needsUpdate = true; bloomI.instanceColor.needsUpdate = true; bloomI.castShadow = false; scene.add(bloomI) // 花（instanceColorで色ちがい・1ドロー）
       console.log('[shishigaya] wildflowers', blooms.length)
     } }
+  // ── 夏野菜の畑：田舎の家の脇の家庭菜園（トマト/なすの畝＋竹の支柱＋実、背にひまわり）。旧・野原にはあるがyatoには無かった（2026-07-05オブジェクト点検）。土/畝/葉/支柱/実/ひまわりで各1ドロー ──
+  { const gardens = [], GACX = 3010, GACZ = -120 // 谷あい中心のまわりを走査
+    const spaced = (x, z) => gardens.every((g) => Math.hypot(g[0] - x, g[1] - z) > 48) // 畑どうしは48m以上離す
+    const clear = (x, z, ry) => { // 中心だけでなく畑(5.0×4.2)の四隅まで検査＝縁が道/水/建物に食い込まない（向きry込み）
+      if (heightAtYato(x, z) < 3) return false
+      if (Math.abs(heightAtYato(x + 3, z) - heightAtYato(x - 3, z)) + Math.abs(heightAtYato(x, z + 3) - heightAtYato(x, z - 3)) > 3.0) return false // ほぼ平ら（畑は平地に）
+      const co = Math.cos(ry), si = Math.sin(ry)
+      for (const [lx, lz] of [[0, 0], [2.3, 1.9], [2.3, -1.9], [-2.3, 1.9], [-2.3, -1.9]]) { const wx = x + lx * co - lz * si, wz = z + lx * si + lz * co
+        if (onYatoRoad(wx, wz) || inWater(wx, wz)) return false
+        for (const b of SG.buildings) { if (Math.max(Math.abs(wx - b[0]) - b[2] / 2, Math.abs(wz - b[1]) - b[3] / 2) < 1.5) return false } } // 隅が建物に1.5m以内も不可
+      return true }
+    const houseNear = (x, z) => { for (const b of SG.buildings) { if (b[2] * b[3] < 300 && Math.hypot(x - b[0], z - b[1]) < 24) return true } return false } // 近くに小さめの建物（家）＝“家の脇”に見える
+    for (let t = 0; t < 6000 && gardens.length < 7; t++) { const a = Math.random() * 6.283, r = 45 + Math.sqrt(Math.random()) * 300, x = GACX + Math.cos(a) * r, z = GACZ + Math.sin(a) * r, ry = Math.random() * 6.283
+      if (clear(x, z, ry) && houseNear(x, z) && spaced(x, z)) gardens.push([x, z, ry]) }
+    if (gardens.length) {
+      const dirtGeos = [], ridgeGeos = [], foli = [], stakes = [], fruits = [], sunS = [], sunH = [] // fruits=[x,y,z,col,sx,sy,sz]
+      for (const [gx, gz, ry] of gardens) { const co = Math.cos(ry), si = Math.sin(ry), f = (lx, lz) => [gx + lx * co - lz * si, gz + lx * si + lz * co]
+        const dy = heightAtYato(gx, gz)
+        const dg = new THREE.PlaneGeometry(5.0, 4.2); dg.rotateX(-Math.PI / 2); dg.rotateY(ry); dg.translate(gx, dy + 0.03, gz); dirtGeos.push(dg) // 耕した土の台
+        for (let r2 = 0; r2 < 3; r2++) { const lz = r2 * 1.1 - 1.1, [rx, rz] = f(0, lz), ry2 = heightAtYato(rx, rz) // 3畝
+          const rg = new THREE.BoxGeometry(4.4, 0.18, 0.72), mm = new THREE.Matrix4(); mm.compose(new THREE.Vector3(rx, ry2 + 0.09, rz), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry), new THREE.Vector3(1, 1, 1)); rg.applyMatrix4(mm); ridgeGeos.push(rg)
+          for (let c = 0; c < 5; c++) { const [px, pz] = f(-1.8 + c * 0.9, lz), py = heightAtYato(px, pz) // 1畝5株
+            foli.push([px, py + 0.42, pz]); stakes.push([px, py + 0.5, pz])
+            const isNasu = r2 === 1 // 真ん中の畝＝なす、両側＝トマト
+            if (Math.random() < 0.8) fruits.push([px + 0.09, py + 0.32, pz + 0.12, isNasu ? 0x5a3a8a : 0xcf3a2a, isNasu ? 0.085 : 0.075, isNasu ? 0.14 : 0.075, isNasu ? 0.085 : 0.075]) } }
+        const nsun = 1 + Math.floor(Math.random() * 3); for (let s = 0; s < nsun; s++) { const [sx, sz] = f(-1.6 + s * 1.4, -1.7 + (Math.random() - 0.5) * 0.3), sy = heightAtYato(sx, sz); sunS.push([sx, sy, sz]); sunH.push([sx, sy + 1.85, sz]) } // 畑の背にひまわり1〜3本
+      }
+      const addMerged = (geos, mat, recv) => { const m = new THREE.Mesh(mergeGeometries(geos), mat); geos.forEach((g) => g.dispose()); m.castShadow = false; if (recv) m.receiveShadow = true; scene.add(m) }
+      addMerged(dirtGeos, new THREE.MeshToonMaterial({ color: 0x8a7050, gradientMap: GRAD, map: groundDirtTex }), true) // 耕した土
+      addMerged(ridgeGeos, toon(0x6a4e34), true) // 畝
+      const mI = new THREE.Matrix4(), qI = new THREE.Quaternion(), sI = new THREE.Vector3(), yA = new THREE.Vector3(0, 1, 0)
+      { const im = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 7, 6), toon(0x4a7a3a), foli.length); foli.forEach(([x, y, z], i) => { qI.setFromAxisAngle(yA, Math.random() * 6.28); sI.set(1, 1.3, 1); mI.compose(new THREE.Vector3(x, y, z), qI, sI); im.setMatrixAt(i, mI) }); im.instanceMatrix.needsUpdate = true; im.castShadow = false; scene.add(im) } // 葉
+      { const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.018, 0.022, 0.85, 4), toon(0x9a7b4a), stakes.length); stakes.forEach(([x, y, z], i) => { mI.makeTranslation(x, y, z); im.setMatrixAt(i, mI) }); im.instanceMatrix.needsUpdate = true; im.castShadow = false; scene.add(im) } // 竹の支柱
+      if (fruits.length) { const im = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: GRAD }), fruits.length), fc = new THREE.Color()
+        fruits.forEach(([x, y, z, col, sx, sy, sz], i) => { sI.set(sx, sy, sz); mI.compose(new THREE.Vector3(x, y, z), qI.identity(), sI); im.setMatrixAt(i, mI); im.setColorAt(i, fc.set(col)) }); im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.castShadow = false; scene.add(im) } // 実（トマト赤/なす紫）
+      if (sunS.length) { const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.03, 0.045, 1.9, 5), toon(0x5f7d3c), sunS.length); sunS.forEach(([x, y, z], i) => { mI.makeTranslation(x, y + 0.95, z); im.setMatrixAt(i, mI) }); im.instanceMatrix.needsUpdate = true; im.castShadow = false; scene.add(im) // ひまわりの茎
+        const gh = new THREE.SphereGeometry(0.3, 10, 8); gh.scale(1, 0.4, 1); const ih = new THREE.InstancedMesh(gh, toon(0xf1c12e), sunH.length); sunH.forEach(([x, y, z], i) => { mI.makeTranslation(x, y, z); ih.setMatrixAt(i, mI) }); ih.instanceMatrix.needsUpdate = true; ih.castShadow = false; scene.add(ih) // 黄の花
+        const gc = new THREE.SphereGeometry(0.15, 8, 6); gc.scale(1, 0.42, 1); const ic = new THREE.InstancedMesh(gc, toon(0x6a4a26), sunH.length); sunH.forEach(([x, y, z], i) => { mI.makeTranslation(x, y + 0.05, z); ic.setMatrixAt(i, mI) }); ic.instanceMatrix.needsUpdate = true; ic.castShadow = false; scene.add(ic) } // 茶の芯
+      console.log('[shishigaya] 家庭菜園', gardens.length, '区画 ひまわり', sunH.length)
+    } }
   // ── 遠景バックドロップ（地平の山＋鶴見・北寺尾から実際に見える都市ランドマーク）──────────────────────
   //   ★過去の失敗＝「中心(3000,0)固定リングの装飾山」は飛行/浮遊で西へ出ると目前で巨大化し景観を破壊した（ユーザー2回指摘）。
   //   ★方針＝入道雲(thunderheads)と同じ「カメラ追従の遠景」。1つのGroup farBackdrop を毎フレーム カメラのX/Zへ置く（Y固定＝地平に留まる）。
