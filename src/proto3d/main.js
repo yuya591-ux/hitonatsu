@@ -6620,11 +6620,11 @@ function makeSunflower(x, z, s = 1) {
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.045 * s, 0.085 * s, H, 6), green); stem.position.y = H / 2; g.add(stem)
   { const lg = []; for (const [ly, aa, tl] of [[0.8, 0.7, -0.4], [1.5, -0.8, -0.3]]) { const leaf = new THREE.SphereGeometry(1, 6, 5); leaf.scale(0.4 * s, 0.03, 0.24 * s); leaf.translate(0.5 * s, 0, 0); leaf.applyMatrix4(new THREE.Matrix4().makeRotationZ(tl)); leaf.applyMatrix4(new THREE.Matrix4().makeRotationY(aa)); leaf.translate(0, ly * s, 0); lg.push(leaf) } g.add(new THREE.Mesh(mergeGeometries(lg), leafG)) } // 大きな葉2枚（merged）
   const head = new THREE.Group(); head.position.y = H; head.rotation.x = -0.5 // 花の頭は少し上/外向き
-  { const pgs = [], cIn = new THREE.Color(0xdb9326), cOut = new THREE.Color(0xf8d64c) // 花びら2重リング・頂点カラーで根元橙→先黄
+  { const pgs = [], cIn = new THREE.Color(0xf3bd30), cOut = new THREE.Color(0xffe04a) // 花びら2重リング・頂点カラーで根元は淡い金・先は明るい黄（ユーザー要望2026-07-05：もっと黄色く）
     const ring = (NP, R, len, off) => { for (let i = 0; i < NP; i++) { const a = i / NP * 6.2832 + off, pg = new THREE.SphereGeometry(1, 5, 3); pg.scale(len * s, 0.075 * s, 0.02); pg.translate((R + len) * s, 0, 0)
       const pos = pg.attributes.position, col = []; for (let k = 0; k < pos.count; k++) { const t = THREE.MathUtils.clamp((pos.getX(k) / s - R) / (2 * len), 0, 1), c = cIn.clone().lerp(cOut, t); col.push(c.r, c.g, c.b) }
       pg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); pg.applyMatrix4(new THREE.Matrix4().makeRotationZ(a)); pgs.push(pg) } }
-    ring(18, 0.46, 0.34, 0); ring(15, 0.33, 0.26, 0.21); head.add(new THREE.Mesh(mergeGeometries(pgs), new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, side: THREE.DoubleSide }))) }
+    ring(24, 0.47, 0.36, 0); ring(20, 0.34, 0.29, 0.13); head.add(new THREE.Mesh(mergeGeometries(pgs), new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, side: THREE.DoubleSide }))) } // 花びらを増やす（外24＋内20＝44枚）
   const seed = new THREE.Mesh(new THREE.CircleGeometry(0.33 * s, 26), new THREE.MeshToonMaterial({ map: SUNFLOWER_SEED_TEX, gradientMap: GRAD })); seed.position.z = 0.06 * s; head.add(seed) // 種の頭（黄金角らせん模様）
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.33 * s, 0.05 * s, 6, 22), toon(0x7c5a30)); rim.position.z = 0.05 * s; head.add(rim) // 種のふちの厚み
   const back = new THREE.Mesh(new THREE.ConeGeometry(0.46 * s, 0.22 * s, 12), leafG); back.rotation.x = -Math.PI / 2; back.position.z = -0.07 * s; head.add(back) // 花の裏の萼（緑）
