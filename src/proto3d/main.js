@@ -9935,6 +9935,8 @@ function camOffset(out) {
 }
 camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
 
+// ※A3（8bit RT化）は不採用＝夕方の空のバンディングは出ないが、Bloomに必要なHDR(>1.0)が8bitで飽和し
+//   夕焼けの暖かい滲みが弱く暗くなった（夜は同一・夕のみ色差≈20の劣化を計測2026-07-05）。EffectComposerは既定のHalfFloatを維持。
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
 
