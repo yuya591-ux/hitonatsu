@@ -2706,6 +2706,39 @@ function buildShishigaya() {
         grp.add(mk(new THREE.PlaneGeometry(5.0, 0.95), new THREE.MeshBasicMaterial({ map: signTex(name, '#2f5a8a', '#fff8e8'), side: THREE.DoubleSide }), gx - 3.4, gg + 1.8, gz, Math.PI / 2)) }
       for (const [tx, tz] of [[cx - 24, cz - 16], [cx + 14, cz + 4], [cx - 2, cz - 21], [cx + 27, cz + 12]]) { const ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.28, 1.7, 5), toon(0x6a4e34), tx, ty + 0.85, tz, 0, true)); const cv = mk(bushyCanopy(2.0), toon(0x5f8a40), tx, ty + 1.7 + 1.5, tz, 0, true); cv.scale.set(1, 1.05, 1); grp.add(cv) } // 夏の緑の木立
       signOn(cx - 6, cz - 16, 14, gmax4(cx - 6, cz - 9, 36, 12), floors * 3.3 + 1.4, name, '#2f5a8a') }
+    // 横浜市立上の宮中学校（1978開校・寺尾中から分離）＝4階建て複雑な造りのコの字校舎＋体育館＋いちょう館(格技場1991)＋プール(1978)＋広い校庭。正門前は公孫樹坂(いちょうざか)の銀杏並木・丘の上(西高→東低)。Web+実地調査のたたき台＝出身校ユーザーの記憶で要修正（2026-07-05）
+    const buildKaminomiya = (cx, cz, name) => { const roof = 0x3a4660 // 紺の陸屋根（FEST_VARIANTSの上の宮＝朱と紺に合わせる）
+      ground(cx + 10, cz - 16, 44, 30, 0xc9b487) // 校庭（広い土のグラウンド・北の低い方＝夏祭り会場もここ）
+      { const fx = cx + 10, fz = cz - 16, rx = 19, rz = 10, seg = 44, v = [], idx = [] // 楕円のトラック（地面に沿う）
+        for (let i = 0; i <= seg; i++) { const a = i / seg * 6.2832, ca = Math.cos(a), sa = Math.sin(a); for (const r of [0.83, 1.0]) { const x = fx + ca * rx * r, z = fz + sa * rz * r; v.push(x, heightAtYato(x, z) + 0.09, z) } }
+        for (let i = 0; i < seg; i++) { const b = i * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2) }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, toon(0xb5623a)); m.receiveShadow = true; grp.add(m) }
+      schoolBldg(cx - 12, cz + 3, 34, 12, 4, 0, roof) // 本棟（長い4階RC・E-W）
+      schoolBldg(cx - 27, cz - 8, 12, 22, 4, 0, roof) // 西ウィング（南北）
+      schoolBldg(cx + 1, cz - 6, 12, 18, 4, 0, roof)  // 東ウィング（南北）＝コの字の三辺目（校庭へ開く）
+      { const wy = gmin4(cx - 3, cz - 4, 8, 3); grp.add(mk(new THREE.BoxGeometry(9, 1.2, 3), toon(0xd8d2c4), cx - 3, wy + 4.2, cz - 4, 0, true)) } // 渡り廊下（2階レベル・複雑な造り）
+      { const ex = cx - 8, ez = cz - 3.2, ey = gmin4(ex, ez, 6, 2); grp.add(mk(new THREE.BoxGeometry(6, 3.0, 1.2), toon(0x8fa6b4), ex, ey + 1.5, ez, 0, true)); grp.add(mk(new THREE.BoxGeometry(7, 0.4, 2.2), toon(roof), ex, ey + 3.1, ez - 0.6, 0, true)) } // 昇降口（校庭側のガラス入口＋庇）
+      { const bx = cx - 12, bz = cz + 18, bg = gmin4(bx, bz, 20, 14), bh = 5.5 // 体育館（鉄骨かまぼこアーチ）
+        grp.add(mk(new THREE.BoxGeometry(20, bh, 14), toon(0xcfcabe), bx, bg + bh / 2, bz, 0, true))
+        const arch = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 8.5, 20, 18, 1), toon(0x9fb0b8)); arch.rotation.z = Math.PI / 2; arch.position.set(bx, bg + bh - 1.2, bz); arch.scale.set(1, 1, 0.6); arch.castShadow = arch.receiveShadow = true; grp.add(arch)
+        grp.add(mk(new THREE.PlaneGeometry(5.5, 1.0), new THREE.MeshBasicMaterial({ map: signTex('たいいくかん', '#3a5577', '#fff8e8'), side: THREE.DoubleSide }), bx, bg + 2.2, bz + 7.1, 0)); addBox(bx, bz, 10, 7, 0, 0.3) }
+      { const hx = cx + 6, hz = cz + 18, hg = gmin4(hx, hz, 12, 10), hh = 4.0 // いちょう館（格技場・1991）＝低い切妻の武道場
+        grp.add(mk(new THREE.BoxGeometry(12, hh, 10), toon(0xd6cdb8), hx, hg + hh / 2, hz, 0, true))
+        for (const sz of [-1, 1]) grp.add(mk(new THREE.BoxGeometry(12.6, 0.2, 6.0), toon(0x6a6256), hx, hg + hh + 1.15, hz + sz * 2.55, sz * 0.42, 0)) // 切妻2斜面
+        grp.add(mk(new THREE.BoxGeometry(12.8, 0.24, 0.3), toon(0x54504a), hx, hg + hh + 2.0, hz, 0, true)) // 棟
+        grp.add(mk(new THREE.PlaneGeometry(4.2, 0.9), new THREE.MeshBasicMaterial({ map: signTex('いちょう館', '#5a6a3a', '#fff8e8'), side: THREE.DoubleSide }), hx, hg + 2.0, hz + 5.06, 0)); addBox(hx, hz, 6, 5, 0, 0.3) }
+      { const px = cx + 26, pz = cz - 4, pg = gmin4(px, pz, 16, 10) // プール（1978）＝青い水面＋デッキ＋コースロープ
+        grp.add(mk(new THREE.BoxGeometry(16, 0.4, 10), toon(0xc8c4b8), px, pg + 0.2, pz, 0, true)) // デッキ
+        const water = mk(new THREE.PlaneGeometry(12.5, 6.5), new THREE.MeshToonMaterial({ color: 0x3aa0c8, gradientMap: GRAD, transparent: true, opacity: 0.9 }), px, pg + 0.45, pz, 0); water.rotation.x = -Math.PI / 2; grp.add(water)
+        for (let i = 1; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(12, 0.03, 0.08), toon(0xeaf4f8), px, pg + 0.47, pz - 3 + i * 1.2, 0)); addBox(px, pz, 8, 5, 0, 0.3) } // コースロープ
+      { const gx = cx - 6, gz = cz + 30, gg = heightAtYato(gx, gz) // 正門＋公孫樹坂（いちょうざか）＝銀杏並木の坂を登って正門（南）
+        for (const sx of [-3.6, 3.6]) grp.add(mk(new THREE.BoxGeometry(1.0, 3.4, 1.0), toon(0xcabfa0), gx + sx, gg + 1.7, gz, 0, true)) // 門柱
+        grp.add(mk(new THREE.BoxGeometry(8.6, 0.5, 0.6), toon(0x8a6f48), gx, gg + 3.5, gz, 0, true)) // 梁
+        grp.add(mk(new THREE.PlaneGeometry(6.0, 1.0), new THREE.MeshBasicMaterial({ map: signTex(name, '#2f5a8a', '#fff8e8'), side: THREE.DoubleSide }), gx - 3.6, gg + 1.9, gz, Math.PI / 2))
+        for (let i = 0; i <= 5; i++) { const wx = gx, wz = gz + 2 + i * 3.3; grp.add(mk(new THREE.BoxGeometry(4.6, 0.08, 3.3), toon(0xbfb6a2), wx, heightAtYato(wx, wz) + 0.06, wz, 0, true)) } // 坂の舗装
+        for (const sx of [-3.7, 3.7]) for (let i = 0; i < 4; i++) { const tx = gx + sx, tz = gz + 4 + i * 4.4, ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.22, 0.3, 3.6, 6), toon(0x7a6242), tx, ty + 1.8, tz, 0, true)); const cv = mk(bushyCanopy(2.0), toon(0x76a048), tx, ty + 3.6 + 1.8, tz, 0, true); cv.scale.set(0.82, 1.45, 0.82); grp.add(cv) } } // 銀杏並木（夏は緑・縦長の樹形）
+      for (const [tx, tz] of [[cx - 28, cz + 12], [cx + 20, cz + 14], [cx - 20, cz - 22]]) { const ty = heightAtYato(tx, tz); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.28, 1.7, 5), toon(0x6a4e34), tx, ty + 0.85, tz, 0, true)); grp.add(mk(bushyCanopy(2.0), toon(0x5f8a40), tx, ty + 1.7 + 1.5, tz, 0, true)) } // 校地の木立
+      signOn(cx - 12, cz - 3, 14, gmax4(cx - 12, cz + 3, 34, 12), 4 * 3.3 + 1.4, name, '#2f5a8a') }
     // 幼稚園/保育園＝低い2階のカラフルな園舎(クリーム壁＋オレンジ寄棟＋丸窓)＋砂の園庭＋遊具1セット＋低いカラフルな門。子どもが通う明るさ
     const buildKinder = (cx, cz, name) => {
       ground(cx, cz + 8, 26, 18, 0xdcc89a) // 園庭（砂）
@@ -3310,7 +3343,7 @@ function buildShishigaya() {
         else { const d3 = name === '獅子ヶ谷第三公園'; const pfr = d3 ? -0.64 : null; buildParkSign(d3 ? 3049.5 : x, d3 ? 22.5 : z, name, pfr); if (name !== '獅子ヶ谷一丁目公園') parkPos.push(d3 ? [3058, 11] : [x, z]) } } // 一丁目公園はマリノスのグラウンドなので遊具なし。第三公園は看板を西角の入口(3049.5,22.5)へ・表を進入路(北西)向きに＝2.5だと坂から鏡文字。遊具/柵の中心を園庭(3058,11)へ（ユーザーピン4点の中心・2026-07-02。addParkKidsのブランコの子と同じ座標にすること＝ずれると子が宙に浮く）
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); FEST_VENUES.push({ name: '校庭', pos: new THREE.Vector2(3124, -186), days: [1], g: buildBonOdori(3124, heightAtYato(3124, -186), -186, null, FEST_VARIANTS['校庭']) }) } // 校庭(3124,-186)に夏の盆踊り会場＝開催日は1日目。お囃子/花火もこの会場（2026-06-24 ユーザー要望）
-        else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a'); if (name === '上の宮中学校') FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22, null, FEST_VARIANTS['上の宮中学校']) }) } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
+        else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else if (name === '上の宮中学校') { buildKaminomiya(x, z, name); FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22, null, FEST_VARIANTS['上の宮中学校']) }) } else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { const [ax, az] = nudgeOffRoad(x, z, 36, 30); buildApt(ax, az, 34, 11, floors, name); buildApt(ax + 4, az + 26, 11, 28, floors, ''); buildApt(ax - 24, az + 14, 28, 11, floors, '') } // 団地3棟（設計どおりのL字配置を保つ＝棟どうしは重ねない）。塊ごと道よけ（判定footprintを36×30に広げて棟の端まで道に乗らない場所を探す）
         else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
