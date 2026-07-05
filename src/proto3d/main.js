@@ -6610,17 +6610,26 @@ let grassShader = null
   scene.add(grass)
 }
 
-// ── ひまわり ──
-function makeSunflower(x, z) {
-  const g = new THREE.Group()
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.4, 5), toon(0x5f8b3c)); stem.position.y = 1.2; g.add(stem)
-  const petals = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.12, 16), toon(0xf2cb50)); petals.position.y = 2.5; petals.rotation.x = 0.5; g.add(petals)
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.16, 12), toon(0x7a4a22)); core.position.set(0, 2.55, 0.04); core.rotation.x = 0.5; g.add(core)
-  g.position.set(x, heightAt(x, z), z)
-  g.children.forEach((c) => (c.castShadow = true))
-  mergedOutline(g, 0.05)
-  addContactShadow(g, 0.7)
-  scene.add(g)
+// ── ひまわり（大幅刷新2026-07-05・ユーザー要望）＝個々の花びら2重リング＋黄金角の種のらせん＋葉。旧＝棒＋平たい黄円盤で低品質だった ──
+const SUNFLOWER_SEED_TEX = (() => { const c = document.createElement('canvas'); c.width = c.height = 72; const x = c.getContext('2d')
+  const gr = x.createRadialGradient(36, 36, 3, 36, 36, 36); gr.addColorStop(0, '#3d2913'); gr.addColorStop(1, '#5c3f20'); x.fillStyle = gr; x.fillRect(0, 0, 72, 72)
+  for (let i = 0; i < 340; i++) { const a = i * 2.39996, r = Math.sqrt(i / 340) * 34, px = 36 + Math.cos(a) * r, py = 36 + Math.sin(a) * r; x.fillStyle = i % 3 ? '#6b4a26' : '#7e5b31'; x.beginPath(); x.arc(px, py, 1.5, 0, 6.3); x.fill() } // 黄金角137.5°の種のらせん＝本物の並び
+  return new THREE.CanvasTexture(c) })()
+function makeSunflower(x, z, s = 1) {
+  const g = new THREE.Group(), green = toon(0x5f8b3c), leafG = toon(0x4e7d34), H = 2.3 * s
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.045 * s, 0.085 * s, H, 6), green); stem.position.y = H / 2; g.add(stem)
+  { const lg = []; for (const [ly, aa, tl] of [[0.8, 0.7, -0.4], [1.5, -0.8, -0.3]]) { const leaf = new THREE.SphereGeometry(1, 6, 5); leaf.scale(0.4 * s, 0.03, 0.24 * s); leaf.translate(0.5 * s, 0, 0); leaf.applyMatrix4(new THREE.Matrix4().makeRotationZ(tl)); leaf.applyMatrix4(new THREE.Matrix4().makeRotationY(aa)); leaf.translate(0, ly * s, 0); lg.push(leaf) } g.add(new THREE.Mesh(mergeGeometries(lg), leafG)) } // 大きな葉2枚（merged）
+  const head = new THREE.Group(); head.position.y = H; head.rotation.x = -0.5 // 花の頭は少し上/外向き
+  { const pgs = [], cIn = new THREE.Color(0xdb9326), cOut = new THREE.Color(0xf8d64c) // 花びら2重リング・頂点カラーで根元橙→先黄
+    const ring = (NP, R, len, off) => { for (let i = 0; i < NP; i++) { const a = i / NP * 6.2832 + off, pg = new THREE.SphereGeometry(1, 5, 3); pg.scale(len * s, 0.075 * s, 0.02); pg.translate((R + len) * s, 0, 0)
+      const pos = pg.attributes.position, col = []; for (let k = 0; k < pos.count; k++) { const t = THREE.MathUtils.clamp((pos.getX(k) / s - R) / (2 * len), 0, 1), c = cIn.clone().lerp(cOut, t); col.push(c.r, c.g, c.b) }
+      pg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); pg.applyMatrix4(new THREE.Matrix4().makeRotationZ(a)); pgs.push(pg) } }
+    ring(18, 0.46, 0.34, 0); ring(15, 0.33, 0.26, 0.21); head.add(new THREE.Mesh(mergeGeometries(pgs), new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, side: THREE.DoubleSide }))) }
+  const seed = new THREE.Mesh(new THREE.CircleGeometry(0.33 * s, 26), new THREE.MeshToonMaterial({ map: SUNFLOWER_SEED_TEX, gradientMap: GRAD })); seed.position.z = 0.06 * s; head.add(seed) // 種の頭（黄金角らせん模様）
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.33 * s, 0.05 * s, 6, 22), toon(0x7c5a30)); rim.position.z = 0.05 * s; head.add(rim) // 種のふちの厚み
+  const back = new THREE.Mesh(new THREE.ConeGeometry(0.46 * s, 0.22 * s, 12), leafG); back.rotation.x = -Math.PI / 2; back.position.z = -0.07 * s; head.add(back) // 花の裏の萼（緑）
+  g.add(head); g.position.set(x, heightAt(x, z), z); g.traverse((c) => { if (c.isMesh) c.castShadow = true })
+  mergedOutline(g, 0.03); addContactShadow(g, 0.7); scene.add(g)
   swayables.push({ obj: g, ph: Math.random() * 6.28, amp: 0.05 })
 }
 for (const [x, z] of [[6, 8], [7.2, 9], [-5, 7], [4, -4]]) makeSunflower(x, z)
