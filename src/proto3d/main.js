@@ -10084,65 +10084,58 @@ const normalRT = new THREE.WebGLRenderTarget(_pdx, _pdy, { depthTexture: new THR
 // 300m〜fog先の建物/木のドローコールを丸ごと省く（発熱対策・2026-07-02）。深度の復号(near/far uniform)も必ずこの値に合わせること＝ずれると中景のボケ量が狂う。
 // A/B検証用に window.__prepassFar = false で旧動作（全距離描画）に戻せる
 const PREPASS_FAR = 300
-// ── 被写界深度(DOF)：主人公(画面中央やや下)にピント、ピント面から離れた遠景/最近景だけをやわらかくぼかす。インク線の前に置き＝色だけ柔らかく輪郭線はくっきり＝温かいトゥーンを保つ弱めのボケ（A1・ユーザー承認2026-06-25「弱めに」）──
-const dofPass = new ShaderPass({
+const normalMat = new THREE.MeshNormalMaterial()
+// ── B4（省電力）：被写界深度(DOF)とインク輪郭を1つのポストパスに統合＝フル解像パスを1本減らし、TBDR(iPhone)のRT往復を1回省く。
+//   数式・順序は2パス版と完全一致：まずグレード済みの色をDOFでぼかし、その色に法線/深度エッジのインク線を乗せる（inkはぼかさず幾何エッジで混ぜるだけ＝順序の衝突なし）。
+//   uDofOn/uInkOn で各効果を毎フレーム切替（座る/寝る/主観ではDOF切・空中ではインク切＝2パス版のenabledと同じ条件）。
+//   DOFはフル解像texel(dofTexel)、インクのエッジ検出は0.75xプリパスtexel(inkTexel)＝A5と整合。
+const postPass = new ShaderPass({
   uniforms: {
-    tDiffuse: { value: null }, tDepth: { value: normalRT.depthTexture },
-    texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: PREPASS_FAR }, // 深度RTはPREPASS_FARの射影で描く＝復号もそれに合わせる（camera.farだと中景の距離を誤読）
-    strength: { value: 0.7 }, maxCoc: { value: 1.2 }, focusBias: { value: 15.0 }, // strength=効きの強さ・maxCoc=最大ボケ径(px)・focusBias=ピント面の許容(大きいほど手前は鈍感)。ユーザー「ボケで見づらい/建物の線が透けて視界を邪魔」→ごく弱く＝中景まではくっきり保ち、 いちばん遠い霞だけ僅かに柔らかく（2026-06-26）
+    tDiffuse: { value: null }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
+    dofTexel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, inkTexel: { value: new THREE.Vector2(1 / _pdx, 1 / _pdy) },
+    near: { value: camera.near }, far: { value: PREPASS_FAR }, // 深度RTはPREPASS_FARの射影で描く＝復号もそれに合わせる
+    uDofOn: { value: 1 }, dofStrength: { value: 0.7 }, maxCoc: { value: 1.2 }, focusBias: { value: 15.0 }, // DOF：strength=効き・maxCoc=最大ボケ径・focusBias=ピント面の許容
+    uInkOn: { value: CEL.inkEdges ? 1 : 0 }, inkStrength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness }, fadeNear: { value: CEL.inkFadeNear }, fadeFar: { value: CEL.inkFadeFar }, inkColor: { value: new THREE.Color(CEL.inkTint) }, // インク：焦げ茶・遠景でフェード
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tDepth; uniform vec2 texel; uniform float near, far, strength, maxCoc, focusBias;
-    float eyeZ(vec2 uv){ float z = texture2D(tDepth, uv).x; return (2.0*near*far)/(far+near-(2.0*z-1.0)*(far-near)); } // 線形の視線距離
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 dofTexel, inkTexel; uniform float near, far;
+    uniform float uDofOn, dofStrength, maxCoc, focusBias; uniform float uInkOn, inkStrength, thickness, fadeNear, fadeFar; uniform vec3 inkColor;
+    float eyeZlin(float z){ return (2.0*near*far)/(far+near-(2.0*z-1.0)*(far-near)); } // 生NDC深度→線形の視線距離
+    float eyeZ(vec2 uv){ return eyeZlin(texture2D(tDepth, uv).x); }
+    float rawZ(vec2 uv){ return texture2D(tDepth, uv).x; }
+    vec3 nrm(vec2 uv){ return texture2D(tNormal, uv).xyz*2.0-1.0; }
     void main(){
-      float fz = clamp(eyeZ(vec2(0.5, 0.45)), near + 2.0, 110.0); // フォーカス＝画面中央やや下(主人公)・遠すぎ(空)で全面ボケしないよう頭打ち
-      float dz = eyeZ(vUv);
-      float coc = clamp(abs(dz - fz) / (fz + focusBias) * strength, 0.0, 1.0) * maxCoc; // ピント面から離れるほどボケる(相対距離・近距離は鈍感)
       vec3 col = texture2D(tDiffuse, vUv).rgb;
-      if (coc > 0.35) { // ピント面の近くはそのまま＝トゥーンのくっきりを保つ
-        vec3 sum = col;
-        for (int i = 0; i < 8; i++) { float a = float(i) * 0.7853981; vec2 o = vec2(cos(a), sin(a)) * coc * texel; sum += texture2D(tDiffuse, vUv + o).rgb; }
-        col = sum / 9.0;
+      // ── 被写界深度：ピント面(画面中央やや下=主人公)から離れた遠景/最近景だけをやわらかくぼかす（グレード済みの色をぼかす＝2パス版と同一）
+      if (uDofOn > 0.5) {
+        float fz = clamp(eyeZ(vec2(0.5, 0.45)), near + 2.0, 110.0); // 遠すぎ(空)で全面ボケしないよう頭打ち
+        float dz = eyeZ(vUv);
+        float coc = clamp(abs(dz - fz) / (fz + focusBias) * dofStrength, 0.0, 1.0) * maxCoc;
+        if (coc > 0.35) { // ピント面の近くはそのまま＝トゥーンのくっきりを保つ
+          vec3 sum = col;
+          for (int i = 0; i < 8; i++) { float a = float(i) * 0.7853981; vec2 o = vec2(cos(a), sin(a)) * coc * dofTexel; sum += texture2D(tDiffuse, vUv + o).rgb; }
+          col = sum / 9.0;
+        }
+      }
+      // ── インク輪郭：法線/深度エッジ(建物の角・折り目・シルエット)を、DOF後の色に黒線として乗せる（2パス版と同一。ぼかさないので順序衝突なし）
+      if (uInkOn > 0.5) {
+        vec2 t = inkTexel * thickness;
+        float zC = rawZ(vUv);
+        float zL = rawZ(vUv-vec2(t.x,0.0)), zR = rawZ(vUv+vec2(t.x,0.0)), zU = rawZ(vUv+vec2(0.0,t.y)), zD = rawZ(vUv-vec2(0.0,t.y));
+        float lap = abs(zL + zR - 2.0*zC) + abs(zU + zD - 2.0*zC); // 深度の2階微分＝平面はどんな傾きでも≈0、シルエット/段差だけ大きい
+        float depthEdge = smoothstep(0.0007, 0.0035, lap);
+        vec3 nC = nrm(vUv);
+        float ne = (1.0-dot(nC,nrm(vUv-vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(0.0,t.y)))) + (1.0-dot(nC,nrm(vUv-vec2(0.0,t.y))));
+        float normEdge = smoothstep(0.92, 1.6, ne); // 強いシルエット/角だけ残す（路地の“線まみれ”を防ぐ）
+        float fade = 1.0 - smoothstep(fadeNear, fadeFar, eyeZlin(zC)); // 遠いほどエッジを消す＝遠景のチラつき(黒モヤ)を断つ
+        float edge = clamp(max(depthEdge, normEdge), 0.0, 1.0) * fade * inkStrength;
+        col = mix(col, inkColor, edge);
       }
       gl_FragColor = vec4(col, 1.0);
     }`,
 })
-dofPass.enabled = true
-composer.addPass(dofPass)
-const normalMat = new THREE.MeshNormalMaterial()
-const inkPass = new ShaderPass({
-  uniforms: {
-    tDiffuse: { value: null }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
-    texel: { value: new THREE.Vector2(1 / _pdx, 1 / _pdy) }, near: { value: camera.near }, far: { value: PREPASS_FAR }, // A5：エッジ検出のtexelは0.75xの法線/深度RTに合わせる／深度RTはPREPASS_FARの射影で描く＝復号もそれに合わせる（camera.farだと中景の距離を誤読）
-    fadeNear: { value: CEL.inkFadeNear }, fadeFar: { value: CEL.inkFadeFar }, // この距離からエッジを薄くし、奥で消す＝遠景のチラつき(黒モヤ)を断つ
-    inkColor: { value: new THREE.Color(CEL.inkTint) }, strength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness }, // インク線は焦げ茶（ハル輪郭CEL.outlineとは別＝建物の硬い黒線をやわらげる・2026-07-01）
-  },
-  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 texel; uniform float near, far, strength, thickness, fadeNear, fadeFar; uniform vec3 inkColor;
-    float rawZ(vec2 uv){ return texture2D(tDepth, uv).x; } // 生のNDC深度（平面なら画面上で線形→傾いた床でも誤検出しない）
-    vec3 nrm(vec2 uv){ return texture2D(tNormal, uv).xyz*2.0-1.0; }
-    void main(){
-      vec3 col = texture2D(tDiffuse, vUv).rgb;
-      vec2 t = texel * thickness;
-      float zC = rawZ(vUv);
-      float zL = rawZ(vUv-vec2(t.x,0.0)), zR = rawZ(vUv+vec2(t.x,0.0)), zU = rawZ(vUv+vec2(0.0,t.y)), zD = rawZ(vUv-vec2(0.0,t.y));
-      // 深度の2階微分(ラプラシアン)：平面はどんな傾き(グレージング)でも≈0、シルエット/段差だけ大きい
-      // ＝目線で地面を見渡しても床一面に黒モヤが出ない（1階差分だと傾いた床で誤検出して画面全体が黒線になる不具合の修正）
-      float lap = abs(zL + zR - 2.0*zC) + abs(zU + zD - 2.0*zC);
-      float depthEdge = smoothstep(0.0007, 0.0035, lap);
-      vec3 nC = nrm(vUv);                                                  // 法線の差（角・折り目・シルエット）
-      float ne = (1.0-dot(nC,nrm(vUv-vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(t.x,0.0)))) + (1.0-dot(nC,nrm(vUv+vec2(0.0,t.y)))) + (1.0-dot(nC,nrm(vUv-vec2(0.0,t.y))));
-      float normEdge = smoothstep(0.92, 1.6, ne);                         // しきい値を更に上げ(0.7→0.92)、密集した家並みの弱い内部エッジ(窓枠/庇/瓦のゆるい角)の誤検出を抑える＝路地の“線まみれ”を解消（強いシルエット/角だけ残す・2026-06-27）
-      float eyeZ = (2.0*near*far)/(far+near-(2.0*zC-1.0)*(far-near));       // 線形の視線距離
-      // 遠いほどエッジを消す＝遠景の細い/小さい物がサブピクセルでチラつく「黒モヤ」を構造的に断つ（角度/再起動で再発しない）。
-      // 空(最遠)もこのフェードで自然に0になる＝深度しきい値の境界ちらつきも解消。近景はくっきり。
-      float fade = 1.0 - smoothstep(fadeNear, fadeFar, eyeZ);
-      float edge = clamp(max(depthEdge, normEdge), 0.0, 1.0) * fade * strength;
-      gl_FragColor = vec4(mix(col, inkColor, edge), 1.0);
-    }`,
-})
-inkPass.enabled = CEL.inkEdges
-composer.addPass(inkPass)
+postPass.enabled = true
+composer.addPass(postPass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
@@ -10160,12 +10153,11 @@ function resize() {
     normalRT.setSize(pdx, pdy)
     normalRT.depthTexture.dispose()
     normalRT.depthTexture = new THREE.DepthTexture(pdx, pdy, THREE.UnsignedIntType)
-    inkPass.uniforms.tNormal.value = normalRT.texture  // 参照を貼り直す（setSizeでtextureは作り直される）
-    inkPass.uniforms.tDepth.value = normalRT.depthTexture
-    dofPass.uniforms.tDepth.value = normalRT.depthTexture // 被写界深度も深度テクスチャを貼り直す
+    postPass.uniforms.tNormal.value = normalRT.texture  // B4：統合パスの参照を貼り直す（setSizeでtextureは作り直される）
+    postPass.uniforms.tDepth.value = normalRT.depthTexture
   }
-  inkPass.uniforms.texel.value.set(1 / pdx, 1 / pdy) // A5：エッジ検出のテクセル幅は0.75xの法線/深度テクスチャに合わせる（1テクセル隣を正しくサンプル）
-  dofPass.uniforms.texel.value.set(1 / w, 1 / h) // 被写界深度のボケ径は全解像度のtDiffuseに掛かる＝据え置き
+  postPass.uniforms.inkTexel.value.set(1 / pdx, 1 / pdy) // A5：エッジ検出のテクセル幅は0.75xの法線/深度テクスチャに合わせる（1テクセル隣を正しくサンプル）
+  postPass.uniforms.dofTexel.value.set(1 / w, 1 / h) // 被写界深度のボケ径は全解像度のtDiffuseに掛かる＝据え置き
   camera.aspect = w / h            // カメラのアスペクト・投影行列も更新
   camera.updateProjectionMatrix()
 }
@@ -14161,9 +14153,12 @@ renderer.setAnimationLoop(() => { try {
   // 空中ではインク輪郭/DOFを止めて二重描画を丸ごとスキップ＝描画コストほぼ半減で滑らかに（地上に降りたら設定どおり復帰）。
   // 俯瞰では細い輪郭線も足元のボケも不要なので見た目の損失はほぼ無い。
   const aerial = floatMode || flying
-  inkPass.enabled = !aerial && !!(settings && settings.ink) && !(settings && settings.light)
+  // B4：DOFとインクは1つの統合パス(postPass)に。各効果はuniformで毎フレーム切替（条件は2パス版と同一）。両方OFFならパス自体を無効化＝1本まるごと省く
+  const inkOn = !aerial && !!(settings && settings.ink) && !(settings && settings.light)
   // 被写界深度(奥行きのボケ)：歩いている時だけ＝主人公にピントが寄って没入。★主観視点(fpv)/座って眺める(sit)/寝ころぶ(lie)では切る＝景色を味わう場面で遠景までくっきり見える（ユーザー要望「池を眺めると奥がぼやけて景色が見えない」2026-06-28）
-  dofPass.enabled = !aerial && !fpv && mode !== 'sit' && mode !== 'lie' && !(settings && settings.light)
+  const dofOn = !aerial && !fpv && mode !== 'sit' && mode !== 'lie' && !(settings && settings.light)
+  postPass.uniforms.uInkOn.value = inkOn ? 1 : 0; postPass.uniforms.uDofOn.value = dofOn ? 1 : 0
+  postPass.enabled = inkOn || dofOn
   const camMoved = camera.position.distanceToSquared(_prevCamPos) > 1e-5 || Math.abs(camera.quaternion.dot(_prevCamQuat)) < 0.999995 || mode !== 'walk' || moving
   _prevCamPos.copy(camera.position); _prevCamQuat.copy(camera.quaternion)
   cullYatoChunks() // 谷戸の巨大メッシュをチャンク化したぶんの距離カリング（fog far+余裕より遠いチャンクを非表示・カメラ確定後＝この場フレームで反映）。フラスタムカリングは Three.js が描画時に自動で行う
@@ -14173,7 +14168,7 @@ renderer.setAnimationLoop(() => { try {
   //   近くの動く物に対しては会話ズーム等でcamMoved=毎フレームになるため実害は小さい。完全に静的な景色ではプリパスは不変＝画は同一。
   if (camMoved) staticFrames = 0; else staticFrames++
   const prepassInterval = Math.min(6, 2 + (staticFrames >> 4)) // 静止16フレームごとに間隔+1（2→3→…→6でキャップ）
-  if ((inkPass.enabled || dofPass.enabled) && (camMoved || (nrtTick % prepassInterval === 0))) {
+  if ((inkOn || dofOn) && (camMoved || (nrtTick % prepassInterval === 0))) {
     __prepassRuns++
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     const _mainFar = camera.far // プリパスだけfarを絞って300m先を描かない（出力は同一＝上のPREPASS_FARの注記）。屋上のfog拡張等でcamera.farが変わっていてもmin側に倒す
@@ -14684,12 +14679,10 @@ function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { set
 // I3：文字を大きく（読みやすさ）。本文系（会話/絵日記/トースト/おもいで/あそびかた）のフォントを少し大きく
 ;(function () { const s = document.createElement('style'); s.textContent = `body.big-text #dlg-text,body.big-text #diary-body .line,body.big-text #toast,body.big-text #mb-body .line,body.big-text #mb-body h4,body.big-text .mb-cre .ds,body.big-text .mb-cre .nm,body.big-text #guide-body,body.big-text #dialogue{font-size:1.2em !important;line-height:1.75 !important;}`; document.head.appendChild(s) })()
 function applyBigText() { document.body.classList.toggle('big-text', !!settings.bigText) }
-function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）。軽量モード中は強制OFF
-  inkPass.enabled = settings.ink && !settings.light
+function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）。軽量モード中は強制OFF。B4：実際のON/OFFはループがuInkOnで毎フレーム反映＝ここはボタン表示のみ
   if (setInkBtn) { setInkBtn.textContent = settings.ink ? 'ON' : 'OFF'; setInkBtn.classList.toggle('on', settings.ink) }
 }
-function applyLight() { // 軽量モード（C1 v2）：ユーザー任意ON＝重い端末の保険。インク輪郭＋被写界深度を止める→「法線/深度RTへのシーン二重描画」(line~8875)が丸ごとスキップ＝描画コストほぼ半減。さらにピクセル比を1.0へ（描画画素を減らす）。既定OFF＝見た目不変
-  dofPass.enabled = !settings.light
+function applyLight() { // 軽量モード（C1 v2）：ユーザー任意ON＝重い端末の保険。インク輪郭＋被写界深度を止める→「法線/深度RTへのシーン二重描画」が丸ごとスキップ＝描画コストほぼ半減。さらにピクセル比を1.0へ。B4：DOF/インクのON/OFFはループがuniformで毎フレーム反映
   pixelRatioCap = settings.light ? 1.0 : 1.25; try { resize() } catch (e) { try { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap)) } catch (e2) {} } // resizeでピクセル比＋コンポーザ/RTサイズをまとめて追従
   applyInk() // インクは settings.ink && !light
   const b = document.getElementById('set-light'); if (b) { b.textContent = settings.light ? 'ON' : 'OFF'; b.classList.toggle('on', settings.light) }
@@ -15201,20 +15194,20 @@ window.__proto3d = {
   get _folkCount() { return farFolk.length }, // 検証用
 
   _wc(v) { gradePass.uniforms.wc.value = v }, // 検証用：水彩の効き 0=切 1=入
-  _dof(on) { dofPass.enabled = on }, // 検証/調整用：被写界深度(ボケ)ON/OFF
+  _dof(on) { postPass.uniforms.uDofOn.value = on ? 1 : 0 }, // 検証/調整用：被写界深度(ボケ)ON/OFF（B4：統合パスのuniform）
   _mem(v) { gradePass.uniforms.mem.value = v }, // 検証/調整用：記憶のトーン（褪せた写真）の強さ 0..1
   _heat(v) { gradePass.uniforms.heat.value = v }, // 検証/調整用：陽炎の強さ 0..1（時刻自動だが固定して見る用）
   _vig(v) { gradePass.uniforms.vig.value = v }, // 検証/調整用：周辺減光の強さ
-  _ink(on) { inkPass.enabled = on }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF
-  get _passState() { return { ink: inkPass.enabled, dof: dofPass.enabled, aerial: floatMode || flying } }, // 検証用：ポストパスの状態（空中で二重描画を止めているか）
+  _ink(on) { postPass.uniforms.uInkOn.value = on ? 1 : 0 }, // 検証/調整用：手描きのインク線（深度/法線エッジ線パス）ON/OFF（B4：統合パスのuniform）
+  get _passState() { return { ink: postPass.uniforms.uInkOn.value > 0.5, dof: postPass.uniforms.uDofOn.value > 0.5, aerial: floatMode || flying, enabled: postPass.enabled } }, // 検証用：統合ポストパスの状態（ink/dofのON・空中で無効化しているか）
   _prepassInfo() { const r = __prepassRuns; __prepassRuns = 0; return { runsSinceLast: r, staticFrames } }, // 検証用(A6)：前回呼び出しからのプリパス実行回数（静止で減る）／静止フレーム数
   _fpsCap() { return __fpsCap }, // 検証用(B2)：現在のフレーム上限（放置/座り/寝=24・通常=30）
   _idleInfo() { return { cap: __fpsCap, idleMs: Math.round(performance.now() - lastInteract), mode, puni: !!(puni && puni.active) } }, // 検証用(B2)：フレーム上限/無操作経過ms/mode/移動スティック
   _hotInfo() { return { ema: +__fpsEma.toFixed(3), hotT: +__hotT.toFixed(1), suggested: __hotSuggested, light: !!(settings && settings.light), banner: !!(document.getElementById('hot-suggest') && document.getElementById('hot-suggest').style.display !== 'none') } }, // 検証用(C2)：フレーム時間EMA/追いつかない蓄積/提案済み/軽量/バナー表示
   __setPrepassRuns() { __prepassRuns = 0 }, // 検証用(A6)：カウンタ0化
   _rain(v) { weather = v; weatherTarget = v }, get _wetness() { return wetness }, // 検証用：雨を強制（濡れの確認）
-  _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
-  _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
+  _dof(on, strength, maxCoc) { if (on != null) postPass.uniforms.uDofOn.value = on ? 1 : 0; if (strength != null) postPass.uniforms.dofStrength.value = strength; if (maxCoc != null) postPass.uniforms.maxCoc.value = maxCoc; return { on: postPass.uniforms.uDofOn.value > 0.5, strength: postPass.uniforms.dofStrength.value, maxCoc: postPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径（B4：統合パス）
+  _inkSet(strength, thickness) { if (strength != null) postPass.uniforms.inkStrength.value = strength; if (thickness != null) postPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更（B4：統合パス）
   _freezeStats() { return __freezeStats }, // 検証用(A1)：凍結したノード数/動く物を含んで凍結を見送ったルート数
   _fogCullStats() { let hc = 0, ho = 0, tot = 0; for (const c of yatoFogCells.values()) { tot += c.objs.length; if (!c.vis) { hc++; ho += c.objs.length } } return { cells: yatoFogCells.size, managed: tot, hiddenCells: hc, hiddenObjs: ho } }, // 検証用(A2)：霧カリングのセル数/管理プロップ数/現在隠れているセル・プロップ数
   _fogCullSet(on) { __fogCullOn = on; yatoFogForce = true; if (!on) for (const c of yatoFogCells.values()) { c.vis = true; for (const o of c.objs) o.visible = true } }, // 検証用(A2)：霧カリングON/OFF（OFFで全プロップ表示＝draw call A/B比較）
@@ -15276,7 +15269,7 @@ window.__proto3d = {
   _setVolBgm(v) { settings.volBgm = v }, // 検証用：BGM音量スライダーの値を直接置く（夕夜BGM/オルゴールが従うか）
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
-  _setInk(s, th, hex) { if (s != null) inkPass.uniforms.strength.value = s; if (th != null) inkPass.uniforms.thickness.value = th; if (hex != null) inkPass.uniforms.inkColor.value.set(hex); return { s: inkPass.uniforms.strength.value, th: inkPass.uniforms.thickness.value, c: '#' + inkPass.uniforms.inkColor.value.getHexString() } }, // 検証用：インク線の濃さ/太さ/色をライブ調整（建物の黒線の柔らかさA/B）
+  _setInk(s, th, hex) { if (s != null) postPass.uniforms.inkStrength.value = s; if (th != null) postPass.uniforms.thickness.value = th; if (hex != null) postPass.uniforms.inkColor.value.set(hex); return { s: postPass.uniforms.inkStrength.value, th: postPass.uniforms.thickness.value, c: '#' + postPass.uniforms.inkColor.value.getHexString() } }, // 検証用：インク線の濃さ/太さ/色をライブ調整（B4：統合パス）
   _setFpvFov(v) { fpvFov = v; return fpvFov }, // 検証用：主観の画角を直接セット（最高ズームの揺れ確認）
   _bobStats() { return { boyY: +boy.position.y.toFixed(4), camY: +camera.position.y.toFixed(4), run: +(Math.hypot(vel.x, vel.z) / 7).toFixed(3), walkBobY: +walkBobY.toFixed(4), stepBobY: +stepBobY.toFixed(4) } }, // 検証用：走行時の上下ぴょこ（主人公boyY/カメラcamYの振幅を測る）
   _fpvSample() { const d = new THREE.Vector3(); camera.getWorldDirection(d); return { fov: +camera.fov.toFixed(3), yaw: +camCtl.yaw.toFixed(4), pitch: +camCtl.pitch.toFixed(4), px: +camera.position.x.toFixed(4), py: +camera.position.y.toFixed(4), pz: +camera.position.z.toFixed(4), dx: +d.x.toFixed(5), dy: +d.y.toFixed(5), dz: +d.z.toFixed(5) } }, // 検証用：主観カメラの画角/視点角/位置/向き（フレーム間の揺れ＝dx/dy/dzの不動を測る）
