@@ -49,7 +49,17 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment2.outputs.page_url }}
     steps:
+      # Pages バックエンドがまれに「Deployment failed, try again later」で固着する（2026-07-04）。
+      # 1回目を continue-on-error にし、失敗時だけ少し待って1回だけ再試行＝2回とも失敗した時だけジョブを失敗させる
+      # （＝本当に壊れた時だけ失敗メール）。外部アクション不使用・追加権限なし・アプリ不変＝安全な範囲の対策。
       - id: deployment
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: 固着時は少し待って1回だけ再試行
+        if: steps.deployment.outcome != 'success'
+        run: sleep 60
+      - id: deployment2
+        if: steps.deployment.outcome != 'success'
         uses: actions/deploy-pages@v5
