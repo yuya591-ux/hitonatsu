@@ -10950,7 +10950,7 @@ function maybeLifeSounds(dt) {
 }
 function activeVenue() { const fd = festDay(); let best = null, bd = 1e18; for (const v of FEST_VENUES) { if (v.days.indexOf(fd) < 0) continue; const d = (boy.position.x - v.pos.x) ** 2 + (boy.position.z - v.pos.y) ** 2; if (d < bd) { bd = d; best = v } } return best } // 今夜やっている会場のうち主人公に最も近い1つ。H1：festDay()で3日周期にローテ＝ひと夏のあいだ会場をめぐってお祭りが続く
 function updateFestival(dt) {
-  { const fd = festDay(); for (const v of FEST_VENUES) v.g.visible = v.days.indexOf(fd) >= 0 && tday > 0.45 } // 各会場は開催日(festDayで3日周期にローテ)の午後〜夜だけ姿を見せる（昼に設営、朝は無し）
+  { const fd = festDay(); for (const v of FEST_VENUES) { const vis = v.days.indexOf(fd) >= 0 && tday > 0.45; if (v.g.visible !== vis) { v.g.visible = vis; setSubtreeMatrixAuto(v.g, vis) } } } // 各会場は開催日(festDayで3日周期にローテ)の午後〜夜だけ姿を見せる（昼に設営、朝は無し）。A1：可視のときだけ会場の行列を解凍＝不可視の日中は踊り手155体のcomposeを止める
   // 盆踊りの輪を動かす（櫓のまわりをゆっくり回り、腕を交互に振る／櫓上の太鼓打ちは速く打つ）。見えない会場ぶんも計算するが軽い
   if (festFigs.length) { const ft = performance.now() * 0.001
     for (const d of festFigs) {
@@ -14029,6 +14029,37 @@ function recordErr(where, e) {
 let __frameErrN = 0
 function onFrameError(e) { __frameErrN++; if (__frameErrN <= 3 || __frameErrN % 300 === 0) recordErr('frame#' + __frameErrN, e) } // 毎フレーム同じ例外でログが溢れないよう間引く
 try { addEventListener('error', (ev) => recordErr('window', ev.error || ev.message)); addEventListener('unhandledrejection', (ev) => recordErr('promise', ev.reason)) } catch (_) {}
+
+// ── A1（省電力）：静的ワールドの行列を凍結。ビルド後に一度だけ全行列をベイクし、動かない物の matrixAutoUpdate を false に。
+//   毎レンダーの updateMatrixWorld が静的物の updateMatrix(=Matrix4.compose) を丸ごと省く（実測 15.9→3.7ms/回・×2/フレーム＝約24ms/フレームのCPU節約）。
+//   ★安全設計：静的配列(yatoStatics/oldStatics)の各ルートについて、その部分木に「動く物」が1つでも含まれたら丸ごと凍結しない。
+//   動く物の判定＝(1)アニメ配列に登録された物 (2)userData.baseY(ふわふわ浮くプロップ)や userData.char(キャラ)を持つ物。
+//   →洗濯物の揺れ・アドバルーンの浮遊・生き物の羽ばたきなどは凍結対象から外れて従来どおり動く。動く物の子(羽)も親ごと除外される。
+let __freezeStats = null
+const __festRoots = [] // 祭り会場グループ＝ふだん不可視。可視のときだけ解凍（updateFestivalの表示切替で連動）
+function setSubtreeMatrixAuto(root, on) { if (root && root.traverse) root.traverse((o) => { o.matrixAutoUpdate = on }) } // 部分木のmatrixAutoUpdateを一括切替
+function freezeStaticMatrices() {
+  scene.updateMatrixWorld(true) // まず全行列をベイク（local matrix と matrixWorld を確定＝以後 compose 不要でも正しい姿勢）
+  // (1) 静的ワールド(yatoStatics/oldStatics)：per-nodeで凍結。洗濯物の揺れ・生き物・浮遊プロップ・キャラは keepAuto で除外
+  const worldRoots = []
+  for (const a of [yatoStatics, oldStatics]) if (Array.isArray(a)) for (const r of a) if (r && r.traverse) worldRoots.push(r)
+  const keepAuto = new Set()
+  const keepSubtree = (o) => { if (o && o.traverse) o.traverse((c) => keepAuto.add(c)) }
+  const grab = (arr) => { if (!Array.isArray(arr)) return; for (const e of arr) { if (!e) continue; if (e.isObject3D) { keepSubtree(e); continue } for (const k in e) { const v = e[k]; if (v && v.isObject3D) keepSubtree(v) } } }
+  ;[swayables, adballoons, medaka, frogs, yatoBugs, sparrows, butterflies, dragonflies, crayfish, fishShadows, lampBugs, fireflies, cats, dogs, pedestrians, vehPool].forEach(grab) // 静的配列に混ざりうる“動く物”を部分木ごとkeepAuto
+  for (const root of worldRoots) root.traverse((o) => { if (o.userData && (o.userData.char || o.userData.baseY !== undefined)) keepSubtree(o) }) // 浮遊プロップ/紛れ込んだキャラの保険
+  let frozen = 0, kept = 0
+  for (const root of worldRoots) root.traverse((o) => { if (keepAuto.has(o)) { kept++; return } if (o.matrixAutoUpdate) { o.matrixAutoUpdate = false; frozen++ } })
+  // (2) 祭り会場(FEST_VENUES＋初期bonOdori)：ふだん不可視＝踊り手も含め丸ごと凍結（1日の大半、見えない踊り手155体分のcomposeを止める）。可視になったらupdateFestivalが解凍する
+  __festRoots.length = 0
+  if (Array.isArray(FEST_VENUES)) for (const v of FEST_VENUES) if (v && v.g && v.g.traverse) __festRoots.push(v.g)
+  if (typeof bonOdori !== 'undefined' && bonOdori && bonOdori.traverse) __festRoots.push(bonOdori)
+  for (const g of __festRoots) { if (!g.visible) { g.traverse((o) => { if (o.matrixAutoUpdate) { o.matrixAutoUpdate = false; frozen++ } }) } }
+  __freezeStats = { worldRoots: worldRoots.length, festRoots: __festRoots.length, frozen, keptAuto: kept }
+  return __freezeStats
+}
+freezeStaticMatrices() // 起動時に1回（この時点で静的ワールド・生き物・洗濯物・祭り会場はすべて生成済み。会場は不可視＝踊り手ごと凍結）
+
 renderer.setAnimationLoop(() => { try {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   // フレーム上限：通常は30fps。タイトル(はがき)中はカメラがごくゆっくり流れるだけなので18fpsに落とす＝
@@ -15076,6 +15107,19 @@ window.__proto3d = {
   _rain(v) { weather = v; weatherTarget = v }, get _wetness() { return wetness }, // 検証用：雨を強制（濡れの確認）
   _dof(on, strength, maxCoc) { if (on != null) dofPass.enabled = on; if (strength != null) dofPass.uniforms.strength.value = strength; if (maxCoc != null) dofPass.uniforms.maxCoc.value = maxCoc; return { enabled: dofPass.enabled, strength: dofPass.uniforms.strength.value, maxCoc: dofPass.uniforms.maxCoc.value } }, // 検証/調整用：被写界深度 ON/OFF・効き・最大ボケ径
   _inkSet(strength, thickness) { if (strength != null) inkPass.uniforms.strength.value = strength; if (thickness != null) inkPass.uniforms.thickness.value = thickness }, // 調整用：線の濃さ/太さをライブ変更
+  _freezeStats() { return __freezeStats }, // 検証用(A1)：凍結したノード数/動く物を含んで凍結を見送ったルート数
+  _festMatrixState() { return FEST_VENUES.map((v) => { let n = 0, auto = 0; v.g.traverse((o) => { n++; if (o.matrixAutoUpdate) auto++ }); return { vis: v.g.visible, days: v.days, n, auto } }) }, // 検証用(A1)：祭り会場ごとの可視と部分木のauto数（可視で解凍＝autoが立つ／不可視で凍結＝auto≈0）
+  _matWorldMin(n, batches) { const N = n || 60, B = batches || 8; for (let i = 0; i < 12; i++) scene.updateMatrixWorld(); let best = 1e9; for (let b = 0; b < B; b++) { const t0 = performance.now(); for (let i = 0; i < N; i++) scene.updateMatrixWorld(); best = Math.min(best, (performance.now() - t0) / N) } return +best.toFixed(3) }, // 検証用(A1)：updateMatrixWorldの最小所要ms（複数バッチの最小＝GC/JIT外れ値を除く）
+  _freezeApply() { return freezeStaticMatrices() }, // 検証用(A1)：静的行列の凍結を再実行
+  _setAllMatrixAuto(on) { let n = 0; scene.traverse((o) => { if (o.matrixAutoUpdate !== on) { o.matrixAutoUpdate = on; n++ } }); return n }, // 検証用(A1)：全ノードのmatrixAutoUpdateを一括切替（凍結前/後のupdateMatrixWorldコスト比較用）
+  _matWorldCost(n) { const N = n || 60; for (let i = 0; i < 8; i++) scene.updateMatrixWorld(); let t0 = performance.now(); for (let i = 0; i < N; i++) scene.updateMatrixWorld(); return +((performance.now() - t0) / N).toFixed(3) }, // 検証用(A1)：updateMatrixWorld 1回の所要ms（先に8回ウォームアップ＝JIT差を均す）
+  _frozenAudit() { // 検証用(A1)：凍結の網羅性と安全性。全ノードの凍結内訳＋「動く物が誤って凍結されていないか」
+    let total = 0, frozen = 0
+    scene.traverse((o) => { total++; if (!o.matrixAutoUpdate) frozen++ })
+    const chk = (arr, key) => { let n = 0, bad = 0; if (Array.isArray(arr)) for (const e of arr) { const o = key ? e[key] : (e && e.isObject3D ? e : null); if (o && o.isObject3D) { n++; if (!o.matrixAutoUpdate) bad++ } } return { n, frozenBad: bad } }
+    return { total, frozen, auto: total - frozen, // frozenBad>0 は動く物が凍結された＝バグ
+      adballoons: chk(adballoons), yatoBugs: chk(yatoBugs, 'obj'), butterflies: chk(butterflies, 'obj'), dragonflies: chk(dragonflies, 'obj'), sparrows: chk(sparrows), frogs: chk(frogs, 'obj'), swayLaundry: chk(swayables, 'obj'), medaka: chk(medaka, 'obj') }
+  },
   _jump() { doJump() }, // 検証用
   _contrail() { contrail.grp.visible = true; contrail.t = contrail.dur * 0.45; contrail.dir = 1; contrail.zoff = 0; contrail.y = 152; return { planeX: camera.position.x - 0.5 * contrail.len + 0.45 * contrail.len, y: 152, z: camera.position.z } }, // 検証用：飛行機雲を尾が伸びた状態で出す＋機体位置を返す
   _chimneys() { initChimneys(); return chimneys.map((c) => ({ x: +c.g.position.x.toFixed(0), y: +c.g.position.y.toFixed(0), z: +c.g.position.z.toFixed(0) })) }, // 検証用：夕餉の煙の位置
