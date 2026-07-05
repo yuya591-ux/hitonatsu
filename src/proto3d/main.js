@@ -2920,7 +2920,7 @@ function buildShishigaya() {
       const mr = (geo, mat, x, y, z, rx, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = m.receiveShadow = true; grp.add(m); return m } // X軸回転対応（屋根の勾配/鰹木/千木用）
       groundPatch(grp, cx, cz + 1, 13, 22, 0xccc5b0) // 玉砂利＝神社の敷地を地面の色で区別（ユーザー要望：ここは神社の敷地とわかるように）
       precinctFence(grp, cx, cz + 1, 13, 22, 0xc9b994, 1.0, 's') // 玉垣（敷地境界・南＝鳥居側だけ開ける）
-      const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)) } // 石灯籠
+      const lantern = (lx, lz) => { const ly = heightAtYato(lx, lz); grp.add(mk(new THREE.CylinderGeometry(0.4, 0.5, 0.35, 6), stone, lx, ly + 0.17, lz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.14, 0.16, 1.1, 6), stone, lx, ly + 0.9, lz)); grp.add(mk(new THREE.BoxGeometry(0.55, 0.5, 0.55), toon(0xe6e0cc), lx, ly + 1.6, lz)); grp.add(mk(new THREE.CylinderGeometry(0.62, 0.12, 0.4, 6), stoneL, lx, ly + 1.95, lz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.13, 8, 6), stoneL, lx, ly + 2.2, lz)); { const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.48), new THREE.MeshBasicMaterial({ color: 0xffb457, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide })); glow.position.set(lx, ly + 1.6, lz + 0.3); grp.add(glow); townNightLights.push({ m: glow, base: 0.5, ph: Math.random() * 6, flame: true }) } } // 石灯籠（夕方に灯る献灯）
       const komainu = (kx, kz) => { const ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(0.5, 0.85, 0.5), stone, kx, ky + 0.42, kz, 0, true)); grp.add(mk(new THREE.BoxGeometry(0.36, 0.5, 0.62), stoneL, kx, ky + 1.05, kz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.19, 8, 6), stoneL, kx, ky + 1.4, kz + 0.16, 0, true)) } // 狛犬（台座＋体＋頭）
       // 神明鳥居（木造・直線。柱2＋まっすぐな笠木＋貫＋注連縄）front=南(cz+11)。木造はWeb調査で確認
       { const tz = cz + 11, ty = heightAtYato(cx, tz), tw = 1.9; for (const sx of [-tw, tw]) grp.add(mk(new THREE.CylinderGeometry(0.15, 0.18, 4.4, 8), wood, cx + sx, ty + 2.2, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 1.1, 0.32, 0.46), woodD, cx, ty + 4.45, tz, 0, true)); grp.add(mk(new THREE.BoxGeometry(tw * 2 + 0.3, 0.24, 0.34), woodD, cx, ty + 3.6, tz))
@@ -2928,7 +2928,13 @@ function buildShishigaya() {
         for (const dx of [-1.1, 0, 1.1]) grp.add(mk(new THREE.PlaneGeometry(0.16, 0.42), new THREE.MeshBasicMaterial({ color: 0xf4f2ea, side: THREE.DoubleSide }), cx + dx, ty + 2.78, tz + 0.02)) // 紙垂（しで）
         addCollider(cx - tw, tz, 0.4); addCollider(cx + tw, tz, 0.4) }
       grp.add(mk(new THREE.BoxGeometry(0.42, 2.5, 0.42), toon(0xc6c2b6), cx - 2.9, gy + 1.25, cz + 10.5, 0, true)) // 社号標（石柱）
-      grp.add(mk(new THREE.BoxGeometry(2.6, 0.1, 11), toon(0xc7c3b6), cx, gy + 0.07, cz + 5.5, 0, true)) // 参道（石畳）
+      // 参道の石段（丘上の鎮守＝坂を石段で登る。各段を地面へ接地＝急斜面での浮き/埋もれを解消。踏み面/蹴上げは各1ドローに統合）
+      { const z0 = cz + 10.5, z1 = cz + 1.2, N = 13, seg = (z0 - z1) / N, treads = [], risers = []
+        for (let i = 0; i <= N; i++) { const sz = z0 - seg * i, sh = heightAtYato(cx, sz)
+          const t = new THREE.BoxGeometry(2.7, 0.16, seg + 0.16); t.translate(cx, sh + 0.09, sz); treads.push(t)
+          if (i < N) { const nh = heightAtYato(cx, z0 - seg * (i + 1)), rise = nh - sh; if (rise > 0.05) { const r = new THREE.BoxGeometry(2.7, rise + 0.18, 0.12); r.translate(cx, sh + rise / 2 + 0.06, sz - seg / 2); risers.push(r) } } }
+        const tm = new THREE.Mesh(mergeGeometries(treads), toon(0xc7c3b6)); tm.castShadow = tm.receiveShadow = true; grp.add(tm); treads.forEach((d) => d.dispose())
+        if (risers.length) { const rmz = new THREE.Mesh(mergeGeometries(risers), toon(0xafaa9b)); rmz.receiveShadow = true; grp.add(rmz); risers.forEach((d) => d.dispose()) } }
       for (const lz of [cz + 9, cz + 5.5]) { lantern(cx - 2.4, lz); lantern(cx + 2.4, lz) } // 参道の石灯籠（2対）
       komainu(cx - 2.0, cz + 2.8); komainu(cx + 2.0, cz + 2.8) // 狛犬
       // 手水舎（西側）
@@ -2954,7 +2960,26 @@ function buildShishigaya() {
         addCollider(bx, bz, 2.4) }
       // 玉垣（本殿のまわりの低い木柵）
       { const bz = cz - 6; for (const [px, pz, w, a] of [[cx, bz - 2.0, 6, 0], [cx - 3, bz, 4, Math.PI / 2], [cx + 3, bz, 4, Math.PI / 2]]) grp.add(mk(new THREE.BoxGeometry(w, 1.0, 0.12), toon(0xbfae8a), px, heightAtYato(px, pz) + 0.5, pz, a, true)) }
-      grp.add(mk(new THREE.CylinderGeometry(0.3, 0.45, 3.5, 6), toon(0x6a5236), cx - 6, gy + 1.75, cz - 2, 0, true)); grp.add(mk(bushyCanopy(2.6), toon(0x4f7a3a), cx - 6, gy + 4.8, cz - 2, 0, true)) // 御神木
+      // 御神木（大きく・注連縄を巻く＝鎮守の森の主。足元は地面へ接地）
+      { const gx = cx - 6, gz = cz - 2, gyt = heightAtYato(gx, gz)
+        grp.add(mk(new THREE.CylinderGeometry(0.42, 0.68, 5.4, 7), toon(0x6a5236), gx, gyt + 2.7, gz, 0, true))
+        grp.add(mk(bushyCanopy(3.7), toon(0x4f7a3a), gx, gyt + 7.2, gz, 0, true)); grp.add(mk(bushyCanopy(2.7), toon(0x578540), gx + 1.4, gyt + 6.0, gz + 0.6, 0, true))
+        grp.add(mk(new THREE.TorusGeometry(0.62, 0.11, 6, 14), toon(0xe6dcbf), gx, gyt + 2.2, gz, 0, true)) // 注連縄
+        for (const dd of [-0.9, 0, 0.9]) grp.add(mk(new THREE.PlaneGeometry(0.13, 0.34), new THREE.MeshBasicMaterial({ color: 0xf6f4ec, side: THREE.DoubleSide }), gx + dd * 0.62, gyt + 1.9, gz + 0.62)) } // 紙垂
+      // 夏祭りの幟旗（のぼり）＝鳥居の手前を挟む「ここで祭りが近い」の合図（著作権/鏡字の罠回避で文字は入れず布色のみ）
+      { const nz = cz + 12.8; for (const nx of [cx - 3.6, cx + 3.6]) { const ny = heightAtYato(nx, nz)
+          grp.add(mk(new THREE.CylinderGeometry(0.06, 0.07, 5.4, 6), woodD, nx, ny + 2.7, nz, 0, true))
+          const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.72, 3.5, 0.04), toon(0xeef1f3)); cloth.position.set(nx + 0.43, ny + 3.4, nz); cloth.castShadow = true; grp.add(cloth)
+          for (const by of [5.0, 1.8]) grp.add(mk(new THREE.BoxGeometry(0.74, 0.18, 0.05), toon(0x33507e), nx + 0.43, ny + by, nz)) } }
+      // 奉納提灯（参道の両脇・夕方に灯る宵宮の気配。紙/黒口/柱は材質ごと1ドローに統合）
+      { const paper = [], caps = [], poles = []; for (let i = 0; i < 3; i++) { const pz = cz + 8.5 - i * 2.7; for (const sx of [-1.95, 1.95]) { const px = cx + sx, py = heightAtYato(px, pz)
+            const po = new THREE.CylinderGeometry(0.045, 0.05, 2.35, 5); po.translate(px, py + 1.17, pz); poles.push(po)
+            const pa = new THREE.CylinderGeometry(0.16, 0.16, 0.44, 10); pa.translate(px, py + 2.18, pz); paper.push(pa)
+            const c1 = new THREE.CylinderGeometry(0.1, 0.16, 0.05, 10); c1.translate(px, py + 2.42, pz); const c2 = new THREE.CylinderGeometry(0.16, 0.1, 0.05, 10); c2.translate(px, py + 1.94, pz); caps.push(c1, c2)
+            const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.52), new THREE.MeshBasicMaterial({ color: 0xffb861, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide })); glow.position.set(px, py + 2.18, pz + 0.22); grp.add(glow); townNightLights.push({ m: glow, base: 0.8, ph: Math.random() * 6, flame: true }) } }
+        const pm = new THREE.Mesh(mergeGeometries(poles), woodD); pm.castShadow = true; grp.add(pm); poles.forEach((d) => d.dispose())
+        const pam = new THREE.Mesh(mergeGeometries(paper), toon(0xf0e6c8)); pam.castShadow = true; grp.add(pam); paper.forEach((d) => d.dispose())
+        grp.add(new THREE.Mesh(mergeGeometries(caps), toon(0x2a1d12))); caps.forEach((d) => d.dispose()) }
       signOn(cx, cz + 12.5, 4, gy, 2.4, name, '#2e6b3a'); addCollider(cx, cz, 3.2) }
     // 旧横溝家住宅（横溝屋敷）＝獅子ヶ谷の名主の屋敷(幕末〜明治)。長屋門→主屋(木造2階・寄棟・茅葺)＋文庫蔵(白漆喰の土蔵)＋穀蔵(板蔵)＋蚕小屋＋生垣。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildYokomizo = (cx, cz, name) => { const gy = gmin4(cx, cz, 26, 28)
@@ -4148,6 +4173,7 @@ function buildShishigaya() {
       if (nearPath(tp[i][0], tp[i][1], 7)) { tp.splice(i, 1); continue } // すべり台の蛇行路から7m以内の木を伐採
       if (Math.abs(tp[i][0] - POOL[0]) < 22 && Math.abs(tp[i][1] - POOL[1]) < 12) { tp.splice(i, 1); continue } // プール＋幼児プールの敷地の木を伐採
       if (Math.abs(tp[i][0] - ATH[0]) < 20 && Math.abs(tp[i][1] - ATH[1]) < 16) { tp.splice(i, 1); continue } // アスレチック広場の木を間引く
+      if (Math.abs(tp[i][0] - 2960) < 5.2 && tp[i][1] > -343 && tp[i][1] < -318) { tp.splice(i, 1); continue } // 神明社の参道軸（鳥居→石段→拝殿）の見通しを開ける＝軸上の木を伐採。鎮守の森は脇(±5m外)に残す
       { const dxq = tp[i][0] - 3058.5, dzq = tp[i][1] - 11.5, duq = dxq * -0.4138 + dzq * 0.9103, dvq = Math.abs(dxq * 0.9103 + dzq * 0.4138)
         if (duq > -14.5 && duq < 14.5 && dvq < 8.4) tp.splice(i, 1) } } } // 第三公園の園庭(ユーザーピン4点の回転長方形+縁1m)の木を伐採＝遊び場は開けた広場に。土手の木は残す（実物も周りだけ木・ユーザー指摘2026-07-02）
   // 木漏れ日：街路樹/木立の一部の真下に、葉の隙間から落ちる光のゆらぎ（既存dapple系を獅子ヶ谷へ＝歩く所に木かげのゆらめき。2026-06-24）。歩道沿いに散らす（数は控えめ＝加算半透明の負荷を抑える）
