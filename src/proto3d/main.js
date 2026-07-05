@@ -4269,7 +4269,7 @@ function buildShishigaya() {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), gcol2 = new THREE.Color()
     const cLo = new THREE.Color(0xbcd07a), cHi = new THREE.Color(0x86a64e) // みずみずしい夏草＝地面よりやや明るい黄緑〜緑。暗いと“ごみ”に見えるので明るめに
     const ACX = 3010, ACZ = -120, CORE = 320 // 歩く中心(サンライズ〜小学校〜二ツ池の谷)。ここを密に
-    let ng = 0, ga = 0
+    let ng = 0, ga = 0; const flSeeds = [] // 夏の野の花を咲かせる株の位置＝草の検査（道/水/舗装/急斜面/裸地よけ）を通った所だけに寄り添わせる（2026-07-05 地被の点検）
     while (ng < NG && ga < NG * 18) { ga++
       let x, z
       if (Math.random() < 0.72) { const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * CORE; x = ACX + Math.cos(a) * r; z = ACZ + Math.sin(a) * r } // 7割は中心の谷あいに密集
@@ -4283,9 +4283,30 @@ function buildShishigaya() {
       const slope = Math.abs(heightAtYato(x + 5, z) - heightAtYato(x - 5, z)) + Math.abs(heightAtYato(x, z + 5) - heightAtYato(x, z - 5)); if (slope > 6) continue // 急斜面は山肌の木に任せる＝草は平〜緩斜面
       const s = 0.6 + Math.random() * 0.95, yh = Math.random() < 0.4 ? 1.2 + Math.random() * 0.8 : 0.7 + Math.random() * 0.5 // 約4割は丈のあるこんもり夏草
       q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, 0)); sc.set(s, s * yh, s); m4.compose(new THREE.Vector3(x, y + 0.15, z), q, sc); gI.setMatrixAt(ng, m4)
-      const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++ } // 株ごとに明暗をばらつかせて自然に
+      const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++
+      if (Math.random() < 0.04) flSeeds.push([x, z]) } // 株ごとに明暗をばらつかせて自然に／一部の株のそばに野の花の種をまく
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
-    console.log('[shishigaya] grass', ng) }
+    console.log('[shishigaya] grass', ng)
+    // ── 夏の野の花：谷あいの草地にぽつぽつ色を散らす（白いヒメジョオン/シロツメ・淡い青の露草・控えめに黄のカタバミ/桃のねじばな）。春のタンポポ畑にはしない＝真夏の忠実さ。茎/花で各1ドロー ──
+    if (flSeeds.length) {
+      const summer = [0xf2efe2, 0xf7f3e6, 0xeadfc0, 0xa6bce6, 0xe0c256, 0xd7aecb] // 白/生成り白/淡クリーム(シロツメ)/淡青(露草)/淡黄(カタバミ)/淡桃(ねじばな)
+      const wsum = [0.30, 0.26, 0.16, 0.14, 0.08, 0.06] // 白系を主に、青は少し、黄/桃は控えめ＝夏の路傍らしく
+      const blooms = [] // [x, y, z, colorHex]
+      for (const [sx, sz] of flSeeds) {
+        let rnd = Math.random(), ci = 0; for (let i = 0; i < wsum.length; i++) { if ((rnd -= wsum[i]) < 0) { ci = i; break } } // 1つの群れは同じ花（実際の野の花のかたまり方）
+        const col = summer[ci], cn = 2 + Math.floor(Math.random() * 3) // 2〜4輪の小さな群れ
+        for (let i = 0; i < cn; i++) { const a = Math.random() * 6.283, rr = 0.9 + Math.random() * 0.8, bx = sx + Math.cos(a) * rr, bz = sz + Math.sin(a) * rr // 株の“わき”の空きに咲かせる＝草株に埋もれて見えないのを解消（株中心から0.9〜1.7m）
+          if (onYatoRoad(bx, bz) || inWater(bx, bz)) continue; blooms.push([bx, heightAtYato(bx, bz), bz, col]) } // わずかに外へはみ出た分が道/水に乗らないよう再チェック
+      }
+      const stemGeo = new THREE.CylinderGeometry(0.009, 0.014, 0.22, 4), bm = new THREE.Matrix4()
+      const stemI = new THREE.InstancedMesh(stemGeo, toon(0x5f7d3c), blooms.length)
+      blooms.forEach(([bx, by, bz], i) => { bm.makeTranslation(bx, by + 0.11, bz); stemI.setMatrixAt(i, bm) }); stemI.instanceMatrix.needsUpdate = true; stemI.castShadow = false; scene.add(stemI) // 細い茎
+      const bloomGeo = new THREE.SphereGeometry(0.085, 6, 5); bloomGeo.scale(1, 0.6, 1) // 平たい小さな花
+      const bloomI = new THREE.InstancedMesh(bloomGeo, new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: GRAD }), blooms.length), bcol = new THREE.Color()
+      blooms.forEach(([bx, by, bz, col], i) => { bm.makeTranslation(bx, by + 0.23, bz); bloomI.setMatrixAt(i, bm); bloomI.setColorAt(i, bcol.set(col)) })
+      bloomI.instanceMatrix.needsUpdate = true; bloomI.instanceColor.needsUpdate = true; bloomI.castShadow = false; scene.add(bloomI) // 花（instanceColorで色ちがい・1ドロー）
+      console.log('[shishigaya] wildflowers', blooms.length)
+    } }
   // ── 遠景バックドロップ（地平の山＋鶴見・北寺尾から実際に見える都市ランドマーク）──────────────────────
   //   ★過去の失敗＝「中心(3000,0)固定リングの装飾山」は飛行/浮遊で西へ出ると目前で巨大化し景観を破壊した（ユーザー2回指摘）。
   //   ★方針＝入道雲(thunderheads)と同じ「カメラ追従の遠景」。1つのGroup farBackdrop を毎フレーム カメラのX/Zへ置く（Y固定＝地平に留まる）。
