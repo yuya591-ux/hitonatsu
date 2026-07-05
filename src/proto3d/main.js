@@ -3037,6 +3037,22 @@ function buildShishigaya() {
       { const lx = cx + 6, lz = cz - 13, ly = heightAtYato(lx, lz)
         if (ly >= 1 && !onPaved(lx, lz)) { const pond = mk(new THREE.CircleGeometry(3.2, 20), new THREE.MeshToonMaterial({ color: 0x4a6f74, gradientMap: GRAD, transparent: true, opacity: 0.92 }), lx, ly + 0.08, lz, 0); pond.rotation.x = -Math.PI / 2; grp.add(pond)
           for (let a = 0; a < 7; a++) { const ra = a / 7 * 6.283, rx2 = lx + Math.cos(ra) * 2.9, rz2 = lz + Math.sin(ra) * 2.9; grp.add(mk(new THREE.ConeGeometry(0.12, 1.1, 4), toon(0x6f8a48), rx2, heightAtYato(rx2, rz2) + 0.55, rz2, 0, true)) } } } // 岸の葦
+      // ── 作り込み(Step2)：門前の谷戸田を段々に増やす＋せせらぎ(用水路)＋裏山の森＝谷戸の名主屋敷らしく（実物調査2026-07-05・既存の田1枚/湧水池/井戸に連ねる）──
+      const mkPaddy = (px, pz, pw, pd) => { const py = heightAtYato(px, pz)
+        if (py < 1 || onPaved(px, pz) || onPaved(px + pw / 2, pz) || onPaved(px - pw / 2, pz)) return
+        const paddy = mk(new THREE.PlaneGeometry(pw, pd), new THREE.MeshToonMaterial({ color: 0x7faa4e, gradientMap: GRAD, map: watercolorTex }), px, py + 0.06, pz, 0); paddy.rotation.x = -Math.PI / 2; paddy.receiveShadow = true; grp.add(paddy)
+        for (const [ax, az, sw, sd] of [[px, pz - pd / 2, pw + 0.6, 0.5], [px, pz + pd / 2, pw + 0.6, 0.5], [px - pw / 2, pz, 0.5, pd + 0.4], [px + pw / 2, pz, 0.5, pd + 0.4]]) grp.add(mk(new THREE.BoxGeometry(sw, 0.22, sd), toon(0xb09a72), ax, py + 0.12, az, 0, true)) // あぜ
+        const nx = Math.max(1, Math.round(pw / 1.2)), nz = Math.max(1, Math.round(pd / 1.15)), rc = new THREE.InstancedMesh(new THREE.ConeGeometry(0.1, 0.4, 4), toon(0x6f9a3e), nx * nz), m4 = new THREE.Matrix4(); let n = 0
+        for (let c = 0; c < nx; c++) for (let r = 0; r < nz; r++) { m4.makeTranslation(px - pw / 2 + 0.6 + c * 1.2, py + 0.26, pz - pd / 2 + 0.55 + r * 1.15); rc.setMatrixAt(n++, m4) }
+        rc.count = n; rc.instanceMatrix.needsUpdate = true; rc.castShadow = false; grp.add(rc) }
+      mkPaddy(cx - 20, cz + 22, 8, 5); mkPaddy(cx - 8, cz + 28, 8, 5); mkPaddy(cx + 8, cz + 24, 8, 5); mkPaddy(cx + 13, cz + 38, 8, 5) // 段々の谷戸田（開けた帯・道よけで残った所に）
+      // せせらぎ（谷戸の細い用水路＝田の手前を東西に流れる。薄い水面＋点々の石）
+      { const sz0 = cz + 41; for (let k = 0; k < 7; k++) { const sx = cx - 21 + k * 7, wz = sz0 + Math.sin(k * 0.9) * 1.6, wy = heightAtYato(sx, wz); if (wy < 1 || onPaved(sx, wz)) continue
+          const seg = mk(new THREE.PlaneGeometry(7.4, 1.0), new THREE.MeshToonMaterial({ color: 0x5b8f96, gradientMap: GRAD, transparent: true, opacity: 0.9 }), sx, wy + 0.05, wz, 0); seg.rotation.x = -Math.PI / 2; grp.add(seg)
+          grp.add(mk(new THREE.SphereGeometry(0.22, 6, 5), toon(0x9a958a), sx + 2, wy + 0.11, wz + 0.62, 0, true)) } }
+      // 裏山の森（北〜北西の斜面＝獅子ヶ谷城側。広葉樹を数本足して屋敷を森が抱くように）
+      for (const [tx3, tz3, ts3] of [[cx - 26, cz - 30, 1.35], [cx - 36, cz - 38, 1.4], [cx - 18, cz - 40, 1.25], [cx - 40, cz - 26, 1.3], [cx - 12, cz - 34, 1.2]]) { const ty3 = heightAtYato(tx3, tz3); if (ty3 < 2 || onPaved(tx3, tz3)) continue
+        grp.add(mk(new THREE.CylinderGeometry(0.3, 0.44, 3.4 * ts3, 6), woodD, tx3, ty3 + 1.7 * ts3, tz3, 0, true)); grp.add(mk(bushyCanopy(2.6 * ts3), toon(0x4c7638), tx3, ty3 + 3.4 * ts3 + 1.7 * ts3, tz3, 0, true)) }
       signOn(cx, cz + 16, 10, gy, 3.5, name, '#5a4a2a') }
     // 光明寺＝獅子ヶ谷の天台宗寺院(1356開創・本尊薬師如来)。山門(表門1841)→参道(石灯籠)→本堂(瓦の入母屋大堂)＋庫裡＋鐘楼＋地蔵＋築地塀。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildKomyoji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
