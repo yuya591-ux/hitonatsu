@@ -10074,7 +10074,11 @@ composer.addPass(gradePass)
 // 別パスでシーンの法線/深度を焼き（layer1の輪郭ハル・空は除外）、隣接ピクセルとの差からエッジを検出して黒線を乗せる。
 // 重い端末は CEL.inkEdges=false で丸ごと切れる（背面法の輪郭線だけ残る）。
 const _db = renderer.getDrawingBufferSize(new THREE.Vector2())
-const normalRT = new THREE.WebGLRenderTarget(_db.x, _db.y, { depthTexture: new THREE.DepthTexture(_db.x, _db.y, THREE.UnsignedIntType) })
+// A5（省電力）：法線/深度プリパスRTを実解像度の0.75xに＝プリパスのフィル(帯域/画素シェーダ)を約44%削減（0.75²=0.56）。
+//   ink/dofはUVで読むので解像度非依存。エッジ検出のtexel幅だけ0.75xに合わせる（下のresizeで追従）。インク線が僅かに太る可能性→A/B確認済み。
+const PREPASS_SCALE = 0.75
+const _pdx = Math.max(1, Math.round(_db.x * PREPASS_SCALE)), _pdy = Math.max(1, Math.round(_db.y * PREPASS_SCALE))
+const normalRT = new THREE.WebGLRenderTarget(_pdx, _pdy, { depthTexture: new THREE.DepthTexture(_pdx, _pdy, THREE.UnsignedIntType) })
 // プリパス（法線/深度RTへのシーン二重描画）だけ描画距離を300mに絞る＝インク線はfadeFar150で消え・DoFのボケも289mで最大に飽和しているため出力は同一のまま、
 // 300m〜fog先の建物/木のドローコールを丸ごと省く（発熱対策・2026-07-02）。深度の復号(near/far uniform)も必ずこの値に合わせること＝ずれると中景のボケ量が狂う。
 // A/B検証用に window.__prepassFar = false で旧動作（全距離描画）に戻せる
@@ -10108,7 +10112,7 @@ const normalMat = new THREE.MeshNormalMaterial()
 const inkPass = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
-    texel: { value: new THREE.Vector2(1 / _db.x, 1 / _db.y) }, near: { value: camera.near }, far: { value: PREPASS_FAR }, // 深度RTはPREPASS_FARの射影で描く＝復号もそれに合わせる（camera.farだと中景の距離を誤読）
+    texel: { value: new THREE.Vector2(1 / _pdx, 1 / _pdy) }, near: { value: camera.near }, far: { value: PREPASS_FAR }, // A5：エッジ検出のtexelは0.75xの法線/深度RTに合わせる／深度RTはPREPASS_FARの射影で描く＝復号もそれに合わせる（camera.farだと中景の距離を誤読）
     fadeNear: { value: CEL.inkFadeNear }, fadeFar: { value: CEL.inkFadeFar }, // この距離からエッジを薄くし、奥で消す＝遠景のチラつき(黒モヤ)を断つ
     inkColor: { value: new THREE.Color(CEL.inkTint) }, strength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness }, // インク線は焦げ茶（ハル輪郭CEL.outlineとは別＝建物の硬い黒線をやわらげる・2026-07-01）
   },
@@ -10150,16 +10154,17 @@ function resize() {
   // ★輪郭線(インク)の法線/深度RTを実解像度へ。THREEの setSize は色texのみで depthTexture を追従しないため、
   //   サイズが変わったら depthTexture を作り直す。これを怠ると回転後に“古いサイズの深度バッファ”が残り、
   //   インクのエッジ検出が旧解像度のまま描かれて画面に黒い輪郭線のゴースト（黒モヤ）が残る＝今回の不具合の元。
-  if (normalRT.width !== db.x || normalRT.height !== db.y) {
-    normalRT.setSize(db.x, db.y)
+  const pdx = Math.max(1, Math.round(db.x * PREPASS_SCALE)), pdy = Math.max(1, Math.round(db.y * PREPASS_SCALE)) // A5：プリパスRTは0.75x
+  if (normalRT.width !== pdx || normalRT.height !== pdy) {
+    normalRT.setSize(pdx, pdy)
     normalRT.depthTexture.dispose()
-    normalRT.depthTexture = new THREE.DepthTexture(db.x, db.y, THREE.UnsignedIntType)
+    normalRT.depthTexture = new THREE.DepthTexture(pdx, pdy, THREE.UnsignedIntType)
     inkPass.uniforms.tNormal.value = normalRT.texture  // 参照を貼り直す（setSizeでtextureは作り直される）
     inkPass.uniforms.tDepth.value = normalRT.depthTexture
     dofPass.uniforms.tDepth.value = normalRT.depthTexture // 被写界深度も深度テクスチャを貼り直す
   }
-  inkPass.uniforms.texel.value.set(1 / db.x, 1 / db.y) // エッジ検出のテクセル幅も新解像度に
-  dofPass.uniforms.texel.value.set(1 / w, 1 / h) // 被写界深度のボケ径も新解像度に
+  inkPass.uniforms.texel.value.set(1 / pdx, 1 / pdy) // A5：エッジ検出のテクセル幅は0.75xの法線/深度テクスチャに合わせる（1テクセル隣を正しくサンプル）
+  dofPass.uniforms.texel.value.set(1 / w, 1 / h) // 被写界深度のボケ径は全解像度のtDiffuseに掛かる＝据え置き
   camera.aspect = w / h            // カメラのアスペクト・投影行列も更新
   camera.updateProjectionMatrix()
 }
