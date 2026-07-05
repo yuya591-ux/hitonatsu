@@ -14127,9 +14127,11 @@ renderer.setAnimationLoop(() => { try {
   // 高い俯瞰で全域(約316万tri/フレーム)を描く重い構図を、表示時間が長いタイトルでスマホの発熱/電池に優しく（B⑩・far絞りはtri-8%で構図も痩せるため不採用＝近景が主因）
   // B2（省電力・ユーザー決定2026-07-05）：放置(3秒無操作)・座り/寝転びで景色を眺めている時は30→24fpsに落とす＝「ゆっくり浸る」時間の消費電力を削る。
   //   操作した瞬間に30fpsへ即復帰。移動速度や時間の流れはdtベースなので不変（遠くの人/虫の動きがごくわずかに粗くなるだけ）。飛行/浮遊は滑らかさ優先で対象外。タイトルは従来18fps。
+  // C3（省エネプリセット・2026-07-05）：軽量モードは「絵を軽く(ink/dof/DPR)」に加えて常時24fps上限も兼ねる＝ひとつのトグルで最大の電池/発熱の保険。新UIは足さない
+  const _eco = !!(settings && settings.light) && !titleView && !floatMode && !flying
   const _watching = !titleView && !floatMode && !flying && (mode === 'sit' || mode === 'lie' || (performance.now() - lastInteract > 3000))
-  const _fpsMin = titleView ? 1 / 18 : (_watching ? 1 / 24 : 1 / 30)
-  __fpsCap = titleView ? 18 : (_watching ? 24 : 30) // 検証用：現在のフレーム上限
+  const _fpsMin = titleView ? 1 / 18 : ((_watching || _eco) ? 1 / 24 : 1 / 30)
+  __fpsCap = titleView ? 18 : ((_watching || _eco) ? 24 : 30) // 検証用：現在のフレーム上限（軽量モード or 放置/座り/寝=24）
   if (frameAcc < _fpsMin && !__captureQueue.length) return // A4：キャプチャ要求がある時は間引かず必ず描画→直後に読む
   const realInterval = Math.min(frameAcc, 0.25) // C2：実際のフレーム間隔（描画時点の蓄積時間・大外れは0.25でクランプ）
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
@@ -14771,7 +14773,7 @@ if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEP
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
 const setLightBtn = document.getElementById('set-light')
-if (setLightBtn) setLightBtn.addEventListener('click', () => { settings.light = !settings.light; saveSettings(); applyLight(); showToast(settings.light ? '軽量モード ON（線とボケを省いて軽くしたよ）' : '軽量モード OFF（いつもの絵に もどしたよ）') })
+if (setLightBtn) setLightBtn.addEventListener('click', () => { settings.light = !settings.light; saveSettings(); applyLight(); showToast(settings.light ? '軽量モード ON（線とボケを省き 24fpsで 電池と発熱にやさしく）' : '軽量モード OFF（いつもの絵に もどしたよ）') }) // C3：軽量モードは常時24fps上限も兼ねる
 const setFpvBtn = document.getElementById('set-fpv')
 if (setFpvBtn) setFpvBtn.addEventListener('click', () => { toggleFpv(); if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。toggleFpvが全ボタン同期＋水平視線
 // はじまりの場所＝いま立っている所を開始地点として保存（つぎに始めるときここから／トップ画面もここを映す）。標準にもどすボタンつき。ユーザー要望2026-06-24
