@@ -11619,6 +11619,7 @@ let dialogue = null // { lines, idx }
 let dlgWho = null // 会話の相手（カメラの“二人を収める”寄り＝止め絵に使う・2026-06-29）
 // 台詞は1文字ずつ そっと現れる（間をつくる＝情緒）。表示途中にタップすると全部出る→もう一度タップで次へ（2026-06-29）
 let dlgType = null // { full, n, timer }
+let mouthOpen = 0, mouthPulse = 0 // ③口パク：会話相手の口の開き（RAFで連続的に補間）。mouthPulse=1文字出るたびに立てるパルス→自然減衰＝タイプ音と同じテンポで開閉
 function showDlgLine(text) {
   if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null }
   if (dlgMoreEl) dlgMoreEl.style.opacity = '0' // 表示中は「▼」を隠す
@@ -11962,7 +11963,7 @@ function advanceDialogue() {
   if (!dialogue) return
   if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null; dlgType.n = dlgType.full.length; dlgTextEl.textContent = dlgType.full; if (dlgMoreEl) dlgMoreEl.style.opacity = '1'; return } // 表示途中なら、まず全部出す（早送り）＋「▼」を出す
   dialogue.idx++
-  if (dialogue.idx >= dialogue.lines.length) { if (dlgWho && dlgWho.userData.mouth) { const m = dlgWho.userData.mouth; m.scale.y = m.userData.by || 1; m.position.y = -0.058 } dialogue = null; dlgWho = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '0'; dialogueEl.classList.remove('show'); document.body.classList.remove('talking'); setTimeout(() => { if (!dialogue) dialogueEl.style.display = 'none' }, 320); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } } // 相手の口を閉じる＋ふわっとフェードアウトしてから隠す
+  if (dialogue.idx >= dialogue.lines.length) { if (dlgWho && dlgWho.userData.mouth) { const m = dlgWho.userData.mouth; m.scale.set(1, m.userData.by || 1, 1); m.position.y = -0.058 } mouthOpen = mouthPulse = 0; dialogue = null; dlgWho = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '0'; dialogueEl.classList.remove('show'); document.body.classList.remove('talking'); setTimeout(() => { if (!dialogue) dialogueEl.style.display = 'none' }, 320); if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null } } // 相手の口を閉じる＋ふわっとフェードアウトしてから隠す
   else showDlgLine(dialogue.lines[dialogue.idx])
 }
 tapBtn(npcEl, () => {
@@ -13974,7 +13975,14 @@ function update(dt) {
       dlgWho.rotation.y += dyr * Math.min(1, dt * 3) // ふわっと振り向く
       if (speedNow < 0.1) facing = Math.atan2(dlgWho.position.x - boy.position.x, dlgWho.position.z - boy.position.z) // 主人公も相手に向き直る＝二人が向き合う（既存の facing→rotation.y のなめらか補間に乗る・歩いている時は邪魔しない）
       const m = dlgWho.userData.mouth
-      if (m) { const open = (dlgType && dlgType.timer) ? (0.5 + 0.5 * Math.sin(tsec * 18)) : 0; m.scale.y = (m.userData.by || 1) * (1 + open * 2.2); m.position.y = -0.058 - open * 0.012 } // 台詞タイプ中だけ口が動く→出切ると閉じる
+      if (m) { // 台詞テンポ連動の口パク（一定sinのパカパカを廃止）＝1文字出るたびにパクッと開き、次の文字までに閉じる。約物・空白は“間”で閉じたまま
+        const typing = dlgType && dlgType.timer
+        if (typing && dlgType.n > 0 && dlgType.n !== dlgType._mn) { dlgType._mn = dlgType.n; const ch = dlgType.full[dlgType.n - 1] || '' // 新しい文字が出た瞬間だけパルスを立てる（n=0の先頭空パルスは出さない）
+          mouthPulse = /[\s、。，．・！？!?…「」『』（）〜~ 　]/.test(ch) ? 0 : (0.55 + Math.random() * 0.45) } // 句読点/空白/長音は口を閉じる間・仮名はランダム幅で開く（抑揚）
+        if (!typing) mouthPulse = 0
+        mouthOpen += (mouthPulse - mouthOpen) * Math.min(1, dt * 30) // パルスへ素早く開く
+        mouthPulse *= Math.max(0, 1 - dt * 15) // パルスは自然減衰＝次の文字までに閉じていく
+        const o = mouthOpen; m.scale.set(1 + o * 0.5, (m.userData.by || 1) * (1 + o * 2.4), 1); m.position.y = -0.058 - o * 0.014 } // 開くほど縦に大きく＋少し横広＝棒の縦伸ばしでなく“口の開き”に
     }
 
     // マリオ64/サンシャイン式の追従：歩くとカメラが進行方向の真後ろへゆっくり回り込む。
@@ -15234,6 +15242,8 @@ window.__proto3d = {
     return out },
   _chores() { initChores(); return chores.map((c) => ({ x: +c.cx.toFixed(1), z: +c.cz.toFixed(1), kind: c.kind })) }, // 検証用：C3 静かなしぐさの位置と種類
   _chatMouths() { const out = []; for (const C of chatPairs) for (const g of [C.a, C.b]) { const m = g.userData.mouth; if (m) out.push({ vis: g.visible, sy: +m.scale.y.toFixed(3), by: +m.userData.by.toFixed(3) }) } return out }, // 検証用：C1 会話ペアの口の開き（sy>byなら口パク中）
+  _dlgMouth() { const m = dlgWho && dlgWho.userData.mouth; return { active: !!(dialogue && dlgWho), typing: !!(dlgType && dlgType.timer), n: dlgType ? dlgType.n : -1, open: m ? +(m.scale.y / (m.userData.by || 1)).toFixed(2) : null, sx: m ? +m.scale.x.toFixed(2) : null } }, // 検証用：③会話相手の口パク（open>1で開・typingのnと連動して変動するのを確認）
+  _startTalkAt(x, z) { placeBoy(x, z); startDialogue(); return { active: !!(dialogue && dlgWho), who: dlgWho ? +dlgWho.position.x.toFixed(0) + ',' + (+dlgWho.position.z.toFixed(0)) : null } }, // 検証用：指定座標へ主人公を置いて会話を起動（口パク検証用に相手を確保）
   _roadDefects() { const out = []
     const proc = (x0, z0, x1, z1, w) => { if (x0 < 2200 && x1 < 2200) return; const L = Math.hypot(x1 - x0, z1 - z0); if (L < 2) return
       const dx = (x1 - x0) / L, dz = (z1 - z0) / L, px = -dz, pz = dx, lift = 0.13, nseg = Math.max(2, Math.round(L / 1.6))
