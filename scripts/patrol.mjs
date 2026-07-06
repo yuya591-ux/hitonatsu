@@ -95,7 +95,7 @@ try {
   if (ONLY === '' || AREAS.includes(ONLY)) {
     for (const a of (ONLY ? [ONLY] : AREAS)) {
       if (!AREAS.includes(a)) continue
-      await page.evaluate((a) => { window.__freezeCam = false; window.__proto3d.goArea(a); window.__proto3d.setDay(0.44) }, a); await sleep(500)
+      await page.evaluate((a) => { window.__freezeCam = false; window.__proto3d.goArea(a); window.__proto3d.setDay(0.44) }, a); await sleep(1600) // 500→1600ms：ヘッドレスはRAF≈3fps＝500msだと1〜2フレームでエリア移動の暗転フェードの最中を撮ってしまい「黒画面」と誤検知（地面6m化で顕在化・2026-07-07）
       shots.push(await capture(page, `area_${a}_ひる`))
     }
   }

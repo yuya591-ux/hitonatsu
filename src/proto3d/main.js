@@ -2265,7 +2265,7 @@ function buildShishigaya() {
   const gw = SG.half * 2 + WEST_EXT, gcx = SG.gx0 - WEST_EXT / 2 // 西へWEST_EXTだけ広げた地面（中心を西へずらす＝師岡まで地続き。heightAtYatoは±half外を縁の値でクランプ＝平らに延びる）
   for (const wt of SG.waters) if (wt.p.length >= 3) { let wy = 1e9; for (const q of wt.p) { const h = heightAtYato(q[0], q[1]); if (h < wy) wy = h } wt.flatY = wy + 0.15 } // 池ごとのフラット水面＝岸の最低点+0.15（P0-3。従来の“地形+0.2に追従するうねる水”は池の中で地面が顔を出し泥沼に見えた）
   const wbb = SG.waters.filter((w) => w.p.length >= 3).map((w) => { let a = 1e9, b = -1e9, c = 1e9, d = -1e9; for (const q of w.p) { if (q[0] < a) a = q[0]; if (q[0] > b) b = q[0]; if (q[1] < c) c = q[1]; if (q[1] > d) d = q[1] } return { w, a, b, c, d } }) // 池のbbox（地面頂点の池底沈め用）
-  const seg = Math.min(360, Math.round(gw / 7)), segZ = Math.min(340, Math.round(SG.half * 2 / 7)), ggeo = new THREE.PlaneGeometry(gw, SG.half * 2, seg, segZ); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子≒7m）
+  const seg = Math.min(560, Math.round(gw / 6)), segZ = Math.min(560, Math.round(SG.half * 2 / 6)), ggeo = new THREE.PlaneGeometry(gw, SG.half * 2, seg, segZ); ggeo.rotateX(-Math.PI / 2) // 地面：実標高で変位＋色分け（格子≒6m。旧=上限360/340で実セルx≈8.6mに粗くなり、急斜面の道の際で三角形が路面を数m食い破る主因だった→上限560・6m化。三角形+約19万は予算2M内・_roadwarp実測2026-07-07）
   const gp = ggeo.attributes.position, gcol = []
   const cLow = new THREE.Color(0xa3a87f), cGrass = new THREE.Color(0x86b257), cDark = new THREE.Color(0x5f8a3e) // 低地＝夏草の混じる緑がかった土色（旧0xb6ad99の乾いた土色は池の岸が泥沼/枯れ野に見えた・P0-3）
   for (let i = 0; i < gp.count; i++) { const wx = gp.getX(i) + gcx, wz = gp.getZ(i) + SG.gz0; let y = heightAtYato(wx, wz, true)
@@ -3548,7 +3548,7 @@ function buildShishigaya() {
     x.lineCap = 'round'; for (let i = 0; i < 64; i++) { const px = Math.random() * 64, py = Math.random() * 64, s = 1.3 + Math.random() * 2.0, dark = Math.random() < 0.5; x.globalAlpha = 0.38 + Math.random() * 0.30; x.fillStyle = dark ? '#7a623c' : '#e0cd9e'; x.beginPath(); x.ellipse(px, py, s, s * 0.68, Math.random() * 3.1, 0, 6.283); x.fill() } // 小石（明暗の小粒＝足元の手ざわり）
     x.globalAlpha = 1; const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })() // 土の道＝黄土＋轍＋小石（のっぺり解消・目線の手ざわり）
   const buildRoads = (kind, tex, lift, edgeCol) => { const rv = [], ruv = [], ridx = [], ev = [], eidx = [], clv = [], clidx = [], gv = [], gidx = []; let ro = 0, eo = 0, clo = 0, go = 0 // clv=中央の白破線（幅広の主要道だけ・F1）／gv=側溝のU字溝の細い線（見た目だけ・当たり判定なし・道マスク不変）
-    const rsY = (qx, qz) => Math.max(heightAtYato(qx, qz), groundYAt(qx, qz)) // 路面の基準高さ＝道形プロファイルと“実際の地形サーフェス”の高い方＝急な土手の三角形が路面を食い破れない（P0-1b）
+    const rsY = (qx, qz) => { const p = heightAtYato(qx, qz); return Math.max(p, Math.min(groundYAt(qx, qz), p + 0.45)) } // 路面の基準高さ＝道形プロファイルと“実際の地形サーフェス”の高い方＝急な土手の三角形が路面を食い破れない（P0-1b）。★持ち上げは+0.45mまで＝超急斜面(ヘアピン等)で地形が数m上を横切る所でリボンがテント状に飛散するのを抑止（そこは地形に潜る=遠景で目立たない方を選ぶ・_roadwarp実測2026-07-07）
     for (const rd of SG.roads) { if ((rd.k === 'path') !== (kind === 'path')) continue; const p = rd.p, hw = Math.max(kind === 'path' ? 1.25 : 2.0, rd.w / 2) // 細い道も見える/歩ける最低幅を確保
       const gutter = kind === 'paved' && rd.w >= 4 // 側溝＝舗装の主要道だけ（昭和の道らしいコンクリのU字溝。細い路地/土道には引かない）
       for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, n = Math.max(2, Math.ceil(l / 2.5)) // 2.5m刻み＋中央頂点で地形に沿わせる（埋もれ防止。4m→2.5m＝サンプル間の地形の凸も拾う）
