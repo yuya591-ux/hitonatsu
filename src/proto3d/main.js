@@ -268,13 +268,13 @@ function heightAtYato(x, z, forGround) { // 生標高＋道形プロファイル
 // 坂の勾配・カーブはそのまま＝全道の一括平坦化ではない（3点移動平均で小さな凹凸だけ均す。端点は生値＝交差点で隣の道と高さが合う）
 const roadProfH = new Float32Array(RMASK_N * RMASK_N), roadProfW = new Float32Array(RMASK_N * RMASK_N)
 for (const rd of [...SG.roads].sort((a, b) => ((b.k !== 'path') - (a.k !== 'path')) || (b.w - a.w))) { // 広い舗装路→細い道→土の小道の順に焼く＝歩道(小道)が車道の脇では車道と同じ平らな面に乗る（自分の高さを主張して車道とねじれない）
-  const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2) + 2.3, sh = Math.max(3.5, rd.w / 2), p = rd.p // hw=描画幅+2.3mの“ベンチ”＝完全に路面高さの帯（狭い小道でも7m格子の地形頂点が必ずベンチに乗る＝突き抜け根絶）。sh=ベンチから元地形へ戻す幅
+  const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2) + 3.4, sh = Math.max(4.5, rd.w / 2), p = rd.p // hw=描画幅+3.4mの“ベンチ”＝路面高さの帯を広げ、7m格子の地形頂点を道の両脇までしっかり道の高さへ切り下げる（帯が狭いと縁の高い頂点に三角形が引っ張られ路面が波打つ・ユーザー指摘2026-07-07）。sh=ベンチから元地形へ戻す幅
   const sts = [] // 中心線を約8m刻みでサンプル
   for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, n = Math.max(1, Math.round((Math.hypot(dx, dz) || 1) / 8))
     for (let s = (k === 0 ? 0 : 1); s <= n; s++) sts.push([x0 + dx * s / n, z0 + dz * s / n]) }
   if (sts.length < 2) continue
   const hraw = sts.map(([sx, sz]) => heightAtYatoRaw(sx, sz))
-  const hs = hraw.map((hh, i) => (i === 0 || i === hraw.length - 1) ? hh : (hraw[i - 1] + hh + hraw[i + 1]) / 3)
+  let hs = hraw.slice(); for (let pass = 0; pass < 4; pass++) { const pv = hs; hs = pv.map((hh, i) => (i === 0 || i === pv.length - 1) ? hh : (pv[i - 1] + hh + pv[i + 1]) / 3) } // 3点移動平均を4回＝坂の勾配は保ちつつ小刻みな凹凸をしっかり均す（1回だと急斜面で波が残り路面が歪んだ・ユーザー指摘2026-07-07）。端点は生値のまま＝交差点で隣の道と高さが合う
   for (let i = 0; i < sts.length - 1; i++) { const ax = sts[i][0], az = sts[i][1], dx = sts[i + 1][0] - ax, dz = sts[i + 1][1] - az, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
     for (let t = 0; t <= l; t += 1) { const hh = hs[i] + (hs[i + 1] - hs[i]) * (t / l), cx = ax + ux * t, cz = az + uz * t
       for (let s = -(hw + sh); s <= hw + sh; s += 1) { const as = Math.abs(s), w = as <= hw ? 1 : smoothstep01((hw + sh - as) / sh)
@@ -757,7 +757,7 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe0a6, li: 1.9, sky: 0x619fd6, mid: 0x8dbce6, bot: 0xf3ecd8, fog: 0xdde6dc, hi: 1.18, hsky: 0xbad6ec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝の中空mid=ほぼ白(0xe9e8dc)で「青空が薄く曇る」→澄んだ青(0xa9cfe8)へ・天頂も深い青(0x77b1e2)・地平は朝の金を残す・霧を少し澄ませ(ユーザー2026-07-06) // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
+  morn: { light: 0xffe0a6, li: 1.9, sky: 0x619fd6, mid: 0x8dbce6, bot: 0xf3ecd8, fog: 0xc7d6e3, hi: 1.18, hsky: 0xbad6ec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝の中空mid=ほぼ白(0xe9e8dc)で「青空が薄く曇る」→澄んだ青(0xa9cfe8)へ・天頂も深い青(0x77b1e2)・地平は朝の金を残す・霧を少し澄ませ(ユーザー2026-07-06) // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
   noon: { light: 0xffeac6, li: 2.56, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xaed0ee, hi: 1.26, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。太陽をわずかに強め(2.4→2.56)＋環境光をほんの少し絞り(1.32→1.26)＝開けた草地に日向の抜けと陰影の立体感（A：昼が平板・草地が暗く単調だった2026-07-04）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xc7a692, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
