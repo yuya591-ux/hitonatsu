@@ -3849,19 +3849,22 @@ function buildShishigaya() {
     const MIRROR = mergeParts([ // カーブミラー＝灰ポール＋オレンジ枠＋鏡面（鏡は+zを向く）
       { g: new THREE.CylinderGeometry(0.06, 0.075, 3.6, 6), m: TR(0, 1.8, 0), c: [0.58, 0.6, 0.62] },
       { g: new THREE.CylinderGeometry(0.64, 0.64, 0.06, 16), m: RX(0, 3.4, 0.0, Math.PI / 2), c: [0.86, 0.5, 0.18] }, { g: new THREE.CylinderGeometry(0.56, 0.56, 0.06, 16), m: RX(0, 3.4, 0.07, Math.PI / 2), c: [0.72, 0.79, 0.83] } ])
-    const railP = [], mirP = []
-    for (const rd of SG.roads) { if (rd.k === 'path' || rd.w < 3) continue; const p = rd.p
+    const railP = [], mirP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }; let ri = 0 // occAt=占有グリッド(建物/塀の上か)＝公園の柵と同じ作法。ガードレールの家への食い込みを断つ
+    for (const rd of SG.roads) { ri++; if (rd.k === 'path' || rd.w < 3) continue; const p = rd.p // ri=道の識別子（連続性フィルタで「同じ道の同じ側」だけを1本の連なりとみなす）
       for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, ang = Math.atan2(-uz, ux), hw = Math.max(2.0, rd.w / 2)
-        for (let t = 2; t < l - 2; t += 4) for (const sd of [1, -1]) { if (railP.length > 360) break; const ex = x0 + ux * t + nx * sd * (hw + 0.5), ez = z0 + uz * t + nz * sd * (hw + 0.5)
-          const gEdge = heightAtYato(ex, ez), gOut = heightAtYato(ex + nx * sd * 4, ez + nz * sd * 4); if (gEdge - gOut < 1.6) continue // 下り側(崖/土手)だけ
-          if (Math.hypot(ex - 3008, ez + 8) < 46 || gEdge < 3) continue
-          railP.push([ex, ez, ang]) }
+        for (let t = 2; t < l - 2; t += 4) for (const sd of [1, -1]) { if (railP.length > 500) break; const ex = x0 + ux * t + nx * sd * (hw + 0.5), ez = z0 + uz * t + nz * sd * (hw + 0.5)
+          const gEdge = heightAtYato(ex, ez), gOut = heightAtYato(ex + nx * sd * 4, ez + nz * sd * 4); if (gEdge - gOut < 1.8) continue // 下り側(崖/土手)だけ・1.6→1.8で平坦な住宅街の浅い段差には出さない
+          if (Math.hypot(ex - 3008, ez + 8) < 46 || gEdge < 3 || occAt(ex, ez)) continue // 二ツ池/低地/建物の上は除外
+          railP.push([ex, ez, ang, sd, ri]) }
         // カーブミラー：急カーブの頂点に
         if (k > 0 && k < p.length - 1 && mirP.length < 44) { const a0 = Math.atan2(z0 - p[k - 1][1], x0 - p[k - 1][0]), a1 = Math.atan2(z1 - z0, x1 - x0); let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI
           if (Math.abs(da) > 0.7 && heightAtYato(x0, z0) > 3 && Math.hypot(x0 - 3008, z0 + 8) > 46) { const mxx = x0 - uz * (hw + 1.4), mzz = z0 + ux * (hw + 1.4); mirP.push([mxx, mzz, a0 + Math.PI]) } } } }
-    if (railP.length) { const rI = new THREE.InstancedMesh(GRAIL, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), railP.length); rI.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); railP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); rI.setMatrixAt(i, m4) }); scene.add(rI) }
+    // 連続性フィルタ：ガードレールは連なって初めて“柵”に見える＝同じ道の同じ側で3連(≈12m)に満たない孤立レール/ペアを間引く（12m内に同側同道が2本以上あるものだけ残す＝curveでも切れない空間判定）。1回だと「隣を頼りに残った物の、その隣が消えて結局孤立」が起きるので、増減が止まるまで反復（3連以上の本物の連なりは全パスで安定＝安全）
+    let railK = railP, prevN = -1
+    while (railK.length !== prevN) { prevN = railK.length; railK = railK.filter((r) => { let n = 0; for (const o of railK) if (o !== r && o[3] === r[3] && o[4] === r[4] && Math.hypot(o[0] - r[0], o[1] - r[1]) < 12 && ++n >= 2) return true; return false }) }
+    if (railK.length) { const rI = new THREE.InstancedMesh(GRAIL, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), railK.length); rI.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); railK.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); rI.setMatrixAt(i, m4) }); scene.add(rI) }
     if (mirP.length) { const mI = new THREE.InstancedMesh(MIRROR, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), mirP.length); mI.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); mirP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); mI.setMatrixAt(i, m4) }); scene.add(mI) }
-    console.log('[shishigaya] ガードレール', railP.length, 'カーブミラー', mirP.length) }
+    console.log('[shishigaya] ガードレール', railK.length, '(候補', railP.length, ') カーブミラー', mirP.length) }
   // ⑦ 家の前の生活感：植木鉢・自転車（家のある道ぞいに）＋ゴミ集積所（道角・ネット掛け）。すべてmergeParts＋インスタンシング＝軽い（ユーザー要望2026-06-22）
   { const TR = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z)
     const POT_GEO = mergeParts([ { g: new THREE.CylinderGeometry(0.17, 0.13, 0.34, 8), m: TR(0, 0.17, 0), c: [0.74, 0.43, 0.31] }, { g: new THREE.IcosahedronGeometry(0.27, 0), m: TR(0, 0.52, 0), c: [0.42, 0.6, 0.33] } ]) // 鉢＋植物
@@ -15194,6 +15197,27 @@ window.__proto3d = {
       for (const b of builtBuildings) { if (pip(b[0], b[1], g.p)) { bIn++; if (bs.length < 5) bs.push([Math.round(b[0]), Math.round(b[1])]) } }
       out.push({ kind: g.kind, cx: Math.round(cx / n), cz: Math.round(cz / n), w: Math.round(mxx - mnx), d: Math.round(mxz - mnz), area: Math.round((mxx - mnx) * (mxz - mnz)), verts: n, bIn, bs }) }
     return out.sort((a, b) => b.bIn - a.bIn || b.area - a.area)
+  },
+  _rails() { // 検証用：ガードレール自動配置(L3853〜)を実配置と同じ条件で再現し不自然フラグを付けて返す＝②監査/修正後の再確認用。占有グリッドoccは関数内ローカルで届かないためbuiltBuildingsのフットプリントで近似（bld=家に重なる。実配置occはさらに塀/小物も除くのでtotalは実配置railKの上限）
+    const inFoot = (x, z) => builtBuildings.some((b) => { const a = b[4] || 0, dx = x - b[0], dz = z - b[1], c = Math.cos(-a), s = Math.sin(-a); return Math.abs(dx * c - dz * s) < (b[2] || 4) / 2 + 0.5 && Math.abs(dx * s + dz * c) < (b[3] || 4) / 2 + 0.5 })
+    const raw = []; let ri = 0
+    for (const rd of SG.roads) { ri++; if (rd.k === 'path' || rd.w < 3) continue; const p = rd.p
+      for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, hw = Math.max(2.0, rd.w / 2)
+        for (let t = 2; t < l - 2; t += 4) for (const sd of [1, -1]) { if (raw.length > 500) break; const ex = x0 + ux * t + nx * sd * (hw + 0.5), ez = z0 + uz * t + nz * sd * (hw + 0.5)
+          const gEdge = heightAtYato(ex, ez), gOut = heightAtYato(ex + nx * sd * 4, ez + nz * sd * 4); if (gEdge - gOut < 1.8) continue
+          if (Math.hypot(ex - 3008, ez + 8) < 46 || gEdge < 3 || inFoot(ex, ez)) continue
+          const hA = heightAtYato(ex + ux * 2, ez + uz * 2), hB = heightAtYato(ex - ux * 2, ez - uz * 2)
+          raw.push({ x: Math.round(ex), z: Math.round(ez), sd, ri, drop: +(gEdge - gOut).toFixed(1), tilt: +Math.max(Math.abs(hA - gEdge), Math.abs(hB - gEdge)).toFixed(1) }) } } }
+    let rails = raw, prevN = -1 // 連続性フィルタ（実配置railKと同じ＝同じ道の同じ側で3連未満を捨てる・増減が止まるまで反復）
+    while (rails.length !== prevN) { prevN = rails.length; rails = rails.filter((r) => { let n = 0; for (const o of rails) if (o !== r && o.sd === r.sd && o.ri === r.ri && Math.hypot(o.x - r.x, o.z - r.z) < 12 && ++n >= 2) return true; return false }) }
+    let nBld = 0, nIso = 0, nTilt = 0; const bad = []
+    for (let i = 0; i < rails.length; i++) { const r = rails[i]
+      r.bld = inFoot(r.x, r.z); if (r.bld) nBld++ // 修正後は0のはず
+      let neigh = 0; for (let j = 0; j < rails.length; j++) if (j !== i && rails[j].sd === r.sd && rails[j].ri === r.ri && Math.hypot(rails[j].x - r.x, rails[j].z - r.z) < 12) neigh++
+      r.iso = neigh < 2; if (r.iso) nIso++ // 修正後は0のはず
+      r.tiltBad = r.tilt > 1.2; if (r.tiltBad) nTilt++
+      if (r.bld || r.iso || r.tiltBad) bad.push(r) }
+    return { total: rails.length, candidate: raw.length, nBld, nIso, nTilt, allBad: bad.length, badSample: bad.slice(0, 20) }
   },
   _chickens() { initChickens(); return { yard: yokomizoYard, list: chickens.map((c) => ({ x: +c.position.x.toFixed(1), y: +c.position.y.toFixed(1), z: +c.position.z.toFixed(1), st: c.userData.state, vis: c.visible, hz: +c.userData.head.rotation.z.toFixed(2) })) } }, // 検証用：にわとりの位置・状態・頭の角度
   _dogwalkers() { initDogWalkers(); return dogWalkers.map((w) => ({ px: +w.person.position.x.toFixed(1), py: +w.person.position.y.toFixed(1), pz: +w.person.position.z.toFixed(1), dx: +w.dog.position.x.toFixed(1), dz: +w.dog.position.z.toFixed(1), vis: w.person.visible, gap: +Math.hypot(w.person.position.x - w.dog.position.x, w.person.position.z - w.dog.position.z).toFixed(2) })) }, // 検証用：犬の散歩（人と犬の位置・間隔）
