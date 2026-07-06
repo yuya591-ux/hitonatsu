@@ -10746,16 +10746,21 @@ function playFound() {
   } catch (e) {}
 }
 // 会話の文字送り音：1文字ごとのやわらかい木琴のような短い丸い音。話者ごとにピッチ＝声色＝台詞が“生き物の声”に（サウンド提案2026-06-30）
-function playDlgBlip(pitch) {
+function playDlgBlip(pitch, wave, dur) { // wave/dur省略時は従来（大人男の三角波）＝人物別の声色（文字送り音）を出せる（ユーザー2026-07-07：女の子は高く/子供は全く別に）
   if (!audioStarted) return
   try {
-    const ctx = listener.context, t0 = ctx.currentTime, out = getSfxOut()
-    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = pitch
+    const ctx = listener.context, t0 = ctx.currentTime, out = getSfxOut(), d = dur || 0.07
+    const o = ctx.createOscillator(); o.type = wave || 'triangle'; o.frequency.value = pitch
     const g = ctx.createGain()
-    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.04, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07)
-    o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.09)
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.04, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d)
+    o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + d + 0.02)
   } catch (e) {}
 }
+// 文字送り音の声色＝話者の性別(garment: dress/skirt=女性)×年齢(adult)で決める。男の大人＝今のまま／女性＝高め／子供＝全く別（高く軽い正弦波）
+function dlgVoice(who) { if (!who || !who.userData) return { p: 240, w: 'triangle', d: 0.07 }
+  const u = who.userData, female = u.garment === 'dress' || u.garment === 'skirt', jit = ((who.id || 0) % 3) * 8
+  if (!u.adult) return { p: (female ? 392 : 352) + jit, w: 'sine', d: 0.05 } // 子供＝全く別：高く軽い正弦波・短め（女の子はさらに高く）
+  return female ? { p: 290 + jit, w: 'triangle', d: 0.065 } : { p: 202 + jit, w: 'triangle', d: 0.07 } } // 大人：女=高め／男=今のまま(低め三角波)
 // おもいで帳のページめくり／タブ切替の紙音「ぱらり」＝バンドパスのノイズを短く上へ掃く（一冊の物の手ざわり・2026-07-04ブラッシュアップ）
 function playPageTurn() {
   if (!audioStarted || !noiseBuf) return
@@ -11631,14 +11636,14 @@ function showDlgLine(text) {
   if (dlgType && dlgType.timer) { clearInterval(dlgType.timer); dlgType.timer = null }
   if (dlgMoreEl) dlgMoreEl.style.opacity = '0' // 表示中は「▼」を隠す
   if (reduceMotion) { dlgTextEl.textContent = text; dlgType = { full: text, n: text.length, timer: null }; if (dlgMoreEl) dlgMoreEl.style.opacity = '1'; return } // 酔い対策ONなら一気に表示
-  const vp = dlgWho ? 196 + (dlgWho.id % 7) * 22 : 240 // 話者ごとにピッチを変える＝声色（文字送り音）
+  const voice = dlgVoice(dlgWho) // 話者の性別(garment)×年齢(adult)で声色（文字送り音）を変える＝女の子は高く/男の大人は今のまま/子供は全く別
   dlgType = { full: text, n: 0, timer: null }
   dlgTextEl.textContent = ''
   dlgType.timer = setInterval(() => {
     dlgType.n = Math.min(dlgType.full.length, dlgType.n + 1)
     dlgTextEl.textContent = dlgType.full.slice(0, dlgType.n)
     const ch = dlgType.full[dlgType.n - 1] // 1文字ごとにやわらかい音＝台詞が“生き物の声”に（空白・約物は鳴らさない）
-    if (ch && !/[\s、。「」（）！？…ー　]/.test(ch) && Math.random() < 0.55) playDlgBlip(vp)
+    if (ch && !/[\s、。「」（）！？…ー　]/.test(ch) && Math.random() < 0.55) playDlgBlip(voice.p, voice.w, voice.d)
     if (dlgType.n >= dlgType.full.length) { clearInterval(dlgType.timer); dlgType.timer = null; if (dlgMoreEl) dlgMoreEl.style.opacity = '1' } // 出切ったら「▼ つづきはタップ」を出す
   }, 40) // 1文字あたり約40ms＝ゆっくり読める速さ
 }
@@ -13982,14 +13987,10 @@ function update(dt) {
       dlgWho.rotation.y += dyr * Math.min(1, dt * 3) // ふわっと振り向く
       if (speedNow < 0.1) facing = Math.atan2(dlgWho.position.x - boy.position.x, dlgWho.position.z - boy.position.z) // 主人公も相手に向き直る＝二人が向き合う（既存の facing→rotation.y のなめらか補間に乗る・歩いている時は邪魔しない）
       const m = dlgWho.userData.mouth
-      if (m) { // 台詞テンポ連動の口パク（一定sinのパカパカを廃止）＝1文字出るたびにパクッと開き、次の文字までに閉じる。約物・空白は“間”で閉じたまま
+      if (m) { // 口パク＝むやみに動かさない（ユーザー2026-07-07「変にうにょうにょ動かすな」）。話している間だけ“ほんの少し一定に開く”→出切ったら閉じる。声色（文字送り音）で人物差を出す方針
         const typing = dlgType && dlgType.timer
-        if (typing && dlgType.n > 0 && dlgType.n !== dlgType._mn) { dlgType._mn = dlgType.n; const ch = dlgType.full[dlgType.n - 1] || '' // 新しい文字が出た瞬間だけパルスを立てる（n=0の先頭空パルスは出さない）
-          mouthPulse = /[\s、。，．・！？!?…「」『』（）〜~ 　]/.test(ch) ? 0 : (0.55 + Math.random() * 0.45) } // 句読点/空白/長音は口を閉じる間・仮名はランダム幅で開く（抑揚）
-        if (!typing) mouthPulse = 0
-        mouthOpen += (mouthPulse - mouthOpen) * Math.min(1, dt * 30) // パルスへ素早く開く
-        mouthPulse *= Math.max(0, 1 - dt * 15) // パルスは自然減衰＝次の文字までに閉じていく
-        const o = mouthOpen; m.scale.set(1 + o * 0.5, (m.userData.by || 1) * (1 + o * 2.4), 1); m.position.y = -0.058 - o * 0.014 } // 開くほど縦に大きく＋少し横広＝棒の縦伸ばしでなく“口の開き”に
+        mouthOpen += ((typing ? 0.2 : 0) - mouthOpen) * Math.min(1, dt * 7) // ゆっくり静かに開閉（パルス/ランダムなし）
+        const o = mouthOpen; m.scale.set(1 + o * 0.28, (m.userData.by || 1) * (1 + o * 1.5), 1); m.position.y = -0.058 - o * 0.010 }
     }
 
     // マリオ64/サンシャイン式の追従：歩くとカメラが進行方向の真後ろへゆっくり回り込む。
