@@ -647,9 +647,10 @@ function mergedOutline(group, thickness = 0.05) {
     const g = m.geometry.clone().toNonIndexed() // 全て非インデックス化＝統合可能に
     g.deleteAttribute('normal'); g.deleteAttribute('uv'); g.deleteAttribute('color') // 反転ハルは position だけでよい
     g.computeBoundingSphere()
-    const r = (g.boundingSphere && g.boundingSphere.radius) || 1
+    const bs = g.boundingSphere, r = (bs && bs.radius) || 1, c = bs ? bs.center : { x: 0, y: 0, z: 0 }
     const sc = 1 + thickness * CEL.outlineScale / r // CEL.outlineScaleで太さ一括調整
-    g.applyMatrix4(new THREE.Matrix4().makeScale(sc, sc, sc)) // 幾何中心まわりに膨らます
+    // ★各パーツの重心まわりに膨らます（原点まわりのmakeScaleだと、原点から離れたパーツが (sc-1)×距離 だけ外へドリフトし、輪郭ハルがシルエットからはみ出す＝ユーザー指摘「黒い線がはみ出す」2026-07-06）
+    g.translate(-c.x, -c.y, -c.z); g.applyMatrix4(new THREE.Matrix4().makeScale(sc, sc, sc)); g.translate(c.x, c.y, c.z)
     // m の group 基準の相対変換を合成（armなどネストにも対応）
     const chain = new THREE.Matrix4().identity()
     let cur = m
@@ -756,7 +757,7 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe0a6, li: 1.9, sky: 0x77b1e2, mid: 0xa9cfe8, bot: 0xf3ecd8, fog: 0xdde6dc, hi: 1.18, hsky: 0xbad6ec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝の中空mid=ほぼ白(0xe9e8dc)で「青空が薄く曇る」→澄んだ青(0xa9cfe8)へ・天頂も深い青(0x77b1e2)・地平は朝の金を残す・霧を少し澄ませ(ユーザー2026-07-06) // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
+  morn: { light: 0xffe0a6, li: 1.9, sky: 0x619fd6, mid: 0x8dbce6, bot: 0xf3ecd8, fog: 0xdde6dc, hi: 1.18, hsky: 0xbad6ec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝の中空mid=ほぼ白(0xe9e8dc)で「青空が薄く曇る」→澄んだ青(0xa9cfe8)へ・天頂も深い青(0x77b1e2)・地平は朝の金を残す・霧を少し澄ませ(ユーザー2026-07-06) // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
   noon: { light: 0xffeac6, li: 2.56, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xaed0ee, hi: 1.26, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。太陽をわずかに強め(2.4→2.56)＋環境光をほんの少し絞り(1.32→1.26)＝開けた草地に日向の抜けと陰影の立体感（A：昼が平板・草地が暗く単調だった2026-07-04）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xc7a692, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
@@ -5806,7 +5807,7 @@ function makeJizo(x, z, rot) {
   makePondPark(T.x - 314, T.z + 43) // 二つ池＝(686,43)へ北へ約51m移設（ユーザー要望2026-06-19）。道・民家・木・公園も一緒に移動。三ツ池公園オマージュ
   // ── 街を囲む遠景の山々（盆地の町＝山に囲まれた鶴見の谷あい。歩行範囲の外周に低ポリの稜線を環状に）──
   {
-    const near = new THREE.MeshToonMaterial({ color: 0x6f8a64, gradientMap: GRAD }), far = new THREE.MeshToonMaterial({ color: 0x8398a4, gradientMap: GRAD }) // 遠いほど青くかすむ
+    const near = new THREE.MeshToonMaterial({ color: 0x74879a, gradientMap: GRAD }), far = new THREE.MeshToonMaterial({ color: 0x8095a6, gradientMap: GRAD }) // 遠景の山＝どちらも青灰の空気遠近へ（旧nearの緑0x6f8a64は霞に溶けても青くならず「白い塊」に見えた・ユーザー指摘2026-07-06）
     const ccx = T.x - 12, ccz = T.z + 6
     for (let i = 0; i < 20; i++) {
       const a = (i / 20) * Math.PI * 2 + (Math.random() - 0.5) * 0.18
@@ -5815,9 +5816,9 @@ function makeJizo(x, z, rot) {
       if (Math.sin(a) < -0.25 && mz > -395) mz = -405 - Math.random() * 70 // 南に新エリア(z-345まで)を新築したので、南の山だけ外へ押し出す（町の北/東/西の背景はそのまま・ユーザー要望A）
       if (Math.sin(a) > 0.25 && mz < 395) mz = 405 + Math.random() * 70 // 北も裏山の谷を下る新エリア(z+230まで)を新築したので、北の山だけ外へ押し出す（東/西の背景はそのまま）
       if (Math.cos(a) < -0.5 && mx > 595) mx = 575 - Math.random() * 95 // 西も二つ池を南西へ動かす新エリア(x650まで)を作ったので、西の山だけ外へ押し出す（北/東/南の背景はそのまま・2026-06-18）
-      const h = 34 + Math.random() * 40, rad = 28 + Math.random() * 22
+      const h = 26 + Math.random() * 24, rad = 30 + Math.random() * 24 // 高さを抑え裾を広げる（34-74→26-50・幅広）＝霞に溶けて白く潰れても「見上げる白い塊」でなく地平の低い稜線に
       const mtn = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 5 + Math.floor(Math.random() * 3), 1), isFar ? far : near)
-      mtn.position.set(mx, h / 2 - 9, mz); mtn.rotation.y = Math.random() * 6.28 // 麓を少し沈めて稜線だけ見せる
+      mtn.position.set(mx, h / 2 - 16, mz); mtn.rotation.y = Math.random() * 6.28 // 麓をより深く沈めて稜線だけ（-9→-16）＝白い部分を地平ぎわの薄い帯に抑える（ユーザー指摘「奥の白い山が白すぎる」2026-07-06）
       scene.add(mtn)
     }
   }
