@@ -4782,6 +4782,7 @@ function buildShishigaya() {
   }
   console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
+await new Promise((r) => setTimeout(r, 45)) // 起動：重いシーン構築(数秒メインスレッドを止める)の前に一度ブラウザへ制御を返す＝不透明のローディング覆いを確実に描かせ、横持ちの再レイアウトも一度通す（UIが崩れて見えるのを軽減・ユーザー2026-07-07）。module top-level await
 buildShishigaya()
 // ── ひと夏の最終日(day>=TOTAL_DAYS)だけ、世界が絵日記の言葉に呼応する小さな演出（喪失感をそっと）─────────────────
 //   絵日記の最終日テキスト：「せみの ぬけがらが、木に ひとつ のこっていた。なつが、すこし とおく なった。」「夕やけに とけて いった。」に
@@ -14355,6 +14356,7 @@ renderer.setAnimationLoop(() => { try {
 function markTitleReady() {
   const b = document.getElementById('t-start')
   if (b) { b.disabled = false; b.removeAttribute('aria-busy'); b.textContent = 'はじめる' }
+  const t = document.getElementById('title'); if (t) t.classList.remove('loading') // 不透明のローディング覆いを外す＝本編の絵(夏の夕暮れ)があらわれる
 }
 setTimeout(() => { if (!titleReady) { titleReady = true; markTitleReady() } }, 8000) // 保険：8秒で必ず押せるように
 

@@ -228,6 +228,8 @@
         background: linear-gradient(rgba(40,44,60,0.28), rgba(40,44,60,0.04) 42%, rgba(40,44,60,0.4));
         z-index: 25; transition: opacity 0.9s ease; }
       #title.hidden { opacity: 0; pointer-events: none; }
+      /* 起動中（じゅんびちゅう）は不透明のたそがれ色で覆う＝重いシーン構築でメインスレッドが止まる間、透けて見える“空/引き伸ばしのキャンバス＋固まったUI”を隠し「横持ちでUIが崩れる」を防ぐ。準備完了(loading除去)で半透明に戻り本編の絵があらわれる（ユーザー2026-07-07） */
+      #title.loading { background: linear-gradient(165deg, #4a5470, #2b3550 55%, #3a4c60); }
       .title-inner { text-align: center; }
       .t-sub { margin: 0 0 0.4em; font-size: clamp(12px,2.6vw,18px); letter-spacing: 0.26em; text-indent: 0.26em;
         color: #fdf6e8; text-shadow: 0 1px 6px rgba(40,40,50,0.6); }
@@ -580,7 +582,7 @@
         <button id="guide-ok">はじめる！</button>
       </div>
     </div>
-    <div id="title">
+    <div id="title" class="loading">
       <div class="title-inner">
         <p class="t-sub">― 昭和の夏の、ある数日 ―</p>
         <h1 class="t-main">ひと夏の一日</h1>
