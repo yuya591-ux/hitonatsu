@@ -227,7 +227,7 @@ function heightAtYato(x, z, forGround) { // 生標高＋道形プロファイル
     const i0 = Math.floor(fi), j0 = Math.floor(fj)
     if (i0 >= 0 && j0 >= 0 && i0 < RMASK_N - 1 && j0 < RMASK_N - 1) {
       const tx = fi - i0, tz = fj - j0, b0 = j0 * RMASK_N + i0, b1 = b0 + RMASK_N
-      const wa = roadProfW[b0], wb = roadProfW[b0 + 1], wc = roadProfW[b1], wd = roadProfW[b1 + 1]
+      const wa = Math.min(1, roadProfW[b0]), wb = Math.min(1, roadProfW[b0 + 1]), wc = Math.min(1, roadProfW[b1]), wd = Math.min(1, roadProfW[b1 + 1]) // 格子には優先度として1.25(コア)も入るが、ブレンド重みとしては1に丸める（外挿防止）
       if (wa + wb + wc + wd > 0) {
         const ca = (1 - tx) * (1 - tz), cb = tx * (1 - tz), cc = (1 - tx) * tz, cd = tx * tz
         const ws = ca * wa + cb * wb + cc * wc + cd * wd
@@ -268,7 +268,7 @@ function heightAtYato(x, z, forGround) { // 生標高＋道形プロファイル
 // 坂の勾配・カーブはそのまま＝全道の一括平坦化ではない（3点移動平均で小さな凹凸だけ均す。端点は生値＝交差点で隣の道と高さが合う）
 const roadProfH = new Float32Array(RMASK_N * RMASK_N), roadProfW = new Float32Array(RMASK_N * RMASK_N)
 for (const rd of [...SG.roads].sort((a, b) => ((b.k !== 'path') - (a.k !== 'path')) || (b.w - a.w))) { // 広い舗装路→細い道→土の小道の順に焼く＝歩道(小道)が車道の脇では車道と同じ平らな面に乗る（自分の高さを主張して車道とねじれない）
-  const hw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2) + 3.4, sh = Math.max(4.5, rd.w / 2), p = rd.p // hw=描画幅+3.4mの“ベンチ”＝路面高さの帯を広げ、7m格子の地形頂点を道の両脇までしっかり道の高さへ切り下げる（帯が狭いと縁の高い頂点に三角形が引っ張られ路面が波打つ・ユーザー指摘2026-07-07）。sh=ベンチから元地形へ戻す幅
+  const hwDraw = Math.max(rd.k === 'path' ? 1.25 : 2.0, rd.w / 2), hw = hwDraw + 3.4, core = hwDraw + 0.6, sh = Math.max(9.5, rd.w / 2), p = rd.p // hw=描画幅+3.4mの“ベンチ”＝路面高さの帯を広げ、7m格子の地形頂点を道の両脇までしっかり道の高さへ切り下げる（帯が狭いと縁の高い頂点に三角形が引っ張られ路面が波打つ・ユーザー指摘2026-07-07）。sh=ベンチから元地形へ戻す肩幅＝4.5→9.5m（地面メッシュのセル約8.3mを覆う）。core=描画幅+0.6m＝重み1.25で塗り「他の道のベンチ/肩」に必ず勝つ＝並走する道のベンチが越境して路面が他道の高さと縞に混ざり“くしゃくしゃのリボン”に折れるのを根絶（r963の実測：左端が中心-3m/プロファイル±0.5m発振・_roaddump.mjs 2026-07-07）。コア同士の重なり＝本当の交差点は従来どおり幅広優先
   const sts = [] // 中心線を約8m刻みでサンプル
   for (let k = 0; k < p.length - 1; k++) { const x0 = p[k][0], z0 = p[k][1], dx = p[k + 1][0] - x0, dz = p[k + 1][1] - z0, n = Math.max(1, Math.round((Math.hypot(dx, dz) || 1) / 8))
     for (let s = (k === 0 ? 0 : 1); s <= n; s++) sts.push([x0 + dx * s / n, z0 + dz * s / n]) }
@@ -277,7 +277,7 @@ for (const rd of [...SG.roads].sort((a, b) => ((b.k !== 'path') - (a.k !== 'path
   let hs = hraw.slice(); for (let pass = 0; pass < 4; pass++) { const pv = hs; hs = pv.map((hh, i) => (i === 0 || i === pv.length - 1) ? hh : (pv[i - 1] + hh + pv[i + 1]) / 3) } // 3点移動平均を4回＝坂の勾配は保ちつつ小刻みな凹凸を均す。※8回に増やしても外周の山道の激しい波打ちは減らず(329→352)＝原因は平滑化不足でなく「profile格子のカバー外で生地形のまま」＝別途対応（2026-07-07測定）。端点は生値のまま＝交差点で隣の道と高さが合う
   for (let i = 0; i < sts.length - 1; i++) { const ax = sts[i][0], az = sts[i][1], dx = sts[i + 1][0] - ax, dz = sts[i + 1][1] - az, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
     for (let t = 0; t <= l; t += 1) { const hh = hs[i] + (hs[i + 1] - hs[i]) * (t / l), cx = ax + ux * t, cz = az + uz * t
-      for (let s = -(hw + sh); s <= hw + sh; s += 1) { const as = Math.abs(s), w = as <= hw ? 1 : smoothstep01((hw + sh - as) / sh)
+      for (let s = -(hw + sh); s <= hw + sh; s += 1) { const as = Math.abs(s), w = as <= core ? 1.25 : (as <= hw ? 1 : smoothstep01((hw + sh - as) / sh))
         const id = rmaskIdx(cx + nx * s, cz + nz * s); if (id >= 0 && w > roadProfW[id]) { roadProfW[id] = w; roadProfH[id] = hh } } } }
 }
 addFlatRoad(2995, -25, 2977, -44, 16, 37.7, 36.2) // サンライズ地下前の前庭＝基壇と下の道のあいだの土手をならし「道が基壇(B1)に寄り添う」実態に（ストリートビュー5枚目・2026-07-02）
@@ -3570,7 +3570,7 @@ function buildShishigaya() {
     if (ev.length) { const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3)); eg.setIndex(eidx); eg.computeVertexNormals(); scene.add(new THREE.Mesh(eg, new THREE.MeshToonMaterial({ color: edgeCol, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x40341f : 0x42464d), side: THREE.DoubleSide }))) } // 路肩は路面と同じ明るさ＝突き抜けても黒帯にならない（emissiveも路面と同値）
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ruv, 2)); g.setIndex(ridx); g.computeVertexNormals()
     // emissive＝光に依存しない下駄＝日陰の坂や建物の影でも路面が真っ黒に潰れず“読める灰/土色”を保つ（黒塗り解消・ユーザー指摘2026-06-24）
-    scene.add(new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x40341f : 0x42464d), side: THREE.DoubleSide }))) }
+    const rmesh = new THREE.Mesh(g, new THREE.MeshToonMaterial({ color: 0xffffff, map: tex, gradientMap: GRAD, emissive: new THREE.Color(kind === 'path' ? 0x40341f : 0x42464d), side: THREE.DoubleSide })); rmesh.name = 'yatoRoad_' + kind; scene.add(rmesh) } // 名前＝検証スクリプトが路面の実高さをレイキャストで測るため（道の歪み調査2026-07-07）
   buildRoads('paved', asphaltTex, 0.08, 0x8a8c88)   // 舗装路。持ち上げは0.42→0.08＝道形プロファイル格子(P0-1)で地形が路面下に揃ったので薄く＝人・車が路面にぴったり立つ
   buildRoads('path', yatoDirtTex, 0.07, 0x8a6f3e)   // 土の小道（＋濃い土の縁取り）。同上0.34→0.07
   // 占有グリッド（建物の場所を記録→木を建物に重ねない）
