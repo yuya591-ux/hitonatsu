@@ -756,7 +756,7 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe0a6, li: 1.9, sky: 0xa6cce2, mid: 0xe9e8dc, bot: 0xf7ecd0, fog: 0xe9e6d6, hi: 1.18, hsky: 0xc4dcec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
+  morn: { light: 0xffe0a6, li: 1.9, sky: 0x77b1e2, mid: 0xa9cfe8, bot: 0xf3ecd8, fog: 0xdde6dc, hi: 1.18, hsky: 0xbad6ec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝の中空mid=ほぼ白(0xe9e8dc)で「青空が薄く曇る」→澄んだ青(0xa9cfe8)へ・天頂も深い青(0x77b1e2)・地平は朝の金を残す・霧を少し澄ませ(ユーザー2026-07-06) // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
   noon: { light: 0xffeac6, li: 2.56, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xaed0ee, hi: 1.26, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。太陽をわずかに強め(2.4→2.56)＋環境光をほんの少し絞り(1.32→1.26)＝開けた草地に日向の抜けと陰影の立体感（A：昼が平板・草地が暗く単調だった2026-07-04）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xc7a692, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
@@ -3412,7 +3412,7 @@ function buildShishigaya() {
       if (type === 'shrine') { if (name === '神明社') buildShinmei(x, z, name); else if (name === '渋沢稲荷神社') buildInari(x, z, name); else buildShrine(x, z, name) }
       else if (type === 'temple') { if (name === '光明寺') buildKomyoji(x, z, name); else if (name === '真如山本覺寺') buildHongakuji(x, z, name); else if (name === '妙光寺') buildMyokoji(x, z, name); else buildTemple(x, z, name) }
       else if (type === 'park') { if (name === '師岡町公園') { buildMorookaPark(x, z, name) } // 師岡町公園＝丘の上の専用公園（複合遊具/ガケ滑り台/円盤遊具/松林）。汎用の遊具/柵は付けない（buildParkSign/parkPosに入れない）
-        else { const d3 = name === '獅子ヶ谷第三公園'; const pfr = d3 ? -0.64 : null; buildParkSign(d3 ? 3049.5 : x, d3 ? 22.5 : z, name, pfr); if (name !== '獅子ヶ谷一丁目公園') parkPos.push(d3 ? [3058, 11] : [x, z]) } } // 一丁目公園はマリノスのグラウンドなので遊具なし。第三公園は看板を西角の入口(3049.5,22.5)へ・表を進入路(北西)向きに＝2.5だと坂から鏡文字。遊具/柵の中心を園庭(3058,11)へ（ユーザーピン4点の中心・2026-07-02。addParkKidsのブランコの子と同じ座標にすること＝ずれると子が宙に浮く）
+        else { const d3 = name === '獅子ヶ谷第三公園'; if (name !== '獅子ヶ谷一丁目公園') parkPos.push(d3 ? [3058, 11, name] : [x, z, name]) } } // 名前は入口の標石に刻む（中央の木看板buildParkSignは廃止＝実物は入口の石が定番・ユーザー2026-07-06） // 一丁目公園はマリノスのグラウンドなので遊具なし。第三公園は看板を西角の入口(3049.5,22.5)へ・表を進入路(北西)向きに＝2.5だと坂から鏡文字。遊具/柵の中心を園庭(3058,11)へ（ユーザーピン4点の中心・2026-07-02。addParkKidsのブランコの子と同じ座標にすること＝ずれると子が宙に浮く）
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); FEST_VENUES.push({ name: '校庭', pos: new THREE.Vector2(3124, -186), days: [1], g: buildBonOdori(3124, heightAtYato(3124, -186), -186, null, FEST_VARIANTS['校庭']) }) } // 校庭(3124,-186)に夏の盆踊り会場＝開催日は1日目。お囃子/花火もこの会場（2026-06-24 ユーザー要望）
         else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else if (name === '上の宮中学校') { buildKaminomiya(x, z, name); FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22, null, FEST_VARIANTS['上の宮中学校']) }) } else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
@@ -3487,6 +3487,24 @@ function buildShishigaya() {
       suikaJobs.push({ x: px, z: pz + 2.3, y: gy, rot: Math.PI, shirt: 0xeae6da, pants: 0x3a4a6a, kid: true, ph: 0, role: 'swing' }) // 目隠しの子（スイカの方を向く・棒と目隠しはpopulateで付ける）
       for (const [ox, oz, sh] of [[-2.4, 1.4, 0xe04a4a], [2.2, 0.9, 0xf0c84a], [-0.4, 3.4, 0x4aa86a]]) { const wy = heightAtYato(px + ox, pz + oz)
         suikaJobs.push({ x: px + ox, z: pz + oz, y: wy, rot: Math.atan2(-ox, -oz), shirt: sh, pants: 0x6a5a4a, kid: true, ph: Math.random() * 6, role: 'watch' }) } } // 応援の子3人（スイカの方を向く）
+    // ── 「公園に見えない」OSM公園の救済（ユーザー承認2026-07-06）：柵も遊具も無い草地公園のうち、歩いて回る核付近×手頃サイズ×道/水/建物/既存公園を避けた物を厳選し、既存のparkPos系（柵＋遊具を自動配置）へ登録＝一貫した“公園の形”を出す。全部やると遊具だらけになるので上限12で厳選 ──
+    { const near = (x, z, r) => parkPos.some(([px, pz]) => Math.hypot(px - x, pz - z) < r)
+      const roadNear = (x, z) => { if (onYatoRoad(x, z)) return true; for (let a = 0; a < 6.283; a += 1.571) if (onYatoRoad(x + Math.cos(a) * 3, z + Math.sin(a) * 3)) return true; return false }
+      const bldNear = (x, z) => builtBuildings.some((b) => Math.abs(b[0] - x) < 5 && Math.abs(b[1] - z) < 5)
+      // 公園多角形の中から遊具に使える開けた1点を探す（重心が道/水/建物なら内側を少し探索）＝小さい道沿い公園も拾えるように
+      const openSpot = (poly, cx, cz) => { const ok = (x, z) => pip(x, z, poly) && !inWaterAny(x, z) && !roadNear(x, z) && !bldNear(x, z) && !near(x, z, 30); if (ok(cx, cz)) return [cx, cz]; for (let r = 3; r <= 12; r += 3) for (let a = 0; a < 6.283; a += 0.785) { const ex = Math.round(cx + Math.cos(a) * r), ez = Math.round(cz + Math.sin(a) * r); if (ok(ex, ez)) return [ex, ez] } return null }
+      const cand = []
+      for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue
+        let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9, cx = 0, cz = 0
+        for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1]; cx += q[0]; cz += q[1] }
+        const n = g.p.length; cx = Math.round(cx / n); cz = Math.round(cz / n); const w = mxx - mnx, d = mxz - mnz, area = w * d
+        if (area < 300 || area > 20000 || Math.max(w, d) > 220) continue // スリバー/巨大(三ツ池・大池)を除外
+        if (cx < 1850 || cx > 3350 || cz < -760 || cz > 640) continue // 歩いて回る一帯だけ（遠い北=鶴見川/駒岡は後のフェーズ・三ツ池NEは既に作り込み済）
+        const sp = openSpot(g.p, cx, cz); if (!sp) continue // 遊具の開けた1点が取れる公園だけ
+        cand.push([sp[0], sp[1], area]) }
+      cand.sort((a, b) => b[2] - a[2]); const picked = [] // 大きい順に、近接は間引きつつ上限16
+      for (const [cx, cz] of cand) { if (picked.length >= 16 || near(cx, cz, 30)) continue; parkPos.push([cx, cz]); picked.push([cx, cz]) }
+      console.log('[shishigaya] ご近所公園の救済', JSON.stringify(picked)) }
     // 公園の遊具（すべり台/ブランコ/砂場/鉄棒/ベンチ）を全公園にインスタンシング配置（1ドロー）。公園ごとに向きを少し変える
     if (parkPos.length) { const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
       const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
@@ -3784,10 +3802,14 @@ function buildShishigaya() {
         m4.makeTranslation(x, heightAtYato(x, z) + 0.04, z); m4.scale(sv.set(1 + Math.random() * 0.6, 1, 1.1 + Math.random() * 0.6)); cg.applyMatrix4(m4); pud.push(cg) } }
     if (pud.length) { const pg = mergeGeometries(pud, false); pud.forEach((g) => g.dispose()); puddleMesh = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: 0xbfd8ee, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })); puddleMesh.name = 'puddles'; puddleMesh.layers.set(1); scene.add(puddleMesh); console.log('[shishigaya] 水たまり', pud.length) } }
   // 公園の柵＝公園の敷地だとわかるように低いパイプ柵で囲う（ユーザー要望2026-06-23）。各公園の周囲(半8m)に3m間隔・南は出入口で開ける。建物/水に当たる区間は飛ばす。1ドロー。※cellOf定義後に置く（parkPosは外側スコープ）
-  if (parkPos.length) { const pfP = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
-    for (const [px, pz] of parkPos) { const R = 8
+  if (parkPos.length) { const pfP = [], openSides = [], occAt = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
+    for (const [px, pz, pname] of parkPos) { const R = 8
       if (px === 3058 && pz === 11) continue // 第三公園＝軸そろえのリングだと回転した園庭の中を柵が横切る→下の専用外周柵で（2026-07-02）
-      for (const [ex, ez, ang, side] of [[0, -R, 0, 'n'], [0, R, 0, 's'], [-R, 0, Math.PI / 2, 'w'], [R, 0, Math.PI / 2, 'e']]) { if (side === 's') continue // 南は出入口
+      // 入口＝接道側の辺を開ける（南固定をやめ、実際に道が近い辺を出入口にする。ユーザー指摘2026-07-06「入口の柵を外して」）
+      let openSide = 's', bestD = 1e9
+      for (const [k, dx, dz] of [['n', 0, -1], ['s', 0, 1], ['w', -1, 0], ['e', 1, 0]]) { for (let out = R; out <= R + 16; out += 2) { if (onYatoRoad(px + dx * out, pz + dz * out)) { if (out < bestD) { bestD = out; openSide = k }; break } } }
+      openSides.push([px, pz, openSide, bestD < 1e9 ? Math.round(bestD) : -1, pname || ''])
+      for (const [ex, ez, ang, side] of [[0, -R, 0, 'n'], [0, R, 0, 's'], [-R, 0, Math.PI / 2, 'w'], [R, 0, Math.PI / 2, 'e']]) { if (side === openSide) continue // 接道側＝出入口として開ける
         for (let t = -R + 1.5; t <= R - 1.5; t += 3) { const fx = px + ex + (ang ? 0 : t), fz = pz + ez + (ang ? t : 0); if (occAt(fx, fz) || inWater(fx, fz) || heightAtYato(fx, fz) < 3) continue; pfP.push([fx, fz, ang]) } } }
     { // 第三公園の専用柵＝園庭（ユーザーピン4点の回転長方形・中心(3058.5,11.5)・u=(-0.4138,0.9103)）の外周に沿って回す。入口の西角(+u)と、マンション側の階段の角(-v側のdu>7)は開ける
       const cx3 = 3058.5, cz3 = 11.5, ux3 = -0.4138, uz3 = 0.9103, vx3 = 0.9103, vz3 = 0.4138
@@ -3796,7 +3818,28 @@ function buildShishigaya() {
         pfP.push([cx3 + ux3 * du + vx3 * 7.2, cz3 + uz3 * du + vz3 * 7.2, aU]) // 北東の長辺（崖下）
         if (du <= 7) pfP.push([cx3 + ux3 * du - vx3 * 7.2, cz3 + uz3 * du - vz3 * 7.2, aU]) } // マンション側の長辺（階段の下り口は開ける）
       for (let dv = -6; dv <= 6; dv += 3) pfP.push([cx3 - ux3 * 13.2 + vx3 * dv, cz3 - uz3 * 13.2 + vz3 * dv, aV]) } // 奥(南東)の短辺。西角の短辺＝入口なので柵なし
-    if (pfP.length) { const pf = new THREE.InstancedMesh(PARKFENCE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), pfP.length); pf.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); pfP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); pf.setMatrixAt(i, m4) }); scene.add(pf); console.log('[shishigaya] 公園の柵', pfP.length) } }
+    console.log('[shishigaya] 公園の入口(接道側)', JSON.stringify(openSides))
+    if (pfP.length) { const pf = new THREE.InstancedMesh(PARKFENCE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), pfP.length); pf.castShadow = true; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); pfP.forEach(([x, z, a], i) => { e.set(0, a, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, heightAtYato(x, z), z), q, s); pf.setMatrixAt(i, m4) }); scene.add(pf); console.log('[shishigaya] 公園の柵', pfP.length) }
+    { // ── 公園名標石＝各公園の入口(接道側)の脇に、名前を刻んだ低い石柱。実物の児童公園の定番（中央の木看板の代替・ユーザー2026-07-06）──
+      const stoneTex = (nm) => { const c = document.createElement('canvas'); c.width = 72; c.height = 224; const x = c.getContext('2d')
+        const lg = x.createLinearGradient(0, 0, 72, 0); lg.addColorStop(0, '#d5d0c2'); lg.addColorStop(0.5, '#e8e4d8'); lg.addColorStop(1, '#cdc8b9'); x.fillStyle = lg; x.fillRect(0, 0, 72, 224)
+        x.fillStyle = '#33322c'; x.font = '30px "Yu Mincho","Hiragino Mincho ProN",serif'; x.textAlign = 'center'; x.textBaseline = 'middle'
+        const ch = [...nm].slice(0, 8), n = ch.length, step = Math.min(30, 204 / n); for (let i = 0; i < n; i++) x.fillText(ch[i], 36, 18 + step * (i + 0.5))
+        const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t }
+      const dirs = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] }, stoneMat = toon(0xbfbbb0), baseMat = toon(0x8f8b82), sgeo = [], bgeo = [], plates = []
+      const addStone = (px, pz, side, nm, off) => { const [dx, dz] = dirs[side] || [0, 1], perpx = -dz, perpz = dx, d = off != null ? off : 2.9
+        const sx = px + dx * 7.6 + perpx * d, sz = pz + dz * 7.6 + perpz * d, sy = heightAtYato(sx, sz), ang = Math.atan2(dx, dz)
+        if (sy < 0.5) return
+        const b = new THREE.BoxGeometry(0.58, 0.3, 0.46); b.translate(sx, sy + 0.15, sz); bgeo.push(b)
+        const p = new THREE.BoxGeometry(0.46, 1.22, 0.28); p.applyMatrix4(new THREE.Matrix4().makeRotationY(ang)); p.translate(sx, sy + 0.76, sz); sgeo.push(p)
+        plates.push({ sx, sz, sy, ang, nm }) }
+      for (const [px, pz, side, dist, nm] of openSides) if (nm) addStone(px, pz, side, nm)
+      addStone(3049.5, 22.5, 'w', '獅子ヶ谷第三公園', 0)
+      if (bgeo.length) { const bm = new THREE.Mesh(mergeGeometries(bgeo, false), baseMat); bm.castShadow = bm.receiveShadow = true; bgeo.forEach((g) => g.dispose()); scene.add(bm) }
+      if (sgeo.length) { const sm = new THREE.Mesh(mergeGeometries(sgeo, false), stoneMat); sm.castShadow = sm.receiveShadow = true; sgeo.forEach((g) => g.dispose()); scene.add(sm) }
+      for (const pl of plates) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 1.0), new THREE.MeshBasicMaterial({ map: stoneTex(pl.nm), side: THREE.DoubleSide })); m.position.set(pl.sx + Math.sin(pl.ang) * 0.145, pl.sy + 0.8, pl.sz + Math.cos(pl.ang) * 0.145); m.rotation.y = pl.ang; scene.add(m) }
+      console.log('[shishigaya] 公園名標石', plates.length) }
+  }
   // ガードレール（坂・崖ぞいの道の下り側）＋カーブミラー（急カーブ）＝山あいの道の定番（ユーザー要望2026-06-22）。各1インスタンスメッシュ
   { const TR = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z), RX = (x, y, z, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0)), new THREE.Vector3(1, 1, 1))
     const GRAIL = mergeParts([ // 白いW型ガードレール（波形の主ビーム＋中央の溝＋支柱2本）長さ4m。2本の細桁→1本の幅広ビームで“ガードレールらしさ”を出す（F4・2026-06-25）
@@ -15142,6 +15185,16 @@ window.__proto3d = {
     return { checked: window.__faceRig.length * 6, fails: out, rigAt: { x: 2996, z: -428 } } // fails=空なら合格
   },
   _striders() { initStriders(); return { n: striderSt.length, vis: striderIM ? striderIM.visible : false, inPond: striderSt.filter((s) => pip(s.x, s.z, s.P.p)).length, sample: striderSt.slice(0, 3).map((s) => ({ x: +s.x.toFixed(0), z: +s.z.toFixed(0) })) } }, // 検証用：あめんぼ数・表示・池内にいる数
+  _parks() { // 検証用：公園/畑など緑地(SG.greens)の一覧＝形の総点検用。重心/外接矩形/面積/頂点数＋建物の食い込み数(bIn=建物中心が多角形内)。食い込み多い順
+    const out = []
+    for (const g of SG.greens) { if (!g.p || g.p.length < 3) continue
+      let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9, cx = 0, cz = 0
+      for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1]; cx += q[0]; cz += q[1] }
+      const n = g.p.length; let bIn = 0; const bs = []
+      for (const b of builtBuildings) { if (pip(b[0], b[1], g.p)) { bIn++; if (bs.length < 5) bs.push([Math.round(b[0]), Math.round(b[1])]) } }
+      out.push({ kind: g.kind, cx: Math.round(cx / n), cz: Math.round(cz / n), w: Math.round(mxx - mnx), d: Math.round(mxz - mnz), area: Math.round((mxx - mnx) * (mxz - mnz)), verts: n, bIn, bs }) }
+    return out.sort((a, b) => b.bIn - a.bIn || b.area - a.area)
+  },
   _chickens() { initChickens(); return { yard: yokomizoYard, list: chickens.map((c) => ({ x: +c.position.x.toFixed(1), y: +c.position.y.toFixed(1), z: +c.position.z.toFixed(1), st: c.userData.state, vis: c.visible, hz: +c.userData.head.rotation.z.toFixed(2) })) } }, // 検証用：にわとりの位置・状態・頭の角度
   _dogwalkers() { initDogWalkers(); return dogWalkers.map((w) => ({ px: +w.person.position.x.toFixed(1), py: +w.person.position.y.toFixed(1), pz: +w.person.position.z.toFixed(1), dx: +w.dog.position.x.toFixed(1), dz: +w.dog.position.z.toFixed(1), vis: w.person.visible, gap: +Math.hypot(w.person.position.x - w.dog.position.x, w.person.position.z - w.dog.position.z).toFixed(2) })) }, // 検証用：犬の散歩（人と犬の位置・間隔）
   get _dogs() { return dogs }, // 検証用：番犬の配列（接写・歩行コマの確認）。本番挙動には影響しない
