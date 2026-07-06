@@ -2412,7 +2412,7 @@ function buildShishigaya() {
   const inOBB = (px, pz, b) => { const dx = px - b.cx, dz = pz - b.cz, lx = b.co * dx + b.si * dz, lz = -b.si * dx + b.co * dz; return Math.abs(lx) <= b.hw && Math.abs(lz) <= b.hd }
   const ptOverPlaced = (px, pz) => { const ci = Math.floor(px / BCELL), cj = Math.floor(pz / BCELL); for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const arr = bgrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const b of arr) if (inOBB(px, pz, b)) return true } return false }
   const regPlaced = (cx, cz, hw, hd, co, si) => { const b = { cx, cz, hw, hd, co, si }; placedB.push(b); const cells = new Set(); for (const [lx, lz] of [[0, 0], [-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cells.add(Math.floor((cx + lx * co - lz * si) / BCELL) + ',' + Math.floor((cz + lx * si + lz * co) / BCELL)); for (const k of cells) { let arr = bgrid.get(k); if (!arr) { arr = []; bgrid.set(k, arr) } arr.push(b) } }
-  let nOnRoad = 0, nOnWater = 0, nOverlap = 0, nVillage = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）＋田舎寄せで間引いた数
+  let nOnRoad = 0, nOnWater = 0, nOverlap = 0, nVillage = 0, nNudged = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）＋田舎寄せで間引いた数＋道から押し出した数(2026-07-07)
   const villThin = villageLevel >= 2 ? 55 : villageLevel >= 1 ? 35 : 0 // 田舎寄せ：間引く割合(%)。0=間引かない(忠実)
   const glowWarm = [[], [], []], glowTV = [], _gm = new THREE.Matrix4() // 夜の窓あかり：暖色の窓(glowWarm・C7で点灯時刻別に3群)と、ブラウン管TVの青い明滅(glowTV)。1990年代の夕暮れ＝家々の窓にTVの灯り
   const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm)
@@ -2429,7 +2429,14 @@ function buildShishigaya() {
     { const roadCov = fpCover(cx, cz, w, d, ang, onYatoRoadCore)
       // フットプリントの8%超が“道の描画幅(1m格子)”に乗る建物は描かない＝道の上に明らかに乗る家を排除（10%→8%にやや厳格化＝ユーザー指摘「道路の上に家」2026-06-27。密集した路傍の家は残す＝町をスカスカにしない）
       // 追加：大きい建物(w*d>1400)は角のわずかな乗り上げでも“壁が道をまたぐ”ように目立つので4.5%で厳しく除外（ユーザー指摘2026-07-05：道路の上に大きな建物・座標(3297,-363)の45×49m棟が6.7%で残っていた）。大型棟は数が少なく密度に影響しない
-      if (roadCov > 0.08 || (w * d > 1400 && roadCov > 0.045)) { nOnRoad++; return } }
+      if (roadCov > 0.08 || (w * d > 1400 && roadCov > 0.045)) { nOnRoad++; return }
+      // 2〜8%の“部分食い込み”（壁が舗装の上に立つ・実測977棟）＝消さずに最寄りの道から反対方向へ0.5m刻みで最小限押し出す＝密度を保ったまま食い込みゼロへ（ユーザー指摘2924,-3・2026-07-07）。押し先が水/別の道ならそのまま（現状維持＝従来どおり8%までは許容）
+      if (roadCov > 0.02) { let bx = 0, bz = 0, bd = 1e18
+        for (const pt of roadPtsForFace) { const dd = (pt[0] - cx) * (pt[0] - cx) + (pt[1] - cz) * (pt[1] - cz); if (dd < bd) { bd = dd; bx = pt[0]; bz = pt[1] } }
+        const dl = Math.sqrt(bd) || 1, ux = (cx - bx) / dl, uz = (cz - bz) / dl // 最寄りの道の点→建物中心＝道から離れる向き
+        for (let r = 0.5; r <= 6; r += 0.5) { const nx2 = cx + ux * r, nz2 = cz + uz * r
+          if (inWaterAny(nx2, nz2) || fpCover(nx2, nz2, w + 4, d + 4, ang, inWaterAny) > 0.04) break // 水側へは押さない＝現状維持
+          if (fpCover(nx2, nz2, w, d, ang, onYatoRoadCore) <= 0.02) { cx = nx2; cz = nz2; nNudged++; break } } } }
     if (tc === 1 && w * d > 1200) return // 当時(1990年代)に無い新しい大型マンション（OSMは2014年データ）は出さない＝サンライズ以外に高い棟は無い、というユーザー記憶に合わせる
     { const co0 = Math.cos(ang), si0 = Math.sin(ang), hw0 = w / 2, hd0 = d / 2; let ov = 0
       for (const [lx, lz] of [[0, 0], [-hw0, -hd0], [hw0, -hd0], [hw0, hd0], [-hw0, hd0], [-hw0, 0], [hw0, 0], [0, -hd0], [0, hd0]]) if (ptOverPlaced(cx + lx * co0 - lz * si0, cz + lx * si0 + lz * co0)) ov++
@@ -4780,7 +4787,7 @@ function buildShishigaya() {
     }
     scene.add(farBackdrop)
   }
-  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '田舎寄せlv', villageLevel, '間引き', nVillage)
+  console.log('[shishigaya] buildings', SG.buildings.length, 'roads', SG.roads.length, 'waters', SG.waters.length, 'rice', riceP.length, 'trees', tp.length, '道上の建物を除外', nOnRoad, '水上の建物を除外', nOnWater, '重なり建物を除外', nOverlap, '道から押し出し', nNudged, '田舎寄せlv', villageLevel, '間引き', nVillage)
 }
 await new Promise((r) => setTimeout(r, 45)) // 起動：重いシーン構築(数秒メインスレッドを止める)の前に一度ブラウザへ制御を返す＝不透明のローディング覆いを確実に描かせ、横持ちの再レイアウトも一度通す（UIが崩れて見えるのを軽減・ユーザー2026-07-07）。module top-level await
 buildShishigaya()
@@ -15523,11 +15530,12 @@ window.__proto3d = {
   _signOk(x, z) { return { x, z, y: +heightAt(x, z).toFixed(2), inBldg: pointInSunPoly(x, z) || npcInCollider(x, z), onRoad: onYatoRoadCore(x, z), inWater: typeof inWaterAny === 'function' ? inWaterAny(x, z) : null } }, // 検証用：道標の置き場所点検（建物内/道上/水上でないか）
   _fwCount() { return fireworksGroup.children.length }, // 検証用：花火の現存オブジェクト数（余韻が消えたら0＝リーク無し）
   _roadCov(cx, cz, w, d, ang) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2, nx = Math.max(2, Math.round(w / 2)), nz = Math.max(2, Math.round(d / 2)); let on = 0, tot = 0; for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) { const lx = -hw + w * i / nx, lz = -hd + d * j / nz; tot++; if (onYatoRoadCore(cx + lx * co - lz * si, cz + lx * si + lz * co)) on++ } return { core: +(on / tot).toFixed(4), area: +(w * d).toFixed(0), on, tot } }, // 検証用：建物footprintの道路被覆率(fpCoverと同じ格子)
-  _buildingsOnRoad() { // 検証用(巡回)：実際に建った建物のうち“除外閾値を超えて”道に乗っているもの＝「道路の上に建物」の回帰検出。配置ループが小8%/大(area>1400)4.5%で除外するので通常は0。※5〜8%の路傍の家は設計どおり温存＝違反ではない
+  _buildingsOnRoad(th, thBig) { // 検証用(巡回)：実際に建った建物のうち“除外閾値を超えて”道に乗っているもの＝「道路の上に建物」の回帰検出。配置ループが小8%/大(area>1400)4.5%で除外し、2%超は道から押し出すので通常は0。引数で閾値を下げて「部分食い込み」も数えられる（既定は従来どおり）
+    const T = th != null ? th : 0.08, TB = thBig != null ? thBig : 0.045
     const out = []
     for (const [cx, cz, w, d, ang] of builtBuildings) { const co = Math.cos(ang), si = Math.sin(ang), hw = w / 2, hd = d / 2, nx = Math.max(2, Math.round(w / 2)), nz = Math.max(2, Math.round(d / 2)), area = w * d; let on = 0, tot = 0
       for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) { const lx = -hw + w * i / nx, lz = -hd + d * j / nz; tot++; if (onYatoRoadCore(cx + lx * co - lz * si, cz + lx * si + lz * co)) on++ }
-      const cov = on / tot; if (cov > 0.08 || (area > 1400 && cov > 0.045)) out.push({ x: +cx.toFixed(0), z: +cz.toFixed(0), area: +area.toFixed(0), cov: +cov.toFixed(3) }) }
+      const cov = on / tot; if (cov > T || (area > 1400 && cov > TB)) out.push({ x: +cx.toFixed(0), z: +cz.toFixed(0), area: +area.toFixed(0), cov: +cov.toFixed(3) }) }
     out.sort((a, b) => b.cov - a.cov); return { n: out.length, worst: out.slice(0, 20) }
   },
   _nearby(x, z, r = 12) { // 検証用：地点近傍のコライダー（建物の足形）と名前付きグループを列挙＝道上の建物などの特定に使う
