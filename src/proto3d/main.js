@@ -13889,7 +13889,7 @@ function update(dt) {
       tx = (wx / l) * speed; tz = (wz / l) * speed
     }
     if (autoWalk) { tx = autoWalk.x * 4.4; tz = autoWalk.z * 4.4 } // 往来中は門の先へ自動で歩く
-    if (settings.geo && geoTarget && !riding && !floatMode && !flying && !dialogue && !diaryOpen && !autoWalk) { // 🧭おでかけモード＝実際のGPSの位置へ歩いて追従（autoWalkと同じ経路＝慣性/当たり判定/歩きアニメ/足音がそのまま効く）
+    if (settings.geo && geoTarget && mag <= 0.06 && !riding && !floatMode && !flying && !dialogue && !diaryOpen && !autoWalk) { // 🧭おでかけモード＝実際のGPSの位置へ歩いて追従（autoWalkと同じ経路＝慣性/当たり判定/歩きアニメ/足音がそのまま効く）。★指/スティックの手動入力中はそちらを優先＝GPS圏外や屋内でも操作不能にならない（総点検2026-07-07）
       const gdx = geoTarget.x - boy.position.x, gdz = geoTarget.z - boy.position.z, gd = Math.hypot(gdx, gdz)
       if (gd > 0.7) { const gs = gd > 30 ? 15 : gd > 8 ? 6.5 : 3.0; tx = gdx / gd * Math.min(gs, gd * 1.6); tz = gdz / gd * Math.min(gs, gd * 1.6) } // 離れているほど早足で追いつく・近くはそろり
       else { tx = 0; tz = 0 } }
@@ -15049,27 +15049,36 @@ function geoFix(pos) {
   const mE = (pos.coords.longitude - GEO_ORIGIN.lon) * 111320 * Math.cos(pos.coords.latitude * Math.PI / 180) // 東へ+m
   const mN = (pos.coords.latitude - GEO_ORIGIN.lat) * 110950 // 北へ+m
   const rx = GEO_ORIGIN.x + mE, rz = GEO_ORIGIN.z - mN // 北=−z
-  if (!geoSmooth) geoSmooth = { x: rx, z: rz }
-  const a = Math.min(0.5, 14 / Math.max(14, acc * 2)) // 精度が良いほど早く寄せる（揺れは吸収）
-  geoSmooth.x += (rx - geoSmooth.x) * a; geoSmooth.z += (rz - geoSmooth.z) * a
+  if (!geoSmooth || Math.hypot(rx - geoSmooth.x, rz - geoSmooth.z) > 100) geoSmooth = { x: rx, z: rz } // 100m超の変位はGPSの揺れではない（初回/しまって歩いた後の復帰）＝平滑化せず即その場所に
+  else { const a = Math.min(0.5, 14 / Math.max(14, acc * 2)) // 精度が良いほど早く寄せる（揺れは吸収）
+    geoSmooth.x += (rx - geoSmooth.x) * a; geoSmooth.z += (rz - geoSmooth.z) * a }
   const tx = geoSmooth.x + geoOff.dx, tz = geoSmooth.z + geoOff.dz
   const cx = Math.max(1760, Math.min(4240, tx)), cz = Math.max(-1240, Math.min(1240, tz)) // 獅子ヶ谷エリアの外はふちで待つ（暴走しない）
   if ((cx !== tx || cz !== tz) && performance.now() - geoOutT > 30000) { geoOutT = performance.now(); showToast('いまは 獅子ヶ谷の そとに いるみたい（ちかづくと あるきだすよ）') }
   geoTarget = { x: cx, z: cz }
-  if (geoFirst) { geoFirst = false // 最初の一回だけ＝その場所へワープして合流（遠くから何分も歩かない）
-    area = 'yato'; onYato = true; boy.position.set(cx, heightAt(cx, cz), cz)
-    showToast('おでかけモード：ほんものの あなたと つながったよ 🧭') }
+  if (titleView) return // タイトル画面中は目標を覚えるだけ＝「はじめる」後の最初のfixで合流（タイトル中にワープ権を使い切らない・総点検2026-07-07）
+  const far = Math.hypot(boy.position.x - cx, boy.position.z - cz)
+  if (geoFirst || far > 150) { // 最初の一回＋大きく離れた時（スマホをしまって歩いた後の復帰など）＝その場所へひとっとびで合流（何分も歩かせない）
+    area = 'yato'; onYato = true; boy.position.set(cx, heightAt(cx, cz), cz); boy.userData._cy = null
+    showToast(geoFirst ? 'おでかけモード：ほんものの あなたと つながったよ 🧭' : 'いまの場所へ ひとっとび 🧭')
+    geoFirst = false }
 }
+function startGeoWatch() { // watchの開始（applyGeoの初回と、バックグラウンド復帰の再開で共用＝geoFirstは触らない）
+  if (geoWatchId != null || !navigator.geolocation) return
+  try { geoWatchId = navigator.geolocation.watchPosition(geoFix, (err) => {
+    if (err && err.code === 1) { showToast('位置情報が つかえないみたい（ブラウザの設定で ゆるしてね）'); settings.geo = false; saveSettings(); applyGeo() } // 恒久OFFは「許可されなかった」時だけ
+    else if (++geoBad === 3) showToast('GPSを 見うしなったみたい…（そらの ひらけた ばしょへ）') // TIMEOUT/一時的な取得失敗＝watchは続く。モードは切らない（トンネル/屋内で勝手にOFFにしない）
+  }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 25000 }) } catch (e) {}
+}
+function stopGeoWatch() { if (geoWatchId != null) { try { navigator.geolocation.clearWatch(geoWatchId) } catch (e) {} geoWatchId = null } }
 function applyGeo() {
   const b = document.getElementById('set-geo'); if (b) { b.textContent = settings.geo ? 'ON' : 'OFF'; b.classList.toggle('on', !!settings.geo) }
-  if (settings.geo && geoWatchId == null && navigator.geolocation) {
-    geoFirst = true
-    try { geoWatchId = navigator.geolocation.watchPosition(geoFix, (err) => {
-      if (err && err.code === 1) { showToast('位置情報が つかえないみたい（ブラウザの設定で ゆるしてね）'); settings.geo = false; saveSettings(); applyGeo() } // 恒久OFFは「許可されなかった」時だけ
-      else if (++geoBad === 3) showToast('GPSを 見うしなったみたい…（そらの ひらけた ばしょへ）') // TIMEOUT/一時的な取得失敗＝watchは続く。モードは切らない（トンネル/屋内で勝手にOFFにしない）
-    }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 25000 }) } catch (e) {}
-  } else if (!settings.geo && geoWatchId != null) { try { navigator.geolocation.clearWatch(geoWatchId) } catch (e) {} geoWatchId = null; geoTarget = null; geoSmooth = null }
+  if (settings.geo) { geoFirst = true; startGeoWatch() }
+  else { stopGeoWatch(); geoTarget = null; geoSmooth = null }
 }
+// 省電力：画面が裏に回ったらGPS監視を止め、戻ったら再開（GPSチップを裏で回さない＝電池/発熱への配慮）。復帰後に150m超離れていれば上の「ひとっとび」で合流
+document.addEventListener('visibilitychange', () => { if (!settings.geo) return
+  if (document.hidden) stopGeoWatch(); else startGeoWatch() })
 function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）。軽量モード中は強制OFF。B4：実際のON/OFFはループがuInkOnで毎フレーム反映＝ここはボタン表示のみ
   if (setInkBtn) { setInkBtn.textContent = settings.ink ? 'ON' : 'OFF'; setInkBtn.classList.toggle('on', settings.ink) }
 }
