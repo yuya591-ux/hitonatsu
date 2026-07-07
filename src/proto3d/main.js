@@ -1953,19 +1953,31 @@ function buildBonOdori(ox, oy, oz, grp, V) {
   const roofCol = V.roof ?? 0x9a3a32, makuA = V.makuA ?? 0xf2eee2, makuB = V.makuB ?? 0xc83a3a // 櫓の屋根・紅白幕の2色
   const bonOdori = grp || new THREE.Group(); if (!grp) { bonOdori.visible = false; scene.add(bonOdori) } // grp省略時は自前のグループを作って返す＝会場ごとに開催日で表示を切替（複数会場対応）
   const wood = toonMap(0x8a6038, woodTex), woodD = toonMap(0x5e4226, woodTex)
+  // ── 櫓＝2階建てへ大型化（ユーザー要望2026-07-07「もっと背丈を大きく・2階あたりで盆踊りする場所を」）：下層=紅白幕の土台＋木の階段／2階=太鼓と音頭取りの舞台（手すり付き）／屋根の軒に提灯の環 ──
   const yag = new THREE.Group(); yag.position.set(ox, oy, oz)
-  const S = 1.35 // 櫓の半幅
-  for (const px of [-S, S]) for (const pz of [-S, S]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.1, 7), woodD); p.position.set(px, 1.55, pz); yag.add(p) } // 4本柱
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(S * 2 + 0.5, 0.2, S * 2 + 0.5), wood); deck.position.y = 1.7; yag.add(deck) // 床（音頭・太鼓の台）
-  for (const [bx, bz, rot] of [[0, S + 0.12, 0], [0, -S - 0.12, 0], [S + 0.12, 0, Math.PI / 2], [-S - 0.12, 0, Math.PI / 2]]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(S * 2 + 0.4, 0.5, 0.06), woodD); rail.position.set(bx, 2.05, bz); rail.rotation.y = rot; yag.add(rail) } // 手すり
-  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; const pan = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.7, 0.04), toon(i % 2 ? makuA : makuB)); pan.position.set(Math.sin(a) * (S + 0.28), 1.28, Math.cos(a) * (S + 0.28)); pan.rotation.y = a; yag.add(pan) } // 紅白幕（会場ごとに2色）
-  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.62, 16), toon(0x7a2e24)); drum.rotation.z = Math.PI / 2; drum.position.set(0, 2.45, 0); yag.add(drum) // 大太鼓
-  for (const dx of [-0.32, 0.32]) { const head = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.04, 16), toon(0xe8dcc0)); head.rotation.z = Math.PI / 2; head.position.set(dx, 2.45, 0); yag.add(head) } // 太鼓の皮
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(S * 1.95, 1.0, 4), toon(roofCol)); roof.rotation.y = Math.PI / 4; roof.position.y = 3.55; yag.add(roof) // 屋根（会場ごとの色）
+  const S = 1.7, DECK = 2.9 // 半幅と2階の床の高さ（旧＝半幅1.35/床1.7の平屋）
+  for (const px of [-S, S]) for (const pz of [-S, S]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, DECK + 0.34, 7), woodD); p.position.set(px, (DECK + 0.34) / 2, pz); yag.add(p) } // 4本柱（地面→2階）
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(S * 2 + 0.6, 0.22, S * 2 + 0.6), wood); deck.position.y = DECK; yag.add(deck) // 2階の床（太鼓・音頭の舞台）
+  for (const [bx, bz, rot] of [[0, S + 0.18, 0], [0, -S - 0.18, 0], [S + 0.18, 0, Math.PI / 2], [-S - 0.18, 0, Math.PI / 2]]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(S * 2 + 0.56, 0.09, 0.07), woodD); rail.position.set(bx, DECK + 0.72, bz); rail.rotation.y = rot; yag.add(rail)
+    const railM = new THREE.Mesh(new THREE.BoxGeometry(S * 2 + 0.56, 0.06, 0.05), woodD); railM.position.set(bx, DECK + 0.42, bz); railM.rotation.y = rot; yag.add(railM) } // 手すり（上桟+中桟＝転落しない舞台らしさ）
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; const pan = new THREE.Mesh(new THREE.BoxGeometry(0.78, 1.9, 0.04), toon(i % 2 ? makuA : makuB)); pan.position.set(Math.sin(a) * (S + 0.28), 1.15, Math.cos(a) * (S + 0.28)); pan.rotation.y = a; yag.add(pan) } // 紅白幕＝下層をぐるり（土台の目隠し・会場ごとに2色）
+  { const stand = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.42, 0.56), woodD); stand.position.set(0, DECK + 0.32, 0); yag.add(stand) // 太鼓の台
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.7, 16), toon(0x7a2e24)); drum.rotation.z = Math.PI / 2; drum.position.set(0, DECK + 0.78, 0); yag.add(drum) // 大太鼓（2階の舞台の上）
+    for (const dx of [-0.36, 0.36]) { const head = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.04, 16), toon(0xe8dcc0)); head.rotation.z = Math.PI / 2; head.position.set(dx, DECK + 0.78, 0); yag.add(head) } } // 太鼓の皮
+  for (const px of [-S * 0.88, S * 0.88]) for (const pz of [-S * 0.88, S * 0.88]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 2.0, 6), woodD); p.position.set(px, DECK + 1.1, pz); yag.add(p) } // 屋根の柱（2階→軒）
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(S * 2.05, 1.25, 4), toon(roofCol)); roof.rotation.y = Math.PI / 4; roof.position.y = DECK + 2.75; yag.add(roof) // 屋根（会場ごとの色・旧3.55→約5.7のてっぺん）
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + 0.39, lx = Math.sin(a) * S * 1.55, lz = Math.cos(a) * S * 1.55 // 屋根の軒にぐるり提灯の環＝祭りの櫓の定番の華やぎ
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), toon(lanCol)); body.scale.y = 1.3; body.position.set(lx, DECK + 1.75, lz); yag.add(body)
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), new THREE.MeshBasicMaterial({ color: lanGlow, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.y = 1.3; glow.position.set(lx, DECK + 1.75, lz); yag.add(glow)
+    townNightLights.push({ m: glow, base: 1.35, ph: i * 0.8, flame: true }) }
+  { const NS2 = 7 // 木の階段（-z側＝参道の反対から2階へ上がる）
+    for (let i = 0; i < NS2; i++) { const st = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.13, 0.4), wood); st.position.set(0, (i + 1) * (DECK / NS2), -(S + 0.32) - (NS2 - 1 - i) * 0.34); yag.add(st) }
+    for (const sx of [-0.62, 0.62]) { const L = Math.hypot(DECK, NS2 * 0.34), sr = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, L + 0.35), woodD)
+      sr.position.set(sx, DECK / 2 + 0.45, -(S + 0.32) - (NS2 - 1) * 0.17); sr.rotation.x = -Math.atan2(DECK, NS2 * 0.34); yag.add(sr) } } // 側桁（ななめの手すり兼用）
   yag.traverse((o) => { if (o.isMesh) o.castShadow = false }); mergedOutline(yag, 0.04); bonOdori.add(yag)
   const NP = 6, RR = 10 // 提灯ガーランド（櫓のてっぺん→周囲のポールへ放射状。赤い紙提灯＝昼も見え夜に灯る）
-  // ── 幟旗（のぼり）＝櫓の手前を挟む高い縦長の布旗。昭和の夏祭りの“ここでやってる”の象徴（文字は鏡像/著作権の罠なので入れず、布の色だけで雰囲気を出す）。静止＝後段のmergeVenueStaticsで統合され軽い ──
-  { const woodN = woodD, cloth = toon(makuB), band = toon(makuA) // のぼりの竿は焦茶、布は紅白幕の濃い色＋上下の白帯
+  // ── 幟旗（のぼり）＝櫓の手前を挟む高い縦長の布旗。※文字なしの無地旗は「見たことない変な旗」に見えるとユーザー指摘（2026-07-07）→既定OFFで温存（V.nobori=trueで復活可・非破壊） ──
+  if (V.nobori) { const woodN = woodD, cloth = toon(makuB), band = toon(makuA) // のぼりの竿は焦茶、布は紅白幕の濃い色＋上下の白帯
     for (const nx of [-2.6, 2.6]) { const px = ox + nx, pz = oz + (RR - 1.5), py = heightAt(px, pz) // 参道側（櫓の手前=+z寄り）に左右1本ずつ
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 4.2, 6), woodN); pole.position.set(px, py + 2.1, pz); bonOdori.add(pole)
       const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.62, 5), woodN); arm.rotation.z = Math.PI / 2; arm.position.set(px + 0.28, py + 3.85, pz); bonOdori.add(arm) // 上の横竿（チチを吊る）
@@ -1975,7 +1987,7 @@ function buildBonOdori(ox, oy, oz, grp, V) {
   for (let i = 0; i < NP; i++) {
     const a = (i / NP) * Math.PI * 2 + 0.4, ex = ox + Math.sin(a) * RR, ez = oz + Math.cos(a) * RR, ey = heightAt(ex, ez)
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.9, 6), woodD); pole.position.set(ex, ey + 1.45, ez); addOutline(pole, 0.02); bonOdori.add(pole)
-    const x0 = ox, y0 = oy + 3.9, z0 = oz, x1 = ex, y1 = ey + 2.7, z1 = ez, N = 3
+    const x0 = ox, y0 = oy + 5.35, z0 = oz, x1 = ex, y1 = ey + 2.7, z1 = ez, N = 3 // 起点＝2階建て櫓のてっぺん近く（3.9→5.35・2026-07-07）
     for (let k = 1; k <= N; k++) { const t = k / (N + 1), lx = x0 + (x1 - x0) * t, lz = z0 + (z1 - z0) * t, ly = y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * 0.5
       const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), toon(lanCol)); body.scale.y = 1.3; body.position.set(lx, ly, lz); bonOdori.add(body)
       const glow = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), new THREE.MeshBasicMaterial({ color: lanGlow, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.y = 1.3; glow.position.set(lx, ly, lz); bonOdori.add(glow)
@@ -1986,7 +1998,7 @@ function buildBonOdori(ox, oy, oz, grp, V) {
   const fglow = new THREE.Mesh(new THREE.CircleGeometry(12, 28), new THREE.MeshBasicMaterial({ color: 0xffb060, fog: false, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); fglow.rotation.x = -Math.PI / 2; fglow.position.set(ox, oy + 0.06, oz); bonOdori.add(fglow) // 会場の光だまり
   townNightLights.push({ m: fglow, base: 0.42, ph: 0.7, flame: true }) // 少し厚く・有機的にゆらぐ（夜に遠くからでも温かい光の溜まり・2026-06-28）
   // 暖色の点光源＝夜に踊り手と地面を温かく照らす（櫓の灯り）。会場グループが見える開催日だけ有効＝非開催日は無灯（不可視グループ内のライトは描画対象外）。会場ごとに1灯＝軽い
-  const flight = new THREE.PointLight(0xffc674, 0, 32, 1.0); flight.position.set(ox, oy + 3.0, oz); flight.castShadow = false; bonOdori.add(flight); festLights.push({ light: flight, base: 28 }) // 少し高く＋明るく＝踊り手/浴衣まで暖色が届く（賑わいを上げる・2026-06-26）
+  const flight = new THREE.PointLight(0xffc674, 0, 34, 1.0); flight.position.set(ox, oy + 4.1, oz); flight.castShadow = false; bonOdori.add(flight); festLights.push({ light: flight, base: 30 }) // 2階建て櫓の軒あたりから＝踊り手/浴衣まで暖色が届く
   // 屋台（縁日）＝会場のまわりに並ぶ。[名前,屋根色,lx,lz,種類]。種類で店先の縁日小物を出し分け（金魚すくい/ヨーヨー/射的/お面）
   const stalls = [
     ['わたあめ', 0xd86a8a, -10, -6, 'wata'], ['かきごおり', 0x4a8ac0, -10, 0, 'kakigori'], ['やきそば', 0xc0552e, -10, 6, 'yakisoba'], ['たこやき', 0xe0902e, -10, 11, 'takoyaki'], // 西の列＝食べ物
@@ -7879,7 +7891,9 @@ function populateFestDancers() {
     const RD2 = RD + 3.0
     for (let i = 0; i < N2; i++) { const a = (i / N2) * 6.283 + 0.26, d = mk(group, ox + Math.cos(a) * RD2, oz + Math.sin(a) * RD2, yukataCols[(i + 3) % yukataCols.length], i + 2, i === 4, false)
       festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, elbowL: d.elbowL, elbowR: d.elbowR, kneeL: d.kneeL, kneeR: d.kneeR, cx: ox, cz: oz, r: RD2, a0: a, ph: i * 0.61 + 1.0, baseY: oy, beat: false, style: (i + 1) % 3 }) }
-    const dr = mk(group, ox, oz, 0xeae6da, 0, false, true); festFigs.push({ g: dr.g, armL: dr.armL, armR: dr.armR, elbowL: dr.elbowL, elbowR: dr.elbowR, cx: ox, cz: oz, r: 0, a0: 0, ph: 0, baseY: oy + 1.82, beat: true }) // 櫓の上で太鼓を打つ人（甚平）
+    const dr = mk(group, ox, oz - 0.62, 0xeae6da, 0, false, true); festFigs.push({ g: dr.g, armL: dr.armL, armR: dr.armR, elbowL: dr.elbowL, elbowR: dr.elbowR, cx: ox, cz: oz - 0.62, r: 0, a0: 0, ph: 0, baseY: oy + 3.02, beat: true }) // 2階建て櫓の舞台で太鼓を打つ人（甚平）＝床DECK2.9+0.12。太鼓の手前(-z)に立って打つ（土台に埋まるバグの修正2026-07-07）
+    for (let i = 0; i < 2; i++) { const a = 0.5 + i * Math.PI, d = mk(group, ox + Math.cos(a) * 1.15, oz + Math.sin(a) * 1.15, yukataCols[(i + 5) % yukataCols.length], i + 4, false, false) // 2階の舞台で踊る音頭取り2人＝櫓の上でも盆踊り（ユーザー要望2026-07-07）
+      festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, elbowL: d.elbowL, elbowR: d.elbowR, kneeL: d.kneeL, kneeR: d.kneeR, cx: ox, cz: oz, r: 1.15, a0: a, ph: i * 1.7, baseY: oy + 3.02, beat: false, style: 1 }) }
     for (let i = 0; i < 3; i++) { const d = mk(group, ox - 8 + i * 6, oz + 9, [0xe06a8a, 0x4a9ad0, 0xf0c84a][i], i + 1, true, false) // 走り回る子ども（浴衣・小柄）
       const it = new THREE.Group()
       if (i === 0) { const bag = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 7), new THREE.MeshToonMaterial({ color: 0xcfe8f0, gradientMap: GRAD, transparent: true, opacity: 0.82 })); bag.scale.y = 1.25; it.add(bag); const fish = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), toon(0xe0622a)); fish.position.y = -0.015; it.add(fish) } // 金魚袋
@@ -9650,6 +9664,15 @@ function spawnFirework() {
   const ven = (typeof activeVenue === 'function' && activeVenue()) || FEST_VENUES[0], fx = ven ? ven.pos.x : 3124, fz = ven ? ven.pos.y : -186
   const oy0 = heightAt(fx, fz), cx = fx + (Math.random() - 0.5) * 74, cy = oy0 + 44 + Math.random() * 26, cz = fz + (Math.random() - 0.5) * 64 // 会場の上空。高台ぶん持ち上げ
   const type = ['botan', 'botan', 'kiku', 'yanagi', 'twin', 'ring'][Math.floor(Math.random() * 6)], N = type === 'ring' ? 120 : 210
+  // ── 打ち上げ＝金の光の筋が「ヒュ〜」と昇ってから、てっぺんで開く（本物の間・2026-07-07）──
+  { const riser = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.85, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
+    riser.layers.set(1); riser.position.set(cx, oy0 + 2, cz)
+    riser.userData = { rise: true, age: 0, dur: 1.0 + Math.random() * 0.25, x: cx, z: cz, y0: oy0 + 2, y1: cy, burst: () => burstNow() }
+    fireworksGroup.add(riser)
+    playFireworkWhistle(Math.hypot(boy.position.x - cx, boy.position.z - cz))
+    var burstNow = () => spawnBurst(cx, cy, cz, type, N, fx, fz) } // burstはvar＝userDataの矢印関数から見える
+}
+function spawnBurst(cx, cy, cz, type, N, fx, fz) {
   // 色＝和火っぽい暖色〜寒色。芯(c1)と外周(c2)で色が変わる/二段咲きで複数色＝1発の中に表情を作る
   const hue = Math.random(), c1 = new THREE.Color().setHSL(hue, 0.85, 0.6), c2 = new THREE.Color().setHSL((hue + 0.34 + Math.random() * 0.32) % 1, 0.85, 0.6), gold = new THREE.Color(0xffcf86), white = new THREE.Color(0xfff0d8)
   const star = new THREE.InstancedMesh(FW_STAR_GEO, new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: false, transparent: true, opacity: 1, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }), N)
@@ -9683,7 +9706,7 @@ function spawnFirework() {
   for (const w of SG.waters) { if (w.p.length < 3) continue; let wx = 0, wz = 0; for (const q of w.p) { wx += q[0]; wz += q[1] } wx /= w.p.length; wz /= w.p.length; const dd = (wx - fx) * (wx - fx) + (wz - fz) * (wz - fz); if (dd < bwd) { bwd = dd; bw = [wx, wz] } }
   if (bw) { const wy = heightAt(bw[0], bw[1]), disc = new THREE.Mesh(new THREE.CircleGeometry(10 + Math.random() * 7, 22), new THREE.MeshBasicMaterial({ color: c1, transparent: true, opacity: 0.5, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }))
     disc.rotation.x = -Math.PI / 2; disc.position.set(bw[0], wy + 0.13, bw[1]); disc.userData = { water: true, age: 0 }; fireworksGroup.add(disc) } // 水面の映り込み（平たい加算ディスク・ゆっくり消える）
-  playFireworkBoom() // 遠くの「ドーン」＋火花のパチパチ（夏のクライマックスに音を）
+  playFireworkBoom(Math.hypot(boy.position.x - cx, boy.position.z - cz), type) // 「ドーン」＝距離ぶん遅れて届く＋距離減衰＋パチパチ（夏のクライマックスに音を）
 }
 // ── H4：線香花火（手持ち花火）。夜に カメラの前で ぱちぱちと 火花を散らし、やがて 玉が ぽとりと 落ちる＝夏の終わりの象徴。──
 const senko = (() => {
@@ -9747,31 +9770,44 @@ function senkoCrackle() {
     n.connect(bp); bp.connect(g); g.connect(getSfxOut()); n.start(t0); n.stop(t0 + 0.12)
   } catch (e) {}
 }
-// 花火の音＝自前合成。遠い夜空の「ドーン」＝深い低音の胴＋破裂の空気＋丘にこだまする余韻（電車のしゅぽっぽにならないよう低音を効かせ響かせる）。getSfxOut経由でクリップ防止。
-function playFireworkBoom() {
+// 花火の音＝自前合成（本物寄りへ改修2026-07-07・ユーザー要望）。光が先・「ドーン」は音速(約340m/s)ぶん遅れて届く＋距離減衰＋まばらなパチパチ＋菊/二色は二段のドン。getSfxOut経由でクリップ防止。
+function playFireworkBoom(dist, style) {
   if (!audioStarted) return
   try {
-    const ctx = listener.context, t0 = ctx.currentTime + 0.12, out = getSfxOut() // 遠いので少し遅れて届く
+    const ctx = listener.context, out = getSfxOut(), d = Math.max(30, dist || 300)
+    const t0 = ctx.currentTime + 0.05 + Math.min(3.0, d / 340) // ★光ってから音が届くまでの間＝距離/音速（遠い花火ほど「開いて…ドン」）
+    const vol = Math.max(0.3, Math.min(1.15, 380 / d)) // 距離減衰＝近い会場では体に響き、遠いと小さくこもる
     // 丘にこだまする低い余韻（フィードバックディレイ＝遠くの花火が“ドドド”と響く）
     const delay = ctx.createDelay(0.5); delay.delayTime.value = 0.17
     const fb = ctx.createGain(); fb.gain.value = 0.34
     const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 230 // 余韻は低音だけ＝遠い響き
     delay.connect(dlp); dlp.connect(fb); fb.connect(delay)
     const wet = ctx.createGain(); wet.gain.value = 0.5; delay.connect(wet); wet.connect(out)
-    // ① 深い「ドーン」＝低いサインの胴（少し下降・パンチのある立ち上がり＝低音が響く）
-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(80, t0); o.frequency.exponentialRampToValueAtTime(40, t0 + 0.55)
-    const og = ctx.createGain(); og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.42, t0 + 0.012); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.95)
-    o.connect(og); og.connect(out); og.connect(delay); o.start(t0); o.stop(t0 + 1.0)
-    // ② 破裂の空気＝一瞬の低域ノイズ（パッと開く）
-    const n = ctx.createBufferSource(); n.buffer = getNoise(); n.loop = true; n.playbackRate.value = 0.5
-    const nlp = ctx.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.setValueAtTime(720, t0); nlp.frequency.exponentialRampToValueAtTime(150, t0 + 0.32)
-    const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.2, t0 + 0.014); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5)
-    n.connect(nlp); nlp.connect(ng); ng.connect(out); ng.connect(delay); n.start(t0); n.stop(t0 + 0.6)
-    // ③ 火花のパチパチ（遅れて届く高域・控えめ）
-    const s2 = ctx.createBufferSource(); s2.buffer = getNoise(); s2.loop = true; s2.playbackRate.value = 1.5
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3000
-    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t0 + 0.1); g2.gain.exponentialRampToValueAtTime(0.02, t0 + 0.2); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1)
-    s2.connect(hp); hp.connect(g2); g2.connect(out); s2.start(t0 + 0.1); s2.stop(t0 + 1.2)
+    const boom = (tb, k) => { // ドーン一発（k=強さ係数）。二段咲きは2発
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(80, tb); o.frequency.exponentialRampToValueAtTime(40, tb + 0.55)
+      const og = ctx.createGain(); og.gain.setValueAtTime(0.0001, tb); og.gain.exponentialRampToValueAtTime(0.42 * vol * k, tb + 0.012); og.gain.exponentialRampToValueAtTime(0.0001, tb + 0.95)
+      o.connect(og); og.connect(out); og.connect(delay); o.start(tb); o.stop(tb + 1.0)
+      const n = ctx.createBufferSource(); n.buffer = getNoise(); n.loop = true; n.playbackRate.value = 0.5 // 破裂の空気＝一瞬の低域ノイズ（パッと開く）
+      const nlp = ctx.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.setValueAtTime(720, tb); nlp.frequency.exponentialRampToValueAtTime(150, tb + 0.32)
+      const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, tb); ng.gain.exponentialRampToValueAtTime(0.2 * vol * k, tb + 0.014); ng.gain.exponentialRampToValueAtTime(0.0001, tb + 0.5)
+      n.connect(nlp); nlp.connect(ng); ng.connect(out); ng.connect(delay); n.start(tb); n.stop(tb + 0.6) }
+    boom(t0, 1)
+    if (style === 'kiku' || style === 'twin') boom(t0 + 0.3, 0.55) // 二段咲き＝少し小さい2発目「ド・ドン」
+    // 火花のパチパチ＝まばらな粒の破裂（連続ノイズでなく一粒ずつ＝本物の「パチ…パチパチ…」）
+    const npops = d < 200 ? 13 : 7
+    for (let k2 = 0; k2 < npops; k2++) { const tp = t0 + 0.15 + Math.random() * 1.25
+      const p = ctx.createBufferSource(); p.buffer = getNoise(); p.playbackRate.value = 1.2 + Math.random() * 0.9
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2300 + Math.random() * 1900; bp.Q.value = 1.6
+      const pg = ctx.createGain(); pg.gain.setValueAtTime(0.0001, tp); pg.gain.exponentialRampToValueAtTime((0.01 + Math.random() * 0.014) * vol, tp + 0.006); pg.gain.exponentialRampToValueAtTime(0.0001, tp + 0.05 + Math.random() * 0.05)
+      p.connect(bp); bp.connect(pg); pg.connect(out); p.start(tp); p.stop(tp + 0.14) }
+  } catch (e) {}
+}
+function playFireworkWhistle(dist) { // 打ち上げの「ヒュ〜…」＝細い笛が昇る（近い会場だけ・ごく控えめ・打ち上げの気配）
+  if (!audioStarted || !(dist < 320)) return
+  try { const ctx = listener.context, t0 = ctx.currentTime + 0.03, out = getSfxOut(), vol = Math.max(0.008, Math.min(0.03, 5.5 / dist))
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(640, t0); o.frequency.linearRampToValueAtTime(1180, t0 + 1.0)
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.05)
+    o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 1.1)
   } catch (e) {}
 }
 
@@ -13247,6 +13283,11 @@ function update(dt) {
   }
   for (const pts of [...fireworksGroup.children]) {
     const u = pts.userData; u.age += dt
+    if (u.rise) { const t = Math.min(1, u.age / u.dur), e = 1 - (1 - t) * (1 - t) // 打ち上げの光の筋＝ヒュ〜と昇る（イーズアウト＋わずかに揺れ＋ちらつき）
+      pts.position.set(u.x + Math.sin(u.age * 9) * 0.3 * (1 - t), u.y0 + (u.y1 - u.y0) * e, u.z)
+      pts.material.opacity = 0.5 + 0.35 * Math.abs(Math.sin(u.age * 26)); pts.scale.setScalar(1 - t * 0.35)
+      if (t >= 1) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose(); try { u.burst() } catch (e2) {} }
+      continue }
     if (u.flash) { const k = u.age / 0.42; pts.scale.setScalar(1 + k * 3.2); pts.material.opacity = Math.max(0, 1 - k); if (u.age > 0.42) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 中心フラッシュ＝ぱっと開いてすぐ消える
     if (u.water) { pts.material.opacity = Math.max(0, 0.5 * (1 - u.age / 1.5)); if (u.age > 1.5) { fireworksGroup.remove(pts); pts.geometry.dispose(); pts.material.dispose() }; continue } // 水面の映り込み＝広がらずゆっくり消える
     if (!u.fw) continue
