@@ -70,3 +70,12 @@
 - 蝉・風鈴・川などのMP3環境音以外の効果音（お囃子・ラジオ体操の旋律・生活音）はすべて **Web Audio API による自前合成**で、外部録音素材は使用していません。
 - **人の声・子どもの歓声・ざわめき・犬・自転車のベル等（賑わいの生活音）も録音を一切使わず合成**しています。声は母音的なフォルマント止まり＝特定の言葉・固有の発話は含みません（既存作品の音・台詞は模倣していません）。
 - ラジオ体操の旋律は完全オリジナルで、実在のラジオ体操の楽曲は使用していません。
+
+## 3Dキャラクターモデル（VRM・画風刷新パイロット 2026-07-07）
+- **Sendagaya Shino（千駄ヶ谷 篠）** `public/models/sendagaya_shino.vrm`（約15MB）
+  - 作者・提供：**VRoid Project（pixiv）** の旧ベータ版公式サンプルモデル
+  - **ライセンス：CC0（パブリックドメイン）** — VRoid公式ヘルプの「CC0 license models」一覧に該当。加えて**VRMファイル内の埋め込みメタデータでも `licenseName: "CC0"` / `allowedUserName: "Everyone"` / 商用可 を直接確認済み**
+  - CC0の説明: https://creativecommons.org/publicdomain/zero/1.0/
+  - 入手元（公開ミラー）: https://github.com/madjin/vrm-samples （vroid/beta/Sendagaya_Shino.vrm）
+  - 用途：画風刷新の判断用パイロット（第三公園に1体を試験配置・遅延読込）
+- 読み込みライブラリ：**@pixiv/three-vrm**（MITライセンス・npm経由で同梱ビルド・実行時の外部通信なし）

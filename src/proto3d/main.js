@@ -14815,6 +14815,58 @@ function freezeStaticMatrices() {
   __freezeStats = { worldRoots: worldRoots.length, festRoots: __festRoots.length, frozen, keptAuto: kept }
   return __freezeStats
 }
+// ── 画風パス②パイロット：CC0のVRMアニメキャラ「千駄ヶ谷 篠」（VRoid公式旧サンプル・ファイル内メタでCC0/Everyone/商用可を確認済み）を1体だけ町に立たせ、
+//    既存の温かいトゥーン世界と馴染むかを実機で判断するための試験配置（2026-07-07・ユーザー承認後に本採用or撤去）。
+//    実装＝主人公が第三公園に近づいた時だけ 15MB を遅延読込（初期ロード/遠くのプレイヤーに負担ゼロ・SWが2回目以降キャッシュ）──
+let vrmPilot = null, vrmPilotState = 0 // 0=未読込 1=読込中 2=表示中 3=失敗
+const VRM_PILOT_POS = [3051, 16] // 第三公園の園庭・鉄棒まえの開けた砂地（遊具/縁の斜面に重ならない実測スポット）
+const _wrapAng = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+async function startVrmPilot() {
+  vrmPilotState = 1
+  try {
+    const [{ GLTFLoader }, { VRMLoaderPlugin, VRMUtils }] = await Promise.all([
+      import('three/examples/jsm/loaders/GLTFLoader.js'),
+      import('@pixiv/three-vrm'),
+    ])
+    const loader = new GLTFLoader()
+    loader.register((parser) => new VRMLoaderPlugin(parser))
+    const gltf = await loader.loadAsync('models/sendagaya_shino.vrm')
+    const vrm = gltf.userData.vrm
+    VRMUtils.removeUnnecessaryVertices(gltf.scene)
+    if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
+    VRMUtils.rotateVRM0(vrm) // VRM0.xの向きをVRM1相当へ統一
+    const [px, pz] = VRM_PILOT_POS, py = heightAtYato(px, pz)
+    vrm.scene.position.set(px, py, pz)
+    vrm.scene.rotation.y = 2.3 // 園庭の中央（ジャングルジムの方）を向いて立つ
+    vrm.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.isSkinnedMesh) o.frustumCulled = false } }) // スキンメッシュはバウンディングのズレで消えることがある＝カリングしない（1体だけなので負荷なし）
+    scene.add(vrm.scene)
+    // T字ポーズ→自然な直立（腕をおろす・normalizedボーンはレスト姿勢からの相対）
+    const hu = vrm.humanoid
+    const arm = (n, z) => { const b = hu.getNormalizedBoneNode(n); if (b) b.rotation.z = z }
+    arm('leftUpperArm', 1.18); arm('rightUpperArm', -1.18); arm('leftLowerArm', 0.10); arm('rightLowerArm', -0.10)
+    vrmPilot = { vrm, t: 0, blinkT: 2.0, headYaw: 0 }
+    vrmPilotState = 2
+  } catch (e) { console.warn('VRMパイロット読込失敗', e); vrmPilotState = 3 }
+}
+function vrmPilotTick(dt) {
+  if (vrmPilotState === 0 && onYato) { const dx = boy.position.x - VRM_PILOT_POS[0], dz = boy.position.z - VRM_PILOT_POS[1]; if (dx * dx + dz * dz < 160 * 160) startVrmPilot() }
+  if (!vrmPilot) return
+  const v = vrmPilot; v.t += dt
+  const hu = v.vrm.humanoid
+  const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = Math.sin(v.t * 1.6) * 0.018 // 呼吸のゆらぎ
+  const head = hu.getNormalizedBoneNode('head')
+  if (head) { // 近くに来たらゆっくり顔を向ける（npcGazeの礼儀と同じ作法・首は±0.6radまで）
+    const dx = boy.position.x - v.vrm.scene.position.x, dz = boy.position.z - v.vrm.scene.position.z
+    const near = Math.hypot(dx, dz) < 10
+    const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : 0
+    v.headYaw += (want - v.headYaw) * Math.min(1, dt * 3.2)
+    head.rotation.y = v.headYaw
+  }
+  const em = v.vrm.expressionManager // まばたき
+  if (em) { v.blinkT -= dt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
+    em.setValue('blink', v.blinkT < 0.12 ? 1 - Math.abs(v.blinkT - 0.06) / 0.06 : 0) }
+  v.vrm.update(dt) // 揺れもの（髪のスプリングボーン）と表情の反映
+}
 freezeStaticMatrices() // 起動時に1回（この時点で静的ワールド・生き物・洗濯物・祭り会場はすべて生成済み。会場は不可視＝踊り手ごと凍結）
 buildYatoFogGrid() // A2：霧の彼方カリング用のセルグリッドを1回構築（yatoStatics/チャンク/洗濯布が揃った後）
 
@@ -14833,6 +14885,7 @@ renderer.setAnimationLoop(() => { try {
   const realInterval = Math.min(frameAcc, 0.25) // C2：実際のフレーム間隔（描画時点の蓄積時間・大外れは0.25でクランプ）
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
   pollGamepad(); applyPadLook(dt) // コントローラー：スティック/ボタンを読み、右スティックで視点を回す（移動は各移動式でpad.lx/lyを参照）
+  vrmPilotTick(dt) // 画風パス②パイロット：近づいたら遅延読込＋呼吸/まばたき/視線（未読込時は距離チェックのみ＝ほぼゼロコスト）
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
   if (audioStarted && settings && settings.sound && !document.hidden && listener.context.state === 'suspended') { try { listener.context.resume() } catch (e) {} } // suspendedからのみ自動復帰（!=='running'で毎フレームresumeするとiOS録画中の割り込みと競合して“じじじ”が悪化したため元に戻す・2026-06-24）
   // 遠くの音（電車・犬）＝たまに鳴って世界に奥行きと郷愁を。音ON＋再生中のときだけ（停止中ctxにスケジュールしない）
