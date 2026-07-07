@@ -14825,7 +14825,7 @@ const VRM_PILOTS = [
   // ※素の女子高生（篠・等身大）は役目を終えて撤去（2026-07-07 iPhone負荷削減＝1体分の描画/読込を削減）
   { file: 'models/sendagaya_shibu.vrm', pos: [3054.5, 17.5], ry: 2.0, scale: 0.72, headScale: 1.38, girl: true },  // 渋＝子ども化+素朴な女の子（黒髪+白ブラウス+赤スカート）
   { file: 'models/sendagaya_shino.vrm', pos: [3048.5, 14.2], ry: 1.9, scale: 0.84, headScale: 1.02, spineBend: 0.44, grandma: true }, // おばあちゃん化v2＝ショート白髪+丸めがね+細目+しわ+前かがみ+杖+渋い服+小柄
-  { file: 'models/sakurada_fumiriya.vrm', pos: [3045.5, 18.2], ry: 2.0, scale: 0.72, headScale: 1.38, boy: true, aho: true }, // 夏の男の子（桜田）＝麦わら帽子+白シャツ+半ズボン+日焼け+そばかす+ニカッと笑い
+  { file: 'models/sakurada_fumiriya.vrm', pos: [3045.5, 18.2], ry: 2.0, scale: 0.64, headScale: 1.46, boy: true, aho: true }, // 夏の男の子（桜田）＝小1〜2の背丈（主人公は低学年＝ユーザー指定2026-07-07）+Tシャツ+短パン+麦わら+虫網
   { file: 'models/sakurada_fumiriya.vrm', pos: [3050.2, 17.8], ry: 2.3, scale: 0.80, headScale: 1.05, spineBend: 0.34, yOff: 0.10, grandpa: true }, // おじいちゃん（桜田ベース試作）＝白髪+白ひげ+しわ+開襟シャツ+麦わら（砂場の南の開けた芝＝俯瞰park_top.pngで選定）
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
@@ -14835,6 +14835,9 @@ const VRM_PILOTS = [
 // スクショの目視で「spineは＋が前屈」と読み違えて3度エビ反りを出した＝角度は必ず数値計測で確認する。
 // 前かがみ＝全係数を負（headFだけ正＝顔を起こして視線を数m先へ）。kneeは＋で屈曲・dropは膝分の沈み込み(m)・skirtはスカートの垂直戻し(raw)
 const GPOSE = { hipF: -0.70, spineF: -0.55, chestF: -0.38, ucF: -0.24, neckF: -0.65, headF: 0.95, headNear: 1.6, shY: 0.55, knee: 0.36, kneeComp: 0.6, drop: 0.055, skirt: 0.28 }
+// 阿呆そうな子の表情（ライブ調整可）。happy=joy系の笑い(強すぎると眉が寄って怒り顔に見える＝ユーザー指摘で弱め)
+// relaxed=fun系の目の笑い・aa=口ぽかん。exB系＝目ぱっちり+口を開けた「ぽけっとした」顔が採用（_ahotune.mjsで比較選定）
+const AHO_EXP = { happy: 0.10, amp: 0.08, relaxed: 0.55, aa: 0.28 }
 // ── VRMテクスチャ加工の共通ヘルパー（様式統一の要＝同じVRoid絵柄のまま役を作り分ける・2026-07-07） ──
 // マテリアルのmapをcanvasに写し、描き終えたらapply()で差し戻す
 function texCanvas(m) {
@@ -14906,16 +14909,17 @@ function agedFace(vrm, opts = {}) {
   ctx.globalAlpha = 1
   apply()
 }
-// 麦わら帽子（頭ボーンへ・共通）
-function strawHat(head, color = 0xe6c074) {
+// 麦わら帽子（頭ボーンへ・共通）。withBand=false で無地（帯なし）
+function strawHat(head, color = 0xe6c074, withBand = true) {
   const straw = hatToon(color)
   const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.175, 0.182, 0.012, 18), straw)
   const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.108, 0.085, 14), straw)
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.111, 0.026, 14), new THREE.MeshToonMaterial({ color: 0xb03a2e, gradientMap: GRAD_HAT, emissive: 0x30100c }))
-  brim.position.set(0, 0.133, 0.012); crown.position.set(0, 0.172, 0.012); band.position.set(0, 0.140, 0.012)
-  brim.rotation.x = 0.03; crown.rotation.x = 0.03; band.rotation.x = 0.03
-  head.add(brim, crown, band)
-  return { brim, crown, band }
+  brim.position.set(0, 0.133, 0.012); crown.position.set(0, 0.172, 0.012)
+  brim.rotation.x = 0.03; crown.rotation.x = 0.03
+  head.add(brim, crown)
+  if (withBand) { const band = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.111, 0.026, 14), new THREE.MeshToonMaterial({ color: 0xb03a2e, gradientMap: GRAD_HAT, emissive: 0x30100c }))
+    band.position.set(0, 0.140, 0.012); band.rotation.x = 0.03; head.add(band) }
+  return { brim, crown }
 }
 // 夏の男の子化（2026-07-07・PhaseA主人公候補の照準確認）：ネクタイ/長ズボンを非表示にし、
 // 半ズボン（腰筒+もも筒）・すね/ももの肌・麦わら帽子をボーンに付与。アホ毛は帽子貫通を防いで短縮
@@ -14924,14 +14928,13 @@ function boyize(vrm, aho) {
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/AccessoryNeck/.test(m.name)) m.visible = false // ネクタイを消す（夏の普段着へ）
+      if (/Tops/.test(m.name)) m.visible = false // 襟シャツ+ベストを丸ごと消す（「学校の制服みたい」ユーザー指摘2026-07-07）→下でTシャツに置き換え
       if (/Bottoms/.test(m.name)) m.visible = false // 長ズボンを消す（下の半ズボン+生足に置き換え）
-      if (aho && /Body/.test(m.name) && /SKIN/.test(m.name) && m.color) m.color.set(0xf0cfa9) // 体の肌も日焼け（乗算・入れすぎ注意）
     } })
-  recolorNavy(vrm, /Tops/) // 紺のニットベストを白布に描き換え＝「私立の制服/金持ちの子」感を消してただの白シャツの子へ（2000年の夏の普段着・ユーザー指摘）
-  if (aho) agedFace(vrm, { tan: 'rgb(243,214,183)', freckles: true })
+  if (aho) agedFace(vrm, { freckles: true }) // 日焼けの乗算膜は「貼り付けたような顔」の一因＝廃止（そばかすだけ残す・ユーザー指摘2026-07-07）
   const hu = vrm.humanoid
-  const skin = skinToon(aho ? 0xe2bd96 : 0xf1cdb5) // 主人公と同じ肌トゥーン（ahoは脚も日焼け・素のMeshToonMaterialは影側が黒く潰れて長靴下に見えた）
-  const navy = charToon(0x3a4660)
+  const skin = skinToon(0xf1cdb5) // 主人公と同じ肌トゥーン（素のMeshToonMaterialは影側が黒く潰れて長靴下に見えた）
+  const navy = charToon(0x8a7358) // 短パン＝ベージュの土色（紺だと制服に見える）
   const seg = (parent, fromLocal, toLocal, r, mat) => { // 2点間シリンダー（親ボーンのローカル空間）
     const d = new THREE.Vector3().subVectors(toLocal, fromLocal); const len = d.length()
     const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.92, len, 10), mat)
@@ -14947,18 +14950,38 @@ function boyize(vrm, aho) {
   const hips = hu.getRawBoneNode('hips')
   if (hips) { const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.140, 0.30, 12), navy)
     waist.position.set(0, -0.11, 0); hips.add(waist) } // 半ズボンの腰筒（もも筒と深く重ねて肌の隙間を消す）
+  // 白いTシャツ＝消した襟シャツの代わり（胸のカプセル+半袖の筒。夏休みの普段着）
+  const tee = charToon(0xf2efe6)
+  const chest = hu.getRawBoneNode('chest') || hu.getRawBoneNode('spine')
+  if (chest) { const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.148, 0.20, 10, 24), tee)
+    torso.position.set(0, 0.02, 0.004); torso.scale.set(1, 1, 0.80); torso.rotation.y = Math.PI; chest.add(torso) } // 胸板は薄く・UVの継ぎ目は背中側へ（正面の縦筋を消す）
+  for (const side of ['left', 'right']) { const ua = hu.getRawBoneNode(side + 'UpperArm'), la = hu.getRawBoneNode(side + 'LowerArm')
+    if (ua && la) seg(ua, la.position.clone().multiplyScalar(-0.18), la.position.clone().multiplyScalar(0.52), 0.056, tee) } // 半袖
   const head = hu.getRawBoneNode('head')
   if (head) {
     for (const c of head.children) if (/^HairJoint/.test(c.name)) {
       if (c.position.y > 0.07) c.scale.setScalar(0.3) // 頭のてっぺんの房（アホ毛）＝帽子貫通の防止
       for (const g of c.children) if (/^HairJoint/.test(g.name)) g.scale.setScalar(0.5) }
-    const straw = hatToon(0xe6c074) // ゲームの麦わら用トゥーン（影の床が高い＝夏の日ざしの明るい麦わら）
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.175, 0.182, 0.012, 18), straw)
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.108, 0.085, 14), straw)
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.111, 0.026, 14), new THREE.MeshToonMaterial({ color: 0xb03a2e, gradientMap: GRAD_HAT, emissive: 0x30100c }))
-    brim.position.set(0, 0.133, 0.012); crown.position.set(0, 0.172, 0.012); band.position.set(0, 0.140, 0.012)
-    brim.rotation.x = 0.03; crown.rotation.x = 0.03; band.rotation.x = 0.03
-    head.add(brim, crown, band) // 麦わら帽子（赤い帯）＝髪に埋まらないよう高め・クラウン太め
+    strawHat(head, 0xe6c074, false) // 無地の麦わら帽子（帯なし・ユーザー要望2026-07-07）
+  }
+  // 虫取り網＝右手で竿をにぎり肩に担ぐ（主人公と同じ編み目の透ける袋の簡易版・腕のポーズは読込側で）
+  const hand = hu.getRawBoneNode('rightHand')
+  if (hand) {
+    const net = new THREE.Group()
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.024, 0.72, 6), charToon(0x8a6a3e)); pole.position.y = 0.22; net.add(pole) // 竿は太め＝細いと背景に溶けて見えない（実測）
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.014, 8, 18), charToon(0xb6baac)); ring.position.y = 0.60; ring.rotation.x = Math.PI / 2; net.add(ring)
+    const ntx = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.clearRect(0, 0, 64, 64); x.strokeStyle = 'rgba(243,246,235,0.92)'; x.lineWidth = 2.4; for (let i = 0; i <= 64; i += 9) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 64); x.moveTo(0, i); x.lineTo(64, i); x.stroke() } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 5); return t })()
+    const netMat = new THREE.MeshBasicMaterial({ map: ntx, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
+    const bagGeo = new THREE.ConeGeometry(0.125, 0.40, 16, 6, true)
+    bagGeo.rotateX(Math.PI); bagGeo.translate(0, -0.20, 0)
+    { const pa = bagGeo.attributes.position // 袋は重力で後ろ下へしんなり（主人公の網の知見を流用）
+      for (let i = 0; i < pa.count; i++) { const t = Math.max(0, -pa.getY(i) / 0.40); pa.setZ(i, pa.getZ(i) - Math.pow(t, 1.35) * 0.24); pa.setY(i, pa.getY(i) * (1 - 0.18 * t)) }
+      bagGeo.computeVertexNormals() }
+    const bag = new THREE.Mesh(bagGeo, netMat); bag.position.y = 0.60; net.add(bag)
+    net.traverse((o) => { if (o.isMesh) { o.layers.set(1); o.userData.noOutline = true } }) // 透明な網に黒輪郭が重ならないように（主人公の網と同じ扱い）
+    // 取り付けは初回tick＝手の実ワールド座標のそばにシーン直付けで立てる（おばあちゃんの杖と同じ方式。
+    // 手ボーン子付けは11案とも顔に被る/体の陰に隠れるで全敗＝rotateVRM0後の手ローカル軸は信用しない）
+    vrm.scene.userData._net = net
   }
 }
 // おばあちゃん化v2（2026-07-07）：v1「白髪にしただけ＝白髪の女子高生」の反省から髪型・小物まで作り替える。
@@ -15080,7 +15103,11 @@ async function startVrmPilot() {
       const fingerCurl = (prefix, sign, amt) => { // 開いたままの指を軽く握らせる（T字ポーズの名残＝ゾンビ手の解消）
         for (const fn of ['Index', 'Middle', 'Ring', 'Little']) for (const s of ['Proximal', 'Intermediate', 'Distal']) { const b = hu.getNormalizedBoneNode(prefix + fn + s); if (b) b.rotation.z = sign * (s === 'Distal' ? amt * 0.7 : amt) }
         for (const s of ['Metacarpal', 'Proximal', 'Distal']) { const b = hu.getNormalizedBoneNode(prefix + 'Thumb' + s); if (b) b.rotation.y = sign * amt * 0.5 } }
-      if (cfg.boy) boyize(vrm, cfg.aho) // 夏の男の子（PhaseA主人公候補）。aho=日焼け+そばかす+ニカッと笑い
+      if (cfg.boy) { boyize(vrm, cfg.aho) // 夏の男の子（PhaseA主人公候補）。aho=そばかす+虫網
+        const rua = hu.getNormalizedBoneNode('rightUpperArm'); if (rua) { rua.rotation.z = -1.05; rua.rotation.x = -0.35 } // 右腕＝ひじを曲げて手を胸の前へ（竿を肩に担ぐ持ち方）
+        const rla = hu.getNormalizedBoneNode('rightLowerArm'); if (rla) { rla.rotation.z = -0.05; rla.rotation.x = -1.15 }
+        fingerCurl('right', 1, 0.95); fingerCurl('left', -1, 0.35) // 右手は竿をにぎる
+      }
       if (cfg.girl) girlize(vrm) // 素朴な女の子（黒髪+白ブラウス+赤スカート）
       if (cfg.grandma) { // おばあちゃん化v2＝髪型/めがね/服（grandmaize）＋右腕は杖を突く形・左腕は体側へ・指は軽く曲げる
         grandmaize(vrm)
@@ -15112,8 +15139,8 @@ function vrmPilotTick(dt) {
     const cdx = boy.position.x - v.vrm.scene.position.x, cdz = boy.position.z - v.vrm.scene.position.z
     const cd2 = cdx * cdx + cdz * cdz
     if (v.shown === undefined) v.shown = true
-    if (v.shown && cd2 > 55 * 55) { v.shown = false; scene.remove(v.vrm.scene); if (v.cane) v.cane.visible = false }
-    else if (!v.shown && cd2 < 45 * 45) { v.shown = true; scene.add(v.vrm.scene); if (v.cane) v.cane.visible = true }
+    if (v.shown && cd2 > 55 * 55) { v.shown = false; scene.remove(v.vrm.scene); if (v.cane) v.cane.visible = false; if (v.netObj) v.netObj.visible = false }
+    else if (!v.shown && cd2 < 45 * 45) { v.shown = true; scene.add(v.vrm.scene); if (v.cane) v.cane.visible = true; if (v.netObj) v.netObj.visible = true }
     if (!v.shown) continue
     // 28mより遠い体は更新を間引く（0.12秒おき）＝見えていても呼吸/瞬きの滑らかさは落ちない距離
     v.updT = (v.updT || 0) + dt
@@ -15156,9 +15183,21 @@ function vrmPilotTick(dt) {
       const k = v.blinkT < 0.12 ? 1 - Math.abs(v.blinkT - 0.06) / 0.06 : 0
       if (v.grandma) { em.setValue('blink', 0.42 + k * 0.58); em.setValue('relaxed', 0.5) } // おばあちゃん＝目を細めて微笑む（relaxed=Fun＝目だけの笑い。happy/joyは口が開くので不可）
       else if (v.grandpa) { em.setValue('blink', 0.52 + k * 0.48); em.setValue('relaxed', 0.5) } // おじいちゃん＝しっかり細目でにこにこ（若い見開き目を消す）
-      else if (v.aho) { em.setValue('happy', 0.62 + Math.sin(v.t * 0.8) * 0.18); em.setValue('blink', k) } // 阿呆そうな子＝ニカッと笑いが呼吸のように強弱する（表情が動く=生きてる感）
+      else if (v.aho) { em.setValue('happy', AHO_EXP.happy + Math.sin(v.t * 0.8) * AHO_EXP.amp); em.setValue('relaxed', AHO_EXP.relaxed); em.setValue('aa', AHO_EXP.aa); em.setValue('blink', k) } // 阿呆そうな子＝目は笑い(fun)+口ぽかん(aa)。happy単独の強がけは眉が寄って怒り顔に見えた（ユーザー指摘）
       else em.setValue('blink', k) }
     v.vrm.update(udt) // 揺れもの（髪のスプリングボーン）と表情の反映
+    if (v.aho && !v.netFixed) { // 虫網＝「手でにぎって肩に担ぐ」（ユーザー要望2026-07-07）。手→肩の上うしろ、の対角線に竿を通す（初回tickに実座標で計算）
+      const net = v.vrm.scene.userData._net
+      const hand = v.vrm.humanoid.getRawBoneNode('rightHand'), sh = v.vrm.humanoid.getRawBoneNode('rightUpperArm')
+      if (net && hand && sh) {
+        const hp = hand.getWorldPosition(new THREE.Vector3()), sp = sh.getWorldPosition(new THREE.Vector3())
+        const fx = -Math.sin(v.vrm.scene.rotation.y), fz = -Math.cos(v.vrm.scene.rotation.y)
+        const over = sp.clone().add(new THREE.Vector3(-fx * 0.16, 0.10, -fz * 0.16)) // 肩の上うしろ＝竿が乗る点
+        const dir = over.sub(hp).normalize()
+        net.scale.setScalar(0.64) // 子どもサイズ（シーン直付けはvrm.sceneのscaleを継がない）
+        net.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
+        net.position.copy(hp).addScaledVector(dir, -0.10) // 手は竿の下寄りをにぎる
+        scene.add(net); v.netObj = net; v.netFixed = true } }
     if (v.grandma && !v.cane) { // 杖＝ポーズ反映後の右手の実位置から地面へ（1回だけ生成・すこし前に植えて「ついている」形に）
       const hand = v.vrm.humanoid.getRawBoneNode('rightHand')
       if (hand) { const p = new THREE.Vector3(); hand.getWorldPosition(p)
@@ -16095,7 +16134,7 @@ window.__dropFlyPin = dropFlyPin; window.__clearFlyPins = clearFlyPins; window._
 // 自己検証用の最小ハンドル
 window.__proto3d = {
   THREE, scene, camera, boy, sunDir, get mode() { return mode }, sitDown, standUp, lieDown,
-  GPOSE, get vrmPilots() { return vrmPilots }, // 検証用：おばあちゃん姿勢のライブ調整（VRMパイロット）
+  GPOSE, AHO_EXP, get vrmPilots() { return vrmPilots }, // 検証用：おばあちゃん姿勢/阿呆の子の表情のライブ調整（VRMパイロット）
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   _setTdayLive(t) { dayAuto = true; tday = t; setTimeOfDay(t) }, // 検証用：dayAutoを生かしたまま時刻を置く（日課トースト=if(dayAuto)内 を発火させる）
   startAudio,
