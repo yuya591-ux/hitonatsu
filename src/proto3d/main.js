@@ -3757,6 +3757,7 @@ function buildShishigaya() {
       }
       console.log('[shishigaya] 電柱', poleP.length) } }
   // 道ぞいのブロック塀・生垣（家の前＝日本の住宅地の核・ユーザー要望2026-06-22）。家がある側だけ・中心部優先・ところどころ出入口で開ける。塀/生垣を各1インスタンスメッシュ＝軽い
+  const fenceCells = new Set() // 塀/生垣/板塀の通り芯（1mセル）＝あとで置く小物（ゴミ集積所等）が塀を横断しないための照合（めり込み総点検2026-07-07）
   { const blockTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#bdb8ac'; x.fillRect(0, 0, 64, 64); x.strokeStyle = 'rgba(120,116,106,0.45)'; x.lineWidth = 2
       for (let y = 0; y <= 64; y += 16) { x.beginPath(); x.moveTo(0, y); x.lineTo(64, y); x.stroke() } // 横目地
       for (let r = 0; r < 4; r++) { const off = (r % 2) * 16; for (let xx = off; xx <= 64; xx += 32) { x.beginPath(); x.moveTo(xx, r * 16); x.lineTo(xx, r * 16 + 16); x.stroke() } } // 馬目地の縦
@@ -3774,7 +3775,8 @@ function buildShishigaya() {
           { let onR = false; for (const tt of [-2.5, -1.9, -1.25, -0.6, 0, 0.6, 1.25, 1.9, 2.5]) if (onYatoRoadCore(wx + ux * tt, wz + uz * tt)) { onR = true; break } if (onR) { nCross++; continue } }
           const seed = Math.abs(Math.round(wx) * 7 + Math.round(wz) * 5); if (seed % 5 === 0) continue // 5区画に1つは開ける（門/車庫の出入口）
           if (Math.abs(heightAtYato(wx + ux * 2.5, wz + uz * 2.5) - heightAtYato(wx - ux * 2.5, wz - uz * 2.5)) > 0.9) continue // 5mで0.9m(18%)超の急斜面には置かない＝塀は水平積みなので大きく傾くとスロープに見える/水平置きだと端が宙に浮く（どちらも破綻・2026-07-07）
-          const r6 = seed % 6; (r6 < 2 ? hedgeP : r6 < 3 ? boardP : wallP).push([wx, wz, ang]) } } } // 生垣/板塀/ブロック塀を混在＝住宅地の塀の多様化
+          const r6 = seed % 6; (r6 < 2 ? hedgeP : r6 < 3 ? boardP : wallP).push([wx, wz, ang])
+          for (let tt = -2.5; tt <= 2.5; tt += 1) fenceCells.add(Math.round(wx + ux * tt) + ',' + Math.round(wz + uz * tt)) } } } // 生垣/板塀/ブロック塀を混在＝住宅地の塀の多様化。通り芯セルも記録（小物の横断回避用）
     if (nCross) console.log('[shishigaya] 道を横切る塀を除外', nCross)
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), eu = new THREE.Euler()
     // ハリボテ解消（ユーザー指摘2924,-3・2026-07-07）①一枚箱→笠木/控え柱/基礎つきの複合ジオメトリ（UV保持マージ・部位は平坦UV=無地・1ドローのまま）②中心1点接地→両端2点+makeBasisの傾斜追従（ガードレールの作法）＝斜面で端が浮かない
@@ -3918,11 +3920,13 @@ function buildShishigaya() {
     const rds = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD3(a) - cenD3(b))
     for (const rd of rds) { if (potP.length > 300) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
       for (let k = 0; k < p.length - 1 && potP.length <= 300; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, ang = Math.atan2(-uz, ux)
-        for (let t = 4; t < l - 4; t += 8) for (const sd of [1, -1]) { const px = x0 + ux * t + nx * sd * (hw + 1.5), pz = z0 + uz * t + nz * sd * (hw + 1.5)
+        for (let t = 4; t < l - 4; t += 8) for (const sd of [1, -1]) { const px = x0 + ux * t + nx * sd * (hw + 0.55), pz = z0 + uz * t + nz * sd * (hw + 0.55) // 置き場所＝塀の“道側”の際(hw+0.55)＝昭和の路地の「塀ぎわの鉢・立てかけ自転車」。旧hw+1.5は塀(hw+0.8)の裏に隠れ、直交自転車の先端が塀を貫通していた（めり込み総点検2026-07-07）
           if (!occAt(px + nx * sd * 2.5, pz + nz * sd * 2.5)) continue // 家の前
           if (Math.hypot(px - 3008, pz + 8) < 46 || inWater(px, pz) || heightAtYato(px, pz) < 3) continue
           if (onYatoRoadCore(px, pz)) continue // 交差点など別の道の上は避ける（鉢/自転車も道に置かない・2026-06-28）
-          const seed = Math.abs(Math.round(px) * 3 + Math.round(pz) * 7); if (seed % 3 === 0) bikeP.push([px, pz, ang + 1.5708]); else potP.push([px, pz]) } } }
+          if (ptOverPlaced(px, pz)) continue // 建物の足形の中に埋めない
+          if (Math.abs(heightAtYato(px + ux * 0.7, pz + uz * 0.7) - heightAtYato(px - ux * 0.7, pz - uz * 0.7)) > 0.3) continue // 急な段差の上には置かない（端が浮く）
+          const seed = Math.abs(Math.round(px) * 3 + Math.round(pz) * 7); if (seed % 3 === 0) bikeP.push([px, pz, ang, sd]); else potP.push([px, pz]) } } } // 自転車は道に平行＝塀に立てかける向き（sd=傾ける側）
     // ゴミ集積所＝道の脇（家のある側の路肩）に点々と。道の中心や交差点には絶対に置かない（2.3×1.5の足元を6点で判定・ユーザー指摘2026-06-28「道の真ん中にゴミ捨て場」）
     for (const rd of rds) { if (gomiP.length >= 6) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2); let placed = false
       for (let k = 0; k < p.length - 1 && !placed; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
@@ -3932,8 +3936,11 @@ function buildShishigaya() {
           if (Math.hypot(gx - 3008, gz + 8) < 46 || heightAtYato(gx, gz) < 3 || inWater(gx, gz)) continue
           let onR = false; for (const tt of [-1.2, 0, 1.2]) for (const ss of [-0.8, 0.8]) if (onYatoRoadCore(gx + ux * tt + nx * ss, gz + uz * tt + nz * ss)) { onR = true; break } // 足元(2.3×1.5)のどこかが道に乗るなら置かない＝交差点/路上を完全回避
           if (onR) continue
+          { let hitFence = false; for (const tt of [-1.2, 0, 1.2]) for (const ss of [-0.9, 0, 0.9]) if (fenceCells.has(Math.round(gx + ux * tt + nx * ss) + ',' + Math.round(gz + uz * tt + nz * ss))) { hitFence = true; break } if (hitFence) continue } // 塀を横断する位置に置かない（めり込み総点検2026-07-07）
+          if (ptOverPlaced(gx, gz) || ptOverPlaced(gx + ux * 1.1, gz + uz * 1.1) || ptOverPlaced(gx - ux * 1.1, gz - uz * 1.1)) continue // 建物の足形の中に埋めない
+          if (Math.abs(heightAtYato(gx + ux * 1.15, gz + uz * 1.15) - heightAtYato(gx - ux * 1.15, gz - uz * 1.15)) > 0.25) continue // 傾いた土間にしない
           gomiP.push([gx, gz, Math.atan2(-uz, ux)]); placed = true; break } } }
-    const mkInst = (geo, mat, arr, useRot, kind) => { if (!arr.length) return; const im = new THREE.InstancedMesh(geo, mat, arr.length); im.castShadow = true; if (kind) im.userData.propKind = kind; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(); arr.forEach((a, i) => { e.set(0, useRot ? (a[2] || 0) : 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]), a[1]), q, s); im.setMatrixAt(i, m4) }); scene.add(im) }
+    const mkInst = (geo, mat, arr, useRot, kind) => { if (!arr.length) return; const im = new THREE.InstancedMesh(geo, mat, arr.length); im.castShadow = true; if (kind) im.userData.propKind = kind; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), e = new THREE.Euler(0, 0, 0, 'ZYX'); arr.forEach((a, i) => { e.set(useRot && kind === 'bike' ? 0.11 * (a[3] || 0) : 0, useRot ? (a[2] || 0) : 0, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(a[0], heightAtYato(a[0], a[1]), a[1]), q, s); im.setMatrixAt(i, m4) }); scene.add(im) } // ZYX＝自転車のロール(a[3]=塀の側へ約6°)を車体の長軸まわりに＝“塀に立てかけた”傾き（2026-07-07）
     mkInst(POT_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), potP, false, 'pot')
     mkInst(BIKE_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), bikeP, true, 'bike')
     mkInst(GOMI_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), gomiP, true, 'gomi')
