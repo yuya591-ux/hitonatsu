@@ -159,7 +159,7 @@ SG.roads.push({ p: [[3021, 17], [3040, 26], [3039, 27], [3039, 28], [3041, 29], 
 // ── 駒岡の一角（2000年夏・Phase0承認2026-07-07）＝二ツ池の北から低地を北上する接続道＋店の並ぶ「駒岡通り」＋鶴見川の土手の天端の道。z反転後のゲーム座標で直接push＝マスク/路面/プロファイルをそのまま通す ──
 // 接続道は撤去（温存）＝既存のOSM道と数百m並走し「二重の舗装帯」になっていた（散策点検2026-07-07）。北上は既存道網＋下の短い連絡のみ
 // SG.roads.push({ p: [[2960, -500], [2952, -590], [2948, -700], [2956, -820], [2972, -940], [2990, -1020], [3005, -1080]], w: 6, k: 'paved' })
-SG.roads.push({ p: [[3005, -1080], [2870, -1120], [2690, -1160], [2560, -1205]], w: 8, k: 'paved' }) // 駒岡通り＝店の並ぶ2車線（南東から バーミヤン→ミニストップ→ジャスコ→ビックヨーサン＝実際の並び順）
+SG.roads.push({ p: [[3208, -985], [3105, -1035], [3000, -1085], [2900, -1125], [2800, -1160], [2700, -1180], [2600, -1195], [2540, -1200]], w: 8, k: 'paved' }) // 駒岡通り＝店をつなぐ2車線。地理院ジオコーディング検証(2026-07-07)＝バーミヤン/ミニストップは駒岡1丁目(3197..3222,-975付近・既存の南北道x≈3208沿い)→北西へ→ジャスコ(駒岡5・土手ぎわ2800,-1208)→ビッグヨーサン(樽町・2640,-1172)の実相対配置
 SG.roads.push({ p: [[2460, -1243], [3100, -1243]], w: 2.5, k: 'path', dote: true }) // 鶴見川の土手の天端＝散歩/サイクリングの土の道（土手の造成は heightAtYatoRaw のスタンプ）
 // OSMの道11本が土手を貫いて川側(z<-1244)まで伸びていた＝土手の盛り土に道が数m埋まる真因（_roadwarp実測2026-07-07）。実際の駒岡は道が土手の根元で止まる＝端点を土手の南の根元(z=-1237)でクランプ（天端の道だけ除外）
 for (const rd of SG.roads) { if (rd.dote) continue; for (const q of rd.p) { if (q[1] < -1237 && q[0] > 2440 && q[0] < 3120) q[1] = -1237 } }
@@ -933,8 +933,8 @@ scene.add(sunBall)
 
 // ── 時間帯のライティング（朝→昼→夕→夜。光色・影の長さ・空・霞が移ろう＝郷愁の核）──
 const PAL = {
-  morn: { light: 0xffe0a6, li: 1.9, sky: 0x619fd6, mid: 0x8dbce6, bot: 0xf3ecd8, fog: 0xc7d6e3, hi: 1.18, hsky: 0xbad6ec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝の中空mid=ほぼ白(0xe9e8dc)で「青空が薄く曇る」→澄んだ青(0xa9cfe8)へ・天頂も深い青(0x77b1e2)・地平は朝の金を残す・霧を少し澄ませ(ユーザー2026-07-06) // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
-  noon: { light: 0xffeac6, li: 2.56, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xcce4f4, fog: 0xaed0ee, hi: 1.26, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。太陽をわずかに強め(2.4→2.56)＋環境光をほんの少し絞り(1.32→1.26)＝開けた草地に日向の抜けと陰影の立体感（A：昼が平板・草地が暗く単調だった2026-07-04）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
+  morn: { light: 0xffe0a6, li: 1.9, sky: 0x619fd6, mid: 0x8dbce6, bot: 0xf3ecd8, fog: 0xb5cbdf, hi: 1.18, hsky: 0xbad6ec, hgnd: 0x97a06c, ball: 0xffe9b8, rim: 0xffce92, ri: 0.78, ctop: 0xfff1dc, cbot: 0xe7d6cf, csun: 0xffe6bc }, // 朝の中空mid=ほぼ白(0xe9e8dc)で「青空が薄く曇る」→澄んだ青(0xa9cfe8)へ・天頂も深い青(0x77b1e2)・地平は朝の金を残す・霧を少し澄ませ(ユーザー2026-07-06) // 朝＝低い太陽の金色＋温かい靄＋強い暖色リム＝「黄金の夏の朝」(青白くひんやりは“夜明け前”の印象で最も長く見る開始時が冷たく無個性だった・B⑦2026-06-27)。空は青を保ち、地平/霧/地面の照り返しを暖色へ。斜光(B⑥)と合わせて朝をエモく。c*=雲の朝染め（てっぺんは暖白・腹は淡桃灰・受光リムは金）
+  noon: { light: 0xffeac6, li: 2.56, sky: 0x2f8ad6, mid: 0x6fb6ea, bot: 0xc2ddf2, fog: 0x9cc4e8, hi: 1.26, hsky: 0xd2ecfb, hgnd: 0x97a766, ball: 0xfff2cf, rim: 0xfff0d8, ri: 0.34, ctop: 0xfffdf8, cbot: 0xe7ebf1, csun: 0xfff3de }, // 真昼＝夏休みの突き抜ける青空。退色グレード(彩度約0.7＋ミルキー)を通すと淡く曇って見えるため、空の素の青を一段深く鮮やかに（天頂0x4f9ddc→0x2f8ad6・中空0x9ccdf0→0x6fb6ea＝視界の大半を占める中空を青く）。地平/霧はわずかに澄んだ青へ（2026-06-29・ユーザー「青空が曇って見える」再指摘）。太陽をわずかに強め(2.4→2.56)＋環境光をほんの少し絞り(1.32→1.26)＝開けた草地に日向の抜けと陰影の立体感（A：昼が平板・草地が暗く単調だった2026-07-04）。c*=雲は白＋涼しい青灰の腹（夏の入道雲）
   dusk: { light: 0xff9347, li: 2.05, sky: 0x645592, mid: 0xdc8456, bot: 0xeaa274, fog: 0xc7a692, hi: 1.15, hsky: 0xd6987e, hgnd: 0x5a5e72, ball: 0xff8a3e, rim: 0xff6f24, ri: 1.45, ctop: 0xffdcb0, cbot: 0xc69bb0, csun: 0xff9a52 }, // 夕＝紫がかった霞(参考画像「夏の雨夕暮れ」)＋地平は燃える金橙・輪郭の橙ふちを少し強く。灯りの暖色だけ残し空気は紫灰へ（マジックアワー濃密化2026-06-25）。c*=雲のてっぺんは焼けた橙金・腹は紫灰へ沈め・受光リムは燃える橙＝夕焼け雲
   night: { light: 0x97abdc, li: 1.25, sky: 0x172236, mid: 0x2a3859, bot: 0x44557c, fog: 0x243250, hi: 1.2, hsky: 0x5a6ca8, hgnd: 0x32404e, ball: 0xcdd6ff, rim: 0x8aa0d8, ri: 0.32, ctop: 0x5a6890, cbot: 0x3a4768, csun: 0x6a78a0 }, // 夜＝月光の青白さ・地面を沈め灯りを際立たせる。c*=雲は月明かりの青灰へ沈める（白く浮かない・光らない）
 }
@@ -2574,7 +2574,7 @@ function buildShishigaya() {
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
-  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3007, 20, 20], [2990, 13, 9], [2939, -128, 38], [2644, 383, 18], [2952, 190, 18], [2705, -1190, 44], [2955, -1058, 22], [2572, -1163, 30], [2880, -1146, 16], [2984, -1216, 17], [3003, -755, 40], [2998, -860, 40], [2972, -1035, 20], [3002, -960, 17], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭(=開始地点の前庭＋本通り＋バス停まわりを開ける。狭いと汎行建物が道(makeRoadRibbon)に乗り見えない壁になる・ユーザー指摘2026-06-24で拡張)＋西側ポーチ脇/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋三石原っぱ/金井公園(夏祭り会場・建物を開ける)＋駒岡の一角4施設(ジャスコ/バーミヤン/ビックヨーサン/ミニストップ＝敷地+駐車場を開ける・2026-07-07)＋NAMED
+  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3007, 20, 20], [2990, 13, 9], [2939, -128, 38], [2644, 383, 18], [2952, 190, 18], [2800, -1188, 46], [3185, -975, 22], [2640, -1168, 30], [3222, -982, 16], [2984, -1216, 17], [3003, -755, 40], [2998, -860, 40], [2972, -1035, 20], [3002, -960, 17], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭(=開始地点の前庭＋本通り＋バス停まわりを開ける。狭いと汎行建物が道(makeRoadRibbon)に乗り見えない壁になる・ユーザー指摘2026-06-24で拡張)＋西側ポーチ脇/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋三石原っぱ/金井公園(夏祭り会場・建物を開ける)＋駒岡の一角4施設(ジャスコ/バーミヤン/ビックヨーサン/ミニストップ＝敷地+駐車場を開ける・2026-07-07)＋NAMED
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   const inWaterAny = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p)) // 点が池/川の水面の上か
   // フットプリントを格子サンプルして「testに該当する面積の割合」を返す。割合がしきい値超＝建物がその上に“乗っている”＝不自然
@@ -3062,7 +3062,7 @@ function buildShishigaya() {
     const buildKomaoka = () => {
       // --- ジャスコ駒岡店＝白い大箱2階＋屋上駐車場（スロープ・パラペット・屋上の車）＋正面の大駐車場＋入口キャノピー＋「ロッテリア」の小さな看板 ---
       // ※向きはfaceRoadでなく明示＝最寄り道が「土手の天端の小道」になり店が土手（北）を向いてしまう（駒岡通り＝南へ正対・2026-07-07）
-      { const cx = 2705, cz = -1202, ry = Math.atan2(2690 - cx, -1160 - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)]
+      { const cx = 2800, cz = -1208, ry = Math.atan2(2800 - cx, -1160 - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 地理院検証2026-07-07＝駒岡5-6-1(真値x2831)の土手ぎわへ移設・前面駐車場が通り(z-1160)に接する
         const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx]
         // 画像調査2026-07-07（イオン駒岡店=同じ建物）：実物は「1-2F店舗＋3-5F立体駐車場」の白い5層＝各駐車階の白いパラペット帯と黒いスリット開口が水平に走り、屋上の角に看板キューブ、道路際にポール看板
         const W = 54, D = 30, gB = gmin4(cx, cz, W, D), HS = 7.6, H = 16.4 // HS=店舗部(1-2F)の高さ・H=全体（駐車場3層分を積む）
@@ -3099,7 +3099,7 @@ function buildShishigaya() {
           car(-12.5, 23.5, 0.03, carCols[0]); car(-2.5, 23.5, -0.04, carCols[1]); car(7.5, 23.5, 0.05, carCols[2]); car(17.5, 23.5, 0.02, carCols[3]) }
         addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
       // --- バーミヤン横浜駒岡店＝赤い中華風屋根のロードサイド店＋駐車場＋看板ポール ---
-      { const cx = 2955, cz = -1052, ry = Math.atan2(2930 - cx, -1103 - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 駒岡通りへ正対（明示）
+      { const cx = 3185, cz = -973, ry = Math.atan2(3208 - cx, -973 - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 地理院検証2026-07-07＝駒岡1-26-13の実位置(3197,-973)へ移設・既存の南北道(x≈3208)へ東向きに正対
         const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx]
         // 画像調査2026-07-07：90〜2000年代のバーミヤンは「ピンクの外壁＋緑の瓦屋根＋桃マークの丸い赤看板＋入口のIN矢印」＝現存する当時型店舗（長岡宮尾西/弘前堺町等）で確認
         const W = 16, D = 11, gB = gmin4(cx, cz, W, D), H = 3.8
@@ -3128,7 +3128,7 @@ function buildShishigaya() {
           addBox(wx2, wz2, 1.05, 2.1, ry, 0.2) }
         addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
       // --- ビッグヨーサン＝倉庫型の平屋＋黄×赤の派手な看板＋店頭の青果ワゴン（1995開店・樽綱橋のたもと＝橋の手前に圧縮） ---
-      { const cx = 2572, cz = -1158, ry = Math.atan2(2585 - cx, -1192 - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 駒岡通りへ正対（明示）
+      { const cx = 2640, cz = -1156, ry = Math.atan2(2640 - cx, -1189 - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 地理院検証2026-07-07＝樽町3-7-75の実相対位置(ジャスコの南西160m・樽綱橋のたもと)へ移設・通り(z-1191)へ北向きに正対
         const f = (lx, lz) => [cx + fwd[0] * lz + side[0] * lx, cz + fwd[1] * lz + side[1] * lx]
         // 画像調査2026-07-07（綱島樽町店）：実物は「えんじ色の巨大な屋上看板（黄色文字＋生鮮市場）＋帆形の背の高いブレード看板＋店頭のカラフルな幕・のぼり」＝激安スーパーの熱気
         const W = 34, D = 20, gB = gmin4(cx, cz, W, D), H = 7.2
@@ -3150,7 +3150,7 @@ function buildShishigaya() {
         for (const o of [7.4, 8.0, 8.6]) { const [wx2, wz2] = f(o, D / 2 + 1.8); grp.add(mk(new THREE.BoxGeometry(0.5, 0.55, 0.72), new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.7 }), wx2, heightAtYato(wx2, wz2) + 0.45, wz2, ry, true)) } // カート
         addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
       // --- ミニストップ（ユーザー記憶・現存確認できず＝閉店とみられる）＝90年代の実物は「黄色い看板帯に青文字」（画像調査2026-07-07で修正・青地→黄色地） ---
-      buildConbini(2880, -1148, 'ミニストップ', '#ffd400', '#1d4f9e')
+      buildConbini(3222, -982, 'ミニストップ', '#ffd400', '#1d4f9e') // 地理院検証2026-07-07＝駒岡1-25-20の実位置(3215,-975)ぎわ・バーミヤンと南北道(x≈3208)を挟んで向かい＝実際どおり
       // --- 鶴見川＝土手の向こうの川面と対岸（霧に溶ける遠景）＋樽綱橋（見た目＝渡れない・ロープと札） ---
       { const water = new THREE.Mesh(new THREE.PlaneGeometry(920, 170), new THREE.MeshToonMaterial({ color: 0x7d98a6, gradientMap: GRAD, transparent: true, opacity: 0.94 })); water.rotation.x = -Math.PI / 2; water.position.set(2780, 0.55, -1338); grp.add(water) // 川面
         const bank = new THREE.Mesh(new THREE.PlaneGeometry(920, 70), new THREE.MeshToonMaterial({ color: 0x5d7a4a, gradientMap: GRAD })); bank.rotation.x = -Math.PI / 2; bank.position.set(2780, 0.9, -1452); grp.add(bank) // 対岸の緑（霧の中）
@@ -3165,10 +3165,10 @@ function buildShishigaya() {
         grp.add(mk(new THREE.CylinderGeometry(0.2, 0.3, 2.0 * ts, 5), toon(0x6a4e34), tx, ty + 1.0 * ts, tz, 0, true))
         const cv = mk(new THREE.IcosahedronGeometry(2.2 * ts, 1), toon(0x567e3a), tx, ty + 2.0 * ts + 1.6 * ts, tz, 0, true); cv.scale.set(1, 1.08, 1); grp.add(cv) }
       // --- 駒岡通りの街路樹（歩道側に交互・郊外の買い物通りの並木＝画像調査でイオン前に街路樹を確認） ---
-      { const P = [[3005, -1080], [2870, -1120], [2690, -1160], [2560, -1205]]
+      { const P = [[3208, -985], [3105, -1035], [3000, -1085], [2900, -1125], [2800, -1160], [2700, -1180], [2600, -1195], [2540, -1200]] // 移設2026-07-07＝新しい通りの折れ線に追従
         for (let k = 0; k < P.length - 1; k++) { const [x0, z0] = P[k], [x1, z1] = P[k + 1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz), nx = -dz / l, nz = dx / l
           for (let t = 16; t < l - 10; t += 30) { const sd = (Math.round(t / 30) % 2) ? 1 : -1, tx = x0 + dx * t / l + nx * sd * 6.4, tz = z0 + dz * t / l + nz * sd * 6.4
-            if (Math.hypot(tx - 2705, tz + 1190) < 40 || Math.hypot(tx - 2955, tz + 1055) < 20 || Math.hypot(tx - 2880, tz + 1146) < 15 || Math.hypot(tx - 2572, tz + 1160) < 28) continue // 店の敷地は避ける
+            if (Math.hypot(tx - 2800, tz + 1188) < 44 || Math.hypot(tx - 3185, tz + 975) < 22 || Math.hypot(tx - 3222, tz + 982) < 15 || Math.hypot(tx - 2640, tz + 1168) < 28) continue // 店の敷地は避ける
             const ty = heightAtYato(tx, tz)
             grp.add(mk(new THREE.CylinderGeometry(0.14, 0.2, 2.4, 5), toon(0x6a4e34), tx, ty + 1.2, tz, 0, true))
             const cv = mk(new THREE.IcosahedronGeometry(1.7, 1), toon(0x5c8440), tx, ty + 3.6, tz, 0, true); cv.scale.set(1, 1.15, 1); grp.add(cv); addBox(tx, tz, 0.3, 0.3, 0, 0.2) } } }
@@ -8658,7 +8658,7 @@ const yatoPondJii = makeYatoResident(3012, -480, 3006, -490, {
 })
 npcs.push(yatoPondJii)
 // 駒岡＝ジャスコ前の買い物のお母さん（2000年頃の買い物の記憶＝町の活気・2026-07-07）
-const komaokaMama = makeYatoResident(2718, -1178, 2705, -1190, {
+const komaokaMama = makeYatoResident(2812, -1172, 2800, -1195, {
   scale: 1.0, adult: true, simple: true, build: 0.9, garment: 'dress', apron: 0xe8e0cc, shirt: 0xc86a5a, skirt: 0x6a5a70, skin: 0xf0d0ac,
   hair: 0x4e3e30, hairStyle: 'bob', eyeSc: 0.98,
   info: { name: '買いものの おかあさん',
@@ -9842,7 +9842,7 @@ addChatPair(3010, 22, 0.6)   // バス通りぎわ
 addChatPair(2770.9, -156.9, -0.545, true) // しんみせの裏口(−side＝WNWの脇戸)を出たすぐ外に立ち話の二人（ユーザー確認2026-07-05）。壁に平行(ang=ry)に並べ、noSnapで裏口脇へ直接（舗装路が迫り自動スナップだと南へ流れるため）
 addChatPair(2951, -311, 0.3) // 谷戸の道＝神明社の足元の平らな棚へ（旧2960,-330は急な石段の途中で棒立ちに見えた・2026-07-06）
 addChatPair(3818, -726, 1.0) // 三ツ池公園の池端（散歩の人の立ち話）
-addChatPair(2712, -1174, -0.35) // 駒岡＝ジャスコの駐車場ぎわ（買い物帰りの立ち話・町の活気2026-07-07）
+addChatPair(2788, -1168, -0.35) // 駒岡＝ジャスコの駐車場ぎわ（買い物帰りの立ち話・町の活気2026-07-07）
 addChatPair(2836, -1240, 1.35) // 駒岡＝鶴見川の土手の上（夕涼みの立ち話）
 addChatPair(3050, 13, 0.4)  // 第三公園のブランコぎわ（公園に必ず人を。園庭のユーザーピン移設2026-07-02に追従）
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
