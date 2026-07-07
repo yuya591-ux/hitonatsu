@@ -14827,6 +14827,13 @@ const VRM_PILOTS = [
   { file: 'models/sendagaya_shino.vrm', pos: [3048.5, 14.2], ry: 1.9, scale: 0.84, headScale: 1.02, spineBend: 0.44, grandma: true }, // おばあちゃん化v2＝ショート白髪+丸めがね+細目+猫背(3関節分散)+杖+渋い服+小柄
   { file: 'models/sakurada_fumiriya.vrm', pos: [3045.5, 18.2], ry: 2.0, scale: 0.72, headScale: 1.38, boy: true }, // 夏の男の子（PhaseA主人公候補・桜田）＝麦わら帽子+白シャツ+半ズボン（フェンス南西の開けた芝）
 ]
+// おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
+// 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
+// 背中の丸み(spine/chest/uc)・首の前出し・顔はやや下向き・膝のゆるい曲がりの4点が揃って初めて老人のシルエットになる（2026-07-07）
+// 符号の実測（2026-07-07・骨のワールド座標を数値計測して確定）: hips/spine/chest/upperChest/neck/head の全てが「rotation.x ＋＝後屈・−＝前屈」。
+// スクショの目視で「spineは＋が前屈」と読み違えて3度エビ反りを出した＝角度は必ず数値計測で確認する。
+// 前かがみ＝全係数を負（headFだけ正＝顔を起こして視線を数m先へ）。kneeは＋で屈曲・dropは膝分の沈み込み(m)・skirtはスカートの垂直戻し(raw)
+const GPOSE = { hipF: -0.70, spineF: -0.55, chestF: -0.38, ucF: -0.24, neckF: -0.65, headF: 0.95, headNear: 1.6, shY: 0.55, knee: 0.36, kneeComp: 0.6, drop: 0.055, skirt: 0.28 }
 // 夏の男の子化（2026-07-07・PhaseA主人公候補の照準確認）：ネクタイ/長ズボンを非表示にし、
 // 半ズボン（腰筒+もも筒）・すね/ももの肌・麦わら帽子をボーンに付与。アホ毛は帽子貫通を防いで短縮
 function boyize(vrm) {
@@ -14895,7 +14902,7 @@ function grandmaize(vrm) {
   const hips = vrm.humanoid.getRawBoneNode('hips')
   if (hips) { // ひざ下丈のロングスカート（もんぺ風の濃鼠）＝腰ボーンから吊るす円錐。太もも/ミニの学生感を消す本命
     const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.225, 0.50, 14), charToon(0x7a7480)) // ゲームの人物用トゥーン＝影側が黒く潰れない
-    skirt.position.set(0, -0.22, 0); skirt.rotation.x = -0.36; hips.add(skirt) // 股関節の前折りぶん布は垂直へ戻す（+0.30は逆で後ろへ跳ねた＝実測で負が正解）
+    skirt.position.set(0, -0.22, 0); skirt.rotation.x = GPOSE.skirt; hips.add(skirt); vrm.scene.userData._skirt = skirt // 股関節の前折りぶん布は垂直へ戻す（毎フレームGPOSE.skirtを適用＝ライブ調整可。※VRMクラスにuserDataは無い＝sceneに持たせる）
   }
   const head = vrm.humanoid.getRawBoneNode('head')
   if (!head) return
@@ -14946,9 +14953,7 @@ async function startVrmPilot() {
       if (cfg.boy) boyize(vrm) // 夏の男の子（PhaseA主人公候補）
       if (cfg.grandma) { // おばあちゃん化v2＝髪型/めがね/服（grandmaize）＋右腕は杖を突く形・左腕は体側へ・指は軽く曲げる
         grandmaize(vrm)
-        // 前かがみの主軸は「股関節」＝hipsを前に折り脚を同量逆回転で垂直に戻す（背骨だけ曲げるとお腹が前に出て頭が上がり「エビ反り」に見える＝ユーザー指摘2026-07-07）
-        const hipsN = hu.getNormalizedBoneNode('hips'); if (hipsN) hipsN.rotation.x = cfg.spineBend
-        for (const s of ['leftUpperLeg', 'rightUpperLeg']) { const b = hu.getNormalizedBoneNode(s); if (b) b.rotation.x = -cfg.spineBend }
+        // 前かがみの姿勢（腰/脚/背/首/肩）は毎フレームGPOSEから適用（vrmPilotTick）＝ライブ調整可
         const rua = hu.getNormalizedBoneNode('rightUpperArm'); if (rua) { rua.rotation.z = -1.12; rua.rotation.x = -0.32 } // xは負が前（正規化ボーンは+Zが前方＝実測）
         const rla = hu.getNormalizedBoneNode('rightLowerArm'); if (rla) { rla.rotation.z = -0.04; rla.rotation.x = -0.26 }
         const lua = hu.getNormalizedBoneNode('leftUpperArm'); if (lua) { lua.rotation.z = 1.30; lua.rotation.x = -0.05 }
@@ -14957,11 +14962,8 @@ async function startVrmPilot() {
           for (const fn of ['Index', 'Middle', 'Ring', 'Little']) for (const s of ['Proximal', 'Intermediate', 'Distal']) { const b = hu.getNormalizedBoneNode(prefix + fn + s); if (b) b.rotation.z = sign * (s === 'Distal' ? amt * 0.7 : amt) }
           for (const s of ['Metacarpal', 'Proximal', 'Distal']) { const b = hu.getNormalizedBoneNode(prefix + 'Thumb' + s); if (b) b.rotation.y = sign * amt * 0.5 } }
         fingerCurl('left', -1, 0.5); fingerCurl('right', 1, 0.7) // 右手は杖を持つぶん深めに
-        const ls = hu.getNormalizedBoneNode('leftShoulder'); if (ls) ls.rotation.y = -0.30 // 肩を前に巻く＝丸背（エビ反り対策）
-        const rs = hu.getNormalizedBoneNode('rightShoulder'); if (rs) rs.rotation.y = 0.30
-        const neck = hu.getNormalizedBoneNode('neck'); if (neck) neck.rotation.x = (cfg.spineBend || 0) * 0.28 // 首も前へ＝背中の丸みを首まで続ける
       }
-      vrmPilots.push({ vrm, t: Math.random() * 3, blinkT: 2.0 + Math.random(), headYaw: 0, spineBend: cfg.spineBend || 0, grandma: !!cfg.grandma })
+      vrmPilots.push({ vrm, t: Math.random() * 3, blinkT: 2.0 + Math.random(), headYaw: 0, spineBend: cfg.spineBend || 0, grandma: !!cfg.grandma, baseY: vrm.scene.position.y })
     }
     vrmPilotState = 2
   } catch (e) { console.warn('VRMパイロット読込失敗', e); vrmPilotState = 3 }
@@ -14971,11 +14973,19 @@ function vrmPilotTick(dt) {
   for (const v of vrmPilots) {
     v.t += dt
     const hu = v.vrm.humanoid
-    // 前かがみの主軸は股関節（起動時に設定）。背骨はごく軽い丸み＝猫背の続きだけ（強く曲げるとお腹が突き出て「エビ反り」に見える）
-    const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = v.spineBend * 0.26 + Math.sin(v.t * 1.6) * 0.018 // 呼吸のゆらぎ
+    // 前かがみ姿勢＝GPOSEを毎フレーム適用（股関節の折り+背中の丸み+膝のゆるい曲がり）。呼吸のゆらぎはspineに合成
+    const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = v.spineBend * GPOSE.spineF + Math.sin(v.t * 1.6) * 0.018
     if (v.spineBend) { const chest = hu.getNormalizedBoneNode('chest'), uc = hu.getNormalizedBoneNode('upperChest')
-      if (chest) chest.rotation.x = v.spineBend * (uc ? 0.14 : 0.24)
-      if (uc) uc.rotation.x = v.spineBend * 0.10 }
+      if (chest) chest.rotation.x = v.spineBend * (uc ? GPOSE.chestF : GPOSE.chestF + 0.10)
+      if (uc) uc.rotation.x = v.spineBend * GPOSE.ucF
+      const hips = hu.getNormalizedBoneNode('hips'); if (hips) hips.rotation.x = v.spineBend * GPOSE.hipF // 股関節の折り＝前かがみの主軸
+      for (const s of ['leftUpperLeg', 'rightUpperLeg']) { const b = hu.getNormalizedBoneNode(s); if (b) b.rotation.x = -v.spineBend * GPOSE.hipF - GPOSE.knee * GPOSE.kneeComp } // 脚を逆回転で接地に戻し膝ぶんは前へ
+      for (const s of ['leftLowerLeg', 'rightLowerLeg']) { const b = hu.getNormalizedBoneNode(s); if (b) b.rotation.x = GPOSE.knee } // 膝のゆるい曲がり＝老人の立ち姿
+      const neck = hu.getNormalizedBoneNode('neck'); if (neck) neck.rotation.x = v.spineBend * GPOSE.neckF // 首の前出し
+      const ls = hu.getNormalizedBoneNode('leftShoulder'); if (ls) ls.rotation.y = -GPOSE.shY // 肩を前に巻く＝丸背
+      const rs = hu.getNormalizedBoneNode('rightShoulder'); if (rs) rs.rotation.y = GPOSE.shY
+      if (v.baseY != null) v.vrm.scene.position.y = v.baseY - GPOSE.drop // 膝を曲げたぶん沈めて足を接地
+      if (v.vrm.scene.userData._skirt) v.vrm.scene.userData._skirt.rotation.x = GPOSE.skirt } // スカートは前折りした骨盤から垂直へ戻す
     const head = hu.getNormalizedBoneNode('head')
     if (head) { // 近くに来たらゆっくり顔を向ける（npcGazeの礼儀と同じ作法・首は±0.6radまで）
       const dx = boy.position.x - v.vrm.scene.position.x, dz = boy.position.z - v.vrm.scene.position.z
@@ -14983,7 +14993,10 @@ function vrmPilotTick(dt) {
       const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : 0
       v.headYaw += (want - v.headYaw) * Math.min(1, dt * 3.2)
       head.rotation.y = v.headYaw
-      head.rotation.x = -v.spineBend * 0.55 // 股関節で折れたぶん顔を半分だけ起こす＝視線は数m先の地面（上げすぎるとエビ反りに見える）
+      // 顔の起こし量（＋＝起こす）。ふだんは2〜3m先の地面を見る程度・近くに人が来たら腰は曲げたままゆっくり顔だけ上げて見上げる
+      const wantP = v.spineBend * (near ? GPOSE.headNear : GPOSE.headF)
+      v.headPitch = (v.headPitch ?? wantP) + (wantP - (v.headPitch ?? wantP)) * Math.min(1, dt * 3.2)
+      head.rotation.x = v.headPitch
     }
     const em = v.vrm.expressionManager // まばたき
     if (em) { v.blinkT -= dt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
@@ -15927,6 +15940,7 @@ window.__dropFlyPin = dropFlyPin; window.__clearFlyPins = clearFlyPins; window._
 // 自己検証用の最小ハンドル
 window.__proto3d = {
   THREE, scene, camera, boy, sunDir, get mode() { return mode }, sitDown, standUp, lieDown,
+  GPOSE, get vrmPilots() { return vrmPilots }, // 検証用：おばあちゃん姿勢のライブ調整（VRMパイロット）
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   _setTdayLive(t) { dayAuto = true; tday = t; setTimeOfDay(t) }, // 検証用：dayAutoを生かしたまま時刻を置く（日課トースト=if(dayAuto)内 を発火させる）
   startAudio,
