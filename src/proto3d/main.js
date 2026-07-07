@@ -157,12 +157,16 @@ for (const r of SG.roads) for (const p of r.p) p[1] = -p[1]
 SG.roads.push({ p: [[4118, -960], [4142, -992], [4152, -1040], [4150, -1092], [4146, -1142]], w: 3, k: 'path' })
 SG.roads.push({ p: [[3021, 17], [3040, 26], [3039, 27], [3039, 28], [3041, 29], [3042, 28], [3043, 28], [3043, 26], [3045, 24], [3047, 22], [3050, 18]], w: 3, k: 'path' }) // 第三公園への道のり（ユーザーピン10点2026-07-02）＝駐輪場の路地の先(3021,17)から北東へ、仕切りの細い木3本(3040〜3041,22〜25)を北から回り込み、西角(3047,22)から窪んだ園庭へ下りる。末尾(3050,18)は園庭の床への取り付き
 // ── 駒岡の一角（2000年夏・Phase0承認2026-07-07）＝二ツ池の北から低地を北上する接続道＋店の並ぶ「駒岡通り」＋鶴見川の土手の天端の道。z反転後のゲーム座標で直接push＝マスク/路面/プロファイルをそのまま通す ──
-SG.roads.push({ p: [[2960, -500], [2952, -590], [2948, -700], [2956, -820], [2972, -940], [2990, -1020], [3005, -1080]], w: 6, k: 'paved' }) // 接続道＝二ツ池の谷の道の北端から駒岡の低地へ
+// 接続道は撤去（温存）＝既存のOSM道と数百m並走し「二重の舗装帯」になっていた（散策点検2026-07-07）。北上は既存道網＋下の短い連絡のみ
+// SG.roads.push({ p: [[2960, -500], [2952, -590], [2948, -700], [2956, -820], [2972, -940], [2990, -1020], [3005, -1080]], w: 6, k: 'paved' })
 SG.roads.push({ p: [[3005, -1080], [2870, -1120], [2690, -1160], [2560, -1205]], w: 8, k: 'paved' }) // 駒岡通り＝店の並ぶ2車線（南東から バーミヤン→ミニストップ→ジャスコ→ビックヨーサン＝実際の並び順）
 SG.roads.push({ p: [[2460, -1243], [3100, -1243]], w: 2.5, k: 'path' }) // 鶴見川の土手の天端＝散歩/サイクリングの土の道（土手の造成は heightAtYatoRaw のスタンプ）
 for (const rd of SG.roads) { const p = rd.p; if (rd.k === 'path' && p.length === 4 && Math.abs(p[0][0] - 3051) < 2 && Math.abs(p[0][1] - 49) < 2 && Math.abs(p[3][0] - 3066) < 2) { rd.w = 2.4; rd.k = 'paved' } } // 上の通りから公園へ下りる“結構急な坂”(ストリートビュー1枚目)＝実態に合わせ幅1.2→2.4・土→灰色の舗装(ブロック舗装の見立て・足音も舗装に)
 for (const w of SG.waters) for (const p of w.p) p[1] = -p[1]
 for (const g of SG.greens) for (const p of g.p) p[1] = -p[1]
+// 駒岡の低地の田畑（2000年頃の鶴見川ぞいの農地の名残・散策点検2026-07-07＝道中600mが空の平原だった）。z反転後のゲーム座標で直接push＝既存の青田/あぜ道の描画をそのまま通す
+SG.greens.push({ kind: 'farm', p: [[2968, -724], [3038, -720], [3040, -786], [2966, -790]] })
+SG.greens.push({ kind: 'farm', p: [[2962, -826], [3034, -822], [3036, -894], [2960, -898]] })
 // ── 道の通り道マスク（2m格子）：道に沿って歩けるよう「道の上では当たり判定を効かせない」＝見えない壁で塞がれない（ユーザー最重要要望2026-06-22）。建物と道が重なる箇所(OSMの重なり/道の最低幅ぶとり)で道が塞がる問題を全箇所まとめて解消 ──
 const RMASK_CELL = 2, RMASK_N = Math.ceil(SG.half * 2 / RMASK_CELL) + 1
 const yatoRoadMask = new Uint8Array(RMASK_N * RMASK_N)
@@ -2408,7 +2412,7 @@ function buildShishigaya() {
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
-  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3007, 20, 20], [2990, 13, 9], [2939, -128, 38], [2644, 383, 18], [2952, 190, 18], [2705, -1190, 44], [2955, -1058, 22], [2572, -1163, 30], [2880, -1146, 16], [2984, -1216, 17], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭(=開始地点の前庭＋本通り＋バス停まわりを開ける。狭いと汎行建物が道(makeRoadRibbon)に乗り見えない壁になる・ユーザー指摘2026-06-24で拡張)＋西側ポーチ脇/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋三石原っぱ/金井公園(夏祭り会場・建物を開ける)＋駒岡の一角4施設(ジャスコ/バーミヤン/ビックヨーサン/ミニストップ＝敷地+駐車場を開ける・2026-07-07)＋NAMED
+  const skipZones = [[2898, -63, 15], [3012, -56, 24], [3007, 20, 20], [2990, 13, 9], [2939, -128, 38], [2644, 383, 18], [2952, 190, 18], [2705, -1190, 44], [2955, -1058, 22], [2572, -1163, 30], [2880, -1146, 16], [2984, -1216, 17], [3003, -755, 40], [2998, -860, 40], [2972, -1035, 20], [3002, -960, 17], ...NAMED.map((n) => [n[0], n[1], n[4]])] // ビスコ/B1森/サンライズ前庭(=開始地点の前庭＋本通り＋バス停まわりを開ける。狭いと汎行建物が道(makeRoadRibbon)に乗り見えない壁になる・ユーザー指摘2026-06-24で拡張)＋西側ポーチ脇/マリノスのグラウンド(移設先4隅の中心・開けた原っぱに)＋三石原っぱ/金井公園(夏祭り会場・建物を開ける)＋駒岡の一角4施設(ジャスコ/バーミヤン/ビックヨーサン/ミニストップ＝敷地+駐車場を開ける・2026-07-07)＋NAMED
   const inSkip = (x, z) => skipZones.some(([sx, sz, rr]) => Math.hypot(x - sx, z - sz) < rr)
   const inWaterAny = (x, z) => SG.waters.some((w) => w.p.length >= 3 && pip(x, z, w.p)) // 点が池/川の水面の上か
   // フットプリントを格子サンプルして「testに該当する面積の割合」を返す。割合がしきい値超＝建物がその上に“乗っている”＝不自然
@@ -3006,6 +3010,27 @@ function buildShishigaya() {
             const ty = heightAtYato(tx, tz)
             grp.add(mk(new THREE.CylinderGeometry(0.14, 0.2, 2.4, 5), toon(0x6a4e34), tx, ty + 1.2, tz, 0, true))
             const cv = mk(new THREE.IcosahedronGeometry(1.7, 1), toon(0x5c8440), tx, ty + 3.6, tz, 0, true); cv.scale.set(1, 1.15, 1); grp.add(cv); addBox(tx, tz, 0.3, 0.3, 0, 0.2) } } }
+      // --- 道中の農地帯（2000年頃の駒岡低地＝鶴見川ぞいの農の名残。田はSG.greensへpush済み＝ここは畑・ビニールハウス・農小屋・軽トラ） ---
+      { const hx = 2996, hz = -960 // ビニールハウス2棟（半円筒の骨に白いビニール）
+        for (const [ox2, oz2] of [[0, 0], [13, 2]]) { const bx2 = hx + ox2, bz2 = hz + oz2, by2 = heightAtYato(bx2, bz2)
+          const hg = new THREE.CylinderGeometry(2.6, 2.6, 22, 10, 1, false, 0, Math.PI); hg.rotateZ(Math.PI / 2); hg.rotateY(Math.PI / 2) // 半円筒（かまぼこ）を寝かせて南北へ
+          grp.add(mk(hg, new THREE.MeshToonMaterial({ color: 0xeef2ee, gradientMap: GRAD, transparent: true, opacity: 0.75, side: THREE.DoubleSide }), bx2, by2 + 0.1, bz2, 0.06, true))
+          addBox(bx2, bz2, 2.8, 11, 0.06, 0.2) }
+        // 畑（土の畝の列＝葉物の緑を点々と）
+        const px3 = 2972, pz3 = -1035; groundPatch(grp, px3, pz3, 26, 18, 0xa8814e)
+        for (let r2 = -3; r2 <= 3; r2++) { const rg2 = new THREE.BoxGeometry(22, 0.24, 0.9); rg2.translate(px3, heightAtYato(px3, pz3 + r2 * 2.4) + 0.14, pz3 + r2 * 2.4); const rm2 = new THREE.Mesh(rg2, toon(0x8a6a3e)); rm2.castShadow = true; grp.add(rm2)
+          for (let c2 = -4; c2 <= 4; c2++) { const vg = new THREE.IcosahedronGeometry(0.22, 0); vg.translate(px3 + c2 * 2.4, heightAtYato(px3, pz3) + 0.34, pz3 + r2 * 2.4); const vm = new THREE.Mesh(vg, toon(0x5f8a3a)); grp.add(vm) } }
+        // 農小屋（トタンの物置）と軽トラ（白・2000年頃の農道の定番）
+        { const sx3 = 2958, sz3 = -1032, sy3 = heightAtYato(sx3, sz3)
+          grp.add(mk(new THREE.BoxGeometry(4.2, 2.4, 3.2), toon(0x9a938a), sx3, sy3 + 1.2, sz3, 0.2, true))
+          grp.add(mk(new THREE.BoxGeometry(4.6, 0.16, 3.6), toon(0x6e6862), sx3, sy3 + 2.5, sz3, 0.2, true)); addBox(sx3, sz3, 2.2, 1.7, 0.2, 0.2) }
+        { const kx3 = 2955, kz3 = -1042, ky3 = heightAtYato(kx3, kz3), g3 = new THREE.Group(); g3.position.set(kx3, ky3, kz3); g3.rotation.y = 1.2; grp.add(g3)
+          const a3 = (geo, mat, x2, y2, z2) => { const m = new THREE.Mesh(geo, mat); m.position.set(x2, y2, z2); m.castShadow = true; g3.add(m) }
+          a3(new THREE.BoxGeometry(1.5, 0.5, 1.6), toon(0xeceae2), 0, 0.75, 1.2); a3(new THREE.BoxGeometry(1.45, 0.55, 0.1), toon(0xeceae2), 0, 0.6, 0.35) // キャビン＋あおり
+          a3(new THREE.BoxGeometry(1.4, 0.62, 1.5), new THREE.MeshToonMaterial({ color: 0x3a444c, gradientMap: GRAD }), 0, 1.25, 1.25) // キャビンの窓帯
+          a3(new THREE.BoxGeometry(1.5, 0.32, 2.0), toon(0xdfdcd2), 0, 0.5, -0.7) // 荷台
+          const tire3 = toon(0x1b1b1e); for (const [tx3, tz3] of [[0.72, 1.1], [-0.72, 1.1], [0.72, -1.0], [-0.72, -1.0]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.2, 10), tire3); m.rotation.z = Math.PI / 2; m.position.set(tx3, 0.28, tz3); g3.add(m) }
+          addBox(kx3, kz3, 0.9, 1.6, 1.2, 0.2) } }
       // --- 河川敷の草野球（バックネットとベンチ＝日曜の音の記憶）＝バックネットは土手側（北）・グラウンドは道路から離す。敷地はskipZoneで汎用の家を除去（家と重なっていた破綻の修正2026-07-07） ---
       { const bx = 2984, bz = -1216, by = heightAtYato(bx, bz) // x2952→2984＝既存の南北の小道がダイヤモンドを貫通していたため東の空き地へ（2026-07-07）
         groundPatch(grp, bx, bz, 22, 15, 0xbfae86) // 土のグラウンド
