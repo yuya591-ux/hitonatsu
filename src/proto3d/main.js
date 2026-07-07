@@ -15040,14 +15040,29 @@ async function startVrmPilot() {
       import('three/examples/jsm/loaders/GLTFLoader.js'),
       import('@pixiv/three-vrm'),
     ])
+    const bufCache = {} // 同じVRMファイルは1回だけダウンロード（篠×2・桜田×2＝85MB→51MBへ。iPhoneのクラッシュ対策2026-07-07）
     for (const cfg of VRM_PILOTS) {
       const loader = new GLTFLoader()
       loader.register((parser) => new VRMLoaderPlugin(parser))
-      const gltf = await loader.loadAsync(cfg.file)
+      if (!bufCache[cfg.file]) bufCache[cfg.file] = await (await fetch(cfg.file)).arrayBuffer()
+      const gltf = await loader.parseAsync(bufCache[cfg.file], cfg.file)
       const vrm = gltf.userData.vrm
       VRMUtils.removeUnnecessaryVertices(gltf.scene)
       if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
       VRMUtils.rotateVRM0(vrm) // VRM0.xの向きをVRM1相当へ統一
+      // テクスチャの軽量化（iPhoneのメモリ落ち対策）＝2048級を1024へ縮小＋法線マップ除去（トゥーンでは効果が薄い割にVRAMを食う）
+      const seenTex = new Set()
+      vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (m.normalMap) { m.normalMap = null; m.needsUpdate = true }
+          for (const key of ['map', 'shadeMultiplyTexture', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture']) {
+            const t = m[key]; if (!t || !t.image || seenTex.has(t)) continue; seenTex.add(t)
+            const w = t.image.width || 0
+            if (w > 1024) { const cv = document.createElement('canvas'); const sc = 1024 / w
+              cv.width = 1024; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
+              cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
+              if (t.image.close) t.image.close() // 元のImageBitmapを即解放
+              t.image = cv; t.needsUpdate = true } } } })
       const py = heightAtYato(cfg.pos[0], cfg.pos[1]) + (cfg.yOff || 0) // yOff=接地の微調整（芝の縁が地形サンプルより高い所）
       vrm.scene.position.set(cfg.pos[0], py, cfg.pos[1])
       vrm.scene.rotation.y = cfg.ry
@@ -15088,7 +15103,19 @@ async function startVrmPilot() {
 function vrmPilotTick(dt) {
   if (vrmPilotState === 0 && onYato) { const dx = boy.position.x - VRM_PILOT_POS[0], dz = boy.position.z - VRM_PILOT_POS[1]; if (dx * dx + dz * dz < 160 * 160) startVrmPilot() }
   for (const v of vrmPilots) {
-    v.t += dt
+    // 距離カリング（iPhoneの激重/クラッシュ対策2026-07-07）＝45mより遠い体はシーンから外して描画もボーン計算も完全停止
+    //（スキンメッシュはfrustumCulled=falseなので、外さないと画面外でも全身を描き続けてしまう）
+    const cdx = boy.position.x - v.vrm.scene.position.x, cdz = boy.position.z - v.vrm.scene.position.z
+    const cd2 = cdx * cdx + cdz * cdz
+    if (v.shown === undefined) v.shown = true
+    if (v.shown && cd2 > 55 * 55) { v.shown = false; scene.remove(v.vrm.scene); if (v.cane) v.cane.visible = false }
+    else if (!v.shown && cd2 < 45 * 45) { v.shown = true; scene.add(v.vrm.scene); if (v.cane) v.cane.visible = true }
+    if (!v.shown) continue
+    // 28mより遠い体は更新を間引く（0.12秒おき）＝見えていても呼吸/瞬きの滑らかさは落ちない距離
+    v.updT = (v.updT || 0) + dt
+    if (cd2 > 28 * 28 && v.updT < 0.12) continue
+    const udt = v.updT; v.updT = 0
+    v.t += udt
     const hu = v.vrm.humanoid
     // 前かがみ姿勢＝GPOSEを毎フレーム適用（股関節の折り+背中の丸み+膝のゆるい曲がり）。呼吸のゆらぎはspineに合成
     const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = v.spineBend * GPOSE.spineF + Math.sin(v.t * 1.6) * 0.018
@@ -15108,21 +15135,21 @@ function vrmPilotTick(dt) {
       const dx = boy.position.x - v.vrm.scene.position.x, dz = boy.position.z - v.vrm.scene.position.z
       const near = Math.hypot(dx, dz) < 10
       const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : 0
-      v.headYaw += (want - v.headYaw) * Math.min(1, dt * 3.2)
+      v.headYaw += (want - v.headYaw) * Math.min(1, udt * 3.2)
       head.rotation.y = v.headYaw
       // 顔の起こし量（＋＝起こす）。ふだんは2〜3m先の地面を見る程度・近くに人が来たら腰は曲げたままゆっくり顔だけ上げて見上げる
       const wantP = v.spineBend * (near ? GPOSE.headNear : GPOSE.headF)
-      v.headPitch = (v.headPitch ?? wantP) + (wantP - (v.headPitch ?? wantP)) * Math.min(1, dt * 3.2)
+      v.headPitch = (v.headPitch ?? wantP) + (wantP - (v.headPitch ?? wantP)) * Math.min(1, udt * 3.2)
       head.rotation.x = v.headPitch
     }
     const em = v.vrm.expressionManager // まばたき
-    if (em) { v.blinkT -= dt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
+    if (em) { v.blinkT -= udt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
       const k = v.blinkT < 0.12 ? 1 - Math.abs(v.blinkT - 0.06) / 0.06 : 0
       if (v.grandma) { em.setValue('blink', 0.42 + k * 0.58); em.setValue('relaxed', 0.5) } // おばあちゃん＝目を細めて微笑む（relaxed=Fun＝目だけの笑い。happy/joyは口が開くので不可）
       else if (v.grandpa) { em.setValue('blink', 0.52 + k * 0.48); em.setValue('relaxed', 0.5) } // おじいちゃん＝しっかり細目でにこにこ（若い見開き目を消す）
       else if (v.aho) { em.setValue('happy', 0.75); em.setValue('blink', k) } // 阿呆そうな子＝いつもニカッと笑ってる（happy=joy系＝口が開く笑い）
       else em.setValue('blink', k) }
-    v.vrm.update(dt) // 揺れもの（髪のスプリングボーン）と表情の反映
+    v.vrm.update(udt) // 揺れもの（髪のスプリングボーン）と表情の反映
     if (v.grandma && !v.cane) { // 杖＝ポーズ反映後の右手の実位置から地面へ（1回だけ生成・すこし前に植えて「ついている」形に）
       const hand = v.vrm.humanoid.getRawBoneNode('rightHand')
       if (hand) { const p = new THREE.Vector3(); hand.getWorldPosition(p)
