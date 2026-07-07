@@ -14486,10 +14486,10 @@ function titleCam() {
     camera.lookAt(camera.userData._look)
     return
   }
-  const cx = 3150, cz = -120, ly = 26 // 見つめる中心＝東の住宅街の屋根並み（建物1棟で塞がず“夏の田舎町”が伝わる絵に）
+  const cx = 3002, cz = 0, ly = 46 // 見つめる中心＝サンライズの丘の上空＝青空と入道雲を主役に、丘の緑・屋根並み・電柱が下2/3に収まる「夏休みの一枚」（8+4案の比較選定でC1採用・ユーザー要望2026-07-07）
   const drift = Math.sin(t * 0.05) * 24 // ゆっくり左右に流れる“はがき”
-  const px = 3275 + drift, pz = 18 // 南東の高所から北西の屋根並み・丘・入道雲を望む
-  const py = heightAt(px, pz) + 74
+  const px = 2988 + drift, pz = 235 // 南の谷戸の上空から北のサンライズの丘を望む
+  const py = heightAt(px, pz) + 26
   if (scene.fog) { scene.fog.near = 220; scene.fog.far = 1500 } // 遠景まで見せる（霞で隠さない）
   // ケンバーンズ：注視点(屋根並み)へ向かって ごくゆっくり寄り引きする＝夕暮れのはがきが息づく映画的な導入（ユーザー要望「導入の演出」2026-06-26）
   const zf = 0.85 + 0.15 * (0.5 + 0.5 * Math.cos(t * 0.06)) // 距離係数0.85〜1.0を約1.7分でゆっくり寄り引き（数十秒の表示でもそっと動くのが分かる・寄りすぎない）
@@ -15046,7 +15046,7 @@ addEventListener('pointerdown', function lockOnce() {
 // タイトル画面：「はじめる」で消えて、音を立ち上げる（iOSの自動再生制限への先回り）
 const titleEl = document.getElementById('title')
 document.body.classList.add('titling') // タイトル中は遊びのHUD(ねる/バッジ/⚙/ヒント)を隠す＝はがき構図に集中
-tday = 0.72; dayAuto = false; setTimeOfDay(0.72) // タイトルは“夏の夕暮れ”のマジックアワーで見せる＝いちばん美しい時間・ノスタルジックな導入（ユーザー要望「導入の演出」2026-06-26）。はじめるで朝(0.18)へ戻す
+tday = 0.4; dayAuto = false; setTimeOfDay(0.4) // タイトルは“真夏の昼”＝青空に入道雲・丘の緑と屋根並み（ユーザー要望2026-07-07「青空と入道雲の夏っぽい一枚」。旧0.72=夕暮れマジックアワー2026-06-26から変更）。はじめるで朝(0.18)へ戻す
 const startBtn = document.getElementById('t-start')
 // 初回だけ「あそびかた」を出す（操作の入口をやさしく）。2回目以降は出さない。
 const guideEl = document.getElementById('guide')
