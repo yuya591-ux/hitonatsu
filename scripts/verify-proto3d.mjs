@@ -81,10 +81,16 @@ try {
       if (overC) errors.push(`${area}: draw call ${st.calls} が予算 ${b.calls} を超過（性能回帰の疑い）`)
       if (overT) errors.push(`${area}: 三角形 ${st.tris} が予算 ${b.tris} を超過（性能回帰の疑い）`)
     }
-    // P6 メモリ予算ゲート：全エリアを訪問した後（=常駐ピーク）の GPUジオメトリ/テクスチャと JSヒープに上限。
-    //   実測（_memcheck.mjs 2026-06-27）＝全エリア後 geom≈5536/tex≈97/heap≈360MB で、2巡してもほぼ不変＝リーク無し・有界。
-    //   この予算は「goAreaが再ビルドで重複生成する」等の将来のリーク/肥大を機械的に捕まえる（モバイル生存の核）。
-    const MEM_BUDGET = { geometries: 9000, textures: 160, heapMB: 600 } // verify全工程(全エリア×全時刻×乗り物スモークでGPUアップロード)の実測ピーク geom≈7274/tex≈118/heap≈367 に余裕。超えたら回帰（goAreaの再ビルド重複等のリークは1.5万超に膨らむので確実に捕まえる）
+    // P6 メモリ予算ゲート：全エリア＋全VRM（主人公＋第三公園のパイロット4体）を読み込んだ「真の常駐ピーク」に上限。
+    //   ★2026-07-08：以前は測定時にVRMの非同期読込が間に合わず tex/heap がロード毎にぶれて偶然通過/失敗していた（フレーキー）。
+    //     そこで第三公園へ主人公を置き、主人公VRM(state=2)＋パイロット4体が全部読めるまで待ってから測る＝決定論的に最悪ケースを測る。
+    //   実測（_texpeak.mjs 2026-07-08・全VRM読込）＝geom≈6532/tex≈259/heap≈715MB。※heapはヘッドレスのswiftshader（ソフトGL）が
+    //     テクスチャをシステムメモリに置く分 実機(iPhone=GPU VRAM・ユーザー確認済み快適)より膨らむ計測。予算はこの実ピーク＋余裕で、
+    //     goAreaの再ビルド重複等のリーク（tex/geomが桁で膨らむ・heapが1GB超）はこの天井で確実に捕まえる。
+    await page.evaluate(() => window.__proto3d._pose(3051, 16, 2.0, 'yato')) // 第三公園＝主人公VRM＋パイロット4体が全部読める場所
+    for (let i = 0; i < 200; i++) { const s = await page.evaluate(() => ({ b: window.__proto3d.vrmBoyState, p: (window.__proto3d.vrmPilots || []).length })); if (s.b === 2 && s.p >= 4) break; await new Promise((r) => setTimeout(r, 150)) }
+    await new Promise((r) => setTimeout(r, 2500)) // テクスチャのGPUアップロード完了を待つ
+    const MEM_BUDGET = { geometries: 9000, textures: 320, heapMB: 850 }
     const mem = await page.evaluate(() => window.__proto3d._mem())
     const overG = mem.geometries > MEM_BUDGET.geometries, overTx = mem.textures > MEM_BUDGET.textures, overH = mem.heapMB != null && mem.heapMB > MEM_BUDGET.heapMB
     console.log(`  メモリ(全エリア常駐): geom=${mem.geometries}/${MEM_BUDGET.geometries} tex=${mem.textures}/${MEM_BUDGET.textures} heap=${mem.heapMB}MB/${MEM_BUDGET.heapMB}${overG || overTx || overH ? '  ← 予算超過' : ' ✓'}`)
