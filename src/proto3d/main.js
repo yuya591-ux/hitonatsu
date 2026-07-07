@@ -12742,8 +12742,11 @@ const FLY_SPEEDS = [12, 30, 72], FLY_SPEED_LABEL = ['ゆっくり', 'ふつう',
 const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3(), flyTmp = new THREE.Vector3()
 const warpRay = new THREE.Raycaster() // 飛行中タップ→主人公をワープ
 let sitTap = null // 座っている時のタップ判定（軽タップ＝立つ）
-let jumpY = 0, jumpV = 0, airborne = false, landSquash = 0 // ジャンプ（高さ・上下速度・空中フラグ・着地のつぶれ）
-function doJump() { if (jumpY <= 0.02 && mode === 'walk' && !flying && !floatMode && !doingTaiso) { jumpV = riding ? 6.2 : 7.0; airborne = true; playJump(); todayFlags.jumped = true } } // 接地時だけ跳ねる＋ジャンプ音（自転車中も走りながらぴょん＝少し低めに跳ねる・ユーザー要望2026-06-26。浮遊中は跳ねない）
+let jumpY = 0, jumpV = 0, airborne = false, landSquash = 0, jumpCrouch = 0 // ジャンプ（高さ・上下速度・空中フラグ・着地のつぶれ・踏切り前のため）
+function doJump() { if (jumpY <= 0.02 && jumpCrouch <= 0 && mode === 'walk' && !flying && !floatMode && !doingTaiso) { // 接地時だけ
+  if (riding) { jumpV = 6.2; airborne = true; playJump() } // 自転車中は即跳ね（サドルに座っているので しゃがみのためは付けない）
+  else jumpCrouch = 0.07 // 徒歩＝一瞬しゃがむ「ため」を開始（ためきった瞬間に蹴り出す＝人の跳ぶ予備動作。跳躍音もその瞬間に）
+  todayFlags.jumped = true } } // 浮遊中は不可
 
 function startPuni(id, x, y) {
   puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
@@ -14341,43 +14344,50 @@ function update(dt) {
     boy.position.y += stepBobY
     boy.userData.legL.rotation.x = sw; boy.userData.legR.rotation.x = -sw
     // 腕：歩くと振る／止まると凍りつかず、そっと息づくように下ろす
-    const armTL = moving ? (-sw - run * 0.25) : Math.sin(tsec * 1.3) * 0.05
-    const armTR = moving ? (sw - run * 0.25) : Math.sin(tsec * 1.3 + 0.6) * 0.05
+    const armTL = moving ? (-sw * 0.78 - run * 0.2) : Math.sin(tsec * 1.3) * 0.05 // 肩の前後振りは控えめ＝ひじ90°で振り込む（大きく開くと直腕に見える）
+    const armTR = moving ? (sw * 0.78 - run * 0.2) : Math.sin(tsec * 1.3 + 0.6) * 0.05
     boy.userData.armL.rotation.x += (armTL - boy.userData.armL.rotation.x) * Math.min(1, dt * (moving ? 20 : 6))
     boy.userData.armR.rotation.x += (armTR - boy.userData.armR.rotation.x) * Math.min(1, dt * (moving ? 20 : 6))
-    // 膝・肘の曲げ＝関節のある歩行（足が前に振り出される側の膝が曲がる／肘は軽く曲げて自然に）
-    const kAmp = 0.5 + run * 0.8
-    const kbL = 0.12 + (moving ? Math.max(0, -sw) * kAmp : 0)
-    const kbR = 0.12 + (moving ? Math.max(0, sw) * kAmp : 0)
+    // 膝の曲げ＝人体どおりの脚さばき（ユーザー要望2026-07-08「人が走る動きに」）。sw>0=腿が後ろ／sw<0=腿が前。
+    //   ・歩き(run≈0)＝前へ振り出す脚だけ膝を曲げて地面を越す（Math.max(0,-sw)*0.4）。接地脚は伸ばす＝素朴な歩き
+    //   ・走り(run→1)＝それに加え、後ろへ蹴った脚の膝を深く曲げ“かかとをお尻へ跳ね上げる”ヒールリカバリ（run²で速いほど強く）
+    //     ＝これが「歩き」と「走り」を分ける最大の見た目。棒立ちで脚を開くだけの人形っぽさを解消
+    const kbL = 0.12 + (moving ? Math.max(0, -sw) * 0.4 + Math.max(0, sw) * run * run * 1.7 : 0)
+    const kbR = 0.12 + (moving ? Math.max(0, sw) * 0.4 + Math.max(0, -sw) * run * run * 1.7 : 0)
     boy.userData.kneeL.rotation.x += (kbL - boy.userData.kneeL.rotation.x) * Math.min(1, dt * 13)
     boy.userData.kneeR.rotation.x += (kbR - boy.userData.kneeR.rotation.x) * Math.min(1, dt * 13)
-    // 足首：腿＋膝の傾きを打ち消して足裏を地面と平行に保つ（接地感・スケート歩き解消）
-    const akL = THREE.MathUtils.clamp(-(boy.userData.legL.rotation.x + boy.userData.kneeL.rotation.x) * 0.85, -0.7, 0.5)
-    const akR = THREE.MathUtils.clamp(-(boy.userData.legR.rotation.x + boy.userData.kneeR.rotation.x) * 0.85, -0.7, 0.5)
+    // 足首：腿＋膝の傾きを打ち消して足裏を保つが、係数を弱め(0.6)て振り上げた脚では足が自然に垂れる＋蹴り出しでつま先を下げる(toe-off)
+    const toeL = moving ? run * Math.max(0, sw) * 0.4 : 0, toeR = moving ? run * Math.max(0, -sw) * 0.4 : 0 // 後ろへ蹴る脚のつま先を下げる
+    const akL = THREE.MathUtils.clamp(-(boy.userData.legL.rotation.x + boy.userData.kneeL.rotation.x) * 0.6, -0.6, 0.45) + toeL
+    const akR = THREE.MathUtils.clamp(-(boy.userData.legR.rotation.x + boy.userData.kneeR.rotation.x) * 0.6, -0.6, 0.45) + toeR
     boy.userData.ankleL.rotation.x += (akL - boy.userData.ankleL.rotation.x) * Math.min(1, dt * 14)
     boy.userData.ankleR.rotation.x += (akR - boy.userData.ankleR.rotation.x) * Math.min(1, dt * 14)
-    const eb = -(0.28 + run * 0.72) // 肘＝歩きは軽く・走るほどしっかり曲げて前後に振る（直腕のスケート走りを解消＝自然な腕の振り・2026-06-28）
+    const eb = -(0.32 + run * 1.05) // 肘＝走ると約90°近くまでしっかり曲げ、前後に力強く振り込む（直腕のスケート走り＝人形っぽさを解消）
     boy.userData.elbowL.rotation.x += (eb - boy.userData.elbowL.rotation.x) * Math.min(1, dt * 10)
     boy.userData.elbowR.rotation.x += (eb - boy.userData.elbowR.rotation.x) * Math.min(1, dt * 10)
-    boy.rotation.x += ((moving ? run * 0.34 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前のめりに（前傾を少し強く＝勢いが出る）
+    boy.rotation.x += ((moving ? run * 0.4 : 0) - boy.rotation.x) * Math.min(1, dt * 8) // 走ると前のめりに（前傾で勢いを出す＝人体どおり）
     // 自転車：こぐアニメ（上の歩行ポーズを上書き）。クランク/車輪が回り、両脚が交互にペダルを踏む、腕はハンドルへ
     if (riding) { const bd = boy.userData.bike; bd.visible = true; const pp = phase * 1.3 // クランク回転角（歩調=speed連動なので速いほど速くこぐ）
       { const ps = Math.sin(pp); if (moving && ps * (boy.userData._lastPedal || 0) < 0) playPedal(0.014); boy.userData._lastPedal = ps } // ペダルを踏むたび「カチ」（こいでる音・ごく小さく・動いている時だけ）
       bd.userData.crank.rotation.x = -pp; bd.userData.wheelF.rotation.x = bd.userData.wheelB.rotation.x = -pp * 1.35
       boy.userData.legL.rotation.x = -0.95 + Math.sin(pp) * 0.16; boy.userData.legR.rotation.x = -0.95 + Math.sin(pp + Math.PI) * 0.16
       boy.userData.kneeL.rotation.x = 0.95 + Math.sin(pp) * 0.5; boy.userData.kneeR.rotation.x = 0.95 + Math.sin(pp + Math.PI) * 0.5
-      boy.userData.ankleL.rotation.x = 0.18; boy.userData.ankleR.rotation.x = 0.18
+      boy.userData.ankleL.rotation.x = 0.15 + Math.sin(pp - 0.6) * 0.26; boy.userData.ankleR.rotation.x = 0.15 + Math.sin(pp + Math.PI - 0.6) * 0.26 // 足首も踏み分け(ankling)＝下死点でつま先下げ/上死点でつま先上げ＝固定した棒足でなく生きたペダリング
       boy.userData.armL.rotation.x = -1.12; boy.userData.armR.rotation.x = -1.12; boy.userData.elbowL.rotation.x = -0.22; boy.userData.elbowR.rotation.x = -0.22
       boy.rotation.x = 0.12 } // ごく軽い前傾（自転車本体は傾けすぎない）
     else if (boy.userData.bike.visible) boy.userData.bike.visible = false
     // ふわり浮遊＝チンクル風：両腕を上げて頭上の風船の紐を握り、脚はぶらりと垂らす。風船はふわふわ揺れる
+    // 人が風船にぶら下がって漂う動き（ユーザー要望2026-07-08）＝脚は脱力してだらり・つま先を下げ・進む向きと逆へ振り子のように遅れて流れる
     if (floatMode) { const fb = Math.sin(tsec * 0.9) * 0.1
-      boy.userData.legL.rotation.x = 0.06 + fb * 0.25; boy.userData.legR.rotation.x = 0.0 - fb * 0.25 // ぶらり脚
-      boy.userData.kneeL.rotation.x = 0.3; boy.userData.kneeR.rotation.x = 0.36
+      const fwdF = vel.x * Math.sin(facing) + vel.z * Math.cos(facing) // 前進速度
+      const trail = THREE.MathUtils.clamp(fwdF * 0.04, -0.55, 0.55) // 進む向きと逆へ脚が遅れて流れる（振り子）
+      boy.userData.legL.rotation.x = -0.06 + fb * 0.2 + trail; boy.userData.legR.rotation.x = -0.12 - fb * 0.2 + trail // 脱力してだらり＋振り子（左右少し違えて自然に）
+      boy.userData.kneeL.rotation.x = 0.42 + fb * 0.08; boy.userData.kneeR.rotation.x = 0.52 - fb * 0.08 // ひざゆるく曲げ
+      boy.userData.ankleL.rotation.x = 0.4; boy.userData.ankleR.rotation.x = 0.46 // つま先を下げて脱力（ぶら下がる足）
       boy.userData.armL.rotation.x = -2.6; boy.userData.armR.rotation.x = -2.6 // 両腕を上げて紐を握る
       boy.userData.armL.rotation.z = 0.2; boy.userData.armR.rotation.z = -0.2
       boy.userData.elbowL.rotation.x = -0.25; boy.userData.elbowR.rotation.x = -0.25
-      boy.rotation.x = 0.02
+      boy.rotation.x = 0.02 + trail * 0.18 // 進む時わずかに前へ傾く（ぶら下がりの振れ）
       const bd = boy.userData.balloons; bd.visible = true
       // 風船クラスタが進む向きと逆へ やさしくなびく（動くほど後ろへ傾く＝夢のような浮遊感）。
       //   ★紐は手元に集まっているので、足元でなく「手元(py)」を支点に振る＝紐が手から外れない（rotation.x＋位置補正で支点を固定）。
@@ -14419,14 +14429,37 @@ function update(dt) {
     boy.rotation.z += (targetRoll - boy.rotation.z) * Math.min(1, dt * 9)
     boy.userData.head.rotation.z = -boy.rotation.z * 0.55 // 頭は体ほど傾けず視線を水平に保つ（自然）
     if (!floatMode) { const bobK = reduceMotion ? 0.4 : 1; walkBobY = riding ? Math.sin(phase * 0.5) * 0.012 : (moving ? Math.abs(Math.sin(phase)) * (0.045 + run * 0.11) * bobK : Math.sin(tsec * 1.4) * 0.012); boy.position.y += walkBobY } else walkBobY = 0 // 歩き=ぴょこ跳ね/立ち=呼吸。走りの縦バウンドを控えめに（run係数 0.22→0.11＝揺れすぎ解消）。B2：酔い対策ONで更に抑える（bobK）。浮遊中は別処理。walkBobYに退避＝カメラは一部だけ受ける
+    // 踏切り前の「ため」：ジャンプボタンで一瞬しゃがんでから跳ぶ（jumpCrouch中は接地のまま屈伸＝人が跳ぶ前の予備動作）
+    if (jumpCrouch > 0) {
+      jumpCrouch -= dt
+      const c = Math.sin(Math.min(1, (0.07 - jumpCrouch) / 0.07) * Math.PI) // 0→1→0 の山（しゃがんで戻る）
+      const u = boy.userData
+      u.legL.rotation.x = -c * 0.18; u.legR.rotation.x = -c * 0.18 // 腿を少し前へ＝膝が前に出るしゃがみ
+      u.kneeL.rotation.x = 0.15 + c * 0.75; u.kneeR.rotation.x = 0.15 + c * 0.75 // 膝を曲げてため
+      u.ankleL.rotation.x = THREE.MathUtils.clamp(-(u.legL.rotation.x + u.kneeL.rotation.x) * 0.8, -0.6, 0.5); u.ankleR.rotation.x = u.ankleL.rotation.x // 足裏を地面に残す
+      u.armL.rotation.x = c * 0.5; u.armR.rotation.x = c * 0.5 // 腕をうしろへ引く（反動をためる）
+      u.armL.rotation.z += (0 - u.armL.rotation.z) * Math.min(1, dt * 10); u.armR.rotation.z += (0 - u.armR.rotation.z) * Math.min(1, dt * 10)
+      boy.position.y -= c * 0.13 // ★腰を落とす＝膝を曲げても足が浮かず、本当にしゃがんで見える
+      boy.rotation.x += (c * 0.14 - boy.rotation.x) * Math.min(1, dt * 12) // ためで少し前かがみ
+      if (jumpCrouch <= 0) { jumpV = riding ? 6.2 : 7.0; airborne = true; playJump() } // ためきったら蹴り出す
+    }
     // ジャンプ：上下速度を重力で更新し、地面からの高さを足す（着地でリセット）
     if (jumpV !== 0 || jumpY > 0) {
       jumpV -= 22 * dt; jumpY += jumpV * dt
       if (jumpY <= 0) { jumpY = 0; jumpV = 0; if (airborne) { airborne = false; landSquash = 1; playLand(0.05) } } // 着地＝つぶれ開始＋とすっ
       boy.position.y += jumpY
-      boy.rotation.x += (-0.12 * Math.min(1, jumpY) - boy.rotation.x) * Math.min(1, dt * 8) // 跳ぶと少しのけぞる
-      boy.userData.legL.rotation.x = -0.5; boy.userData.legR.rotation.x = -0.3 // 足をたたむ
-      boy.userData.kneeL.rotation.x = 0.7; boy.userData.kneeR.rotation.x = 0.5 // 膝をたたんで跳ぶ
+      // 人が跳ぶ動き（ユーザー要望2026-07-08）＝①踏切りで腕を上へ振り上げ体を伸ばす②頂点〜落下でひざを抱えて着地に構える
+      const rise = THREE.MathUtils.clamp(jumpV / 7, 0, 1), fall = THREE.MathUtils.clamp(-jumpV / 8, 0, 1), tuck = 1 - rise
+      const u = boy.userData
+      boy.rotation.x += ((-0.10 * rise + 0.16 * fall) - boy.rotation.x) * Math.min(1, dt * 8) // 上昇=胸を開いて伸び上がる／落下=着地へ軽く前かがみ
+      u.legL.rotation.x = -0.5 * tuck - 0.05; u.legR.rotation.x = -0.42 * tuck - 0.03 // 上昇=脚を伸ばして蹴り出す→落下=腿を抱える
+      u.kneeL.rotation.x = 0.12 + tuck * 0.62; u.kneeR.rotation.x = 0.12 + tuck * 0.52 // 頂点〜落下でひざをたたむ
+      u.ankleL.rotation.x = rise * 0.38; u.ankleR.rotation.x = rise * 0.34 // 蹴り出しでつま先を下げる（背伸びして跳ぶ）
+      const armJ = -(0.3 + rise * 1.5) + fall * 0.9 // 上昇=腕を上へ振り上げ／落下=前へ下ろしてバランス
+      u.armL.rotation.x += (armJ - u.armL.rotation.x) * Math.min(1, dt * 14)
+      u.armR.rotation.x += (armJ - u.armR.rotation.x) * Math.min(1, dt * 14)
+      u.elbowL.rotation.x += (-0.32 - u.elbowL.rotation.x) * Math.min(1, dt * 12) // ひじは軽く曲げて
+      u.elbowR.rotation.x += (-0.32 - u.elbowR.rotation.x) * Math.min(1, dt * 12)
     }
     // 伸び縮み（ジュース）：上昇でひゅっと伸び、着地でぽてっとつぶれる
     landSquash = Math.max(0, landSquash - dt * 5.5)
@@ -14583,7 +14616,10 @@ function update(dt) {
       if (camOcclT < 0.999) { camGoal.x = hx + (camGoal.x - hx) * camOcclT; camGoal.z = hz + (camGoal.z - hz) * camOcclT; camGoal.y = hyc + (camGoal.y - hyc) * camOcclT }
     } else camOcclT += (1 - camOcclT) * Math.min(1, dt * 1.5) // 屋上では戻す
     { const cgY = heightAt(camGoal.x, camGoal.z) + 0.8; if (camGoal.y < cgY) camGoal.y = cgY } // カメラが地面/坂にめり込まない（寄せた低い視点でも潜らせない）
-    lookGoal.copy(boy.position); lookGoal.y += 1.4 + calm * 0.5
+    // 注視点の高さ＝主人公の胸〜顔のあたり。VRM主人公は小柄（旧キャラの約半分）なので +1.4 だと頭上を見て画面下に見切れる→
+    //   小さい姿の時は低め(+0.9)にして画面中央へしっかり収める（ユーザー要望2026-07-08・子ども目線にも合う）
+    const _vbLook = vrmBoy && vrmBoy.root.visible
+    lookGoal.copy(boy.position); lookGoal.y += (_vbLook ? 0.9 : 1.4) + calm * (_vbLook ? 0.35 : 0.5)
     if (dialogue && dlgWho && !fpv) { // 会話中＝主人公と相手の中点を見て二人を画に収める（顔の高さへ・止め絵寄り）
       lookGoal.x += (dlgWho.position.x - boy.position.x) * 0.5
       lookGoal.z += (dlgWho.position.z - boy.position.z) * 0.5
