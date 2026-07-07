@@ -15057,6 +15057,7 @@ async function startVrmPilot() {
       const seenTex = new Set()
       vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
         for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (/ \(Outline\)$/.test(m.name || '')) m.visible = false // MToonの輪郭パス＝体/顔/髪を丸ごと2回描く。ゲーム自前のインク輪郭と二重なので無効化（描画回数をほぼ半減）
           if (m.normalMap) { m.normalMap = null; m.needsUpdate = true }
           for (const key of ['map', 'shadeMultiplyTexture', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture']) {
             const t = m[key]; if (!t || !t.image || seenTex.has(t)) continue; seenTex.add(t)
