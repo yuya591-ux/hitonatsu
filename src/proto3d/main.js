@@ -14818,8 +14818,13 @@ function freezeStaticMatrices() {
 // ── 画風パス②パイロット：CC0のVRMアニメキャラ「千駄ヶ谷 篠」（VRoid公式旧サンプル・ファイル内メタでCC0/Everyone/商用可を確認済み）を1体だけ町に立たせ、
 //    既存の温かいトゥーン世界と馴染むかを実機で判断するための試験配置（2026-07-07・ユーザー承認後に本採用or撤去）。
 //    実装＝主人公が第三公園に近づいた時だけ 15MB を遅延読込（初期ロード/遠くのプレイヤーに負担ゼロ・SWが2回目以降キャッシュ）──
-let vrmPilot = null, vrmPilotState = 0 // 0=未読込 1=読込中 2=表示中 3=失敗
-const VRM_PILOT_POS = [3051, 16] // 第三公園の園庭・鉄棒まえの開けた砂地（遊具/縁の斜面に重ならない実測スポット）
+let vrmPilots = [], vrmPilotState = 0 // 0=未読込 1=読込中 2=表示中 3=失敗
+const VRM_PILOT_POS = [3051, 16] // 読込トリガーの基準点（第三公園）
+// 試験体の構成：scale=全体倍率（身長）・headScale=頭ボーン倍率（頭身を詰めて子どもの体型に）
+const VRM_PILOTS = [
+  { file: 'models/sendagaya_shino.vrm', pos: [3051, 16], ry: 2.3, scale: 1, headScale: 1 },            // 篠＝素の頭身（お姉さん）
+  { file: 'models/sendagaya_shibu.vrm', pos: [3054.5, 17.5], ry: 2.0, scale: 0.72, headScale: 1.38 },  // 渋＝子ども化の実験（小学生の背丈+大きめの頭）
+]
 const _wrapAng = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
 async function startVrmPilot() {
   vrmPilotState = 1
@@ -14828,44 +14833,48 @@ async function startVrmPilot() {
       import('three/examples/jsm/loaders/GLTFLoader.js'),
       import('@pixiv/three-vrm'),
     ])
-    const loader = new GLTFLoader()
-    loader.register((parser) => new VRMLoaderPlugin(parser))
-    const gltf = await loader.loadAsync('models/sendagaya_shino.vrm')
-    const vrm = gltf.userData.vrm
-    VRMUtils.removeUnnecessaryVertices(gltf.scene)
-    if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
-    VRMUtils.rotateVRM0(vrm) // VRM0.xの向きをVRM1相当へ統一
-    const [px, pz] = VRM_PILOT_POS, py = heightAtYato(px, pz)
-    vrm.scene.position.set(px, py, pz)
-    vrm.scene.rotation.y = 2.3 // 園庭の中央（ジャングルジムの方）を向いて立つ
-    vrm.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.isSkinnedMesh) o.frustumCulled = false } }) // スキンメッシュはバウンディングのズレで消えることがある＝カリングしない（1体だけなので負荷なし）
-    scene.add(vrm.scene)
-    // T字ポーズ→自然な直立（腕をおろす・normalizedボーンはレスト姿勢からの相対）
-    const hu = vrm.humanoid
-    const arm = (n, z) => { const b = hu.getNormalizedBoneNode(n); if (b) b.rotation.z = z }
-    arm('leftUpperArm', 1.18); arm('rightUpperArm', -1.18); arm('leftLowerArm', 0.10); arm('rightLowerArm', -0.10)
-    vrmPilot = { vrm, t: 0, blinkT: 2.0, headYaw: 0 }
+    for (const cfg of VRM_PILOTS) {
+      const loader = new GLTFLoader()
+      loader.register((parser) => new VRMLoaderPlugin(parser))
+      const gltf = await loader.loadAsync(cfg.file)
+      const vrm = gltf.userData.vrm
+      VRMUtils.removeUnnecessaryVertices(gltf.scene)
+      if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
+      VRMUtils.rotateVRM0(vrm) // VRM0.xの向きをVRM1相当へ統一
+      const py = heightAtYato(cfg.pos[0], cfg.pos[1])
+      vrm.scene.position.set(cfg.pos[0], py, cfg.pos[1])
+      vrm.scene.rotation.y = cfg.ry
+      vrm.scene.scale.setScalar(cfg.scale) // 全体倍率＝身長（足元原点なので接地は不変）
+      vrm.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.isSkinnedMesh) o.frustumCulled = false } }) // スキンメッシュはバウンディングのズレで消えることがある＝カリングしない
+      scene.add(vrm.scene)
+      const hu = vrm.humanoid
+      if (cfg.headScale !== 1) { const hb = hu.getRawBoneNode('head'); if (hb) hb.scale.setScalar(cfg.headScale) } // 子ども化＝頭ボーンだけ拡大（rawボーン＝normalized→rawの同期は回転のみでscaleは温存される）
+      const arm = (n, z) => { const b = hu.getNormalizedBoneNode(n); if (b) b.rotation.z = z } // T字ポーズ→自然な直立
+      arm('leftUpperArm', 1.18); arm('rightUpperArm', -1.18); arm('leftLowerArm', 0.10); arm('rightLowerArm', -0.10)
+      vrmPilots.push({ vrm, t: Math.random() * 3, blinkT: 2.0 + Math.random(), headYaw: 0 })
+    }
     vrmPilotState = 2
   } catch (e) { console.warn('VRMパイロット読込失敗', e); vrmPilotState = 3 }
 }
 function vrmPilotTick(dt) {
   if (vrmPilotState === 0 && onYato) { const dx = boy.position.x - VRM_PILOT_POS[0], dz = boy.position.z - VRM_PILOT_POS[1]; if (dx * dx + dz * dz < 160 * 160) startVrmPilot() }
-  if (!vrmPilot) return
-  const v = vrmPilot; v.t += dt
-  const hu = v.vrm.humanoid
-  const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = Math.sin(v.t * 1.6) * 0.018 // 呼吸のゆらぎ
-  const head = hu.getNormalizedBoneNode('head')
-  if (head) { // 近くに来たらゆっくり顔を向ける（npcGazeの礼儀と同じ作法・首は±0.6radまで）
-    const dx = boy.position.x - v.vrm.scene.position.x, dz = boy.position.z - v.vrm.scene.position.z
-    const near = Math.hypot(dx, dz) < 10
-    const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : 0
-    v.headYaw += (want - v.headYaw) * Math.min(1, dt * 3.2)
-    head.rotation.y = v.headYaw
+  for (const v of vrmPilots) {
+    v.t += dt
+    const hu = v.vrm.humanoid
+    const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = Math.sin(v.t * 1.6) * 0.018 // 呼吸のゆらぎ
+    const head = hu.getNormalizedBoneNode('head')
+    if (head) { // 近くに来たらゆっくり顔を向ける（npcGazeの礼儀と同じ作法・首は±0.6radまで）
+      const dx = boy.position.x - v.vrm.scene.position.x, dz = boy.position.z - v.vrm.scene.position.z
+      const near = Math.hypot(dx, dz) < 10
+      const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : 0
+      v.headYaw += (want - v.headYaw) * Math.min(1, dt * 3.2)
+      head.rotation.y = v.headYaw
+    }
+    const em = v.vrm.expressionManager // まばたき
+    if (em) { v.blinkT -= dt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
+      em.setValue('blink', v.blinkT < 0.12 ? 1 - Math.abs(v.blinkT - 0.06) / 0.06 : 0) }
+    v.vrm.update(dt) // 揺れもの（髪のスプリングボーン）と表情の反映
   }
-  const em = v.vrm.expressionManager // まばたき
-  if (em) { v.blinkT -= dt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
-    em.setValue('blink', v.blinkT < 0.12 ? 1 - Math.abs(v.blinkT - 0.06) / 0.06 : 0) }
-  v.vrm.update(dt) // 揺れもの（髪のスプリングボーン）と表情の反映
 }
 freezeStaticMatrices() // 起動時に1回（この時点で静的ワールド・生き物・洗濯物・祭り会場はすべて生成済み。会場は不可視＝踊り手ごと凍結）
 buildYatoFogGrid() // A2：霧の彼方カリング用のセルグリッドを1回構築（yatoStatics/チャンク/洗濯布が揃った後）

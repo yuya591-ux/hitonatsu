@@ -79,3 +79,4 @@
   - 入手元（公開ミラー）: https://github.com/madjin/vrm-samples （vroid/beta/Sendagaya_Shino.vrm）
   - 用途：画風刷新の判断用パイロット（第三公園に1体を試験配置・遅延読込）
 - 読み込みライブラリ：**@pixiv/three-vrm**（MITライセンス・npm経由で同梱ビルド・実行時の外部通信なし）
+- **Sendagaya Shibu（千駄ヶ谷 渋）** `public/models/sendagaya_shibu.vrm`（約17MB）— 同上（VRoid公式旧サンプル・**CC0**・ファイル内メタで確認済み・入手元同じ）。子ども体型化の実験体（全体0.72倍＋頭ボーン1.38倍）
