@@ -3770,22 +3770,43 @@ function buildShishigaya() {
           // 塀(長さ5m)を約0.6m間隔の9点で走査し、どれかが道に乗るなら置かない＝道を横切る塀を全面解消（細い道・曲がり角・斜めの道も漏らさない・ユーザー指摘2026-06-25）
           { let onR = false; for (const tt of [-2.5, -1.9, -1.25, -0.6, 0, 0.6, 1.25, 1.9, 2.5]) if (onYatoRoadCore(wx + ux * tt, wz + uz * tt)) { onR = true; break } if (onR) { nCross++; continue } }
           const seed = Math.abs(Math.round(wx) * 7 + Math.round(wz) * 5); if (seed % 5 === 0) continue // 5区画に1つは開ける（門/車庫の出入口）
+          if (Math.abs(heightAtYato(wx + ux * 2.5, wz + uz * 2.5) - heightAtYato(wx - ux * 2.5, wz - uz * 2.5)) > 0.9) continue // 5mで0.9m(18%)超の急斜面には置かない＝塀は水平積みなので大きく傾くとスロープに見える/水平置きだと端が宙に浮く（どちらも破綻・2026-07-07）
           const r6 = seed % 6; (r6 < 2 ? hedgeP : r6 < 3 ? boardP : wallP).push([wx, wz, ang]) } } } // 生垣/板塀/ブロック塀を混在＝住宅地の塀の多様化
     if (nCross) console.log('[shishigaya] 道を横切る塀を除外', nCross)
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), eu = new THREE.Euler()
-    if (wallP.length) { const wI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.3, 0.28), new THREE.MeshToonMaterial({ color: 0xffffff, map: blockTex, gradientMap: GRAD }), wallP.length); wI.castShadow = wI.receiveShadow = true; const wcol = new THREE.Color()
-      wallP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.65, z), q, sc); wI.setMatrixAt(i, m4)
+    // ハリボテ解消（ユーザー指摘2924,-3・2026-07-07）①一枚箱→笠木/控え柱/基礎つきの複合ジオメトリ（UV保持マージ・部位は平坦UV=無地・1ドローのまま）②中心1点接地→両端2点+makeBasisの傾斜追従（ガードレールの作法）＝斜面で端が浮かない
+    const mergeUVParts = (parts) => { const V = [], C = [], U = [], v = new THREE.Vector3()
+      for (const p of parts) { const g = p.g.index ? p.g.toNonIndexed() : p.g, pos = g.attributes.position, uv = g.attributes.uv
+        for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(p.m); V.push(v.x, v.y, v.z); C.push(p.c[0], p.c[1], p.c[2]); if (p.flat) U.push(0.02, 0.02); else U.push(uv.getX(i), uv.getY(i)) } }
+      const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(V, 3)); bg.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); bg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); bg.computeVertexNormals(); return bg }
+    const TRw = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z)
+    const xa = new THREE.Vector3(), ya = new THREE.Vector3(), za = new THREE.Vector3(), UPv = new THREE.Vector3(0, 1, 0)
+    const placeSlope = (I, i, x, z, a, lift) => { const ux = Math.cos(a), uz = -Math.sin(a) // Euler(0,a,0)でローカル+Xが向く先=(cos a,0,-sin a)
+      const hA = heightAtYato(x + ux * 2.5, z + uz * 2.5), hB = heightAtYato(x - ux * 2.5, z - uz * 2.5)
+      xa.set(ux * 5, hA - hB, uz * 5).normalize(); za.crossVectors(xa, UPv).normalize(); ya.crossVectors(za, xa)
+      m4.makeBasis(xa, ya, za); m4.setPosition(x, (hA + hB) / 2 + lift, z); I.setMatrixAt(i, m4) }
+    if (wallP.length) { const wallGeo = mergeUVParts([
+        { g: new THREE.BoxGeometry(5, 1.3, 0.22), m: TRw(0, 0, 0), c: [1, 1, 1] }, // 壁本体（ブロック目地テクスチャ）
+        { g: new THREE.BoxGeometry(5.04, 0.6, 0.32), m: TRw(0, -0.82, 0), c: [0.6, 0.6, 0.58], flat: 1 }, // 布基礎＝少し太く暗いコンクリ・下へ0.47m埋まる＝斜面でも足元が浮かない
+        { g: new THREE.BoxGeometry(5.04, 0.08, 0.32), m: TRw(0, 0.69, 0), c: [1.06, 1.06, 1.02], flat: 1 }, // 笠木（天端の薄い段・少し明るく）
+        { g: new THREE.BoxGeometry(0.3, 1.46, 0.42), m: TRw(-2.42, 0.04, 0), c: [0.88, 0.88, 0.85], flat: 1 }, { g: new THREE.BoxGeometry(0.3, 1.46, 0.42), m: TRw(2.42, 0.04, 0), c: [0.88, 0.88, 0.85], flat: 1 } ]) // 控え柱＝両端の柱型（壁より0.1mずつ出す＝立体感・隣接セグメントの継ぎ目も隠す）
+      const wI = new THREE.InstancedMesh(wallGeo, new THREE.MeshToonMaterial({ color: 0xffffff, map: blockTex, gradientMap: GRAD, vertexColors: true }), wallP.length); wI.castShadow = wI.receiveShadow = true; const wcol = new THREE.Color()
+      wallP.forEach(([x, z, a], i) => { placeSlope(wI, i, x, z, a, 0.65)
         const s2 = Math.abs(Math.round(x) * 5 + Math.round(z) * 7) % 100, tone = s2 < 20 ? [0.86, 0.84, 0.78] : s2 < 40 ? [0.82, 0.83, 0.86] : s2 < 55 ? [0.9, 0.86, 0.74] : [0.94, 0.93, 0.9]; wcol.setRGB(tone[0], tone[1], tone[2]); wI.setColorAt(i, wcol) }) // 塀ごとに色味（白/灰/ベージュ/古びた）＝一様な並びを解消（F5・2026-06-25）
-      if (wI.instanceColor) wI.instanceColor.needsUpdate = true; scene.add(wI) } // ブロック塀
+      if (wI.instanceColor) wI.instanceColor.needsUpdate = true; wI.name = 'yatoWallBlock'; scene.add(wI) } // ブロック塀（名前=検証スクリプトの位置取得用）
     if (hedgeP.length) { const hedgeTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#5f8540'; x.fillRect(0, 0, 64, 64) // 刈り込んだ生垣の葉のまだら（のっぺりした緑の箱を脱す・F5・2026-06-25）
         for (let i = 0; i < 80; i++) { const lg = Math.random() < 0.5; x.fillStyle = lg ? 'rgba(38,66,28,0.30)' : 'rgba(150,182,108,0.26)'; const r = 1.5 + Math.random() * 4.5, px = Math.random() * 64, py = Math.random() * 64; for (const ox of [-64, 0, 64]) for (const oy of [-64, 0, 64]) { x.beginPath(); x.arc(px + ox, py + oy, r, 0, 6.283); x.fill() } } // 葉の濃淡（継ぎ目をまたぐ）
         const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 1); return t })()
-      const hI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.0, 0.7), new THREE.MeshToonMaterial({ color: 0xffffff, map: hedgeTex, gradientMap: GRAD }), hedgeP.length); hI.castShadow = true; hedgeP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.5, z), q, sc); hI.setMatrixAt(i, m4) }); scene.add(hI) } // 生垣（葉のテクスチャ）
+      const hI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.2, 0.7), new THREE.MeshToonMaterial({ color: 0xffffff, map: hedgeTex, gradientMap: GRAD }), hedgeP.length); hI.castShadow = true; hedgeP.forEach(([x, z, a], i) => placeSlope(hI, i, x, z, a, 0.5)); scene.add(hI) } // 生垣（葉のテクスチャ・高さ1.0→1.2で下端を0.1m埋め＋傾斜追従＝斜面で足元が浮かない）
     if (boardP.length) { const boardTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#9a7a4e'; x.fillRect(0, 0, 64, 64) // 板塀（縦板＋木目）
         x.strokeStyle = 'rgba(78,56,32,0.5)'; x.lineWidth = 2; for (let px = 2; px <= 64; px += 12) { x.beginPath(); x.moveTo(px, 0); x.lineTo(px, 64); x.stroke() } // 板の継ぎ目（縦）
         x.strokeStyle = 'rgba(120,92,58,0.28)'; x.lineWidth = 1; for (let i = 0; i < 26; i++) { const px = Math.random() * 64; x.beginPath(); x.moveTo(px, 0); x.lineTo(px + (Math.random() - 0.5) * 3, 64); x.stroke() } // 木目の縦筋
         const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.5, 1); return t })()
-      const bI = new THREE.InstancedMesh(new THREE.BoxGeometry(5, 1.15, 0.09), new THREE.MeshToonMaterial({ color: 0xffffff, map: boardTex, gradientMap: GRAD }), boardP.length); bI.castShadow = bI.receiveShadow = true; boardP.forEach(([x, z, a], i) => { eu.set(0, a, 0); q.setFromEuler(eu); m4.compose(new THREE.Vector3(x, heightAtYato(x, z) + 0.58, z), q, sc); bI.setMatrixAt(i, m4) }); scene.add(bI) } // 板塀（木の塀）
+      const boardGeo = mergeUVParts([
+        { g: new THREE.BoxGeometry(5, 1.15, 0.09), m: TRw(0, 0, 0), c: [1, 1, 1] }, // 板壁本体（縦板テクスチャ）
+        { g: new THREE.BoxGeometry(5.02, 0.07, 0.13), m: TRw(0, 0.61, 0), c: [0.72, 0.62, 0.46], flat: 1 }, // 笠木（雨よけの横木）
+        { g: new THREE.BoxGeometry(0.14, 1.5, 0.14), m: TRw(-2.4, -0.12, 0), c: [0.62, 0.5, 0.36], flat: 1 }, { g: new THREE.BoxGeometry(0.14, 1.5, 0.14), m: TRw(2.4, -0.12, 0), c: [0.62, 0.5, 0.36], flat: 1 } ]) // 支柱＝両端の杭（下へ0.3m埋まる・継ぎ目も隠す）
+      const bI = new THREE.InstancedMesh(boardGeo, new THREE.MeshToonMaterial({ color: 0xffffff, map: boardTex, gradientMap: GRAD, vertexColors: true }), boardP.length); bI.castShadow = bI.receiveShadow = true; boardP.forEach(([x, z, a], i) => placeSlope(bI, i, x, z, a, 0.58)); scene.add(bI) } // 板塀（木の塀・笠木+支柱つき+傾斜追従）
     console.log('[shishigaya] 塀', wallP.length, '生垣', hedgeP.length, '板塀', boardP.length) }
   // ── 道ばたの夏草（伸び放題の路傍＝手入れされていない生活感。道のへりの少し外に点々と。水/建物の上は避ける。1ドロー）2026-06-24 ──
   { const weedP = [], occW = (x, z) => { const c = cellOf(x, z); return c >= 0 && occ[c] }
