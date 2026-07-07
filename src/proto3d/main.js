@@ -14825,7 +14825,7 @@ const VRM_PILOTS = [
   // ※素の女子高生（篠・等身大）は役目を終えて撤去（2026-07-07 iPhone負荷削減＝1体分の描画/読込を削減）
   { file: 'models/sendagaya_shibu.vrm', pos: [3054.5, 17.5], ry: 2.0, scale: 0.72, headScale: 1.38, girl: true },  // 渋＝子ども化+素朴な女の子（黒髪+白ブラウス+赤スカート）
   { file: 'models/sendagaya_shino.vrm', pos: [3048.5, 14.2], ry: 1.9, scale: 0.84, headScale: 1.02, spineBend: 0.44, grandma: true }, // おばあちゃん化v2＝ショート白髪+丸めがね+細目+しわ+前かがみ+杖+渋い服+小柄
-  { file: 'models/sakurada_fumiriya.vrm', pos: [3045.5, 18.2], ry: 2.0, scale: 0.64, headScale: 1.46, boy: true, aho: true }, // 夏の男の子（桜田）＝小1〜2の背丈（主人公は低学年＝ユーザー指定2026-07-07）+Tシャツ+短パン+麦わら+虫網
+  { file: 'models/sakurada_fumiriya.vrm', pos: [3045.5, 18.2], ry: 2.0, scale: 0.64, headScale: 1.46, boy: true, aho: true }, // 夏の男の子（桜田）＝小1〜2の背丈（主人公は低学年＝ユーザー指定2026-07-07）+白半袖シャツ+紺半ズボン(テクスチャ加工のみ=角ばりゼロ)+麦わら+虫網
   { file: 'models/sakurada_fumiriya.vrm', pos: [3050.2, 17.8], ry: 2.3, scale: 0.80, headScale: 1.05, spineBend: 0.34, yOff: 0.10, grandpa: true }, // おじいちゃん（桜田ベース試作）＝白髪+白ひげ+しわ+開襟シャツ+麦わら（砂場の南の開けた芝＝俯瞰park_top.pngで選定）
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
@@ -14859,6 +14859,18 @@ function recolorNavy(vrm, nameRe, fr = 1, fg = 1, fb = 1) {
         const lum = (r + g + b) / 3
         if (lum < 135 && b > r) { const t = Math.min(252, 205 + lum * 0.38)
           d.data[i] = Math.min(255, t * fr); d.data[i + 1] = Math.min(255, t * fg); d.data[i + 2] = Math.min(255, t * fb + 2) } }
+      t2.ctx.putImageData(d, 0, 0); t2.apply() } })
+}
+// 暗い画素を白系へ持ち上げる（黒ソックス→白ソックス・黒ローファー→白ズック等）。元の陰影は薄く残す
+function liftDark(vrm, nameRe, th, to) {
+  vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
+    for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+      if (!m.name || !nameRe.test(m.name) || !m.map || !m.map.image) continue
+      const t2 = texCanvas(m)
+      const d = t2.ctx.getImageData(0, 0, t2.cv.width, t2.cv.height)
+      for (let i = 0; i < d.data.length; i += 4) { const lum = (d.data[i] + d.data[i + 1] + d.data[i + 2]) / 3
+        if (lum < th && d.data[i + 3] > 100) { const t = Math.min(250, to + lum * 0.25)
+          d.data[i] = t; d.data[i + 1] = t - 2; d.data[i + 2] = t - 8 } }
       t2.ctx.putImageData(d, 0, 0); t2.apply() } })
 }
 // 顔テクスチャへ老いを直接描き込む＝ほうれい線・目尻/下まぶた/額のしわ・こけ頬。beardで白ひげ・tanで日焼けの膜
@@ -14921,42 +14933,26 @@ function strawHat(head, color = 0xe6c074, withBand = true) {
     band.position.set(0, 0.140, 0.012); band.rotation.x = 0.03; head.add(band) }
   return { brim, crown }
 }
-// 夏の男の子化（2026-07-07・PhaseA主人公候補の照準確認）：ネクタイ/長ズボンを非表示にし、
-// 半ズボン（腰筒+もも筒）・すね/ももの肌・麦わら帽子をボーンに付与。アホ毛は帽子貫通を防いで短縮
-// aho=「ちょっと阿呆そうな元気な子」化（ユーザーの理想像2026-07-07）＝日焼け+そばかす+ニカッと笑い（tick側でhappy）
+// 夏の男の子化（v2・2026-07-07）：後付けジオメトリ全廃＝「肩や足が角ばってて不自然」(ユーザーNG)の根本対策。
+// ユーザー方針「元のモデルをベースに大きさと服を少し変えるだけ」＝元の制服メッシュをそのまま使い、テクスチャの描き替えだけで夏服にする：
+// ①ネクタイ非表示 ②紺ベスト→白（recolorNavy＝元の陰影を残す）＝白い半袖シャツに（元のシャツは最初から半袖だった）
+// ③紺の長ズボンはUVのもも位置から下を透明化（alphaTest）＝紺の半ズボンに（ベルト/布の皺はVRoidのまま・昭和の男児の定番）
+// ※ズボンの下には本物の足のメッシュが丸ごと残っている（bs_nopants.pngで実証2026-07-07）＝肌の筒は不要
 function boyize(vrm, aho) {
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/AccessoryNeck/.test(m.name)) m.visible = false // ネクタイを消す（夏の普段着へ）
-      if (/Tops/.test(m.name)) m.visible = false // 襟シャツ+ベストを丸ごと消す（「学校の制服みたい」ユーザー指摘2026-07-07）→下でTシャツに置き換え
-      if (/Bottoms/.test(m.name)) m.visible = false // 長ズボンを消す（下の半ズボン+生足に置き換え）
+      if (/Bottoms/.test(m.name) && !/\(Outline\)/.test(m.name) && m.map && m.map.image) {
+        const t2 = texCanvas(m) // 長ズボン→半ズボン＝UVは腰が上・すそが下（texdumpで実測）。ももの途中から下を透明に
+        t2.ctx.clearRect(0, 330 * (t2.cv.width / 1024), t2.cv.width, t2.cv.height)
+        t2.apply(); m.alphaTest = 0.5; m.side = THREE.DoubleSide // 両面＝すその切り口から中が抜けて見えないように
+      }
     } })
+  recolorNavy(vrm, /Tops/) // 紺ベスト→白＝全体が白い半袖シャツに見える
+  liftDark(vrm, /Body.*SKIN/, 60, 232) // 肌テクスチャに描き込まれた黒ソックス→白ソックス（bsk_feet.pngで確認）
+  liftDark(vrm, /Shoes/, 135, 205) // 黒ローファー→白ズック
   if (aho) agedFace(vrm, { freckles: true }) // 日焼けの乗算膜は「貼り付けたような顔」の一因＝廃止（そばかすだけ残す・ユーザー指摘2026-07-07）
   const hu = vrm.humanoid
-  const skin = skinToon(0xf1cdb5) // 主人公と同じ肌トゥーン（素のMeshToonMaterialは影側が黒く潰れて長靴下に見えた）
-  const navy = charToon(0x8a7358) // 短パン＝ベージュの土色（紺だと制服に見える）
-  const seg = (parent, fromLocal, toLocal, r, mat) => { // 2点間シリンダー（親ボーンのローカル空間）
-    const d = new THREE.Vector3().subVectors(toLocal, fromLocal); const len = d.length()
-    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.92, len, 10), mat)
-    cyl.position.copy(fromLocal).addScaledVector(d, 0.5)
-    cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize())
-    parent.add(cyl); return cyl }
-  for (const side of ['left', 'right']) { // 生足＝もも（腰→ひざ）とすね（ひざ→足首）。VRoidはズボン下の肌が欠損しているため
-    const up = hu.getRawBoneNode(side + 'UpperLeg'), knee = hu.getRawBoneNode(side + 'LowerLeg'), foot = hu.getRawBoneNode(side + 'Foot')
-    if (up && knee) seg(up, new THREE.Vector3(0, 0, 0), knee.position.clone(), 0.062, skin)
-    if (knee && foot) seg(knee, new THREE.Vector3(0, 0, 0), foot.position.clone(), 0.048, skin)
-    if (up && knee) seg(up, knee.position.clone().multiplyScalar(-0.12), knee.position.clone().multiplyScalar(0.60), 0.094, navy) // 半ズボンのもも筒
-  }
-  const hips = hu.getRawBoneNode('hips')
-  if (hips) { const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.140, 0.30, 12), navy)
-    waist.position.set(0, -0.11, 0); hips.add(waist) } // 半ズボンの腰筒（もも筒と深く重ねて肌の隙間を消す）
-  // 白いTシャツ＝消した襟シャツの代わり（胸のカプセル+半袖の筒。夏休みの普段着）
-  const tee = charToon(0xf2efe6)
-  const chest = hu.getRawBoneNode('chest') || hu.getRawBoneNode('spine')
-  if (chest) { const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.148, 0.20, 10, 24), tee)
-    torso.position.set(0, 0.02, 0.004); torso.scale.set(1, 1, 0.80); torso.rotation.y = Math.PI; chest.add(torso) } // 胸板は薄く・UVの継ぎ目は背中側へ（正面の縦筋を消す）
-  for (const side of ['left', 'right']) { const ua = hu.getRawBoneNode(side + 'UpperArm'), la = hu.getRawBoneNode(side + 'LowerArm')
-    if (ua && la) seg(ua, la.position.clone().multiplyScalar(-0.18), la.position.clone().multiplyScalar(0.52), 0.056, tee) } // 半袖
   const head = hu.getRawBoneNode('head')
   if (head) {
     for (const c of head.children) if (/^HairJoint/.test(c.name)) {
@@ -15229,7 +15225,8 @@ async function startVrmPilot() {
       }
       vrmPilots.push({ vrm, t: Math.random() * 3, ph: Math.random() * 6.28, blinkT: 2.0 + Math.random(), headYaw: 0, spineBend: cfg.spineBend || 0, grandma: !!cfg.grandma, grandpa: !!cfg.grandpa, aho: !!cfg.aho, baseY: vrm.scene.position.y })
     }
-    if (!honkiKid) { honkiKid = makeHonkiKid(3047.4, 16.4, 2.0 + Math.PI); scene.add(honkiKid) } // 本気造形の試作＝VRM組の隣で比較できる位置
+    // 本気ゼロから造形の試作(makeHonkiKid)はユーザー確認の結果「却下」（2026-07-07）＝設置停止。関数は記録として温存
+    // if (!honkiKid) { honkiKid = makeHonkiKid(3047.4, 16.4, 2.0 + Math.PI); scene.add(honkiKid) }
     vrmPilotState = 2
   } catch (e) { console.warn('VRMパイロット読込失敗', e); vrmPilotState = 3 }
 }
