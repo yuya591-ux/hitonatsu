@@ -1,44 +1,82 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- 「ひと夏の一日」アプリアイコン：夏休みの空気＝入道雲・夏の陽・田舎の丘・主人公の麦わら帽子（コード描画・外部素材なし） -->
+  <!-- 「ひと夏のまち」アプリアイコン（2026-07-07刷新）：夏の青空＋立ちのぼる入道雲＋緑の丘のふもとの小さな町（赤い屋根・電柱・ひまわり）＝「2000年の夏、あの町へ」。コード描画・外部素材なし。maskable対応＝主要モチーフは中央80%に収める -->
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8fc3e8"/>
-      <stop offset="0.55" stop-color="#bfdcec"/>
-      <stop offset="1" stop-color="#eef0db"/>
-    </linearGradient>
-    <linearGradient id="straw" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f0cd86"/>
-      <stop offset="1" stop-color="#e0b766"/>
+      <stop offset="0" stop-color="#2f8ad6"/>
+      <stop offset="0.55" stop-color="#6fb6ea"/>
+      <stop offset="1" stop-color="#c2ddf2"/>
     </linearGradient>
     <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#dfe6ea"/>
+      <stop offset="0.8" stop-color="#eef2f5"/>
+      <stop offset="1" stop-color="#d9e3ea"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fbf62"/>
+      <stop offset="1" stop-color="#6d9e49"/>
     </linearGradient>
   </defs>
   <!-- 夏空 -->
   <rect width="512" height="512" fill="url(#sky)"/>
-  <!-- 夏の陽 -->
-  <circle cx="116" cy="132" r="58" fill="#ffe49a"/>
-  <!-- 入道雲（もくもくと立ちのぼる夏の雲＝夏休みの空気） -->
+  <!-- 夏の陽（左上にささやかに） -->
+  <circle cx="104" cy="110" r="44" fill="#ffedb0" opacity="0.95"/>
+  <!-- 入道雲（右にもくもくと立ちのぼる＝夏休みの空気の主役） -->
   <g fill="url(#cloud)">
-    <ellipse cx="332" cy="120" rx="58" ry="58"/>
-    <ellipse cx="300" cy="168" rx="62" ry="56"/>
-    <ellipse cx="382" cy="158" rx="66" ry="60"/>
-    <ellipse cx="346" cy="206" rx="86" ry="58"/>
-    <ellipse cx="262" cy="206" rx="46" ry="40"/>
-    <ellipse cx="428" cy="206" rx="40" ry="36"/>
-    <rect x="232" y="210" width="220" height="44" rx="22"/>
+    <ellipse cx="352" cy="128" rx="56" ry="54"/>
+    <ellipse cx="308" cy="176" rx="60" ry="54"/>
+    <ellipse cx="396" cy="170" rx="62" ry="56"/>
+    <ellipse cx="352" cy="222" rx="84" ry="56"/>
+    <ellipse cx="270" cy="228" rx="44" ry="38"/>
+    <ellipse cx="436" cy="226" rx="36" ry="32"/>
+    <rect x="240" y="228" width="228" height="40" rx="20"/>
   </g>
-  <!-- 奥の丘 -->
-  <path d="M0,344 Q150,296 300,332 T512,318 L512,512 L0,512 Z" fill="#a0c277"/>
-  <!-- 手前の丘 -->
-  <path d="M0,408 Q170,360 332,398 T512,388 L512,512 L0,512 Z" fill="#77a052"/>
-  <!-- 麦わら帽子（主人公の帽子＝この物語の目印。丘の上にちょこんと） -->
+  <!-- 遠くの綿雲 -->
+  <g fill="#ffffff" opacity="0.85">
+    <ellipse cx="120" cy="212" rx="44" ry="16"/>
+    <ellipse cx="88" cy="222" rx="30" ry="12"/>
+  </g>
+  <!-- 緑の丘（谷戸のまち＝ふた山かさねて奥行き） -->
+  <path d="M0,336 Q90,282 200,318 Q290,346 360,322 Q440,296 512,326 L512,512 L0,512 Z" fill="#7fae57" opacity="0.9"/>
+  <path d="M0,376 Q120,330 250,362 Q380,392 512,358 L512,512 L0,512 Z" fill="url(#hill)"/>
+  <!-- ふもとの町なみ（白壁+赤/灰/茶の屋根＝温かいトゥーンの家々） -->
   <g>
-    <ellipse cx="256" cy="392" rx="120" ry="34" fill="url(#straw)"/>
-    <path d="M188,400 Q256,372 324,400 L324,410 Q256,430 188,410 Z" fill="#5e7ea0"/>
-    <ellipse cx="256" cy="372" rx="62" ry="40" fill="url(#straw)"/>
-    <path d="M150,392 Q256,440 362,392 Q256,416 150,392 Z" fill="#d2a554"/>
-    <ellipse cx="234" cy="358" rx="26" ry="13" fill="#f6dca6" opacity="0.7"/>
+    <!-- 家1（赤い屋根・主役） -->
+    <rect x="196" y="392" width="92" height="66" rx="4" fill="#f6efdd"/>
+    <path d="M182,398 L242,352 L302,398 Z" fill="#c0504a"/>
+    <rect x="228" y="418" width="26" height="40" rx="2" fill="#8a6a44"/>
+    <rect x="206" y="408" width="20" height="18" rx="2" fill="#9db7c8"/>
+    <rect x="260" y="408" width="20" height="18" rx="2" fill="#9db7c8"/>
+    <!-- 家2（灰の屋根・左奥） -->
+    <rect x="112" y="404" width="66" height="54" rx="3" fill="#efe7d2"/>
+    <path d="M102,408 L145,372 L188,408 Z" fill="#7a8894"/>
+    <rect x="126" y="420" width="16" height="14" rx="2" fill="#9db7c8"/>
+    <rect x="150" y="420" width="16" height="14" rx="2" fill="#9db7c8"/>
+    <!-- 家3（茶の屋根・右奥） -->
+    <rect x="318" y="400" width="72" height="58" rx="3" fill="#f2ead6"/>
+    <path d="M308,404 L354,364 L400,404 Z" fill="#8a5f3c"/>
+    <rect x="332" y="416" width="16" height="14" rx="2" fill="#9db7c8"/>
+    <rect x="358" y="416" width="16" height="14" rx="2" fill="#9db7c8"/>
+  </g>
+  <!-- 電柱（2000年の町の空気＝細い影絵で1本だけ） -->
+  <g stroke="#5a5148" stroke-width="7" stroke-linecap="round">
+    <line x1="430" y1="306" x2="430" y2="452"/>
+    <line x1="404" y1="330" x2="456" y2="330"/>
+    <line x1="410" y1="348" x2="450" y2="348"/>
+  </g>
+  <g stroke="#5a5148" stroke-width="2.4" opacity="0.75">
+    <path d="M404,332 Q330,344 240,338" fill="none"/>
+    <path d="M456,332 Q490,336 512,334" fill="none"/>
+  </g>
+  <!-- 手前の草の帯（画面の重心を下へ） -->
+  <path d="M0,452 Q128,436 256,448 Q384,460 512,446 L512,512 L0,512 Z" fill="#5f8a3e"/>
+  <!-- ひまわり（夏のアクセント・左手前） -->
+  <g>
+    <line x1="72" y1="470" x2="72" y2="420" stroke="#4c7a34" stroke-width="8" stroke-linecap="round"/>
+    <g fill="#f2c53a">
+      <circle cx="72" cy="404" r="9"/><circle cx="88" cy="410" r="9"/><circle cx="94" cy="426" r="9"/>
+      <circle cx="88" cy="442" r="9"/><circle cx="72" cy="448" r="9"/><circle cx="56" cy="442" r="9"/>
+      <circle cx="50" cy="426" r="9"/><circle cx="56" cy="410" r="9"/>
+    </g>
+    <circle cx="72" cy="426" r="12" fill="#7a5a2e"/>
   </g>
 </svg>

@@ -3,7 +3,7 @@
 //   ・HTML（ページ）＝ネット優先。更新をすぐ反映する（既存のキャッシュ更新の作法を壊さない）。オフラインのときだけキャッシュから出す。
 //   ・ハッシュ付きの資産（js/css/画像/音）＝キャッシュ優先。一度読めばオフラインでも動く・表示が速い。
 //   どこでつまずいてもゲーム本体には影響しない（respondWith しない＝通常のネット取得にフォールバック）。
-const CACHE = 'hitonatsu-v1'
+const CACHE = 'hitonatsu-v2' // v2=アプリ名/アイコン刷新(2026-07-07)＝旧キャッシュのアイコン/manifestを確実に置き換える
 
 self.addEventListener('install', () => self.skipWaiting())
 

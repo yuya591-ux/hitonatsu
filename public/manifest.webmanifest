@@ -1,7 +1,7 @@
 {
-  "name": "ひと夏の一日",
+  "name": "ひと夏のまち",
   "short_name": "ひと夏",
-  "description": "夏の田舎で過ごす、朝から夜までの一日を味わう",
+  "description": "2000年の夏休み、あの町を歩いて味わう",
   "lang": "ja",
   "start_url": "proto3d.html",
   "scope": ".",
