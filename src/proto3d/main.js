@@ -14833,7 +14833,20 @@ function boyize(vrm) {
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/AccessoryNeck/.test(m.name)) m.visible = false // ネクタイを消す（夏の普段着へ）
-      if (/Bottoms/.test(m.name)) m.visible = false } }) // 長ズボンを消す（下の半ズボン+生足に置き換え）
+      if (/Bottoms/.test(m.name)) m.visible = false // 長ズボンを消す（下の半ズボン+生足に置き換え）
+      if (/Tops/.test(m.name) && m.map && m.map.image) { // 紺のニットベストを白布に描き換え＝「私立の制服/金持ちの子」感を消してただの白シャツの子へ（2000年の夏の普段着・ユーザー指摘）
+        const img = m.map.image
+        const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height
+        const cx2 = cv.getContext('2d'); cx2.drawImage(img, 0, 0)
+        const d = cx2.getImageData(0, 0, cv.width, cv.height)
+        for (let i = 0; i < d.data.length; i += 4) { const r = d.data[i], g = d.data[i + 1], b = d.data[i + 2]
+          const lum = (r + g + b) / 3
+          if (lum < 135 && b > r) { const t = Math.min(252, 205 + lum * 0.38) // 紺（暗くて青寄り）だけ白布へ＝元の陰影は白の陰影に写す
+            d.data[i] = t; d.data[i + 1] = t; d.data[i + 2] = Math.min(255, t + 2) } }
+        cx2.putImageData(d, 0, 0)
+        const tex = new THREE.CanvasTexture(cv)
+        tex.flipY = m.map.flipY; tex.colorSpace = m.map.colorSpace; tex.wrapS = m.map.wrapS; tex.wrapT = m.map.wrapT
+        m.map = tex; if (m.shadeMultiplyTexture) m.shadeMultiplyTexture = tex; m.needsUpdate = true } } })
   const hu = vrm.humanoid
   const skin = skinToon(0xf1cdb5) // 主人公と同じ肌トゥーン（素のMeshToonMaterialは影側が黒く潰れて長靴下に見えた）
   const navy = charToon(0x3a4660)
@@ -14882,7 +14895,7 @@ function grandmaize(vrm) {
   const hips = vrm.humanoid.getRawBoneNode('hips')
   if (hips) { // ひざ下丈のロングスカート（もんぺ風の濃鼠）＝腰ボーンから吊るす円錐。太もも/ミニの学生感を消す本命
     const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.225, 0.50, 14), charToon(0x7a7480)) // ゲームの人物用トゥーン＝影側が黒く潰れない
-    skirt.position.set(0, -0.22, 0); hips.add(skirt)
+    skirt.position.set(0, -0.22, 0); skirt.rotation.x = -0.36; hips.add(skirt) // 股関節の前折りぶん布は垂直へ戻す（+0.30は逆で後ろへ跳ねた＝実測で負が正解）
   }
   const head = vrm.humanoid.getRawBoneNode('head')
   if (!head) return
@@ -14933,6 +14946,9 @@ async function startVrmPilot() {
       if (cfg.boy) boyize(vrm) // 夏の男の子（PhaseA主人公候補）
       if (cfg.grandma) { // おばあちゃん化v2＝髪型/めがね/服（grandmaize）＋右腕は杖を突く形・左腕は体側へ・指は軽く曲げる
         grandmaize(vrm)
+        // 前かがみの主軸は「股関節」＝hipsを前に折り脚を同量逆回転で垂直に戻す（背骨だけ曲げるとお腹が前に出て頭が上がり「エビ反り」に見える＝ユーザー指摘2026-07-07）
+        const hipsN = hu.getNormalizedBoneNode('hips'); if (hipsN) hipsN.rotation.x = cfg.spineBend
+        for (const s of ['leftUpperLeg', 'rightUpperLeg']) { const b = hu.getNormalizedBoneNode(s); if (b) b.rotation.x = -cfg.spineBend }
         const rua = hu.getNormalizedBoneNode('rightUpperArm'); if (rua) { rua.rotation.z = -1.12; rua.rotation.x = -0.32 } // xは負が前（正規化ボーンは+Zが前方＝実測）
         const rla = hu.getNormalizedBoneNode('rightLowerArm'); if (rla) { rla.rotation.z = -0.04; rla.rotation.x = -0.26 }
         const lua = hu.getNormalizedBoneNode('leftUpperArm'); if (lua) { lua.rotation.z = 1.30; lua.rotation.x = -0.05 }
@@ -14955,11 +14971,11 @@ function vrmPilotTick(dt) {
   for (const v of vrmPilots) {
     v.t += dt
     const hu = v.vrm.humanoid
-    // 腰の曲がりは背骨3関節に分散（1関節で深く曲げるとお腹が突き出て「エビ反り」に見える＝ユーザー指摘2026-07-07。分散で丸い猫背になる）
-    const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = v.spineBend * 0.42 + Math.sin(v.t * 1.6) * 0.018 // 呼吸のゆらぎ
+    // 前かがみの主軸は股関節（起動時に設定）。背骨はごく軽い丸み＝猫背の続きだけ（強く曲げるとお腹が突き出て「エビ反り」に見える）
+    const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = v.spineBend * 0.26 + Math.sin(v.t * 1.6) * 0.018 // 呼吸のゆらぎ
     if (v.spineBend) { const chest = hu.getNormalizedBoneNode('chest'), uc = hu.getNormalizedBoneNode('upperChest')
-      if (chest) chest.rotation.x = v.spineBend * (uc ? 0.34 : 0.58)
-      if (uc) uc.rotation.x = v.spineBend * 0.24 }
+      if (chest) chest.rotation.x = v.spineBend * (uc ? 0.14 : 0.24)
+      if (uc) uc.rotation.x = v.spineBend * 0.10 }
     const head = hu.getNormalizedBoneNode('head')
     if (head) { // 近くに来たらゆっくり顔を向ける（npcGazeの礼儀と同じ作法・首は±0.6radまで）
       const dx = boy.position.x - v.vrm.scene.position.x, dz = boy.position.z - v.vrm.scene.position.z
@@ -14967,7 +14983,7 @@ function vrmPilotTick(dt) {
       const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : 0
       v.headYaw += (want - v.headYaw) * Math.min(1, dt * 3.2)
       head.rotation.y = v.headYaw
-      head.rotation.x = -v.spineBend * 0.30 // 顔は少しだけ起こす＝視線はやや下の数m先（起こしすぎるとエビ反りに見える）
+      head.rotation.x = -v.spineBend * 0.55 // 股関節で折れたぶん顔を半分だけ起こす＝視線は数m先の地面（上げすぎるとエビ反りに見える）
     }
     const em = v.vrm.expressionManager // まばたき
     if (em) { v.blinkT -= dt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
