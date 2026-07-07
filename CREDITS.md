@@ -80,3 +80,4 @@
   - 用途：画風刷新の判断用パイロット（第三公園に1体を試験配置・遅延読込）
 - 読み込みライブラリ：**@pixiv/three-vrm**（MITライセンス・npm経由で同梱ビルド・実行時の外部通信なし）
 - **Sendagaya Shibu（千駄ヶ谷 渋）** `public/models/sendagaya_shibu.vrm`（約17MB）— 同上（VRoid公式旧サンプル・**CC0**・ファイル内メタで確認済み・入手元同じ）。子ども体型化の実験体（全体0.72倍＋頭ボーン1.38倍）
+- **Sakurada Fumiriya（桜田 文理也）** `public/models/sakurada_fumiriya.vrm`（約19MB）— 同上（VRoid公式旧サンプルの男性モデル・**CC0**・ファイル内メタで `licenseName:"CC0"` / Everyone / 商用可を確認済み・入手元同じ vroid/beta/Sakurada_Fumiriya.vrm）。主人公刷新（Phase A）の基体候補＝「夏の男の子」パイロット（子ども化＋麦わら帽子＋半ズボンはコード側で付与）
