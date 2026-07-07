@@ -15099,7 +15099,7 @@ async function startVrmPilot() {
         p('leftUpperArm', -0.06, 1.20); p('leftLowerArm', -0.14, 0.05)
         fingerCurl('left', -1, 0.55); fingerCurl('right', 1, 0.55)
       }
-      vrmPilots.push({ vrm, t: Math.random() * 3, blinkT: 2.0 + Math.random(), headYaw: 0, spineBend: cfg.spineBend || 0, grandma: !!cfg.grandma, grandpa: !!cfg.grandpa, aho: !!cfg.aho, baseY: vrm.scene.position.y })
+      vrmPilots.push({ vrm, t: Math.random() * 3, ph: Math.random() * 6.28, blinkT: 2.0 + Math.random(), headYaw: 0, spineBend: cfg.spineBend || 0, grandma: !!cfg.grandma, grandpa: !!cfg.grandpa, aho: !!cfg.aho, baseY: vrm.scene.position.y })
     }
     vrmPilotState = 2
   } catch (e) { console.warn('VRMパイロット読込失敗', e); vrmPilotState = 3 }
@@ -15123,6 +15123,8 @@ function vrmPilotTick(dt) {
     const hu = v.vrm.humanoid
     // 前かがみ姿勢＝GPOSEを毎フレーム適用（股関節の折り+背中の丸み+膝のゆるい曲がり）。呼吸のゆらぎはspineに合成
     const spine = hu.getNormalizedBoneNode('spine'); if (spine) spine.rotation.x = v.spineBend * GPOSE.spineF + Math.sin(v.t * 1.6) * 0.018
+    // 生きてる感＝体重移動の左右ゆらぎ（「固まって見える」ユーザー指摘2026-07-07への対応。骨の回転だけ＝負荷ほぼゼロ）
+    if (spine) spine.rotation.z = Math.sin(v.t * 0.83 + (v.ph || 0)) * ((v.grandma || v.grandpa) ? 0.010 : 0.022)
     if (v.spineBend) { const chest = hu.getNormalizedBoneNode('chest'), uc = hu.getNormalizedBoneNode('upperChest')
       if (chest) chest.rotation.x = v.spineBend * (uc ? GPOSE.chestF : GPOSE.chestF + 0.10)
       if (uc) uc.rotation.x = v.spineBend * GPOSE.ucF
@@ -15132,26 +15134,29 @@ function vrmPilotTick(dt) {
       const neck = hu.getNormalizedBoneNode('neck'); if (neck) neck.rotation.x = v.spineBend * GPOSE.neckF // 首の前出し
       const ls = hu.getNormalizedBoneNode('leftShoulder'); if (ls) ls.rotation.y = -GPOSE.shY // 肩を前に巻く＝丸背
       const rs = hu.getNormalizedBoneNode('rightShoulder'); if (rs) rs.rotation.y = GPOSE.shY
-      if (v.baseY != null) v.vrm.scene.position.y = v.baseY - GPOSE.drop // 膝を曲げたぶん沈めて足を接地
       if (v.vrm.scene.userData._skirt) v.vrm.scene.userData._skirt.rotation.x = GPOSE.skirt } // スカートは前折りした骨盤から垂直へ戻す
+    if (v.baseY != null) v.vrm.scene.position.y = v.baseY - (v.spineBend ? GPOSE.drop : 0) + (v.aho ? Math.abs(Math.sin(v.t * 1.9)) * 0.015 : 0) // 接地（膝曲げの沈み）＋阿呆そうな子はかかとで小さく弾む
     const head = hu.getNormalizedBoneNode('head')
     if (head) { // 近くに来たらゆっくり顔を向ける（npcGazeの礼儀と同じ作法・首は±0.6radまで）
       const dx = boy.position.x - v.vrm.scene.position.x, dz = boy.position.z - v.vrm.scene.position.z
       const near = Math.hypot(dx, dz) < 10
-      const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : 0
+      // 独りの時は棒立ちで一点を見ずに、ゆっくり公園を見回す（おじいちゃんは眺める時間が長め＝大きめ）
+      const wander = (Math.sin(v.t * 0.31 + (v.ph || 0)) * 0.28 + Math.sin(v.t * 0.12 + (v.ph || 0) * 2) * 0.14) * (v.grandpa ? 1.25 : 1)
+      const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - v.vrm.scene.rotation.y))) : wander
       v.headYaw += (want - v.headYaw) * Math.min(1, udt * 3.2)
       head.rotation.y = v.headYaw
       // 顔の起こし量（＋＝起こす）。ふだんは2〜3m先の地面を見る程度・近くに人が来たら腰は曲げたままゆっくり顔だけ上げて見上げる
       const wantP = v.spineBend * (near ? GPOSE.headNear : GPOSE.headF)
       v.headPitch = (v.headPitch ?? wantP) + (wantP - (v.headPitch ?? wantP)) * Math.min(1, udt * 3.2)
-      head.rotation.x = v.headPitch
+      head.rotation.x = v.headPitch + (v.spineBend ? Math.sin(v.t * 0.5) * 0.012 : 0) // 老人はゆっくり小さくうなずくような揺れ
+      if (v.aho) head.rotation.z = Math.sin(v.t * 0.53) * 0.05 // 阿呆そうな子は首をかしげる癖
     }
     const em = v.vrm.expressionManager // まばたき
     if (em) { v.blinkT -= udt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
       const k = v.blinkT < 0.12 ? 1 - Math.abs(v.blinkT - 0.06) / 0.06 : 0
       if (v.grandma) { em.setValue('blink', 0.42 + k * 0.58); em.setValue('relaxed', 0.5) } // おばあちゃん＝目を細めて微笑む（relaxed=Fun＝目だけの笑い。happy/joyは口が開くので不可）
       else if (v.grandpa) { em.setValue('blink', 0.52 + k * 0.48); em.setValue('relaxed', 0.5) } // おじいちゃん＝しっかり細目でにこにこ（若い見開き目を消す）
-      else if (v.aho) { em.setValue('happy', 0.75); em.setValue('blink', k) } // 阿呆そうな子＝いつもニカッと笑ってる（happy=joy系＝口が開く笑い）
+      else if (v.aho) { em.setValue('happy', 0.62 + Math.sin(v.t * 0.8) * 0.18); em.setValue('blink', k) } // 阿呆そうな子＝ニカッと笑いが呼吸のように強弱する（表情が動く=生きてる感）
       else em.setValue('blink', k) }
     v.vrm.update(udt) // 揺れもの（髪のスプリングボーン）と表情の反映
     if (v.grandma && !v.cane) { // 杖＝ポーズ反映後の右手の実位置から地面へ（1回だけ生成・すこし前に植えて「ついている」形に）
