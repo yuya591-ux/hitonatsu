@@ -13795,6 +13795,10 @@ function update(dt) {
       tx = (wx / l) * speed; tz = (wz / l) * speed
     }
     if (autoWalk) { tx = autoWalk.x * 4.4; tz = autoWalk.z * 4.4 } // 往来中は門の先へ自動で歩く
+    if (settings.geo && geoTarget && !riding && !floatMode && !flying && !dialogue && !diaryOpen && !autoWalk) { // 🧭おでかけモード＝実際のGPSの位置へ歩いて追従（autoWalkと同じ経路＝慣性/当たり判定/歩きアニメ/足音がそのまま効く）
+      const gdx = geoTarget.x - boy.position.x, gdz = geoTarget.z - boy.position.z, gd = Math.hypot(gdx, gdz)
+      if (gd > 0.7) { const gs = gd > 30 ? 15 : gd > 8 ? 6.5 : 3.0; tx = gdx / gd * Math.min(gs, gd * 1.6); tz = gdz / gd * Math.min(gs, gd * 1.6) } // 離れているほど早足で追いつく・近くはそろり
+      else { tx = 0; tz = 0 } }
     // 加速はやや速く・減速はゆっくり（歩いてる身体の惰性）
     const k = floatMode ? 1.7 : ((Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 5.5 : 2.7) // 加速はやや穏やか/減速はゆるく＝離すとスーッと滑って止まる“ふわり”散歩（夢のゆったり感・2026-06-24）。浮遊はもとからふんわり
     vel.x += (tx - vel.x) * Math.min(1, dt * k)
@@ -14910,7 +14914,7 @@ const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
 const setInkBtn = document.getElementById('set-ink')
-const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1, bigText: false } // light=軽量モード（既定OFF＝フル品質）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)
+const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1, bigText: false, geo: false } // light=軽量モード（既定OFF＝フル品質）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)。geo=おでかけモード（現地連動・既定OFF）
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
 const hadSavedSettings = (() => { try { return !!localStorage.getItem('hn3d_settings') } catch (e) { return false } })()
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
@@ -14938,6 +14942,40 @@ function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { set
 // I3：文字を大きく（読みやすさ）。本文系（会話/絵日記/トースト/おもいで/あそびかた）のフォントを少し大きく
 ;(function () { const s = document.createElement('style'); s.textContent = `body.big-text #dlg-text,body.big-text #diary-body .line,body.big-text #toast,body.big-text #mb-body .line,body.big-text #mb-body h4,body.big-text .mb-cre .ds,body.big-text .mb-cre .nm,body.big-text #guide-body,body.big-text #dialogue{font-size:1.2em !important;line-height:1.75 !important;}`; document.head.appendChild(s) })()
 function applyBigText() { document.body.classList.toggle('big-text', !!settings.bigText) }
+// ── 🧭 おでかけモード（現地連動・Pokémon GOライクP1・2026-07-07）＝ほんものの獅子ヶ谷を歩くと、ゲームの中のじぶんも同じ場所を歩く ──
+// 原点＝サンライズ北寺尾(35.5155N,139.6500E)=game(3000,0)。最終ワールドは +x=東/−z=北（L148のz反転後）・1単位=1m＝実寸1:1なので座標変換は単純式（外部API不要・ブラウザのGeolocationのみ）
+// P1＝モード切替+watchPosition+変換+平滑化+位置あわせ（較正）。GPSは住宅地で±5〜13m揺れる→精度連動の指数移動平均で「雰囲気同期」に
+const GEO_ORIGIN = { lat: 35.5155, lon: 139.65, x: 3000, z: 0 }
+let geoWatchId = null, geoTarget = null, geoSmooth = null, geoOff = { dx: 0, dz: 0 }, geoOutT = 0, geoBad = 0, geoFirst = true
+try { Object.assign(geoOff, JSON.parse(localStorage.getItem('hn3d_geo_off') || '{}')) } catch (e) {}
+function geoFix(pos) {
+  const acc = pos.coords.accuracy || 99
+  if (acc > 45) { if (++geoBad === 3) showToast('人工衛星を さがしています…（そらの ひらけた ばしょだと 見つかりやすいよ）'); return }
+  geoBad = 0
+  const mE = (pos.coords.longitude - GEO_ORIGIN.lon) * 111320 * Math.cos(pos.coords.latitude * Math.PI / 180) // 東へ+m
+  const mN = (pos.coords.latitude - GEO_ORIGIN.lat) * 110950 // 北へ+m
+  const rx = GEO_ORIGIN.x + mE, rz = GEO_ORIGIN.z - mN // 北=−z
+  if (!geoSmooth) geoSmooth = { x: rx, z: rz }
+  const a = Math.min(0.5, 14 / Math.max(14, acc * 2)) // 精度が良いほど早く寄せる（揺れは吸収）
+  geoSmooth.x += (rx - geoSmooth.x) * a; geoSmooth.z += (rz - geoSmooth.z) * a
+  const tx = geoSmooth.x + geoOff.dx, tz = geoSmooth.z + geoOff.dz
+  const cx = Math.max(1760, Math.min(4240, tx)), cz = Math.max(-1240, Math.min(1240, tz)) // 獅子ヶ谷エリアの外はふちで待つ（暴走しない）
+  if ((cx !== tx || cz !== tz) && performance.now() - geoOutT > 30000) { geoOutT = performance.now(); showToast('いまは 獅子ヶ谷の そとに いるみたい（ちかづくと あるきだすよ）') }
+  geoTarget = { x: cx, z: cz }
+  if (geoFirst) { geoFirst = false // 最初の一回だけ＝その場所へワープして合流（遠くから何分も歩かない）
+    area = 'yato'; onYato = true; boy.position.set(cx, heightAt(cx, cz), cz)
+    showToast('おでかけモード：ほんものの あなたと つながったよ 🧭') }
+}
+function applyGeo() {
+  const b = document.getElementById('set-geo'); if (b) { b.textContent = settings.geo ? 'ON' : 'OFF'; b.classList.toggle('on', !!settings.geo) }
+  if (settings.geo && geoWatchId == null && navigator.geolocation) {
+    geoFirst = true
+    try { geoWatchId = navigator.geolocation.watchPosition(geoFix, (err) => {
+      if (err && err.code === 1) { showToast('位置情報が つかえないみたい（ブラウザの設定で ゆるしてね）'); settings.geo = false; saveSettings(); applyGeo() } // 恒久OFFは「許可されなかった」時だけ
+      else if (++geoBad === 3) showToast('GPSを 見うしなったみたい…（そらの ひらけた ばしょへ）') // TIMEOUT/一時的な取得失敗＝watchは続く。モードは切らない（トンネル/屋内で勝手にOFFにしない）
+    }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 25000 }) } catch (e) {}
+  } else if (!settings.geo && geoWatchId != null) { try { navigator.geolocation.clearWatch(geoWatchId) } catch (e) {} geoWatchId = null; geoTarget = null; geoSmooth = null }
+}
 function applyInk() { // 手描きの線（ポストプロセスのエッジ線パス＝重い端末はOFFで法線パスを丸ごと停止）。軽量モード中は強制OFF。B4：実際のON/OFFはループがuInkOnで毎フレーム反映＝ここはボタン表示のみ
   if (setInkBtn) { setInkBtn.textContent = settings.ink ? 'ON' : 'OFF'; setInkBtn.classList.toggle('on', settings.ink) }
 }
@@ -15044,7 +15082,18 @@ const villLabels = ['忠実', '中庸', '大胆']
 if (setVillageBtn) { setVillageBtn.textContent = villLabels[villageLevel] || '忠実'; setVillageBtn.classList.toggle('on', villageLevel > 0)
   setVillageBtn.addEventListener('click', () => { const nv = (villageLevel + 1) % 3; try { localStorage.setItem('hn3d_village', nv) } catch (e) {}
     const u = new URL(location.href); u.searchParams.delete('v'); u.searchParams.set('cb', Date.now()); location.replace(u.toString()) }) } // 保存して読み直し＝建物の生成からやり直す
-applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); applyBigText()
+// 🧭おでかけモード（現地連動）のボタン：ON/OFF＋位置あわせ（較正）
+{ const setGeoBtn = document.getElementById('set-geo')
+  if (setGeoBtn) setGeoBtn.addEventListener('click', () => { settings.geo = !settings.geo; saveSettings(); applyGeo()
+    if (settings.geo) showToast('おでかけモード ON：ほんものの獅子ヶ谷を あるくと、ゲームのじぶんも あるくよ（GPSを さがしています…）') })
+  const calBtn = document.getElementById('set-geo-cal')
+  if (calBtn) calBtn.addEventListener('click', () => {
+    if (!settings.geo || !geoSmooth) { showToast('先に おでかけモードを ONにして、位置が とれてから おしてね'); return }
+    geoOff.dx = boy.position.x - geoSmooth.x; geoOff.dz = boy.position.z - geoSmooth.z
+    try { localStorage.setItem('hn3d_geo_off', JSON.stringify(geoOff)) } catch (e) {}
+    geoTarget = { x: boy.position.x, z: boy.position.z }
+    showToast('いまの場所に あわせたよ（ずれを おぼえました）') }) }
+applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); applyBigText(); applyGeo()
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
 {
@@ -15409,6 +15458,7 @@ window.__proto3d = {
   _step(surf) { playStep(0.12, surf); return audioStarted }, // 検証用：足音を1回鳴らす（路面別・エラー無しの確認）
   _festNow() { return { venue: (typeof activeVenue === 'function' && activeVenue()) ? activeVenue().name : null, all: FEST_VENUES.map((v) => ({ name: v.name, days: v.days.slice(), x: +v.pos.x.toFixed(0), z: +v.pos.y.toFixed(0) })) } }, // 検証用：今夜のおまつり会場（日替り）＋座標（会場点検用2026-07-07）
   _festBarTest() { const ctx = listener.context; let t = ctx.currentTime + 0.05; for (let i = 0; i < 17; i++) { scheduleFestBar(t); t += 0.1 } return festBar }, // 検証用：お囃子の16小節（前奏/歌A/合いの手/歌B/締め）を全部スケジュール＝例外なく組めるかの構造チェック（音の良し悪しは実機）
+  get _geo() { return { on: !!settings.geo, watching: geoWatchId != null, target: geoTarget, smooth: geoSmooth, off: geoOff, first: geoFirst } }, // 検証用：🧭おでかけモードの内部状態
   _festFigVis() { let total = 0, vis = 0, parentVis = 0, near = 0, minD = 1e9, maxD = 0; for (const d of festFigs) { total++; if (d.g.visible) vis++; if (d.g.parent && d.g.parent.visible) { parentVis++; const dx = boy.position.x - d.cx, dz = boy.position.z - d.cz, dd = Math.sqrt(dx * dx + dz * dz); if (dd < 60) near++; if (dd < minD) minD = dd; if (dd > maxD) maxD = dd } } return { total, selfVisible: vis, inVisibleVenue: parentVis, within60m: near, minD: +minD.toFixed(1), maxD: +maxD.toFixed(1) } }, // 検証用：踊り手のvisible数＋計算LODの60m内訳（静止しても消えていないこと＝inVisibleVenue分は描画される）
   _festMeshStats() { return FEST_VENUES.map((v) => { let meshes = 0, outlines = 0, glows = 0, lights = 0, points = 0, tris = 0, figMeshes = 0, staticMeshes = 0; const isFig = (o) => { let c = o; while (c && c !== v.g) { if (c.userData && c.userData.head) return true; c = c.parent } return false }; v.g.traverse((o) => { if (o.isPoints) points++; if (o.isLight) lights++; if (!o.isMesh) return; meshes++; if (isFig(o)) figMeshes++; else staticMeshes++; if (o.material === OUTLINE_MAT) outlines++; else if (o.material && o.material.isMeshBasicMaterial && o.material.blending === THREE.AdditiveBlending) glows++; const g = o.geometry; if (g && g.index) tris += g.index.count / 3; else if (g && g.attributes && g.attributes.position) tris += g.attributes.position.count / 3 }); return { name: v.name, meshes, figMeshes, staticMeshes, outlines, glows, lights, points, tris: Math.round(tris), children: v.g.children.length } }) }, // 検証用：各会場グループのメッシュ内訳（軽量化の的を絞る・figMeshes=人/staticMeshes=構造物）
   _boyPos() { return { x: +boy.position.x.toFixed(1), y: +boy.position.y.toFixed(2), z: +boy.position.z.toFixed(1) } }, // 検証用：主人公の現在地
