@@ -15055,6 +15055,107 @@ function girlize(vrm) {
   recolorNavy(vrm, /Tops/) // 紺ベスト→白ブラウス
   recolorNavy(vrm, /Bottoms/, 0.92, 0.34, 0.30) // 紺スカート→赤いスカート
 }
+// ── 「Claude本気のゼロから造形」試作（2026-07-07・ユーザー依頼）＝外部モデル不使用・全部コードで作る小1〜2の男の子 ──
+// 方針: 角ばり禁止＝体は旋盤(Lathe)と丸カプセルだけで構成。顔は1024pxのcanvasに手描き（まばたきは2枚目の絵と差し替え）
+let honkiKid = null
+function honkiFace(closed) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1024
+  const x = cv.getContext('2d')
+  const cx = 256, cy = 565 // 顔の中心（球UVのu=0.25が正面）
+  x.fillStyle = '#f8dcc4'; x.fillRect(0, 0, 1024, 1024) // 肌
+  for (const s of [-1, 1]) { // ほっぺの赤み
+    const g = x.createRadialGradient(cx + 80 * s, cy + 62, 4, cx + 80 * s, cy + 62, 42)
+    g.addColorStop(0, 'rgba(238,140,120,0.34)'); g.addColorStop(1, 'rgba(238,140,120,0)')
+    x.fillStyle = g; x.beginPath(); x.arc(cx + 80 * s, cy + 62, 42, 0, Math.PI * 2); x.fill() }
+  x.lineCap = 'round'
+  for (const s of [-1, 1]) { // 眉＝やわらかい八の字ぎみ（元気な子）
+    x.strokeStyle = '#6b4a34'; x.lineWidth = 9
+    x.beginPath(); x.moveTo(cx + (34 * s), cy - 66); x.quadraticCurveTo(cx + 62 * s, cy - 78, cx + 88 * s, cy - 64); x.stroke() }
+  if (!closed) {
+    for (const s of [-1, 1]) { const ex = cx + 62 * s, ey = cy - 6 // 大きな瞳
+      x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(ex, ey, 27, 32, 0, 0, Math.PI * 2); x.fill()
+      const ir = x.createRadialGradient(ex, ey - 2, 3, ex, ey + 2, 21)
+      ir.addColorStop(0, '#7a5233'); ir.addColorStop(0.75, '#54371f'); ir.addColorStop(1, '#3a2413')
+      x.fillStyle = ir; x.beginPath(); x.arc(ex, ey + 2, 20, 0, Math.PI * 2); x.fill()
+      x.fillStyle = '#241812'; x.beginPath(); x.arc(ex, ey + 3, 9.5, 0, Math.PI * 2); x.fill()
+      x.fillStyle = 'rgba(255,255,255,0.95)'; x.beginPath(); x.arc(ex - 7, ey - 8, 6.5, 0, Math.PI * 2); x.fill()
+      x.beginPath(); x.arc(ex + 8, ey + 10, 3, 0, Math.PI * 2); x.fill()
+      x.strokeStyle = '#2c1e16'; x.lineWidth = 10 // 上まつげ＝太いふち
+      x.beginPath(); x.moveTo(ex - 27, ey - 16); x.quadraticCurveTo(ex, ey - 36, ex + 27, ey - 16); x.stroke()
+      x.strokeStyle = 'rgba(122,80,58,0.55)'; x.lineWidth = 4 // 下のライン
+      x.beginPath(); x.moveTo(ex - 20, ey + 26); x.quadraticCurveTo(ex, ey + 32, ex + 20, ey + 26); x.stroke() }
+  } else {
+    for (const s of [-1, 1]) { const ex = cx + 62 * s, ey = cy - 4 // 閉じ目＝下向きの弧
+      x.strokeStyle = '#2c1e16'; x.lineWidth = 10
+      x.beginPath(); x.moveTo(ex - 26, ey - 4); x.quadraticCurveTo(ex, ey + 14, ex + 26, ey - 4); x.stroke() }
+  }
+  x.strokeStyle = '#d9a98c'; x.lineWidth = 5 // ちいさな鼻
+  x.beginPath(); x.moveTo(cx - 4, cy + 26); x.quadraticCurveTo(cx + 2, cy + 32, cx - 2, cy + 36); x.stroke()
+  // 口＝にぱっと開けた笑い（下側が丸いD形＋舌）
+  x.fillStyle = '#7e3a34'; x.beginPath()
+  x.moveTo(cx - 30, cy + 56); x.quadraticCurveTo(cx, cy + 46, cx + 30, cy + 56)
+  x.quadraticCurveTo(cx + 26, cy + 92, cx, cy + 94); x.quadraticCurveTo(cx - 26, cy + 92, cx - 30, cy + 56); x.fill()
+  x.fillStyle = '#e08a80'; x.beginPath(); x.ellipse(cx, cy + 86, 17, 10, 0, Math.PI, 0, true); x.fill() // 舌
+  x.strokeStyle = '#5a2a24'; x.lineWidth = 4
+  x.beginPath(); x.moveTo(cx - 30, cy + 56); x.quadraticCurveTo(cx, cy + 46, cx + 30, cy + 56); x.stroke()
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+function makeHonkiKid(px, pz, ry) {
+  const g = new THREE.Group()
+  const skinCol = 0xf1cdb5
+  const skin = skinToon(skinCol), shirt = charToon(0xe9e2cf), pants = charToon(0x46597a)
+  const hairM = charToon(0x4a3628), shoeM = charToon(0x4e5c78)
+  // 脚＝丸カプセル（角ばり禁止）
+  for (const s of [-1, 1]) { const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.034, 0.20, 8, 16), skin)
+    leg.position.set(0.052 * s, 0.175, 0); g.add(leg)
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12), shoeM)
+    shoe.position.set(0.052 * s, 0.038, 0.016); shoe.scale.set(1.1, 0.62, 1.5); g.add(shoe) }
+  // 短パン＝旋盤（すそ広がりのなめらかな筒）
+  const shorts = new THREE.Mesh(new THREE.LatheGeometry([
+    new THREE.Vector2(0.104, 0.0), new THREE.Vector2(0.117, 0.05), new THREE.Vector2(0.119, 0.10), new THREE.Vector2(0.106, 0.15),
+  ].map((v) => new THREE.Vector2(v.x, v.y)), 26), pants)
+  shorts.position.y = 0.27; g.add(shorts)
+  const hipCap = new THREE.Mesh(new THREE.SphereGeometry(0.106, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), pants)
+  hipCap.position.y = 0.42; hipCap.scale.y = 0.5; g.add(hipCap) // 腰の丸み（旋盤の上をふさぐ）
+  // Tシャツの胴＝旋盤（肩まで丸くつながる）
+  const torso = new THREE.Mesh(new THREE.LatheGeometry([
+    new THREE.Vector2(0.100, 0.0), new THREE.Vector2(0.113, 0.04), new THREE.Vector2(0.118, 0.10), new THREE.Vector2(0.112, 0.16),
+    new THREE.Vector2(0.098, 0.22), new THREE.Vector2(0.070, 0.26), new THREE.Vector2(0.044, 0.275),
+  ], 26), shirt)
+  torso.position.y = 0.40; g.add(torso)
+  // 腕＝丸カプセル＋そで＋丸い手
+  for (const s of [-1, 1]) { const armG = new THREE.Group(); armG.position.set(0.098 * s, 0.63, 0); armG.rotation.z = -0.22 * s
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.026, 0.115, 8, 14), skin); arm.position.y = -0.085; armG.add(arm)
+    const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.037, 0.05, 8, 14), shirt); sleeve.position.y = -0.028; armG.add(sleeve)
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.031, 14, 10), skin); hand.position.set(0, -0.175, 0.008); armG.add(hand)
+    g.add(armG) }
+  // 首と頭
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.034, 0.06, 12), skin); neck.position.y = 0.66; g.add(neck)
+  const headG = new THREE.Group(); headG.position.y = 0.695; g.add(headG)
+  const faceOpen = honkiFace(false), faceClosed = honkiFace(true)
+  const headMat = new THREE.MeshToonMaterial({ color: 0xffffff, map: faceOpen, gradientMap: GRAD_SKIN, emissive: 0x241a14, emissiveIntensity: 0.10 })
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.125, 36, 26), headMat)
+  head.position.y = 0.115; head.scale.set(1, 0.985, 0.96); headG.add(head)
+  // 髪＝ヘルメットに見せない：かぶり(2枚)+前髪の房8本+もみあげ+つむじの寝ぐせ
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.132, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.46), hairM)
+  cap.position.y = 0.128; headG.add(cap) // 浅め＝目もおでこも見せる
+  const capBack = new THREE.Mesh(new THREE.SphereGeometry(0.130, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.60), hairM)
+  capBack.position.y = 0.122; capBack.rotation.x = -0.55; headG.add(capBack) // 後頭部〜えりあし
+  for (let i = 0; i < 8; i++) { const a = (-0.66 + 1.32 * (i / 7)) // 前髪の房（おでこの上のほうに短く）
+    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.055, 8), hairM)
+    tuft.position.set(Math.sin(a) * 0.105, 0.192, Math.cos(a) * 0.105)
+    tuft.rotation.x = Math.PI - 0.30; tuft.rotation.z = (i % 2 ? 0.14 : -0.1) * (a < 0 ? -1 : 1)
+    tuft.scale.z = 0.55; headG.add(tuft) }
+  for (const s of [-1, 1]) { const mm = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.075, 8), hairM) // もみあげ
+    mm.position.set(0.116 * s, 0.135, 0.02); mm.rotation.x = Math.PI - 0.08; mm.scale.z = 0.5; headG.add(mm) }
+  const cow = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.06, 8), hairM) // 寝ぐせ（阿呆毛）
+  cow.position.set(0.02, 0.245, -0.02); cow.rotation.z = -0.5; headG.add(cow)
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  g.position.set(px, heightAtYato(px, pz), pz); g.rotation.y = ry
+  g.userData = { headG, headMat, faceOpen, faceClosed, blinkT: 2.5, t: Math.random() * 3, baseY: g.position.y }
+  return g
+}
 const _wrapAng = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
 async function startVrmPilot() {
   vrmPilotState = 1
@@ -15128,6 +15229,7 @@ async function startVrmPilot() {
       }
       vrmPilots.push({ vrm, t: Math.random() * 3, ph: Math.random() * 6.28, blinkT: 2.0 + Math.random(), headYaw: 0, spineBend: cfg.spineBend || 0, grandma: !!cfg.grandma, grandpa: !!cfg.grandpa, aho: !!cfg.aho, baseY: vrm.scene.position.y })
     }
+    if (!honkiKid) { honkiKid = makeHonkiKid(3047.4, 16.4, 2.0 + Math.PI); scene.add(honkiKid) } // 本気造形の試作＝VRM組の隣で比較できる位置
     vrmPilotState = 2
   } catch (e) { console.warn('VRMパイロット読込失敗', e); vrmPilotState = 3 }
 }
@@ -15210,6 +15312,21 @@ function vrmPilotTick(dt) {
         const grip = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), charToon(0x8a6a48))
         grip.position.y = h; cane.add(grip)
         cane.position.set(p.x, gy, p.z); scene.add(cane); v.cane = cane } }
+  }
+  if (honkiKid) { // 本気造形の試作＝ゆらぎ/見回し/まばたき(顔テクスチャ差し替え)/かかとの弾み
+    const u = honkiKid.userData
+    const dx = boy.position.x - honkiKid.position.x, dz = boy.position.z - honkiKid.position.z
+    const d2 = dx * dx + dz * dz
+    const vis = d2 < 50 * 50; if (honkiKid.visible !== vis) honkiKid.visible = vis
+    if (vis) { u.t += dt
+      honkiKid.rotation.z = Math.sin(u.t * 0.9) * 0.02
+      honkiKid.position.y = u.baseY + Math.abs(Math.sin(u.t * 1.9)) * 0.012
+      const near = Math.hypot(dx, dz) < 10
+      const want = near ? Math.max(-0.6, Math.min(0.6, _wrapAng(Math.atan2(dx, dz) - honkiKid.rotation.y))) : Math.sin(u.t * 0.3) * 0.3
+      u.headG.rotation.y += (want - u.headG.rotation.y) * Math.min(1, dt * 3.2)
+      u.blinkT -= dt; if (u.blinkT < 0) u.blinkT = 2.2 + Math.random() * 2.6
+      const wantMap = u.blinkT < 0.13 ? u.faceClosed : u.faceOpen
+      if (u.headMat.map !== wantMap) { u.headMat.map = wantMap; u.headMat.needsUpdate = true } }
   }
 }
 freezeStaticMatrices() // 起動時に1回（この時点で静的ワールド・生き物・洗濯物・祭り会場はすべて生成済み。会場は不可視＝踊り手ごと凍結）
