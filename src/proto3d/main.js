@@ -14345,15 +14345,23 @@ function update(dt) {
     const armTR = moving ? (sw - run * 0.25) : Math.sin(tsec * 1.3 + 0.6) * 0.05
     boy.userData.armL.rotation.x += (armTL - boy.userData.armL.rotation.x) * Math.min(1, dt * (moving ? 20 : 6))
     boy.userData.armR.rotation.x += (armTR - boy.userData.armR.rotation.x) * Math.min(1, dt * (moving ? 20 : 6))
-    // 膝・肘の曲げ＝関節のある歩行（足が前に振り出される側の膝が曲がる／肘は軽く曲げて自然に）
+    // 膝・肘の曲げ＝関節のある歩行。従来のチビ体型＝「前に振り出す脚の膝を曲げる」マーチ調がかわいい。
+    //   VRM主人公（実人体プロポーション）＝同じ式だと後ろ脚が棒のまま足首だけ反り「ふくらはぎが変」（ユーザー指摘2026-07-07）
+    //   → VRM表示中だけ「後ろ脚のかかと蹴り上げ」式に（骨組みは不可視なので従来の姿の見た目は不変）
+    const vbOn = vrmBoy && vrmBoy.root.visible
     const kAmp = 0.5 + run * 0.8
-    const kbL = 0.12 + (moving ? Math.max(0, -sw) * kAmp : 0)
-    const kbR = 0.12 + (moving ? Math.max(0, sw) * kAmp : 0)
+    const kbL = vbOn ? (0.14 + (moving ? Math.max(0, sw) * (kAmp + run * 0.3) + Math.max(0, -sw) * 0.18 : 0))
+      : (0.12 + (moving ? Math.max(0, -sw) * kAmp : 0))
+    const kbR = vbOn ? (0.14 + (moving ? Math.max(0, -sw) * (kAmp + run * 0.3) + Math.max(0, sw) * 0.18 : 0))
+      : (0.12 + (moving ? Math.max(0, sw) * kAmp : 0))
     boy.userData.kneeL.rotation.x += (kbL - boy.userData.kneeL.rotation.x) * Math.min(1, dt * 13)
     boy.userData.kneeR.rotation.x += (kbR - boy.userData.kneeR.rotation.x) * Math.min(1, dt * 13)
-    // 足首：腿＋膝の傾きを打ち消して足裏を地面と平行に保つ（接地感・スケート歩き解消）
-    const akL = THREE.MathUtils.clamp(-(boy.userData.legL.rotation.x + boy.userData.kneeL.rotation.x) * 0.85, -0.7, 0.5)
-    const akR = THREE.MathUtils.clamp(-(boy.userData.legR.rotation.x + boy.userData.kneeR.rotation.x) * 0.85, -0.7, 0.5)
+    // 足首：チビ体型＝腿＋膝を打ち消して足裏を水平に（接地感）。VRM＝腿の位相に連動した自然な角度
+    //   （後ろへ蹴る時つま先が流れ・前へ振り出す時かかとから＝水平強制は実人体だと「足首が直角に反って」見える）
+    const akL = vbOn ? THREE.MathUtils.clamp(boy.userData.legL.rotation.x * 0.32 + 0.04, -0.3, 0.35)
+      : THREE.MathUtils.clamp(-(boy.userData.legL.rotation.x + boy.userData.kneeL.rotation.x) * 0.85, -0.7, 0.5)
+    const akR = vbOn ? THREE.MathUtils.clamp(boy.userData.legR.rotation.x * 0.32 + 0.04, -0.3, 0.35)
+      : THREE.MathUtils.clamp(-(boy.userData.legR.rotation.x + boy.userData.kneeR.rotation.x) * 0.85, -0.7, 0.5)
     boy.userData.ankleL.rotation.x += (akL - boy.userData.ankleL.rotation.x) * Math.min(1, dt * 14)
     boy.userData.ankleR.rotation.x += (akR - boy.userData.ankleR.rotation.x) * Math.min(1, dt * 14)
     const eb = -(0.28 + run * 0.72) // 肘＝歩きは軽く・走るほどしっかり曲げて前後に振る（直腕のスケート走りを解消＝自然な腕の振り・2026-06-28）
@@ -14383,9 +14391,10 @@ function update(dt) {
       //   ★紐は手元に集まっているので、足元でなく「手元(py)」を支点に振る＝紐が手から外れない（rotation.x＋位置補正で支点を固定）。
       const fwd = vel.x * Math.sin(facing) + vel.z * Math.cos(facing) // boyローカル前進速度（浮遊中は進行方向を向くのでほぼ総速度）
       bd.userData.tlx = (bd.userData.tlx || 0) + (THREE.MathUtils.clamp(-fwd * 0.02, -0.32, 0.32) - (bd.userData.tlx || 0)) * Math.min(1, dt * 2.2) // なめらかに追従＝急に傾かない
-      const py = 1.35, tlx = bd.userData.tlx // py＝紐が集まる手元あたりの高さ（支点）
+      const vbF = vrmBoy && vrmBoy.root.visible, drop = vbF ? VBMAP.floatDrop : 0 // VRM主人公は小柄＝紐の集まり(手元)を体格に合わせて下げる（2026-07-07）
+      const py = 1.35 - drop, tlx = bd.userData.tlx // py＝紐が集まる手元あたりの高さ（支点）
       bd.rotation.x = tlx; bd.rotation.z = 0
-      bd.position.y = py * (1 - Math.cos(tlx)); bd.position.z = -py * Math.sin(tlx) // 支点(0,py,0)を固定したまま上部だけ振れる
+      bd.position.y = py * (1 - Math.cos(tlx)) - drop; bd.position.z = -py * Math.sin(tlx) // 支点(0,py,0)を固定したまま上部だけ振れる
       for (const b of bd.userData.bRefs) { b.bg.position.y = b.by + Math.sin(tsec * 1.1 + b.ph) * 0.06; b.bg.rotation.z = Math.sin(tsec * 0.8 + b.ph) * 0.12 } } // 風船ふわふわ
     else { const bd = boy.userData.balloons; if (bd.visible) { bd.visible = false; bd.rotation.x = 0; bd.position.set(0, 0, 0); bd.userData.tlx = 0 } boy.userData.armL.rotation.z += (-0.05 - boy.userData.armL.rotation.z) * Math.min(1, dt * 8); boy.userData.armR.rotation.z += (0.05 - boy.userData.armR.rotation.z) * Math.min(1, dt * 8) } // 浮遊を解いたら風船を消し腕を戻す＋なびきをリセット
     // P3：ラジオ体操に参加中＝みんなと同じ号令ポーズに（上の歩行/浮遊ポーズを上書き）。updateTaisoの参加者と同じ4ポーズを巡る
@@ -14550,7 +14559,8 @@ function update(dt) {
     }
     // カメラ：今の視点で追従。立ち止まるとゆっくり引いて画角を少し締める＝一枚絵に。
     const talkZoom = (dialogue && dlgWho) ? 0.66 : 1 // 会話中は少し寄って二人を画に（止め絵・2026-06-29）
-    camCtl.dist += (camDistTarget * (1 + calm * 0.05) * talkZoom - camCtl.dist) * Math.min(1, dt * (dialogue && dlgWho ? 2.2 : 1.2)) // 立ち止まりの自動引きはごく控えめ(18%→5%)＝ズームのうざさを解消。会話に入ると少し速めに寄る
+    const vbZoom = (vrmBoy && vrmBoy.root.visible) ? VBMAP.camZoom : 1 // VRM主人公は小柄＝その分カメラを寄せる（ユーザー要望2026-07-07。ピンチのズーム操作はそのまま効く）
+    camCtl.dist += (camDistTarget * vbZoom * (1 + calm * 0.05) * talkZoom - camCtl.dist) * Math.min(1, dt * (dialogue && dlgWho ? 2.2 : 1.2)) // 立ち止まりの自動引きはごく控えめ(18%→5%)＝ズームのうざさを解消。会話に入ると少し速めに寄る
     if (!fpv) camera.fov += ((BASE_FOV - calm * 1.2) - camera.fov) * Math.min(1, dt * 1.5) // ★主観ではここで画角を動かさない＝下(12911)のfpvFovへの補間と引き合い、釣り合い点がdtで動いてfovが毎フレーム脈打つ→「ズームが小刻みに揺れる・寄るほど大きい」不具合の真因（ユーザー2026-07-01）。主観のfovは12911の一本だけに
     camera.updateProjectionMatrix()
     camGoal.copy(boy.position).add(camOffset(tmp))
@@ -15338,14 +15348,18 @@ function vrmPilotTick(dt) {
 let vrmBoy = null, vrmBoyState = 0 // 0=未読込 1=読込中 2=適用 3=失敗
 // 写しの符号表と取り付け寸法（実測キャリブレーション用・__proto3d.VBMAPからライブ調整可）
 const VBMAP = { legX: 1, kneeX: 1, ankX: 1, armX: 1, elbX: 1, headX: -1, headY: 1, headZ: -1, armDown: 1.18,
-  netX: 0.12, netY: 0.84, netS: 0.78, rideLift: 0.12, bikeS: 0.8, fishFwd: 0.20, fishRgt: 0.12, fishY: 0.72 }
+  netX: 0.12, netY: 0.84, netS: 0.78, bikeS: 1.18, fishFwd: 0.20, fishRgt: 0.12, fishY: 0.72,
+  // 自転車の乗車ポーズ（2026-07-07全面作り直し＝サドルに実寸で座りペダルへ脚IK・腕はハンドルへ）
+  // 符号はスクショ総当たりで実証：胸の前傾=負・腕を前に出す=正（歩きの写しとは逆に見えるが実測が正）
+  rideSit: -0.015, rideZ: 0.12, rideChest: -0.35, rideArmX: 1.12, rideArmZ: 1.02, rideElb: -0.28, rideHead: 0.3,
+  floatDrop: 0.35, camZoom: 0.8 }
 function applyVrmBoyVisible() { // 姿の切替＝表示だけ（従来の骨組みはどちらの姿でも動き続ける）
   const on = !!(vrmBoy && settings.vrmboy)
   for (const p of boy.userData.bodyParts) p.visible = !on
   if (vrmBoy) vrmBoy.root.visible = on
   const net = boy.userData.net
   if (on) { net.position.set(VBMAP.netX, VBMAP.netY, -0.01); net.scale.setScalar(VBMAP.netS) } // 網を小さな肩の位置へ
-  else { net.position.set(0.15, 1.27, -0.01); net.scale.setScalar(1); boy.userData.bike.scale.setScalar(1); if (vrmBoy) vrmBoy.root.position.y = 0 }
+  else { net.position.set(0.15, 1.27, -0.01); net.scale.setScalar(1); boy.userData.bike.scale.setScalar(1); if (vrmBoy) { vrmBoy.root.position.y = 0; vrmBoy.root.position.z = 0 } }
 }
 async function startVrmBoy() {
   vrmBoyState = 1
@@ -15385,9 +15399,11 @@ async function startVrmBoy() {
     const hb = hu.getRawBoneNode('head'); if (hb) hb.scale.setScalar(1.46) // 小1〜2の頭身
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const fingerCurl = (prefix, sign, amt) => { // 開いたままの指を軽く握らせる（ゾンビ手の解消・パイロットと同じ）
-      for (const fn of ['Index', 'Middle', 'Ring', 'Little']) for (const s of ['Proximal', 'Intermediate', 'Distal']) { const b2 = nb(prefix + fn + s); if (b2) b2.rotation.z = sign * (s === 'Distal' ? amt * 0.7 : amt) }
+      const names = ['Index', 'Middle', 'Ring', 'Little']
+      for (let fi = 0; fi < names.length; fi++) for (const s of ['Proximal', 'Intermediate', 'Distal']) { const b2 = nb(prefix + names[fi] + s); if (b2) { b2.rotation.z = sign * (s === 'Distal' ? amt * 0.7 : amt)
+        if (s === 'Proximal') b2.rotation.y = sign * (fi - 1.5) * 0.06 } } // 指をわずかに開く＝指間のインク線が密集して黒く見えるのを散らす（2026-07-07）
       for (const s of ['Metacarpal', 'Proximal', 'Distal']) { const b2 = nb(prefix + 'Thumb' + s); if (b2) b2.rotation.y = sign * amt * 0.5 } }
-    fingerCurl('left', -1, 0.15); fingerCurl('right', 1, 0.15) // ごく軽く＝深く曲げるとインク線が指に密集して「黒い塊の手」に見える（_vrmhands.mjsで実証）
+    fingerCurl('left', -1, 0.12); fingerCurl('right', 1, 0.12) // ごく軽く＝深く曲げるとインク線が指に密集して「黒い塊の手」に見える（_vrmhands.mjsで実証）
     const lla = nb('leftLowerArm'); if (lla) lla.rotation.z = 0.10 // 前腕の自然なひねり（T字の名残とり）
     const rla = nb('rightLowerArm'); if (rla) rla.rotation.z = -0.10
     boy.add(root)
@@ -15396,13 +15412,21 @@ async function startVrmBoy() {
     const wl = nb('leftUpperLeg').getWorldPosition(new THREE.Vector3()); boy.worldToLocal(wl)
     const flip = (wl.x < 0) !== (boy.userData.legL.position.x < 0)
     const L = flip ? 'right' : 'left', R = flip ? 'left' : 'right'
-    vrmBoy = { vrm, root, blinkT: 2, bones: {
+    // 乗車ポーズ用の実測（T字の静止姿勢のうちに）：腰の高さ/骨の長さをboyローカル単位でキャッシュ＋体格に合う自転車の縮尺を算出
+    // ★寸法は必ずrawボーン（見えているスキンの実骨格）で測る。正規化ボーンのworld座標は実寸と一致しない（実測2026-07-07：腰0.83=肩の高さになった）
+    const wp = (n) => { const p = hu.getRawBoneNode(n).getWorldPosition(new THREE.Vector3()); return boy.worldToLocal(p) }
+    const hL = wp(L + 'UpperLeg'), hR = wp(R + 'UpperLeg'), kL = wp(L + 'LowerLeg'), fL = wp(L + 'Foot')
+    const geo = { hipY: (hL.y + hR.y) / 2, hipZ: (hL.z + hR.z) / 2, hipXL: hL.x, hipXR: hR.x,
+      thigh: hL.distanceTo(kL), shin: kL.distanceTo(fL), footH: fL.y }
+    // ペダル最下点で膝が軽く曲がる（脚の97%で届く）大きさ＝体格に合う子ども用自転車。0.615=サドル(0.81)→最下ペダル+足首分の落差係数
+    geo.bikeS = Math.min(VBMAP.bikeS, (0.97 * (geo.thigh + geo.shin) + 0.85 * geo.footH + 0.01) / 0.615)
+    vrmBoy = { vrm, root, blinkT: 2, geo, bones: {
       legL: nb(L + 'UpperLeg'), legR: nb(R + 'UpperLeg'),
       kneeL: nb(L + 'LowerLeg'), kneeR: nb(R + 'LowerLeg'),
       footL: nb(L + 'Foot'), footR: nb(R + 'Foot'),
       armL: nb(L + 'UpperArm'), armR: nb(R + 'UpperArm'),
       elbL: nb(L + 'LowerArm'), elbR: nb(R + 'LowerArm'),
-      head: nb('head'),
+      head: nb('head'), chest: nb('chest') || nb('spine'),
     }, dwL: (L === 'left' ? 1 : -1), dwR: (R === 'left' ? 1 : -1) } // 腕を下ろすzの符号（VRMのleft=+/right=-）
     vrmBoyState = 2
     applyVrmBoyVisible()
@@ -15412,24 +15436,53 @@ async function startVrmBoy() {
 function vrmBoyTick(dt) { // update(dt)の直後（＝その日のすべてのポーズ書き込みの後）に呼ぶ
   if (vrmBoyState === 0 && settings.vrmboy) startVrmBoy()
   if (!vrmBoy || !vrmBoy.root.visible) return
-  const u = boy.userData, b = vrmBoy.bones, M = VBMAP
-  // 脚・膝・足首（符号の規約はプロシージャル/VRM正規化ボーンとも「x＋＝後ろ」で一致＝実測2026-07-07）
-  b.legL.rotation.x = u.legL.rotation.x * M.legX; b.legR.rotation.x = u.legR.rotation.x * M.legX
-  b.kneeL.rotation.x = u.kneeL.rotation.x * M.kneeX; b.kneeR.rotation.x = u.kneeR.rotation.x * M.kneeX
-  b.footL.rotation.x = u.ankleL.rotation.x * M.ankX; b.footR.rotation.x = u.ankleR.rotation.x * M.ankX
-  // 腕（x＝前後の振り・zはT字→下ろしの基準±armDownに、プロシージャルの開き（armLは＋が外/armRは−が外）を重ねる）
-  b.armL.rotation.x = u.armL.rotation.x * M.armX; b.armR.rotation.x = u.armR.rotation.x * M.armX
-  b.armL.rotation.z = vrmBoy.dwL * (M.armDown - u.armL.rotation.z)
-  b.armR.rotation.z = vrmBoy.dwR * (M.armDown + u.armR.rotation.z)
-  b.elbL.rotation.x = u.elbowL.rotation.x * M.elbX; b.elbR.rotation.x = u.elbowR.rotation.x * M.elbX
-  // あたま（見上げ/見回し/かしげ）。VRMは「x＋＝後屈」なので見上げは符号反転
-  b.head.rotation.x = u.head.rotation.x * M.headX
+  const u = boy.userData, b = vrmBoy.bones, M = VBMAP, G = vrmBoy.geo
+  const rid = u.bike.visible
+  if (!rid) {
+    // 脚・膝・足首（符号の規約はプロシージャル/VRM正規化ボーンとも「x＋＝後ろ」で一致＝実測2026-07-07）
+    b.legL.rotation.x = u.legL.rotation.x * M.legX; b.legR.rotation.x = u.legR.rotation.x * M.legX
+    b.kneeL.rotation.x = u.kneeL.rotation.x * M.kneeX; b.kneeR.rotation.x = u.kneeR.rotation.x * M.kneeX
+    b.footL.rotation.x = u.ankleL.rotation.x * M.ankX; b.footR.rotation.x = u.ankleR.rotation.x * M.ankX
+    // 腕（x＝前後の振り・zはT字→下ろしの基準±armDownに、プロシージャルの開き（armLは＋が外/armRは−が外）を重ねる）
+    b.armL.rotation.x = u.armL.rotation.x * M.armX; b.armR.rotation.x = u.armR.rotation.x * M.armX
+    b.armL.rotation.z = vrmBoy.dwL * (M.armDown - u.armL.rotation.z)
+    b.armR.rotation.z = vrmBoy.dwR * (M.armDown + u.armR.rotation.z)
+    b.elbL.rotation.x = u.elbowL.rotation.x * M.elbX; b.elbR.rotation.x = u.elbowR.rotation.x * M.elbX
+    if (b.chest) b.chest.rotation.x = 0
+  } else {
+    // ── 自転車の乗車ポーズ（専用・2026-07-07）＝チビ骨組みの写しでは骨が折れて見えるため作り直し ──
+    // 前傾してハンドルへ。腕は下ろし(z)＋前へ(x)＋肘は軽く＝ママチャリを両手で握る
+    if (b.chest) b.chest.rotation.x = M.rideChest
+    b.armL.rotation.x = M.rideArmX; b.armR.rotation.x = M.rideArmX
+    b.armL.rotation.z = vrmBoy.dwL * M.rideArmZ; b.armR.rotation.z = vrmBoy.dwR * M.rideArmZ
+    b.elbL.rotation.x = M.rideElb; b.elbR.rotation.x = M.rideElb
+    // 脚＝クランク角から出したペダル位置へ2関節IK（腿aとすねbの三角形を解く。座標はboyローカル）
+    const bs2 = G.bikeS, th = u.bike.userData.crank.rotation.x
+    const hy = G.hipY + vrmBoy.root.position.y, hz = G.hipZ + vrmBoy.root.position.z
+    const a = G.thigh, b3 = G.shin
+    for (const [leg, knee, foot, hipX] of [[b.legL, b.kneeL, b.footL, G.hipXL], [b.legR, b.kneeR, b.footR, G.hipXR]]) {
+      const s = hipX >= 0 ? 1 : -1 // 体の同じ側のペダルを踏む
+      const ty = (0.30 - 0.12 * s * Math.cos(th)) * bs2 + G.footH * 0.85 + 0.015 * bs2 // ペダル上面＋足首の高さ
+      const tz = (-0.12 * s * Math.sin(th)) * bs2 - 0.015 // 土踏まずでなく母指球で踏む＝足首はペダル中心の少し後ろ
+      let dy = ty - hy, dz = tz - hz, d = Math.hypot(dy, dz)
+      const dMax = (a + b3) * 0.999; if (d > dMax) { const k2 = dMax / d; dy *= k2; dz *= k2; d = dMax }
+      const kneeRot = Math.PI - Math.acos(THREE.MathUtils.clamp((a * a + b3 * b3 - d * d) / (2 * a * b3), -1, 1))
+      const delta = Math.atan2(-dz, -dy) // 腰から見た目標の向き（真下=0・後ろ＋）
+      const gamma = Math.acos(THREE.MathUtils.clamp((a * a + d * d - b3 * b3) / (2 * a * d), -1, 1))
+      leg.rotation.x = delta - gamma; knee.rotation.x = kneeRot
+      foot.rotation.x = THREE.MathUtils.clamp(-(leg.rotation.x + kneeRot) + 0.15, -0.5, 0.6) // 足裏ほぼ水平＋つま先ほんの少し下
+    }
+  }
+  // あたま（見上げ/見回し/かしげ）。VRMは「x＋＝後屈」なので見上げは符号反転。乗車中は前傾の分だけ顔を上げ進行方向を見る
+  b.head.rotation.x = u.head.rotation.x * M.headX + (rid ? M.rideHead : 0)
   b.head.rotation.y = u.head.rotation.y * M.headY
   b.head.rotation.z = u.head.rotation.z * M.headZ
-  // 自転車＝サドルへ腰を上げ、車体は子どもサイズへ（従来はどちらも大きい体に合わせた寸法）
-  const rid = u.bike.visible
-  vrmBoy.root.position.y += ((rid ? M.rideLift : 0) - vrmBoy.root.position.y) * Math.min(1, dt * 8)
-  const bs = rid ? M.bikeS : 1
+  // 乗車＝腰をサドル座面へ（高さ/前後とも実寸）・車体は体格に合う子どもサイズへ。降りたら原点へ戻す
+  const rootYT = rid ? (0.81 * G.bikeS + M.rideSit - G.hipY) : 0
+  const rootZT = rid ? (-0.30 * G.bikeS - G.hipZ + M.rideZ) : 0
+  vrmBoy.root.position.y += (rootYT - vrmBoy.root.position.y) * Math.min(1, dt * 8)
+  vrmBoy.root.position.z += (rootZT - vrmBoy.root.position.z) * Math.min(1, dt * 8)
+  const bs = rid ? G.bikeS : 1
   if (Math.abs(u.bike.scale.x - bs) > 0.001) u.bike.scale.setScalar(bs)
   // 表情＝公園の子と同じ「ぽかん顔」＋まばたき
   const em = vrmBoy.vrm.expressionManager
@@ -16371,6 +16424,7 @@ window.__proto3d = {
   THREE, scene, camera, boy, sunDir, get mode() { return mode }, sitDown, standUp, lieDown,
   GPOSE, AHO_EXP, get vrmPilots() { return vrmPilots }, // 検証用：おばあちゃん姿勢/阿呆の子の表情のライブ調整（VRMパイロット）
   VBMAP, get vrmBoy() { return vrmBoy }, get vrmBoyState() { return vrmBoyState }, // 検証用：VRM主人公の写し符号/取り付け寸法のライブ調整
+  get _camDist() { return camCtl.dist }, // 検証用：追従カメラの現在距離（VRM時の寄せ確認）
   setVrmBoy(v) { settings.vrmboy = !!v; saveSettings(); if (settings.vrmboy && vrmBoyState === 0) startVrmBoy(); applyVrmBoyVisible() },
   setDay(t) { dayAuto = false; tday = t; setTimeOfDay(t) }, // 検証用に時刻固定
   _setTdayLive(t) { dayAuto = true; tday = t; setTimeOfDay(t) }, // 検証用：dayAutoを生かしたまま時刻を置く（日課トースト=if(dayAuto)内 を発火させる）
