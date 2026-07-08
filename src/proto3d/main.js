@@ -14893,6 +14893,8 @@ const VRM_RESIDENTS = [
   // ★特別枠：物語の女の子（マンション前）＝第三公園パイロットと同じ姿(渋+黒髪+白ブラウス+赤スカート・子ども体型 scale0.72/headScale1.38)。ユーザー指定：画像2のパイロットの姿に差し替え（2026-07-08）。
   //   walker=歩くので脚も写す（他の立ち住人と違う）。keepToon=VRM準備中もトゥーンで見せる＝第一村人が一瞬消えるのを防ぐ（105m先でVRMへ入替＝サイズ差は見えない）
   { toon: villager, file: 'models/sendagaya_shibu.vrm', role: 'girl', girl: true, walker: true, keepToon: true, worldScale: 0.72, headScale: 1.38 },
+  // 駄菓子屋の男の子（しんみせ店先2773.5,-147.5・駄菓子ケースをのぞく gaze）＝第三公園パイロットと同じ姿(桜田+白半袖+紺半ズボン+白ソックス+そばかす+無地麦わら・子ども体型 scale0.64/headScale1.46)。立ち＝コントラポスト＋うつむきgazeが効く。虫網は当面畳む（他住人の所作道具と同じ）
+  { toon: yatoBoyKid, file: 'models/sakurada_fumiriya.vrm', role: 'boy', boy: true, aho: true, worldScale: 0.64, headScale: 1.46 },
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
 // 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
@@ -15008,10 +15010,11 @@ function strawHat(head, color = 0xe6c074, withBand = true) {
 // ①ネクタイ非表示 ②紺ベスト→白（recolorNavy＝元の陰影を残す）＝白い半袖シャツに（元のシャツは最初から半袖だった）
 // ③紺の長ズボンはUVのもも位置から下を透明化（alphaTest）＝紺の半ズボンに（ベルト/布の皺はVRoidのまま・昭和の男児の定番）
 // ※ズボンの下には本物の足のメッシュが丸ごと残っている（bs_nopants.pngで実証2026-07-07）＝肌の筒は不要
-function boyize(vrm, aho) {
+function boyize(vrm, aho, noNet) { // noNet＝虫網を作らない（住人VRMは他の住人と同じく所作道具を当面畳む方針＝手ボーン付けは次のポリッシュ。うつむいて駄菓子ケースをのぞく姿では担ぎ網が合わない）
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/AccessoryNeck/.test(m.name)) m.visible = false // ネクタイを消す（夏の普段着へ）
+      if (/HairBack/.test(m.name)) m.visible = false // 頭ボーン拡大(子ども化headScale1.46)で桜田ベースの後ろ髪が横へ飛び出す→後ろ髪を消して夏の短髪に（前髪/トップのHAIRは残す・grandmaizeと同手法）
       if (/Bottoms/.test(m.name) && !/\(Outline\)/.test(m.name) && m.map && m.map.image) {
         const t2 = texCanvas(m) // 長ズボン→半ズボン＝UVは腰が上・すそが下（texdumpで実測）。ももの途中から下を透明に
         t2.ctx.clearRect(0, 330 * (t2.cv.width / 1024), t2.cv.width, t2.cv.height)
@@ -15032,7 +15035,7 @@ function boyize(vrm, aho) {
   }
   // 虫取り網＝右手で竿をにぎり肩に担ぐ（主人公と同じ編み目の透ける袋の簡易版・腕のポーズは読込側で）
   const hand = hu.getRawBoneNode('rightHand')
-  if (hand) {
+  if (hand && !noNet) {
     const net = new THREE.Group()
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.024, 0.72, 6), charToon(0x8a6a3e)); pole.position.y = 0.22; net.add(pole) // 竿は太め＝細いと背景に溶けて見えない（実測）
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.014, 8, 18), charToon(0xb6baac)); ring.position.y = 0.60; ring.rotation.x = Math.PI / 2; net.add(ring)
@@ -15659,6 +15662,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
             if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true }
           texList.push(t) } } })
     if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg); else if (cfg.girl) girlize(vrm) // 女の子＝黒髪+白ブラウス+赤スカート（第三公園パイロットと同じ変換）
+    else if (cfg.boy) boyize(vrm, cfg.aho, true) // 男の子＝白半袖+紺半ズボン+白ソックス+そばかす+無地麦わら（第三公園パイロットと同じ変換）。noNet=虫網は当面畳む（他の住人の所作道具と同じ）
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
