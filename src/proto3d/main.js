@@ -14353,8 +14353,8 @@ function update(dt) {
     //   ・歩き(run≈0)＝前へ振り出す脚だけ膝を曲げて地面を越す（Math.max(0,-sw)*0.4）。接地脚は伸ばす＝素朴な歩き
     //   ・走り(run→1)＝それに加え、後ろへ蹴った脚の膝を深く曲げ“かかとをお尻へ跳ね上げる”ヒールリカバリ（run²で速いほど強く）
     //     ＝これが「歩き」と「走り」を分ける最大の見た目。棒立ちで脚を開くだけの人形っぽさを解消
-    const kbL = 0.12 + (moving ? Math.max(0, -sw) * 0.4 + Math.max(0, sw) * run * run * 1.1 : 0) // 後ろ脚の踵の蹴り上げ＝1.7→1.1へ控えめに（ユーザー要望2026-07-08「蹴り上げが大きすぎる」＝かかとが尻につく過剰を解消）
-    const kbR = 0.12 + (moving ? Math.max(0, sw) * 0.4 + Math.max(0, -sw) * run * run * 1.1 : 0)
+    const kbL = 0.12 + (moving ? Math.max(0, -sw) * 0.4 + Math.max(0, sw) * run * run * 0.8 : 0) // 後ろ脚の踵の蹴り上げ＝1.7→1.1→0.8と段階的に控えめ化（ユーザー要望2026-07-08「もう少し抑えて」・真横4段比較で0.8を選定）
+    const kbR = 0.12 + (moving ? Math.max(0, sw) * 0.4 + Math.max(0, -sw) * run * run * 0.8 : 0)
     boy.userData.kneeL.rotation.x += (kbL - boy.userData.kneeL.rotation.x) * Math.min(1, dt * 13)
     boy.userData.kneeR.rotation.x += (kbR - boy.userData.kneeR.rotation.x) * Math.min(1, dt * 13)
     // 足首：腿＋膝の傾きを打ち消して足裏を保つが、係数を弱め(0.6)て振り上げた脚では足が自然に垂れる＋蹴り出しでつま先を下げる(toe-off)
