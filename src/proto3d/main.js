@@ -13952,7 +13952,7 @@ function update(dt) {
     } else n.userData.head.rotation.y = Math.sin(tsec * 0.4 + n.position.x) * 0.45
     // 暮らしの所作：話していない時だけ（近づくと所作をやめてこちらを向く・C14）
     const act = n.userData.act, u = n.userData
-    const acting = !!act && !near
+    const acting = !!act && !near && !u._vrmShown // VRM表示中は所作(うちわ/ほうき/眺め)を止めて自然に立たせる＝VRMが道具無しでパントマイムするのを防ぐ（商店街3人と同じ静かなベースライン。所作道具のVRM手付けは後のポリッシュで）
     const fanning = acting && act === 'fan' && tday > 0.32 && tday < 0.82
     const sweeping = acting && act === 'sweep' && tday > 0.18 && tday < 0.86
     if (!(fanning || sweeping)) npcArms(n, near, dt, tsec) // 腕の所作中はnpcArmsを通さない（腕を取り合って中途半端になるのを防ぐ）
@@ -14880,6 +14880,8 @@ const VRM_RESIDENTS = [
   { toon: yatoShopLady,   file: 'models/sendagaya_shibu.vrm',   role: 'lady', worldScale: 0.88, headScale: 1.05, hair: 0x4a3a30, hairStyle: 'kerchief', kerchiefCol: 0xdccfb2, blouse: [1.02, 1.0, 0.94], skirtCol: 0x8a6a4a, apronCol: 0xe8e2d4 }, // 八百屋のおばさん＝生成り三角巾+生成りブラウス+茶エプロン
   { toon: yatoFlowerLady, file: 'models/sendagaya_shibu.vrm',   role: 'lady', worldScale: 0.85, headScale: 1.05, hair: 0x6a5442, hairStyle: 'bun',      blouse: [0.80, 0.58, 0.64], skirtCol: 0x5a6a7a, apronCol: 0x9aa0a8 }, // 花屋のおばさん＝茶のおだんご+えんじブラウス+灰エプロン
   { toon: yatoGrandpa,    file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.84, headScale: 1.05, spineBend: 0.20 }, // 軒先のおじいさん＝grandpaize（白髪+白ひげ+開襟シャツ+麦わら）
+  // ── B2 総入れ替え：谷戸の話せる住人を1人ずつVRM化（散在するので上限3＋距離カリングで同時表示は有界）。所作道具の住人はVRM表示中は所作を止めて自然に立たせる（_vrmShown）──
+  { toon: yatoDagashiBaa, file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.84, headScale: 1.05, spineBend: 0.20 }, // 駄菓子屋のおばあちゃん（しんみせ店先）＝grandmaize（丸めがね+白髪+もんぺ）。うちわは表示中は畳む
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
 // 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
@@ -15048,7 +15050,8 @@ function grandmaize(vrm) {
       else if (/AccessoryNeck/.test(m.name)) m.visible = false // 胸元の制服リボンを消す
       else if (/Bottoms/.test(m.name)) m.visible = false // ミニスカートを消す（下でロングスカートに置き換え）
       else if (/Tops/.test(m.name) && m.color) m.color.set(0x9b93a5) // 藤鼠の上着
-      else if (/Shoes/.test(m.name) && m.color) m.color.set(0x6b5a4a) } })
+      else if (/Shoes/.test(m.name) && m.color) m.color.set(0x6b5a4a)
+      else if (/EyeIris/.test(m.name) && m.color) m.color.set(0x8f7d68) } }) // 赤い瞳→渋い灰茶へ（乗算・お年寄りの穏やかな目に・grandpaizeと同じ配慮）
   vrm.scene.traverse((o) => { if (o.isBone && /Bust/i.test(o.name)) o.scale.setScalar(0.5) }) // 胸を平らに＝前かがみ時に胸が前へ張り出して「エビ反り」に見えるのを防ぐ
   agedFace(vrm, { wrinkles: true }) // 顔テクスチャにしわを直接描き込む＝「若い顔の白髪女子高生」からの脱却（様式はVRoidのまま）
   const hips = vrm.humanoid.getRawBoneNode('hips')
@@ -15637,7 +15640,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
             if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true }
           texList.push(t) } } })
-    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm)
+    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm); else if (cfg.role === 'grandma') grandmaize(vrm)
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
@@ -15692,8 +15695,8 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   const ready = vrmResidents.filter((r) => r.state === 'prepared').sort((a, b) => a.cd2 - b.cd2)
   for (let i = 0; i < ready.length; i++) { const r = ready[i]
     const wantShow = !off && i < VRM_RES_CAP && r.cd2 < (r.shown ? VRM_RES_HIDE2 : VRM_RES_SHOW2)
-    if (wantShow && !r.shown) { r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false; vrmResLiveCount++ }
-    else if (!wantShow && r.shown) { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = (off || RESIDENT_TOON_FALLBACK); vrmResLiveCount = Math.max(0, vrmResLiveCount - 1) }
+    if (wantShow && !r.shown) { r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false; r.toon.userData._vrmShown = true; vrmResLiveCount++ }
+    else if (!wantShow && r.shown) { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = (off || RESIDENT_TOON_FALLBACK); r.toon.userData._vrmShown = false; vrmResLiveCount = Math.max(0, vrmResLiveCount - 1) }
   }
   // ★見た目の既定＝トゥーンは出さない（骨組みのみ）。VRM表示中は隠す／表示外もカリング（消す）。昔モード(off)・フォールバックON・VRM読込失敗時だけトゥーンを見せる（安全網＝人が消えない）
   if (!RESIDENT_TOON_FALLBACK) for (const r of vrmResidents) { if (r.shown) continue; const vis = off || r.state === 'failed'; for (const m of r.toonMeshes) if (m.visible !== vis) m.visible = vis }
