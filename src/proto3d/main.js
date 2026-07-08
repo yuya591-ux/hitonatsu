@@ -14884,6 +14884,9 @@ const VRM_RESIDENTS = [
   { toon: yatoDagashiBaa, file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.84, headScale: 1.05, spineBend: 0.20 }, // 駄菓子屋のおばあちゃん（しんみせ店先）＝grandmaize（丸めがね+白髪+もんぺ）。うちわは表示中は畳む
   { toon: yatoMorningJii, file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.85, headScale: 1.05, spineBend: 0.16, hair: 0xd6d2c8, hat: 'none', shirt: [0.84, 0.87, 0.94] }, // 近所のおじいさん（開始地点そば）＝白髪+帽子なし+ひげ+薄青シャツ。軒先じいさん(白髪+麦わら)とは帽子なし・シャツ色で作り分け（★ひげ+白髪は老け感に必須＝抜くと若返る）
   { toon: yatoDinerLady,  file: 'models/sendagaya_shibu.vrm', role: 'lady', worldScale: 0.90, headScale: 1.05, hair: 0x554636, hairStyle: 'bob', blouse: [1.0, 0.95, 0.84], skirtCol: 0x6a5a4a, apronCol: 0xc24a3a }, // 食堂のおばさん（泉屋）＝茶ボブ+赤い前掛け＝八百屋(三角巾)/花屋(おだんご)と作り分け
+  { toon: yatoPondJii,    file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.85, headScale: 1.05, spineBend: 0.14, hair: 0xc9c5bb, hat: 'straw', hatCol: 0xc9a95e, beard: true }, // 二ツ池のおじいさん＝灰白髪+麦わら+ひげ（軒先=白髪と灰白で作り分け・水辺の釣り翁）
+  { toon: komaokaJii,     file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.86, headScale: 1.05, spineBend: 0.12, hair: 0xbdb9ae, hat: 'none', beard: true, shirt: [0.78, 0.72, 0.56], pants: [0.42, 0.44, 0.40] }, // 駒岡・土手のおじさん＝灰髪+帽子なし+ひげ+茶シャツ+灰緑ズボン（近所じいさん=白髪+青シャツと作り分け）
+  { toon: komaokaMama,    file: 'models/sendagaya_shibu.vrm', role: 'lady', worldScale: 0.92, headScale: 1.05, hair: 0x4e3e30, hairStyle: 'pony', blouse: [0.90, 0.55, 0.50], skirtCol: 0x6a5a70, apronCol: 0xe8e0cc }, // 駒岡・買い物のお母さん＝茶ポニー+珊瑚色ブラウス+生成りエプロン（若めの母＝おばさん達と作り分け）
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
 // 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
