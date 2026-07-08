@@ -14882,6 +14882,8 @@ const VRM_RESIDENTS = [
   { toon: yatoGrandpa,    file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.84, headScale: 1.05, spineBend: 0.20 }, // 軒先のおじいさん＝grandpaize（白髪+白ひげ+開襟シャツ+麦わら）
   // ── B2 総入れ替え：谷戸の話せる住人を1人ずつVRM化（散在するので上限3＋距離カリングで同時表示は有界）。所作道具の住人はVRM表示中は所作を止めて自然に立たせる（_vrmShown）──
   { toon: yatoDagashiBaa, file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.84, headScale: 1.05, spineBend: 0.20 }, // 駄菓子屋のおばあちゃん（しんみせ店先）＝grandmaize（丸めがね+白髪+もんぺ）。うちわは表示中は畳む
+  { toon: yatoMorningJii, file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.85, headScale: 1.05, spineBend: 0.16, hair: 0xd6d2c8, hat: 'none', shirt: [0.84, 0.87, 0.94] }, // 近所のおじいさん（開始地点そば）＝白髪+帽子なし+ひげ+薄青シャツ。軒先じいさん(白髪+麦わら)とは帽子なし・シャツ色で作り分け（★ひげ+白髪は老け感に必須＝抜くと若返る）
+  { toon: yatoDinerLady,  file: 'models/sendagaya_shibu.vrm', role: 'lady', worldScale: 0.90, headScale: 1.05, hair: 0x554636, hairStyle: 'bob', blouse: [1.0, 0.95, 0.84], skirtCol: 0x6a5a4a, apronCol: 0xc24a3a }, // 食堂のおばさん（泉屋）＝茶ボブ+赤い前掛け＝八百屋(三角巾)/花屋(おだんご)と作り分け
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
 // 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
@@ -15081,24 +15083,26 @@ function grandmaize(vrm) {
 }
 // おじいちゃん化（桜田ベース・様式統一の試作2026-07-07）：白髪＋白ひげ＋しわ＋日焼け＋生成りの開襟シャツ＋
 // カーキの作業ズボン＋使い込んだ麦わら帽。前かがみ姿勢はおばあちゃんと同じGPOSE（spineBend弱め）を共用
-function grandpaize(vrm) {
+function grandpaize(vrm, opt = {}) { // opt.hair(白/灰)・opt.hat('straw'/'none')・opt.beard(既定true)・opt.shirt/pants[r,g,b]で作り分け（複数のおじいさんがクローンにならないように）
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/AccessoryNeck/.test(m.name)) m.visible = false // ネクタイを消す
-      else if (/HAIR|HairBack/.test(m.name)) { m.map = null; if (m.color) m.color.set(0xd5d2c9); if (m.shadeColorFactor) m.shadeColorFactor.set(0x94918a); m.needsUpdate = true } // 白髪
+      else if (/HAIR|HairBack/.test(m.name)) { m.map = null; const hc = opt.hair ?? 0xd5d2c9; if (m.color) m.color.set(hc); if (m.shadeColorFactor) { m.shadeColorFactor.set(hc); m.shadeColorFactor.multiplyScalar(0.82) } m.needsUpdate = true } // 白髪（opt.hairで白/灰）。影も明るめ0.82＝暗く沈んで黒髪に見えるのを防ぐ（灰髪が若い黒髪化する事故の対策）
       else if (/Shoes/.test(m.name) && m.color) m.color.set(0x6b6156)
       else if (/Body/.test(m.name) && /SKIN/.test(m.name) && m.color) m.color.set(0xefd2b4) // 日焼けした腕（乗算・濃すぎるとオレンジの人になる）
       else if (/EyeIris/.test(m.name) && m.color) m.color.set(0x9a8874) // 若い青の瞳→渋い灰茶へ（乗算）
     } })
-  recolorNavy(vrm, /Tops/, 0.99, 0.97, 0.90) // 紺ベスト→生成りの開襟シャツ
-  recolorNavy(vrm, /Bottoms/, 0.72, 0.65, 0.52) // 紺の長ズボン→カーキの作業ズボン
-  agedFace(vrm, { wrinkles: true, beard: true, tan: 'rgb(245,219,193)' })
+  const sh = opt.shirt || [0.99, 0.97, 0.90], pt = opt.pants || [0.72, 0.65, 0.52]
+  recolorNavy(vrm, /Tops/, sh[0], sh[1], sh[2]) // 紺ベスト→生成りの開襟シャツ（opt.shirtで色替え）
+  recolorNavy(vrm, /Bottoms/, pt[0], pt[1], pt[2]) // 紺の長ズボン→カーキの作業ズボン（opt.pants）
+  agedFace(vrm, { wrinkles: true, beard: opt.beard !== false, tan: 'rgb(245,219,193)' }) // opt.beard:falseで無精ひげ無しのすっきり顔
   const head = vrm.humanoid.getRawBoneNode('head')
   if (head) {
+    const hat = opt.hat ?? 'straw'
     for (const c of head.children) if (/^HairJoint/.test(c.name)) {
-      if (c.position.y > 0.07) c.scale.setScalar(0.3) // アホ毛＝帽子貫通の防止
+      if (c.position.y > 0.07) c.scale.setScalar(0.3) // アホ毛は畳む（帽子貫通防止＋老人にツンツン頭は不自然）
       for (const g of c.children) if (/^HairJoint/.test(g.name)) g.scale.setScalar(0.5) }
-    strawHat(head, 0xd9b568) // 使い込んだ色の麦わら
+    if (hat === 'straw') strawHat(head, opt.hatCol ?? 0xd9b568) // 使い込んだ色の麦わら
   }
 }
 // 素朴な女の子化（渋ベース・様式統一の試作）：黒髪＋リボンなし＋白ブラウス＋赤いスカート（2000年の田舎の夏の子）
@@ -15640,7 +15644,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
             if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true }
           texList.push(t) } } })
-    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm); else if (cfg.role === 'grandma') grandmaize(vrm)
+    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm)
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
