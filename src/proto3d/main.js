@@ -14887,6 +14887,9 @@ const VRM_RESIDENTS = [
   { toon: yatoPondJii,    file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.85, headScale: 1.05, spineBend: 0.14, hair: 0xc9c5bb, hat: 'straw', hatCol: 0xc9a95e, beard: true }, // 二ツ池のおじいさん＝灰白髪+麦わら+ひげ（軒先=白髪と灰白で作り分け・水辺の釣り翁）
   { toon: komaokaJii,     file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.86, headScale: 1.05, spineBend: 0.12, hair: 0xbdb9ae, hat: 'none', beard: true, shirt: [0.78, 0.72, 0.56], pants: [0.42, 0.44, 0.40] }, // 駒岡・土手のおじさん＝灰髪+帽子なし+ひげ+茶シャツ+灰緑ズボン（近所じいさん=白髪+青シャツと作り分け）
   { toon: komaokaMama,    file: 'models/sendagaya_shibu.vrm', role: 'lady', worldScale: 0.92, headScale: 1.05, hair: 0x4e3e30, hairStyle: 'pony', blouse: [0.90, 0.55, 0.50], skirtCol: 0x6a5a70, apronCol: 0xe8e0cc }, // 駒岡・買い物のお母さん＝茶ポニー+珊瑚色ブラウス+生成りエプロン（若めの母＝おばさん達と作り分け）
+  { toon: yatoShrineBaa,  file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.85, headScale: 1.05, spineBend: 0.18, hair: 0xcac6bc, glasses: false, top: 0x8a96a0, skirt: 0x5a5650 }, // お社のおばあさん＝灰髪+めがね無し＝駄菓子屋婆(白髪+めがね)と作り分け。※手ぬぐいは巨大化バグ調査まで保留。ほうきは表示中畳む
+  { toon: yatoTeraBaa,    file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.84, headScale: 1.05, spineBend: 0.22, hair: 0xd8d4ca, top: 0x8a8478, skirt: 0x4a463e }, // お寺のおばあさん＝白髪+めがね+こげ茶スカート。買い物袋は後で
+  { toon: yatoYashikiBaa, file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.83, headScale: 1.05, spineBend: 0.24, hair: 0xc8c4bc, top: 0x9a8c78, skirt: 0x4a4640 }, // 横溝屋敷のおばあさん＝灰白髪+めがね+茶の上着（小柄・前かがみ強め）。ほうきは表示中畳む
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
 // 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
@@ -15047,21 +15050,21 @@ function boyize(vrm, aho) {
 // おばあちゃん化v2（2026-07-07）：v1「白髪にしただけ＝白髪の女子高生」の反省から髪型・小物まで作り替える。
 // ①腰まである後ろ髪(HairBackマテリアルの面)を丸ごと非表示 ②髪の房の2節目から先を縮めてショートに（1節の前髪は残る）
 // ③白髪 ④白髪のおだんご ⑤丸めがね ⑥服を渋色に（杖と細目はtick側）
-function grandmaize(vrm) {
+function grandmaize(vrm, opt = {}) { // opt.hair(白/灰)・opt.glasses(既定true)・opt.top(上着色)・opt.skirt(スカート色)・opt.tenugui(手ぬぐい)で作り分け（複数のおばあさんがクローンにならないように）
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/HairBack/.test(m.name)) m.visible = false // ロングの後ろ髪を消す（短髪化の本体）
-      else if (/HAIR/.test(m.name)) { m.map = null; if (m.color) m.color.set(0xdcd9d0); if (m.shadeColorFactor) m.shadeColorFactor.set(0x9d9a91); m.needsUpdate = true }
+      else if (/HAIR/.test(m.name)) { m.map = null; const hc = opt.hair ?? 0xdcd9d0; if (m.color) m.color.set(hc); if (m.shadeColorFactor) { m.shadeColorFactor.set(hc); m.shadeColorFactor.multiplyScalar(0.82) } m.needsUpdate = true } // 白髪（opt.hairで白/灰・影0.82で暗く沈まない）
       else if (/AccessoryNeck/.test(m.name)) m.visible = false // 胸元の制服リボンを消す
       else if (/Bottoms/.test(m.name)) m.visible = false // ミニスカートを消す（下でロングスカートに置き換え）
-      else if (/Tops/.test(m.name) && m.color) m.color.set(0x9b93a5) // 藤鼠の上着
+      else if (/Tops/.test(m.name) && m.color) m.color.set(opt.top ?? 0x9b93a5) // 上着（opt.top・既定は藤鼠）
       else if (/Shoes/.test(m.name) && m.color) m.color.set(0x6b5a4a)
       else if (/EyeIris/.test(m.name) && m.color) m.color.set(0x8f7d68) } }) // 赤い瞳→渋い灰茶へ（乗算・お年寄りの穏やかな目に・grandpaizeと同じ配慮）
   vrm.scene.traverse((o) => { if (o.isBone && /Bust/i.test(o.name)) o.scale.setScalar(0.5) }) // 胸を平らに＝前かがみ時に胸が前へ張り出して「エビ反り」に見えるのを防ぐ
   agedFace(vrm, { wrinkles: true }) // 顔テクスチャにしわを直接描き込む＝「若い顔の白髪女子高生」からの脱却（様式はVRoidのまま）
   const hips = vrm.humanoid.getRawBoneNode('hips')
   if (hips) { // ひざ下丈のロングスカート（もんぺ風の濃鼠）＝腰ボーンから吊るす円錐。太もも/ミニの学生感を消す本命
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.225, 0.50, 14), charToon(0x7a7480)) // ゲームの人物用トゥーン＝影側が黒く潰れない
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.225, 0.50, 14), charToon(opt.skirt ?? 0x7a7480)) // ゲームの人物用トゥーン＝影側が黒く潰れない（opt.skirt）
     skirt.position.set(0, -0.22, 0); skirt.rotation.x = GPOSE.skirt; hips.add(skirt); vrm.scene.userData._skirt = skirt // 股関節の前折りぶん布は垂直へ戻す（毎フレームGPOSE.skirtを適用＝ライブ調整可。※VRMクラスにuserDataは無い＝sceneに持たせる）
   }
   const head = vrm.humanoid.getRawBoneNode('head')
@@ -15071,17 +15074,22 @@ function grandmaize(vrm) {
     c.scale.setScalar(hasChild ? 0.45 : 0.8)
     for (const g of c.children) if (/^HairJoint/.test(g.name)) g.scale.setScalar(0.25)
   }
-  const gmat = new THREE.MeshBasicMaterial({ color: 0x54493f })
-  const lensGeo = new THREE.TorusGeometry(0.030, 0.0045, 6, 20)
-  const gl = new THREE.Mesh(lensGeo, gmat), gr = new THREE.Mesh(lensGeo, gmat)
-  const eyeL = head.children.find((c) => /L_FaceEyeSet/.test(c.name)), eyeR = head.children.find((c) => /R_FaceEyeSet/.test(c.name))
-  if (eyeL && eyeR) { // めがねは目ボーンの実座標に合わせる＝目の位置から顔表面ぶん-Z（顔の前）へ
-    gl.position.copy(eyeL.position); gr.position.copy(eyeR.position)
-    gl.position.y -= 0.004; gr.position.y -= 0.004
-    gl.position.z -= 0.037; gr.position.z -= 0.037
-    const bridge = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(gr.position.x - gl.position.x), 0.006, 0.006), gmat)
-    bridge.position.set((gl.position.x + gr.position.x) / 2, (gl.position.y + gr.position.y) / 2 + 0.004, gl.position.z - 0.002)
-    head.add(gl, gr, bridge) // 丸めがね
+  if (opt.glasses !== false) { // 丸めがね（opt.glasses:falseで外す＝作り分け）
+    const gmat = new THREE.MeshBasicMaterial({ color: 0x54493f })
+    const lensGeo = new THREE.TorusGeometry(0.030, 0.0045, 6, 20)
+    const gl = new THREE.Mesh(lensGeo, gmat), gr = new THREE.Mesh(lensGeo, gmat)
+    const eyeL = head.children.find((c) => /L_FaceEyeSet/.test(c.name)), eyeR = head.children.find((c) => /R_FaceEyeSet/.test(c.name))
+    if (eyeL && eyeR) { // めがねは目ボーンの実座標に合わせる＝目の位置から顔表面ぶん-Z（顔の前）へ
+      gl.position.copy(eyeL.position); gr.position.copy(eyeR.position)
+      gl.position.y -= 0.004; gr.position.y -= 0.004
+      gl.position.z -= 0.037; gr.position.z -= 0.037
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(gr.position.x - gl.position.x), 0.006, 0.006), gmat)
+      bridge.position.set((gl.position.x + gr.position.x) / 2, (gl.position.y + gr.position.y) / 2 + 0.004, gl.position.z - 0.002)
+      head.add(gl, gr, bridge) // 丸めがね
+    }
+  }
+  if (opt.tenugui) { // 手ぬぐいのかぶり物＝髪塊(r0.134/頂0.217)の外(r0.142/頂0.255)でcrownを覆う（applyHairStyleのkerchiefと同じ実測値・突き抜け回避）
+    const tn = new THREE.Mesh(new THREE.SphereGeometry(0.142, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.54), charToon(opt.tenuguiCol ?? 0xe8e2d0)); tn.scale.set(1.0, 1.0, 1.05); tn.position.set(0, 0.112, 0.008); head.add(tn)
   }
 }
 // おじいちゃん化（桜田ベース・様式統一の試作2026-07-07）：白髪＋白ひげ＋しわ＋日焼け＋生成りの開襟シャツ＋
@@ -15647,7 +15655,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
             if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true }
           texList.push(t) } } })
-    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm)
+    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg)
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
