@@ -15118,15 +15118,19 @@ function applyHairStyle(vrm, opt = {}) {
       if (/HairBack/.test(m.name)) { m.visible = keepBack; if (keepBack) { m.map = null; if (m.color) m.color.set(col); if (m.shadeColorFactor) m.shadeColorFactor.set(hairShade(col)); m.needsUpdate = true } }
       else if (/HAIR/.test(m.name)) { m.map = null; if (m.color) m.color.set(col); if (m.shadeColorFactor) m.shadeColorFactor.set(hairShade(col)); m.needsUpdate = true } } })
   const head = vrm.humanoid.getRawBoneNode('head'); if (!head) return
-  const fold = { short: [0.34, 0.66, 0.16], bob: [0.42, 0.78, 0.22], bun: [0.34, 0.66, 0.16], pony: [0.5, 0.86, 0.34], kerchief: [0.26, 0.56, 0.13], long: [0.9, 0.95, 0.8] }[style] || [0.42, 0.78, 0.22]
+  // bun/kerchiefは「髪を残したまま外側に足す」方式＝HairJointは縮めない([1,1,1])。前髪を整えたい将来styleのみ縮小値を使う
+  const fold = { short: [0.34, 0.66, 0.16], bob: [0.42, 0.78, 0.22], bun: [1, 1, 1], pony: [1, 1, 1], kerchief: [1, 1, 1], long: [0.9, 0.95, 0.8] }[style] || [0.42, 0.78, 0.22]
   for (const c of head.children) if (/^HairJoint/.test(c.name)) { const hasChild = c.children.some((g) => /^HairJoint/.test(g.name))
     c.scale.setScalar(hasChild ? fold[0] : fold[1]); for (const g of c.children) if (/^HairJoint/.test(g.name)) g.scale.setScalar(fold[2]) }
-  // ※頭ボーンの局所座標＝麦わら帽子の実測(brim y=0.133/crown y=0.172・前=-z)を基準に配置
-  if (style === 'bun') { const bun = new THREE.Mesh(new THREE.SphereGeometry(0.052, 10, 8), charToon(col)); bun.scale.set(1, 0.82, 1); bun.position.set(0, 0.135, 0.078); head.add(bun) } // 後頭部のおだんご（後ろ=+z・冠の高さ）
+  // ※頭ボーンの局所座標は実測（scripts/_headmeasure：shibuの髪塊 y[-0.061..0.217]・水平r=0.134・前=-z）。かぶり物は「髪塊の外」に置いて干渉(突き抜け/埋没)を避ける
+  if (style === 'bun') { // 後頭部の丸髷＝髪頂(0.217)より上かつ後方(z0.098)へ大きめに出し、濃い束ね輪で「結った玉」と読ませる（同色の埋没を回避）
+    const bun = new THREE.Mesh(new THREE.SphereGeometry(0.066, 16, 14), charToon(col)); bun.scale.set(1.06, 0.98, 1.06); bun.position.set(0, 0.188, 0.098); head.add(bun)
+    const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.018, 8, 18), charToon(hairShade(col))); wrap.position.set(0, 0.168, 0.08); wrap.rotation.x = 1.15; head.add(wrap) } // 束ねの根元（濃色）
   else if (style === 'pony') { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.016, 0.2, 8), charToon(col)); p.position.set(0, 0.02, 0.10); p.rotation.x = -0.5; head.add(p) // 束ねたポニー（後ろへ垂らす）
     const tie = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.008, 6, 12), charToon(0xc7a34a)); tie.position.set(0, 0.095, 0.092); tie.rotation.x = Math.PI / 2; head.add(tie) }
-  else if (style === 'kerchief') { const k = new THREE.Mesh(new THREE.SphereGeometry(0.122, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), charToon(opt.kerchiefCol ?? 0xd3c8ae)); k.scale.set(1.04, 0.86, 1.08); k.position.set(0, 0.108, 0.012); head.add(k) // 頭の冠を覆う三角巾（割烹着のおばさんの定番）＝麦わらのbrim高さに合わせて頭に密着
-    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), charToon(opt.kerchiefCol ?? 0xd3c8ae)); knot.scale.set(1, 0.8, 1.5); knot.position.set(0, 0.10, 0.12); head.add(knot) } // 後ろの結び目
+  else if (style === 'kerchief') { const kc = opt.kerchiefCol ?? 0xd3c8ae // バンダナ/三角巾＝髪塊(r0.134/頂0.217)の外(r0.142/頂0.255)で crown を覆い、額の上(rim≈0.098)で切る＝顔・前髪・横の髪は出る
+    // ※飾り(垂れ布/結び目/垂れ端)は髪メッシュと交差して破綻したため、確実に読めるドーム単体に留める（裾から覗く髪でバンダナに見える）
+    const k = new THREE.Mesh(new THREE.SphereGeometry(0.142, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.54), charToon(kc)); k.scale.set(1.0, 1.0, 1.05); k.position.set(0, 0.112, 0.008); head.add(k) }
 }
 // おばさん化（中年女性・様式統一2026-07-08）：女子高生ベース(篠/渋)を「田舎の商店街のおばさん」へ。
 // 学生感を消す4点＝①制服リボン非表示 ②腰までの後ろ髪を短いまとめ髪へ(茶) ③ミニ→ひざ下スカート＋前掛け(エプロン) ④胸の張り出しを控えめに。
@@ -15593,16 +15597,16 @@ async function startVrmResident() {
       VRMUtils.removeUnnecessaryVertices(gltf.scene)
       if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
       VRMUtils.rotateVRM0(vrm)
-      const seenTex = new Set() // 軽量化（主人公/パイロットと同じ：MToon輪郭の二重描き停止・法線マップ除去・>1024縮小）
+      const seenTex = new Set(), MAXW = 512 // 住人=背景キャラ＝主人公より軽く。輪郭停止・法線/装飾チャンネル除去・512縮小＝しんみせ到着でVRM3体のテクスチャ(+116枚)が一気にGPUへ上がりcontext lost（＝ゲーム再起動）する主因を大幅に削る
       vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
         for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
           if (/ \(Outline\)$/.test(m.name || '')) m.visible = false
-          if (m.normalMap) { m.normalMap = null; m.needsUpdate = true }
-          for (const key of ['map', 'shadeMultiplyTexture', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture']) {
+          for (const key of ['normalMap', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture', 'uvAnimationMaskTexture']) { if (m[key]) { m[key] = null; m.needsUpdate = true } } // 装飾チャンネルは住人では省く＝素の色/陰影で十分・テクスチャ枚数と帯域を落とす
+          for (const key of ['map', 'shadeMultiplyTexture']) {
             const t = m[key]; if (!t || !t.image || seenTex.has(t)) continue; seenTex.add(t)
             const w = t.image.width || 0
-            if (w > 1024) { const cv = document.createElement('canvas'); const sc = 1024 / w
-              cv.width = 1024; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
+            if (w > MAXW) { const cv = document.createElement('canvas'); const sc = MAXW / w
+              cv.width = MAXW; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
               cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
               if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true } } } })
       if (cfg.role === 'lady') ladyize(vrm, cfg)
@@ -15632,6 +15636,8 @@ async function startVrmResident() {
       vrmResidents.push({ vrm, toon, toonMeshes, blinkT: 2 + Math.random(), lady: cfg.role === 'lady',
         bones: { armL: nb(L + 'UpperArm'), armR: nb(R + 'UpperArm'), elbL: nb(L + 'LowerArm'), elbR: nb(R + 'LowerArm'), head: nb('head') },
         dwL: (L === 'left' ? 1 : -1), dwR: (R === 'left' ? 1 : -1), shown: false, updT: 0 })
+      // テクスチャを読込中に前もってGPUへ上げる＝到着時に3体分が一度に上がる山を、1体ずつ400ms間隔の読込側へ分散（context lost対策の二段目）
+      try { const warmed = new Set(); vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) for (const key of ['map', 'shadeMultiplyTexture']) { const t = m && m[key]; if (t && !warmed.has(t)) { warmed.add(t); renderer.initTexture(t) } } }) } catch (_) {}
       vrm.scene.visible = false // 既定は隠す＝tickの距離判定で近い時だけ表示（shown:falseなので初回の近接tickで表示へ切り替わる）
     }
     vrmResidentState = 2
@@ -16598,6 +16604,7 @@ window.__proto3d = {
   GPOSE, AHO_EXP, get vrmPilots() { return vrmPilots }, // 検証用：おばあちゃん姿勢/阿呆の子の表情のライブ調整（VRMパイロット）
   VBMAP, get vrmBoy() { return vrmBoy }, get vrmBoyState() { return vrmBoyState }, // 検証用：VRM主人公の写し符号/取り付け寸法のライブ調整
   get vrmResidentState() { return vrmResidentState }, get vrmResidents() { return vrmResidents }, _loadResidents() { if (vrmResidentState === 0) startVrmResident() }, // 検証用：話せる住人VRM（PhaseB1）の読込状態と強制読込
+  get renderer() { return renderer }, _glInfo() { return { tex: renderer.info.memory.textures, geo: renderer.info.memory.geometries, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, glLost: __glLost } }, // 検証用：GPUリソース量（住人VRM追加のcontext lost診断・今後のperf検証）
   get _camDist() { return camCtl.dist }, // 検証用：追従カメラの現在距離（VRM時の寄せ確認）
   _vbApplyOnce() { const f = window.__vbFreeze; window.__vbFreeze = false; vrmBoyTick(0.001); window.__vbFreeze = f }, // 検証用：今のuserDataポーズを実際の写し式で1回だけVRMへ反映（真横フリーズ撮影用）
   _setBoyPose(p) { const u = boy.userData; for (const k in p) if (u[k]) u[k].rotation.x = p[k] }, // 検証用：プロシージャル骨に手ポーズを直接入れる
