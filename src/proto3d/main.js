@@ -14876,8 +14876,8 @@ const VRM_PILOTS = [
 const RESIDENT_TRIGGER = [2732, -116] // 読込トリガーの基準点（商店街）
 const VRM_RESIDENTS = [
   // ★おばさんは短髪の渋(shibu)を共通ベースに（篠shinoは長い横髪がHairBack非表示でも残り女子高生に見える＝2026-07-08実測）。髪色/服/前掛けで作り分け
-  { toon: yatoShopLady,   file: 'models/sendagaya_shibu.vrm',   role: 'lady', worldScale: 0.88, headScale: 1.05, hair: 0x4a3a30, blouse: [1.02, 1.0, 0.94], skirtCol: 0x8a6a4a, apronCol: 0xe8e2d4 }, // 八百屋のおばさん＝生成りブラウス+茶エプロン
-  { toon: yatoFlowerLady, file: 'models/sendagaya_shibu.vrm',   role: 'lady', worldScale: 0.85, headScale: 1.05, hair: 0x6a5442, blouse: [0.80, 0.58, 0.64], skirtCol: 0x5a6a7a, apronCol: 0x9aa0a8 }, // 花屋のおばさん＝えんじ寄りブラウス+灰エプロン
+  { toon: yatoShopLady,   file: 'models/sendagaya_shibu.vrm',   role: 'lady', worldScale: 0.88, headScale: 1.05, hair: 0x4a3a30, hairStyle: 'kerchief', kerchiefCol: 0xdccfb2, blouse: [1.02, 1.0, 0.94], skirtCol: 0x8a6a4a, apronCol: 0xe8e2d4 }, // 八百屋のおばさん＝生成り三角巾+生成りブラウス+茶エプロン
+  { toon: yatoFlowerLady, file: 'models/sendagaya_shibu.vrm',   role: 'lady', worldScale: 0.85, headScale: 1.05, hair: 0x6a5442, hairStyle: 'bun',      blouse: [0.80, 0.58, 0.64], skirtCol: 0x5a6a7a, apronCol: 0x9aa0a8 }, // 花屋のおばさん＝茶のおだんご+えんじブラウス+灰エプロン
   { toon: yatoGrandpa,    file: 'models/sakurada_fumiriya.vrm', role: 'grandpa', worldScale: 0.84, headScale: 1.05, spineBend: 0.20 }, // 軒先のおじいさん＝grandpaize（白髪+白ひげ+開襟シャツ+麦わら）
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
@@ -15107,6 +15107,27 @@ function girlize(vrm) {
   recolorNavy(vrm, /Tops/) // 紺ベスト→白ブラウス
   recolorNavy(vrm, /Bottoms/, 0.92, 0.34, 0.30) // 紺スカート→赤いスカート
 }
+// ── 住民の髪型バリエーション（ユーザー要望2026-07-08：髪型で住民を作り分ける）──
+// VRoidの髪メッシュは新規造形できないが、長短(HairBack表示/HairJointのscale)・色・追加パーツ(おだんご/ポニー/三角巾)で作り分ける。
+// style: 'bob'(短め) / 'short'(さらに短く) / 'bun'(後頭部おだんご) / 'pony'(束ねポニー・後ろ髪残す) / 'kerchief'(三角巾で覆う) / 'long'(後ろ髪を残す)
+function hairShade(col) { const c = new THREE.Color(col); c.multiplyScalar(0.62); return c.getHex() }
+function applyHairStyle(vrm, opt = {}) {
+  const style = opt.hairStyle || 'bob', col = opt.hair ?? 0x4a3a2e, keepBack = style === 'long' || style === 'pony'
+  vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
+    for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
+      if (/HairBack/.test(m.name)) { m.visible = keepBack; if (keepBack) { m.map = null; if (m.color) m.color.set(col); if (m.shadeColorFactor) m.shadeColorFactor.set(hairShade(col)); m.needsUpdate = true } }
+      else if (/HAIR/.test(m.name)) { m.map = null; if (m.color) m.color.set(col); if (m.shadeColorFactor) m.shadeColorFactor.set(hairShade(col)); m.needsUpdate = true } } })
+  const head = vrm.humanoid.getRawBoneNode('head'); if (!head) return
+  const fold = { short: [0.34, 0.66, 0.16], bob: [0.42, 0.78, 0.22], bun: [0.34, 0.66, 0.16], pony: [0.5, 0.86, 0.34], kerchief: [0.26, 0.56, 0.13], long: [0.9, 0.95, 0.8] }[style] || [0.42, 0.78, 0.22]
+  for (const c of head.children) if (/^HairJoint/.test(c.name)) { const hasChild = c.children.some((g) => /^HairJoint/.test(g.name))
+    c.scale.setScalar(hasChild ? fold[0] : fold[1]); for (const g of c.children) if (/^HairJoint/.test(g.name)) g.scale.setScalar(fold[2]) }
+  // ※頭ボーンの局所座標＝麦わら帽子の実測(brim y=0.133/crown y=0.172・前=-z)を基準に配置
+  if (style === 'bun') { const bun = new THREE.Mesh(new THREE.SphereGeometry(0.052, 10, 8), charToon(col)); bun.scale.set(1, 0.82, 1); bun.position.set(0, 0.135, 0.078); head.add(bun) } // 後頭部のおだんご（後ろ=+z・冠の高さ）
+  else if (style === 'pony') { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.016, 0.2, 8), charToon(col)); p.position.set(0, 0.02, 0.10); p.rotation.x = -0.5; head.add(p) // 束ねたポニー（後ろへ垂らす）
+    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.008, 6, 12), charToon(0xc7a34a)); tie.position.set(0, 0.095, 0.092); tie.rotation.x = Math.PI / 2; head.add(tie) }
+  else if (style === 'kerchief') { const k = new THREE.Mesh(new THREE.SphereGeometry(0.122, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), charToon(opt.kerchiefCol ?? 0xd3c8ae)); k.scale.set(1.04, 0.86, 1.08); k.position.set(0, 0.108, 0.012); head.add(k) // 頭の冠を覆う三角巾（割烹着のおばさんの定番）＝麦わらのbrim高さに合わせて頭に密着
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), charToon(opt.kerchiefCol ?? 0xd3c8ae)); knot.scale.set(1, 0.8, 1.5); knot.position.set(0, 0.10, 0.12); head.add(knot) } // 後ろの結び目
+}
 // おばさん化（中年女性・様式統一2026-07-08）：女子高生ベース(篠/渋)を「田舎の商店街のおばさん」へ。
 // 学生感を消す4点＝①制服リボン非表示 ②腰までの後ろ髪を短いまとめ髪へ(茶) ③ミニ→ひざ下スカート＋前掛け(エプロン) ④胸の張り出しを控えめに。
 // ★顔は老けさせない（＝おばあちゃんではない・しわ無し）。ふっくらしたVRoidの顔のまま中年の装いで見せる。
@@ -15115,9 +15136,8 @@ function ladyize(vrm, opt = {}) {
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/AccessoryNeck/.test(m.name)) m.visible = false // 制服リボンを消す
-      else if (/HairBack/.test(m.name)) m.visible = false // 腰までの後ろ髪を消す（まとめ髪化の本体）
-      else if (/HAIR/.test(m.name)) { m.map = null; if (m.color) m.color.set(opt.hair || 0x5a4a3a); if (m.shadeColorFactor) m.shadeColorFactor.set(0x3a2f26); m.needsUpdate = true } // 茶系のまとめ髪
       else if (/Bottoms/.test(m.name)) m.visible = false } }) // ミニスカを消す→下でひざ下スカートに置換
+  applyHairStyle(vrm, opt) // 髪型（bob/bun/pony/kerchief…）で住民を作り分け
   vrm.scene.traverse((o) => { if (o.isBone && /Bust/i.test(o.name)) o.scale.setScalar(0.6) }) // 胸の張り出しを控えめに（アニメ体型→おばさん体型）
   recolorNavy(vrm, /Tops/, br, bg, bb) // 制服ベスト→無地のブラウス/カーディガン色
   liftDark(vrm, /Body.*SKIN/, 72, 226) // 肌テクスチャに描き込まれた黒タイツ→素足/ベージュ（学生の黒ストッキング感を消す・boyizeの黒ソックスと同手法）
@@ -15131,11 +15151,6 @@ function ladyize(vrm, opt = {}) {
     const bib = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.02), charToon(opt.apronCol ?? 0xe8e2d4))
     bib.position.set(0, 0.08, -0.115); hips.add(bib) // 胸あて（大きめ）
   }
-  const head = vrm.humanoid.getRawBoneNode('head') // 短いまとめ髪：前髪は残し、房の2節目から先を強く畳む（grandmaize相当＝女子高生ロングの解消）
-  if (head) for (const c of head.children) if (/^HairJoint/.test(c.name)) {
-    const hasChild = c.children.some((g) => /^HairJoint/.test(g.name))
-    c.scale.setScalar(hasChild ? 0.42 : 0.78)
-    for (const g of c.children) if (/^HairJoint/.test(g.name)) g.scale.setScalar(0.22) }
 }
 // ── 「Claude本気のゼロから造形」試作（2026-07-07・ユーザー依頼）＝外部モデル不使用・全部コードで作る小1〜2の男の子 ──
 // 方針: 角ばり禁止＝体は旋盤(Lathe)と丸カプセルだけで構成。顔は1024pxのcanvasに手描き（まばたきは2枚目の絵と差し替え）
