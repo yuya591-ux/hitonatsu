@@ -15597,12 +15597,12 @@ async function startVrmResident() {
       VRMUtils.removeUnnecessaryVertices(gltf.scene)
       if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
       VRMUtils.rotateVRM0(vrm)
-      const seenTex = new Set(), MAXW = 512 // 住人=背景キャラ＝主人公より軽く。輪郭停止・法線/装飾チャンネル除去・512縮小＝しんみせ到着でVRM3体のテクスチャ(+116枚)が一気にGPUへ上がりcontext lost（＝ゲーム再起動）する主因を大幅に削る
+      const seenTex = new Set(), MAXW = 512 // 住人=背景キャラ＝主人公(1024)より軽く：全テクスチャを512へ縮小(面積1/4〜1/16)＝しんみせ到着でVRM3体分が一気にGPUへ上がりcontext lost（＝ゲーム再起動）する主因(VRAM実量)を大幅に削る。※チャンネルnullはrim/emissiveのfactorを露出させ色化けする(おじいさんの白髪→ピンク)ため禁止＝全チャンネル保持のまま縮小のみ
       vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
         for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
           if (/ \(Outline\)$/.test(m.name || '')) m.visible = false
-          for (const key of ['normalMap', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture', 'uvAnimationMaskTexture']) { if (m[key]) { m[key] = null; m.needsUpdate = true } } // 装飾チャンネルは住人では省く＝素の色/陰影で十分・テクスチャ枚数と帯域を落とす
-          for (const key of ['map', 'shadeMultiplyTexture']) {
+          if (m.normalMap) { m.normalMap = null; m.needsUpdate = true } // 法線は平らでよい（主人公/パイロットと同じ・factor露出の副作用なし）
+          for (const key of ['map', 'shadeMultiplyTexture', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture']) {
             const t = m[key]; if (!t || !t.image || seenTex.has(t)) continue; seenTex.add(t)
             const w = t.image.width || 0
             if (w > MAXW) { const cv = document.createElement('canvas'); const sc = MAXW / w
