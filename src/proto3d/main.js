@@ -15700,6 +15700,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   if (!titleView && settings.vrmboy) vrmResGrace += dt // 起動(タイトル明け)からの経過。読み込みの山（主人公VRM＋世界のセットアップ）が過ぎるまで住人の準備を始めない＝出発地点そばの住人が最繁忙でコンパイルして落ちるのを防ぐ
   if (!vrmResidents.length) return
   const M = VBMAP, off = !settings.vrmboy // 「むかしの姿」ON時はVRMを全部たたんでトゥーンに戻す
+  const tsec = clock.elapsedTime // ★自然な佇まい（コントラポスト）の時間。update内のtsecは別関数スコープで見えない＝ここでモジュールのclockから取り直す（loop-local-scope-gotcha：立ち住人のVRM表示中に毎フレームReferenceErrorでrender()が飛び画面が固まる不具合の修正・2026-07-08）
   // ① 距離を測る／とても遠い(>500m)・むかしの姿は破棄してRAMを返す。準備がまだのidleは420m圏に入った近い順に1体ずつ前倒し準備（parse/リフェイス/コンパイルの山を早い段階に分散）
   let nearIdle = null, nearIdleD2 = Infinity
   const preparing = vrmResidents.some((r) => r.state === 'preparing')
