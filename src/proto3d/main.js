@@ -14353,8 +14353,8 @@ function update(dt) {
     //   ・歩き(run≈0)＝前へ振り出す脚だけ膝を曲げて地面を越す（Math.max(0,-sw)*0.4）。接地脚は伸ばす＝素朴な歩き
     //   ・走り(run→1)＝それに加え、後ろへ蹴った脚の膝を深く曲げ“かかとをお尻へ跳ね上げる”ヒールリカバリ（run²で速いほど強く）
     //     ＝これが「歩き」と「走り」を分ける最大の見た目。棒立ちで脚を開くだけの人形っぽさを解消
-    const kbL = 0.12 + (moving ? Math.max(0, -sw) * 0.4 + Math.max(0, sw) * run * run * 0.8 : 0) // 後ろ脚の踵の蹴り上げ＝1.7→1.1→0.8と段階的に控えめ化（ユーザー要望2026-07-08「もう少し抑えて」・真横4段比較で0.8を選定）
-    const kbR = 0.12 + (moving ? Math.max(0, sw) * 0.4 + Math.max(0, -sw) * run * run * 0.8 : 0)
+    const kbL = 0.12 + (moving ? Math.max(0, -sw) * 0.4 + Math.max(0, sw) * run * run * 0.5 : 0) // 後ろ脚の踵の蹴り上げ＝1.7→1.1→0.8→0.5と段階的に控えめ化（ユーザー要望2026-07-08「後ろ蹴りをよりもっと抑えて」）
+    const kbR = 0.12 + (moving ? Math.max(0, sw) * 0.4 + Math.max(0, -sw) * run * run * 0.5 : 0)
     boy.userData.kneeL.rotation.x += (kbL - boy.userData.kneeL.rotation.x) * Math.min(1, dt * 13)
     boy.userData.kneeR.rotation.x += (kbR - boy.userData.kneeR.rotation.x) * Math.min(1, dt * 13)
     // 足首：腿＋膝の傾きを打ち消して足裏を保つが、係数を弱め(0.6)て振り上げた脚では足が自然に垂れる＋蹴り出しでつま先を下げる(toe-off)
@@ -15440,6 +15440,7 @@ function vrmPilotTick(dt) {
 // 切替＝設定「主人公のすがた」（settings.vrmboy・既定ON）。OFFで従来の姿へ即戻せる（非破壊）
 let vrmBoy = null, vrmBoyState = 0 // 0=未読込 1=読込中 2=適用 3=失敗
 // 写しの符号表と取り付け寸法（実測キャリブレーション用・__proto3d.VBMAPからライブ調整可）
+const BIKE_SHRINK = 0.82 // ★自転車の一律縮小率（体格に対して大きすぎたのを縮める・ユーザー指摘2026-07-08）。1.0=従来
 const VBMAP = { legX: -1, kneeX: -1, ankX: -1, armX: -1, elbX: -1, headX: -1, headY: 1, headZ: -1, armDown: 1.18,
   netX: 0.12, netY: 0.84, netS: 0.78, fishFwd: 0.20, fishRgt: 0.12, fishY: 0.72,
   // 自転車の上体ポーズ（脚は歩きと同じ写しでペダルこぎが正しく折れる。上体だけ前傾＋ハンドル握り）
@@ -15516,7 +15517,7 @@ async function startVrmBoy() {
     // ペダル最下点で膝が軽く曲がる（脚の97%で届く）大きさ＝体格に合う子ども用自転車。0.615=サドル(0.81)→最下ペダル+足首分の落差係数
     // 自転車の縮尺＝ペダルこぎの中立ポーズ（腿0.95・膝-0.95＝すね垂直）で足がペダル中心に届く大きさ。
     //   ペダル中心は腰から前0.30S・下0.51S。足の下がり量=thigh·cos(0.95)+shin に合わせてSを解く（車体を子どもの脚に合わせる）
-    geo.bikeS = THREE.MathUtils.clamp((geo.thigh * Math.cos(0.95) + geo.shin) / 0.51, 0.9, 1.3)
+    geo.bikeS = THREE.MathUtils.clamp((geo.thigh * Math.cos(0.95) + geo.shin) / 0.51, 0.9, 1.3) * BIKE_SHRINK // ★体格に対して自転車が大きすぎ（ユーザー指摘2026-07-08）＝脚合わせのbikeSを一律0.82倍に縮小。この縮小幅では足はペダル接地を保つ（横スクショ_vrmbikesideで確認）
     vrmBoy = { vrm, root, blinkT: 2, geo, bones: {
       legL: nb(L + 'UpperLeg'), legR: nb(R + 'UpperLeg'),
       kneeL: nb(L + 'LowerLeg'), kneeR: nb(R + 'LowerLeg'),
