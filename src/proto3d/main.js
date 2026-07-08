@@ -8164,7 +8164,7 @@ function makeVillager(x, z, opt) {
   g.traverse((o) => { if (o.isMesh) o.castShadow = false }) // 動く村人/通行人も残像防止（接地は丸影ブロブ）
   g.position.set(x, heightAt(x, z), z)
   g.rotation.y = opt.face || 0
-  if (!opt.simple) outlineObj(g, 0.028) // 背景の通行人は輪郭線を省略＝描画コール削減（小さく遠いので影響小）
+  if (!opt.simple && !opt.noOutline) outlineObj(g, 0.028) // 背景の通行人は輪郭線を省略＝描画コール削減（小さく遠いので影響小）。noOutline＝関節は要るが反転ハル輪郭は要らない（VRM化する住人＝VRM側に輪郭があり、隠すべき二重輪郭を持たせない）
   // 顔（輪郭線の後・頭の子に付ける＝見回しで一緒に動く・フチ無し）。主人公と同じ親しみやすい作りに統一
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2e241c })
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -8329,7 +8329,7 @@ function populateToroWatchers() {
 }
 populateToroWatchers()
 const villager = makeVillager(3018, 48, { // 物語の女の子＝獅子ヶ谷(谷戸)の開始地点(3004,30)のそば・見晴らしの良い開けた草地。開始向き(北東45°)の先の開けた道沿いへ＝巨大マンションの壁を背にせず、奥へ続く家並み/木立を背景に自然に出会える（旧3008,44はマンション・駐車場・舗装に挟まれた細い緑帯で気づきにくかった→数m北東の開けた所へ・2026-06-29）
-  shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, // 麦わら帽子（ピンクのリボン）
+  shirt: 0xe08aa8, skirt: 0xd2698a, hair: 0x4a3a2e, face: 2.5, hat: 'straw', band: 0xd2698a, noOutline: true, // 麦わら帽子（ピンクのリボン）。noOutline＝VRM化住人なので反転ハル輪郭は持たせない（VRM表示時に二重輪郭が浮くのを防ぐ・2026-07-08）
   info: {
     name: '女の子',
     // 3日かけて進む関係（最初はそっけない→打ちとける→夏の終わりの別れ）
@@ -13874,6 +13874,7 @@ function update(dt) {
     const dx = sp.x - villager.position.x, dz = sp.z - villager.position.z
     const dd = Math.hypot(dx, dz)
     const vu = villager.userData
+    vu.walking = dd > 0.3 // VRM化した時の脚ブリッジ用（歩行中だけ脚を写す・立ち止まりは真っすぐ）
     if (dd > 0.3) {
       const step = Math.min(1.6 * dt, dd)
       villager.position.x += (dx / dd) * step
@@ -14864,12 +14865,11 @@ function freezeStaticMatrices() {
 let vrmPilots = [], vrmPilotState = 0 // 0=未読込 1=読込中 2=表示中 3=失敗
 const VRM_PILOT_POS = [3051, 16] // 読込トリガーの基準点（第三公園）
 // 試験体の構成：scale=全体倍率（身長）・headScale=頭ボーン倍率（頭身を詰めて子どもの体型に）
-const VRM_PILOTS = [
-  // ※素の女子高生（篠・等身大）は役目を終えて撤去（2026-07-07 iPhone負荷削減＝1体分の描画/読込を削減）
-  { file: 'models/sendagaya_shibu.vrm', pos: [3054.5, 17.5], ry: 2.0, scale: 0.72, headScale: 1.38, girl: true },  // 渋＝子ども化+素朴な女の子（黒髪+白ブラウス+赤スカート）
-  { file: 'models/sendagaya_shino.vrm', pos: [3048.5, 14.2], ry: 1.9, scale: 0.84, headScale: 1.02, spineBend: 0.44, grandma: true }, // おばあちゃん化v2＝ショート白髪+丸めがね+細目+しわ+前かがみ+杖+渋い服+小柄
-  { file: 'models/sakurada_fumiriya.vrm', pos: [3045.5, 18.2], ry: 2.0, scale: 0.64, headScale: 1.46, boy: true, aho: true }, // 夏の男の子（桜田）＝小1〜2の背丈（主人公は低学年＝ユーザー指定2026-07-07）+白半袖シャツ+紺半ズボン(テクスチャ加工のみ=角ばりゼロ)+麦わら+虫網
-  { file: 'models/sakurada_fumiriya.vrm', pos: [3050.2, 17.8], ry: 2.3, scale: 0.80, headScale: 1.05, spineBend: 0.34, yOff: 0.10, grandpa: true }, // おじいちゃん（桜田ベース試作）＝白髪+白ひげ+しわ+開襟シャツ+麦わら（砂場の南の開けた芝＝俯瞰park_top.pngで選定）
+const VRM_PILOTS = [ // ※画風パス②パイロット5体は役目を終えて撤去（2026-07-08・ユーザー承認）＝本番の話せる住人（女の子含む）がVRM化され、第三公園の重複するお試し表示を引っ込める。girlize/boyize/grandmaize/grandpaize/GPOSE等の変換は本番住人が使用中＝コードは残す。復活時は下を戻す
+  // { file: 'models/sendagaya_shibu.vrm', pos: [3054.5, 17.5], ry: 2.0, scale: 0.72, headScale: 1.38, girl: true },  // 渋＝素朴な女の子（→本番＝マンション前の女の子に採用）
+  // { file: 'models/sendagaya_shino.vrm', pos: [3048.5, 14.2], ry: 1.9, scale: 0.84, headScale: 1.02, spineBend: 0.44, grandma: true }, // おばあちゃん化v2
+  // { file: 'models/sakurada_fumiriya.vrm', pos: [3045.5, 18.2], ry: 2.0, scale: 0.64, headScale: 1.46, boy: true, aho: true }, // 夏の男の子（桜田）
+  // { file: 'models/sakurada_fumiriya.vrm', pos: [3050.2, 17.8], ry: 2.3, scale: 0.80, headScale: 1.05, spineBend: 0.34, yOff: 0.10, grandpa: true }, // おじいちゃん（桜田ベース試作）
 ]
 // ── PhaseB1：話せる住人のVRM化（試験＝谷戸商店街の3人・近接だけVRM／遠景は従来トゥーンのハイブリッド・2026-07-08）──
 // 主人公と同じ「操り人形ブリッジ」＝隠したトゥーン住人の頭/腕/肘と口パクを毎フレームVRM骨へ写す（脚は立ちのまま＝写さない）。
@@ -14890,6 +14890,9 @@ const VRM_RESIDENTS = [
   { toon: yatoShrineBaa,  file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.85, headScale: 1.05, spineBend: 0.18, hair: 0xcac6bc, glasses: false, top: 0x8a96a0, skirt: 0x5a5650 }, // お社のおばあさん＝灰髪+めがね無し＝駄菓子屋婆(白髪+めがね)と作り分け。※手ぬぐいは巨大化バグ調査まで保留。ほうきは表示中畳む
   { toon: yatoTeraBaa,    file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.84, headScale: 1.05, spineBend: 0.22, hair: 0xd8d4ca, top: 0x8a8478, skirt: 0x4a463e }, // お寺のおばあさん＝白髪+めがね+こげ茶スカート。買い物袋は後で
   { toon: yatoYashikiBaa, file: 'models/sendagaya_shibu.vrm', role: 'grandma', worldScale: 0.83, headScale: 1.05, spineBend: 0.24, hair: 0xc8c4bc, top: 0x9a8c78, skirt: 0x4a4640 }, // 横溝屋敷のおばあさん＝灰白髪+めがね+茶の上着（小柄・前かがみ強め）。ほうきは表示中畳む
+  // ★特別枠：物語の女の子（マンション前）＝第三公園パイロットと同じ姿(渋+黒髪+白ブラウス+赤スカート・子ども体型 scale0.72/headScale1.38)。ユーザー指定：画像2のパイロットの姿に差し替え（2026-07-08）。
+  //   walker=歩くので脚も写す（他の立ち住人と違う）。keepToon=VRM準備中もトゥーンで見せる＝第一村人が一瞬消えるのを防ぐ（105m先でVRMへ入替＝サイズ差は見えない）
+  { toon: villager, file: 'models/sendagaya_shibu.vrm', role: 'girl', girl: true, walker: true, keepToon: true, worldScale: 0.72, headScale: 1.38 },
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
 // 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
@@ -15655,7 +15658,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
             if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true }
           texList.push(t) } } })
-    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg)
+    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg); else if (cfg.girl) girlize(vrm) // 女の子＝黒髪+白ブラウス+赤スカート（第三公園パイロットと同じ変換）
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
@@ -15671,6 +15674,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     const tArmL = r.toon.userData.armL.getWorldPosition(new THREE.Vector3()); r.toon.worldToLocal(tArmL)
     const flip = (vArmL.x < 0) !== (tArmL.x < 0); const L = flip ? 'right' : 'left', R = flip ? 'left' : 'right'
     r.bones = { armL: nb(L + 'UpperArm'), armR: nb(R + 'UpperArm'), elbL: nb(L + 'LowerArm'), elbR: nb(R + 'LowerArm'), head: nb('head') }
+    if (cfg.walker) { r.bones.legL = nb(L + 'UpperLeg'); r.bones.legR = nb(R + 'UpperLeg'); r.bones.kneeL = nb(L + 'LowerLeg'); r.bones.kneeR = nb(R + 'LowerLeg') } // 歩く住人（女の子）は脚・膝も写す＝主人公と同じ脚ブリッジ
     r.dwL = (L === 'left' ? 1 : -1); r.dwR = (R === 'left' ? 1 : -1)
     r.vrm = vrm
     try { if (renderer.compileAsync) await renderer.compileAsync(vrm.scene, camera, scene) } catch (_) {} // シェーダー事前コンパイル＝初回描画のストール(山②)を遠くへ追い出す（iOSでKHR拡張が無くても発生タイミングが近接フレームから外れる）
@@ -15687,7 +15691,7 @@ function disposeResidentVrm(r) { // とても離れた(>150m)/むかしの姿の
   } catch (_) {} }
   if (r.shown) vrmResLiveCount = Math.max(0, vrmResLiveCount - 1)
   r.vrm = null; r.bones = null; r.mats = null; r.state = 'idle'; r.shown = false; r.fade = 0; r.fadeT = 0
-  const showToon = !settings.vrmboy || RESIDENT_TOON_FALLBACK // 総入れ替え方針では見た目を消したまま（骨組みだけ残す）。昔モード(VRM切)/フォールバックON時のみトゥーンへ戻す（非破壊）
+  const showToon = !settings.vrmboy || RESIDENT_TOON_FALLBACK || r.cfg.keepToon // 総入れ替え方針では見た目を消したまま（骨組みだけ残す）。昔モード(VRM切)/フォールバックON時のみトゥーンへ戻す（非破壊）。keepToon（特別枠の女の子）は遠方でもトゥーンで見せる
   for (const m of r.toonMeshes) m.visible = showToon
 }
 function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの関節がその日ぶん書き込まれた後）
@@ -15715,7 +15719,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
     else if (!wantShow && r.shown) { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = (off || RESIDENT_TOON_FALLBACK); r.toon.userData._vrmShown = false; vrmResLiveCount = Math.max(0, vrmResLiveCount - 1) }
   }
   // ★見た目の既定＝トゥーンは出さない（骨組みのみ）。VRM表示中は隠す／表示外もカリング（消す）。昔モード(off)・フォールバックON・VRM読込失敗時だけトゥーンを見せる（安全網＝人が消えない）
-  if (!RESIDENT_TOON_FALLBACK) for (const r of vrmResidents) { if (r.shown) continue; const vis = off || r.state === 'failed'; for (const m of r.toonMeshes) if (m.visible !== vis) m.visible = vis }
+  if (!RESIDENT_TOON_FALLBACK) for (const r of vrmResidents) { if (r.shown) continue; const vis = off || r.state === 'failed' || r.cfg.keepToon; for (const m of r.toonMeshes) if (m.visible !== vis) m.visible = vis } // keepToon（特別枠の女の子）＝VRM表示中以外は常にトゥーンで見せる＝第一村人が一瞬消えない
   // ③ 表示中(fade>0)のVRMを毎フレーム駆動（操り人形ブリッジ＝上半身だけ写す。脚は立ちのまま）
   for (const v of vrmResidents) {
     if (!v.shown || !v.vrm || !v.bones) continue
@@ -15726,6 +15730,10 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
     b.armL.rotation.z = v.dwL * (M.armDown - u.armL.rotation.z); b.armR.rotation.z = v.dwR * (M.armDown + u.armR.rotation.z)
     b.elbL.rotation.x = u.elbowL.rotation.x * M.elbX; b.elbR.rotation.x = u.elbowR.rotation.x * M.elbX
     b.head.rotation.x = u.head.rotation.x * M.headX; b.head.rotation.y = u.head.rotation.y * M.headY; b.head.rotation.z = u.head.rotation.z * M.headZ
+    if (v.cfg.walker && b.legL) { // 歩く子＝脚も写す（主人公と同じ符号 legX/kneeX=-1）。立ち止まりは真っすぐに戻す
+      if (u.walking) { b.legL.rotation.x = u.legL.rotation.x * M.legX; b.legR.rotation.x = u.legR.rotation.x * M.legX; b.kneeL.rotation.x = u.kneeL.rotation.x * M.kneeX; b.kneeR.rotation.x = u.kneeR.rotation.x * M.kneeX }
+      else { b.legL.rotation.x = 0; b.legR.rotation.x = 0; b.kneeL.rotation.x = 0; b.kneeR.rotation.x = 0 }
+    }
     const em = v.vrm.expressionManager // 表情＝口パク(トゥーンの口の開きを写す)＋やわらかい細目＋まばたき
     if (em) { v.blinkT -= udt; if (v.blinkT < 0) v.blinkT = 2.2 + Math.random() * 2.6
       const k = v.blinkT < 0.12 ? 1 - Math.abs(v.blinkT - 0.06) / 0.06 : 0
