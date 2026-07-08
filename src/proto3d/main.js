@@ -14627,7 +14627,8 @@ function update(dt) {
       lookGoal.y = (boy.position.y + dlgWho.position.y) / 2 + 1.45
     }
     if (fpv) { const cp2 = Math.cos(camCtl.pitch), fx = -Math.sin(camCtl.yaw) * cp2, fy = -Math.sin(camCtl.pitch), fz = -Math.cos(camCtl.yaw) * cp2 // 視線方向
-      const hx = boy.position.x, hy = boy.position.y - walkBobY - stepBobY + 1.66, hz = boy.position.z, back = 0.45 // 目線を高く＋ほんの少しだけ引き気味（眼球べったりを避ける）。★歩き/走り/立ちの上下ぴょこ(walkBobY＋stepBobY)は両方とも目線から除く＝主観は走っても望遠でも揺れない（ユーザー「主観で揺れる/走りの揺れが大きい」2026-07）
+      // ★VRM主人公は小柄なので目線を子どもの高さへ（旧1.66→1.07）。3人称の顔基準(_vbLook時0.9)と旧FPV/旧顔比(1.66/1.4)から算出＝キャラの目線に合わせる（ユーザー要望2026-07-08）。旧キャラは1.66のまま
+      const hx = boy.position.x, hy = boy.position.y - walkBobY - stepBobY + (_vbLook ? 1.07 : 1.66), hz = boy.position.z, back = 0.45 // ほんの少しだけ引き気味（眼球べったりを避ける）。★歩き/走り/立ちの上下ぴょこ(walkBobY＋stepBobY)は両方とも目線から除く＝主観は走っても望遠でも揺れない（ユーザー「主観で揺れる/走りの揺れが大きい」2026-07）
       camGoal.set(hx - fx * back, hy + 0.1 - fy * back, hz - fz * back)
       const cgy = heightAt(camGoal.x, camGoal.z) + 0.45; if (camGoal.y < cgy) camGoal.y = cgy // ★引いたカメラが坂/丘の中にめり込んで真っ暗になる不具合を解消（獅子ヶ谷の起伏でFPVが地中に潜る・ユーザー指摘の主観改善2026-06-26）
       if (pushOutOfColliders(camGoal.x, camGoal.z).hit) camGoal.set(hx, hy + 0.1, hz) // 引いたカメラが建物の中に入るなら目線へ戻す＝壁の中で真っ暗にならない
@@ -15631,7 +15632,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
       for (const s of ['Metacarpal', 'Proximal', 'Distal']) { const b = nb(prefix + 'Thumb' + s); if (b) b.rotation.y = sign * amt * 0.5 } }
     fingerCurl('left', -1, 0.16); fingerCurl('right', 1, 0.16)
     if (cfg.spineBend) { const sp = nb('spine'); if (sp) sp.rotation.x = cfg.spineBend * GPOSE.spineF; const nk = nb('neck'); if (nk) nk.rotation.x = cfg.spineBend * GPOSE.neckF * 0.4 } // 老人のゆるい前かがみ
-    vrm.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.isSkinnedMesh) o.frustumCulled = false } })
+    vrm.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; if (o.isSkinnedMesh) o.frustumCulled = false } }) // ★影を落とす描画を止める＝住人はシャドウパスでもドローコールが二重になる（1体69〜105メッシュ×2）→止めれば住人の描画負荷ほぼ半減＝発熱対策。背景キャラなので投影影が無くてもほぼ気づかない（受け影は残る）
     vrm.scene.rotation.y = Math.PI; vrm.scene.scale.setScalar(cfg.worldScale / (r.toon.scale.x || 1)) // トゥーン正面(+z)=VRM(-z)を半回転で合わせ、親スケールを打ち消す
     r.toon.add(vrm.scene); r.toon.updateMatrixWorld(true); vrm.scene.visible = false // sceneに足すがまだ不可視（表示はtickの距離判定で切替）
     const vArmL = nb('leftUpperArm').getWorldPosition(new THREE.Vector3()); r.toon.worldToLocal(vArmL) // 左右ペアはワールド座標で実測
