@@ -15588,9 +15588,12 @@ let vrmResidents = [], vrmResidentState = 0, vrmResLibs = null, vrmResLiveCount 
 // ★事前生成版（テクスチャを256pxへ焼き込んだ軽量VRM＝public/models/baked/）を使うか。true＝焼き版で「展開RAMの山」を消す（初回強制終了の恒久保険）。
 //   false＝元の1024版＋実行時縮小＝以前と完全に同じ挙動へ即戻せる（可逆・安全）。焼き版が無ければ自動で元VRMへフォールバック。生成は scripts/_bake-residents.mjs
 const BAKED_RESIDENTS = true
+// ★総入れ替え方針（2026-07-08）：VRM住人は「近くVRM／表示範囲外は消す（カリング）」に統一。以前の「範囲外は大きな低ポリのトゥーンを出す」を廃止＝近づくと大きさ/絵柄が"化ける"混在感を消す（ユーザー指摘＝トゥーンとVRMが別世界に見える）。トゥーンは骨組み（会話/視線/当たり）としてのみ残し見た目は出さない。VRM読込失敗時だけ安全網でトゥーンを出す。true＝昔どおり遠景にトゥーンを出す（可逆・即戻せる）。
+const RESIDENT_TOON_FALLBACK = false
 // ★上限3＝住人3人全員を常駐＝"入替そのもの"が起きない（256px×3体は当時のクラッシュ構成よりずっと軽い）。表示はディザ(alphaHash)でクロスフェード＝急な切替(pop)なし
 // ★準備(parse＋コンパイル)は PREP2=420m圏で前倒し（商店街まで約300mの出発地点/坂の途中＝忙しい到着間際でなく静かな早い段階でMToonシェーダーをコンパイル）。破棄は DROP2=500m（ヒステリシスでしきい際のバタつき防止）。表示は SHOW2=58m のまま
-const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = 3, VRM_RES_FADE = 0.35, VRM_RES_SHOW2 = 58 * 58, VRM_RES_HIDE2 = 74 * 74, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500
+// ★表示SHOW=105m/隠しHIDE=120m：範囲外はトゥーンでなく"消す"方針にしたので、遠くからでもVRMで見える距離まで広げる（近づくと現れる的な空きを防ぐ）。表示は準備済み(=compile/texUp完了)のVRMを可視化するだけ＝描画のみで軽く、クラッシュ源の準備(PREP=420m)/破棄(DROP=500m)は不変＝安全。
+const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = 3, VRM_RES_FADE = 0.35, VRM_RES_SHOW2 = 105 * 105, VRM_RES_HIDE2 = 120 * 120, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500
 async function ensureResLibs() {
   if (vrmResLibs) return vrmResLibs
   const [{ GLTFLoader }, vm] = await Promise.all([import('three/examples/jsm/loaders/GLTFLoader.js'), import('@pixiv/three-vrm')])
@@ -15666,7 +15669,8 @@ function disposeResidentVrm(r) { // とても離れた(>150m)/むかしの姿の
   } catch (_) {} }
   if (r.shown) vrmResLiveCount = Math.max(0, vrmResLiveCount - 1)
   r.vrm = null; r.bones = null; r.mats = null; r.state = 'idle'; r.shown = false; r.fade = 0; r.fadeT = 0
-  for (const m of r.toonMeshes) m.visible = true // 従来のトゥーン住人に戻す（非破壊）
+  const showToon = !settings.vrmboy || RESIDENT_TOON_FALLBACK // 総入れ替え方針では見た目を消したまま（骨組みだけ残す）。昔モード(VRM切)/フォールバックON時のみトゥーンへ戻す（非破壊）
+  for (const m of r.toonMeshes) m.visible = showToon
 }
 function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの関節がその日ぶん書き込まれた後）
   if (vrmResidentState === 0 && settings.vrmboy) { const dx = boy.position.x - RESIDENT_TRIGGER[0], dz = boy.position.z - RESIDENT_TRIGGER[1]; if (dx * dx + dz * dz < 460 * 460) startVrmResident() } // ★onYato条件を外し半径を460mへ＝出発地点(商店街まで約300m)/坂の途中でスロットを用意し、準備(コンパイル)を静かな早い段階へ前倒しできるようにする
@@ -15689,8 +15693,10 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   for (let i = 0; i < ready.length; i++) { const r = ready[i]
     const wantShow = !off && i < VRM_RES_CAP && r.cd2 < (r.shown ? VRM_RES_HIDE2 : VRM_RES_SHOW2)
     if (wantShow && !r.shown) { r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false; vrmResLiveCount++ }
-    else if (!wantShow && r.shown) { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = true; vrmResLiveCount = Math.max(0, vrmResLiveCount - 1) }
+    else if (!wantShow && r.shown) { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = (off || RESIDENT_TOON_FALLBACK); vrmResLiveCount = Math.max(0, vrmResLiveCount - 1) }
   }
+  // ★見た目の既定＝トゥーンは出さない（骨組みのみ）。VRM表示中は隠す／表示外もカリング（消す）。昔モード(off)・フォールバックON・VRM読込失敗時だけトゥーンを見せる（安全網＝人が消えない）
+  if (!RESIDENT_TOON_FALLBACK) for (const r of vrmResidents) { if (r.shown) continue; const vis = off || r.state === 'failed'; for (const m of r.toonMeshes) if (m.visible !== vis) m.visible = vis }
   // ③ 表示中(fade>0)のVRMを毎フレーム駆動（操り人形ブリッジ＝上半身だけ写す。脚は立ちのまま）
   for (const v of vrmResidents) {
     if (!v.shown || !v.vrm || !v.bones) continue
