@@ -9652,20 +9652,26 @@ const CPV = {
   apron: [0xe8e2d4, 0xd8d2c4, 0xcdbfa0, 0xe8e0cc], // 生成り系エプロン/三角巾
   ladyHair: [0x4a3a30, 0x6a5442, 0x554636, 0x4e3e30], // おばさんの髪
   ladyStyle: ['bob', 'bun', 'pony', 'kerchief'], // 髪型で作り分け
+  teenSkirt: [0x3a4a66, 0x40404a, 0x4a3a3a, 0x35503f, 0x5a4a5a], // 女子高生の制服風スカート（紺/炭/えび茶/深緑/藤紫）
 }
 const normHex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b] } // hex→[r,g,b]乗数（manizeのズボン色に渡す）
-function cpvRole(c, boyP, adult) { // 役と色（そのロード内で固定のランダム）をcfgに詰める＝立ち話ペアと通行人で共有。大人♂=man/大人♀=lady/子♂=boy/子♀=girl
+function cpvRole(c, boyP, adult) { // 役と色（そのロード内で固定のランダム）をcfgに詰める＝全モブ共有。大人♂=man/大人♀=lady(一部10代=teen女子高生)/子♂=boy/子♀=girl。★worldScaleの範囲を広めにして背丈のばらつきを出す（ユーザー要望2026-07-09）
   if (!adult) { // 子ども（頭大きめ・小柄）
-    c.headScale = 1.40; c.worldScale = 0.64 + Math.random() * 0.06
+    c.headScale = 1.40; c.worldScale = 0.60 + Math.random() * 0.12 // 小さい子〜大きい子で背丈のばらつき（0.60〜0.72）
     if (boyP) { c.boy = true; c.aho = Math.random() < 0.4; c.shirt = wpick(CPV.shirt)
       const hr = Math.random(); c.hat = hr < 0.30 ? 'cap' : hr < 0.42 ? 'straw' : 'none'; if (c.hat === 'cap') c.capCol = wpick(CPV.cap) } // 帽子＝野球帽30%/麦わら12%/無帽58%（麦わらは主人公と被るので少なめ・ユーザー要望2026-07-09）
     else { c.girl = true; c.gHair = wpick(CPV.hair); c.gBlouse = wpick(CPV.shirt); c.gSkirt = wpick(CPV.shirt.concat([[0.92, 0.34, 0.30], [0.5, 0.6, 0.85]])) } // 女児＝髪/ブラウス/スカートをランダム（赤・青も混ぜる）
-  } else { // 大人
-    c.headScale = 1.05; c.worldScale = 0.85 + Math.random() * 0.09
-    if (boyP) { c.man = true; c.hair = wpick(CPV.hair); c.shirt = wpick(CPV.shirt); c.pants = normHex(wpick(CPV.pants))
-      if (Math.random() < 0.32) { c.hat = Math.random() < 0.32 ? 'straw' : 'cap'; c.capCol = wpick(CPV.cap) } } // ときどき帽子（麦わら約1割＝主人公と被るので少なめ・野球帽中心）
-    else { c.role = 'lady'; c.hair = wpick(CPV.ladyHair); c.hairStyle = wpick(CPV.ladyStyle); c.blouse = wpick(CPV.shirt); c.skirtCol = wpick(CPV.skirt); c.apronCol = wpick(CPV.apron)
-      if (c.hairStyle === 'kerchief') c.kerchiefCol = wpick(CPV.apron) }
+  } else if (boyP) { // 大人の男
+    c.man = true; c.headScale = 1.05; c.worldScale = 0.83 + Math.random() * 0.14 // 背丈のばらつき（0.83〜0.97）
+    c.hair = wpick(CPV.hair); c.shirt = wpick(CPV.shirt); c.pants = normHex(wpick(CPV.pants))
+    if (Math.random() < 0.32) { c.hat = Math.random() < 0.32 ? 'straw' : 'cap'; c.capCol = wpick(CPV.cap) } // ときどき帽子（麦わら約1割＝主人公と被るので少なめ・野球帽中心）
+  } else if (Math.random() < 0.3) { // 大人の女の3割は10代の女子高生（試作でユーザー好評・2026-07-09）＝おばさんでも子どもでもない中間の背丈・若顔・長め髪・夏の制服風
+    c.role = 'teen'; c.headScale = 1.12; c.worldScale = 0.88 + Math.random() * 0.10 // 10代＝おばさんと子どもの中間の背丈（0.88〜0.98）
+    c.hairStyle = wpick(['pony', 'long', 'bob']); c.hair = wpick(CPV.hair); c.blouse = wpick(CPV.shirt); c.skirtCol = wpick(CPV.teenSkirt)
+  } else { // おばさん
+    c.role = 'lady'; c.headScale = 1.05; c.worldScale = 0.83 + Math.random() * 0.14 // 背丈のばらつき
+    c.hair = wpick(CPV.ladyHair); c.hairStyle = wpick(CPV.ladyStyle); c.blouse = wpick(CPV.shirt); c.skirtCol = wpick(CPV.skirt); c.apronCol = wpick(CPV.apron)
+    if (c.hairStyle === 'kerchief') c.kerchiefCol = wpick(CPV.apron)
   }
   return c
 }
@@ -15264,6 +15270,20 @@ function manize(vrm, opt = {}) {
     else if (hat === 'cap') ballCap(head, opt.capCol ?? 0x3a4a5e) // 野球帽
   }
 }
+// 女子高生化（渋ベース・様式統一2026-07-09・ユーザー要望「試作の公園の女子高生が良かった＝入れて」）：おばさんでも子どもでもない10代。
+// おばさん(ladyize)との違い＝①エプロン無し ②胸を平らにしない（若い体型のまま）③しわ無し（若顔）④長め/ポニーの髪 ⑤ひざ上の濃色スカート（制服風）。子ども(girlize)との違い＝背が高く頭身が大人寄り
+function teenGirlize(vrm, opt = {}) {
+  vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
+    for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
+      if (/AccessoryNeck/.test(m.name)) m.visible = false // 制服リボンは消す（夏の普段着・うるさくしない）
+      else if (/Bottoms/.test(m.name)) m.visible = false } }) // 制服ミニ→下でひざ上スカートへ置換
+  applyHairStyle(vrm, { hairStyle: opt.hairStyle || 'pony', hair: opt.hair ?? 0x4a3a2e }) // 長め/ポニー＝高校生らしい髪（keepBackで後ろ髪を残す）
+  recolorNavy(vrm, /Tops/, ...(opt.blouse || [0.86, 0.92, 1.0])) // 夏の半袖ブラウス（淡色）
+  liftDark(vrm, /Body.*SKIN/, 72, 226) // 描き込まれた黒タイツ→素足（学生の黒ストッキング感を消す・ladyize/boyizeと同手法）
+  // ★youthful＝agedFaceを呼ばない（ふっくらVRoidの若顔のまま）／胸も平らにしない（おばさんと違い若い体型）
+  const hips = vrm.humanoid.getRawBoneNode('hips')
+  if (hips) { const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.128, 0.175, 0.34, 14), charToon(opt.skirtCol ?? 0x3a4a66)); skirt.position.set(0, -0.16, 0); hips.add(skirt) } // ひざ上丈の濃色スカート（制服風・短すぎない）
+}
 // ── 「Claude本気のゼロから造形」試作（2026-07-07・ユーザー依頼）＝外部モデル不使用・全部コードで作る小1〜2の男の子 ──
 // 方針: 角ばり禁止＝体は旋盤(Lathe)と丸カプセルだけで構成。顔は1024pxのcanvasに手描き（まばたきは2枚目の絵と差し替え）
 let honkiKid = null
@@ -15754,6 +15774,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg); else if (cfg.girl) girlize(vrm, cfg) // 女の子＝黒髪+白ブラウス+赤スカート（cfgのgHair/gBlouse/gSkirtで背景の女児は作り分け・物語の女の子は既定値で不変）
     else if (cfg.boy) boyize(vrm, cfg.aho, true, cfg) // 男の子＝boyize（cfgのhat/capCol/shirtで主人公と作り分け）。noNet=虫網は当面畳む（他の住人の所作道具と同じ）
     else if (cfg.man) manize(vrm, cfg) // 大人の男（立ち話ペア/通行人＝白髪化しないgrandpaize・cfgのshirt/pants/hair/hatで作り分け）
+    else if (cfg.role === 'teen') teenGirlize(vrm, cfg) // 10代の女子高生（渋ベース・若顔+長め髪+夏の制服風・ユーザー要望2026-07-09）
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
