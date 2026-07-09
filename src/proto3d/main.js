@@ -3842,6 +3842,7 @@ function buildShishigaya() {
         if (area < 300 || area > 20000 || Math.max(w, d) > 220) continue // スリバー/巨大(三ツ池・大池)を除外
         if (cx < 1850 || cx > 3350 || cz < -760 || cz > 640) continue // 歩いて回る一帯だけ（遠い北=鶴見川/駒岡は後のフェーズ・三ツ池NEは既に作り込み済）
         const sp = openSpot(g.p, cx, cz); if (!sp) continue // 遊具の開けた1点が取れる公園だけ
+        if (Math.hypot(sp[0] - 2939, sp[1] + 128) < 62) continue // ★マリノスのグラウンドのそばは救済しない＝頼んでいない遊具付き公園が道の近くに出ていた（ユーザー指摘2026-07-09）
         cand.push([sp[0], sp[1], area]) }
       cand.sort((a, b) => b[2] - a[2]); const picked = [] // 大きい順に、近接は間引きつつ上限16
       for (const [cx, cz] of cand) { if (picked.length >= 16 || near(cx, cz, 30)) continue; parkPos.push([cx, cz]); picked.push([cx, cz]) }
@@ -4226,6 +4227,7 @@ function buildShishigaya() {
         for (let t = 2; t < l - 2; t += 4) for (const sd of [1, -1]) { if (railP.length > 500) break; const ex = x0 + ux * t + nx * sd * (hw + 0.5), ez = z0 + uz * t + nz * sd * (hw + 0.5)
           const gEdge = heightAtYato(ex, ez), gOut = heightAtYato(ex + nx * sd * 4, ez + nz * sd * 4); if (gEdge - gOut < 1.8) continue // 下り側(崖/土手)だけ・1.6→1.8で平坦な住宅街の浅い段差には出さない
           if (Math.hypot(ex - 3008, ez + 8) < 46 || gEdge < 3 || occAt(ex, ez)) continue // 二ツ池/低地/建物の上は除外
+          if (shopFronts.some((sf) => Math.hypot(ex - sf.x, ez - sf.z) < 6.5)) continue // ★店先(道側)の前は避ける＝八百屋/花屋等の入口をガードレールで塞がない（ユーザー指摘2026-07-09）
           railP.push([ex, ez, ang, sd, ri]) }
         // カーブミラー：急カーブの頂点に
         if (k > 0 && k < p.length - 1 && mirP.length < 44) { const a0 = Math.atan2(z0 - p[k - 1][1], x0 - p[k - 1][0]), a1 = Math.atan2(z1 - z0, x1 - x0); let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI
@@ -9899,7 +9901,7 @@ function makeYatoLampAt(x, z) {
 }
 addChatPair(2955, -425, 1.2) // 二ツ池北の住宅街の平地（傾き0.82m実測）＝開始地点(マンション前)そばの立ち話を移設（2026-07-08・にぎわいを保って他所へ分散・ユーザー要望）。池・家並み・思い出の鉄塔のそばで井戸端の立ち話＝これまで無人だった二ツ池方面に暮らしの気配
 addChatPair(2770.9, -156.9, -0.545, true) // しんみせの裏口(−side＝WNWの脇戸)を出たすぐ外に立ち話の二人（ユーザー確認2026-07-05）。壁に平行(ang=ry)に並べ、noSnapで裏口脇へ直接（舗装路が迫り自動スナップだと南へ流れるため）
-addChatPair(2951, -311, 0.3) // 谷戸の道＝神明社の足元の平らな棚へ（旧2960,-330は急な石段の途中で棒立ちに見えた・2026-07-06）
+addChatPair(2980, -300, 1.2) // 谷戸の道＝神明社の下手の平らな道ぞい（旧2951,-311はslope4.05の崖に乗って2人が浮いていた・ユーザー指摘2026-07-09→2980,-300 slope0.02/道まで3mへ移設）
 addChatPair(3818, -726, 1.0) // 三ツ池公園の池端（散歩の人の立ち話）
 addChatPair(2788, -1168, -0.35) // 駒岡＝ジャスコの駐車場ぎわ（買い物帰りの立ち話・町の活気2026-07-07）
 addChatPair(2836, -1240, 1.35) // 駒岡＝鶴見川の土手の上（夕涼みの立ち話）
