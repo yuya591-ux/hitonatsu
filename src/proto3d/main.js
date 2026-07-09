@@ -8130,12 +8130,29 @@ function makeVillager(x, z, opt) {
   const hairParts = [hair, bangs, nape]
   if (!opt.boy && !opt.simple && opt.hairStyle !== 'bob') for (const hx of [-0.15, 0.15]) { const pt = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), hairCol); pt.position.set(hx, hy - 0.04, -0.02); head.add(pt); hairParts.push(pt) } // 女の子のサイドの髪
   // 髪型の個体差（帽子なしの人＝髪がよく見える）。ポニーテール/ボブ/短髪薄め＋既定の短髪＝一人ひとり別人に（C5★・2026-06-25）
+  // ★男性の髪型のバリエーション（帽子なしの男＝女性のpony/bobに対し'short'一辺倒で「全部同じ」だった＝七三/丸刈り/おかっぱ/ぼさぼさを追加・ユーザー要望2026-07-09）。位置ハッシュで安定・年齢で使い分け
+  if (opt.boy && !hatted && (opt.hairStyle === 'short' || !opt.hairStyle)) { const _mseed = Math.abs(Math.round(x * 13 + z * 7))
+    const _mpool = opt.adult ? ['short', 'part', 'part', 'crop', 'mess', 'buzz'] : ['short', 'bowl', 'bowl', 'crop', 'mess', 'mess'] // 大人＝七三多め／子ども＝おかっぱ・ぼさぼさ多め
+    opt.hairStyle = _mpool[_mseed % _mpool.length] }
   if (!hatted) {
     if (opt.hairStyle === 'pony') { const tie = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), hairCol); tie.position.set(0, hy + 0.015, -0.145); head.add(tie); hairParts.push(tie)
       const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.028, 0.3, 8), hairCol); tail.position.set(0, hy - 0.13, -0.17); tail.rotation.x = 0.42; head.add(tail); hairParts.push(tail) } // ポニーテール（headの子＝振り向きで一緒に揺れる）
     else if (opt.hairStyle === 'bob') { for (const sx of [-0.148, 0.148]) { const sd = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), hairCol); sd.scale.set(0.48, 0.95, 0.62); sd.position.set(sx, hy - 0.028, -0.016); head.add(sd); hairParts.push(sd) } // おかっぱ＝顔の左右を“こめかみ〜頬上”まで細く枠どるだけ（あごより下へ垂らさない＝頬の2本の暗い帯＝ヒゲ回避・2026-06-29ユーザー指摘）。後ろ髪に2mm食い込ませてスリット（かつらの隙間）を消す
       const back = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.42), hairCol); back.scale.set(0.86, 0.9, 0.8); back.position.set(0, hy + 0.01, -0.066); head.add(back); hairParts.push(back) } // 後ろ髪＝後頭部だけ小さく後ろへ。以前は大球(1.35倍縦長)があご下(hy-0.255)まで回り込み“ヒゲ”の正体だった→小さく・上げ・奥へ＝あごの下に出さない
     else if (opt.hairStyle === 'buzz') { hair.scale.set(1.0, 0.9, 1.0); bangs.scale.set(0.74, 0.62, 0.74) } // 短髪/薄め（年配寄り）＝額を広く。※xzは縮めない＝髪が頭より小さくなって頭頂の地肌が出る“ハゲ”を防ぐ(以前0.9で頭<髪・2026-06-29ユーザー指摘)。短さは前髪を小さく＋やや平たくで表現
+    else if (opt.hairStyle === 'part') { // 七三分け（大人の男）＝前髪を片側へ流す。目にはかけない
+      bangs.scale.set(1.12, 0.6, 0.95); bangs.position.x = 0.02
+      const sweep = new THREE.Mesh(new THREE.SphereGeometry(0.086, 12, 9), hairCol); sweep.scale.set(1.5, 0.5, 1.0); sweep.position.set(0.055, hy + 0.052, 0.052); sweep.rotation.z = 0.34; head.add(sweep); hairParts.push(sweep) // 横に流した前髪の房（片側だけ盛る＝分け目に見える）
+    }
+    else if (opt.hairStyle === 'crop') { hair.scale.set(1.0, 0.82, 1.0); bangs.scale.set(0.56, 0.42, 0.6); bangs.position.y = hy + 0.035 } // 丸刈り・坊主＝キャップを頭に密着・前髪をごく小さく（額を広く＝短く刈り上げた印象）
+    else if (opt.hairStyle === 'bowl') { // おかっぱ・マッシュ（男の子）＝まっすぐ前髪の丸頭。前髪は眉の上で止めて目にはかけない（幅だけ広げ・位置は下げない＝顔ゲート対策）
+      bangs.scale.set(1.18, 0.82, 1.04); bangs.position.set(0, hy + 0.028, 0.006); bangs.rotation.x = 0.02; hair.scale.set(1.05, 1.0, 1.05)
+      for (const sx of [-0.145, 0.145]) { const sd = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), hairCol); sd.scale.set(0.5, 0.88, 0.66); sd.position.set(sx, hy - 0.008, -0.008); head.add(sd); hairParts.push(sd) } // 耳の横に少し下りるサイド（頬の下＝あご下へは出さない＝ヒゲ回避）
+    }
+    else if (opt.hairStyle === 'mess') { // ぼさぼさ（男の子）＝手入れしてないもじゃ頭。房が数本はねる
+      for (const [ox, oy, oz, rx, rz] of [[-0.07, 0.03, 0.02, -0.3, 0.4], [0.06, 0.05, -0.03, -0.2, -0.35], [0.0, 0.06, 0.06, 0.32, 0.05], [-0.02, 0.04, -0.08, 0.42, 0.1]]) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.044, 0.15, 6), hairCol); t.position.set(ox, hy + 0.12 + oy, oz); t.rotation.set(rx, 0, rz); head.add(t); hairParts.push(t) } // はねた房
+      bangs.scale.set(1.04, 0.7, 1.0)
+    }
   }
   // 髪の輪郭線は細く＝太い背面ハルが帽子のクラウンより上に飛び出して“黒い筋”になるのを防ぐ（全身の0.028輪郭からは除外）。主人公と統一
   if (!opt.simple) for (const hm of hairParts) { hm.userData.noOutline = true; addOutline(hm, 0.011) }
@@ -16946,6 +16963,10 @@ window.__proto3d = {
         ['none-pony', { hat: false, adult: false, boy: false, hairStyle: 'pony', scale: 0.85 }],
         ['buzz-tank', { hat: false, adult: true, boy: true, garment: 'tank', hairStyle: 'buzz' }],
         ['straw-wide', { hat: 'straw', adult: true, boy: true, garment: 'pants', hairStyle: 'short', headW: 1.04 }],
+        ['part-adult', { hat: false, adult: true, boy: true, garment: 'pants', hairStyle: 'part' }], // 男性の新しい髪型も顔ゲートで目が隠れないか検査（2026-07-09）
+        ['crop-adult', { hat: false, adult: true, boy: true, garment: 'shorts', hairStyle: 'crop' }],
+        ['bowl-kid', { hat: false, adult: false, boy: true, garment: 'shorts', hairStyle: 'bowl', scale: 0.85 }],
+        ['mess-kid', { hat: false, adult: false, boy: true, garment: 'shorts', hairStyle: 'mess', scale: 0.85 }],
       ]
       window.__faceRig = defs.map(([tag, o], i) => ({ tag, v: makeVillager(2996 + i * 2.0, -428, Object.assign({ shirt: 0xf2efe6, skirt: 0x4f6f96, skin: 0xf0c49c, hair: 0x4a3828, face: 0, info: { name: '', byPhase: { noon: [''] } } }, o)) })) // 二ツ池北の開けた草地＝参考スクショが見やすい（前の2450,250は建物の中だった）
     }
