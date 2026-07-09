@@ -9665,10 +9665,12 @@ function cpvRole(c, boyP, adult) { // 役と色（そのロード内で固定の
     c.man = true; c.headScale = 1.05; c.worldScale = 0.83 + Math.random() * 0.14 // 背丈のばらつき（0.83〜0.97）
     c.hair = wpick(CPV.hair); c.shirt = wpick(CPV.shirt); c.pants = normHex(wpick(CPV.pants))
     if (Math.random() < 0.32) { c.hat = Math.random() < 0.32 ? 'straw' : 'cap'; c.capCol = wpick(CPV.cap) } // ときどき帽子（麦わら約1割＝主人公と被るので少なめ・野球帽中心）
-  } else if (Math.random() < 0.3) { // 大人の女の3割は10代の女子高生（試作でユーザー好評・2026-07-09）＝おばさんでも子どもでもない中間の背丈・若顔
-    c.role = 'teen'; c.headScale = 1.12; c.worldScale = 0.88 + Math.random() * 0.10 // 10代＝おばさんと子どもの中間の背丈（0.88〜0.98）
-    if (Math.random() < 0.42) c.outfit = 'uniform' // 4割は黒っぽい制服＋黒髪ロング（試作の姿）＝teenGirlizeが既定で長髪/濃紺に。残りは服を変えた版（下）
-    else { c.hairStyle = wpick(['pony', 'bob', 'long']); c.hair = wpick(CPV.hair); c.blouse = wpick(CPV.shirt); c.skirtCol = wpick(CPV.teenSkirt) } // 夏の普段着＝髪型/淡色ブラウス/制服色スカートを作り分け
+  } else if (Math.random() < 0.3) { // 大人の女の3割は10代の女子高生（試作でユーザー好評・2026-07-09）＝おばさんでも子どもでもない中間の背丈・若顔。3種で作り分け
+    c.worldScale = 0.88 + Math.random() * 0.10 // 10代＝おばさんと子どもの中間の背丈（0.88〜0.98）
+    const tv = Math.random()
+    if (tv < 0.35) { c.role = 'shino'; c.file = 'models/sendagaya_shino.vrm'; c.headScale = 1.10 } // ★素の篠＝CC0のそのままの姿（黒制服＋長い黒髪・ユーザーが最初に見て気に入った素材のままの姿）＝role='shinoはdispatchで-izeを呼ばず加工しない
+    else if (tv < 0.58) { c.role = 'teen'; c.headScale = 1.12; c.outfit = 'uniform' } // 渋ベースの制服版（teenGirlize＝黒っぽい制服・ユーザー「よさげ」）
+    else { c.role = 'teen'; c.headScale = 1.12; c.hairStyle = wpick(['pony', 'bob', 'long']); c.hair = wpick(CPV.hair); c.blouse = wpick(CPV.shirt); c.skirtCol = wpick(CPV.teenSkirt) } // 夏の普段着（服を変えた版）＝髪型/淡色ブラウス/制服色スカート
   } else { // おばさん
     c.role = 'lady'; c.headScale = 1.05; c.worldScale = 0.83 + Math.random() * 0.14 // 背丈のばらつき
     c.hair = wpick(CPV.ladyHair); c.hairStyle = wpick(CPV.ladyStyle); c.blouse = wpick(CPV.shirt); c.skirtCol = wpick(CPV.skirt); c.apronCol = wpick(CPV.apron)
@@ -15780,6 +15782,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     else if (cfg.boy) boyize(vrm, cfg.aho, true, cfg) // 男の子＝boyize（cfgのhat/capCol/shirtで主人公と作り分け）。noNet=虫網は当面畳む（他の住人の所作道具と同じ）
     else if (cfg.man) manize(vrm, cfg) // 大人の男（立ち話ペア/通行人＝白髪化しないgrandpaize・cfgのshirt/pants/hair/hatで作り分け）
     else if (cfg.role === 'teen') teenGirlize(vrm, cfg) // 10代の女子高生（渋ベース・若顔+長め髪+夏の制服風・ユーザー要望2026-07-09）
+    else if (cfg.role === 'shino') { /* ★素の篠＝CC0のそのままの姿＝-izeを一切呼ばず加工しない（ユーザーが最初に気に入った素材のままの女子高生・2026-07-09）。技術処理(256縮小/combineMorphs/回転/スケール)だけ下で適用 */ }
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
