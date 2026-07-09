@@ -16027,7 +16027,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
     else { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = (off || RESIDENT_TOON_FALLBACK); r.toon.userData._vrmShown = false; vrmResLiveCount = Math.max(0, vrmResLiveCount - 1) }
   }
   // ★見た目の既定＝トゥーンは出さない（骨組みのみ）。VRM表示中は隠す／表示外もカリング（消す）。昔モード(off)・フォールバックON・VRM読込失敗時だけトゥーンを見せる（安全網＝人が消えない）
-  if (!RESIDENT_TOON_FALLBACK) for (const r of vrmResidents) { if (r.shown) continue; const vis = off || r.state === 'failed' || r.cfg.keepToon; for (const m of r.toonMeshes) if (m.visible !== vis) m.visible = vis } // keepToon（特別枠の女の子）＝VRM表示中以外は常にトゥーンで見せる＝第一村人が一瞬消えない
+  if (!RESIDENT_TOON_FALLBACK) for (const r of vrmResidents) { if (r.shown) continue; const vis = off || r.state === 'failed' || r.cfg.keepToon || r.cd2 < (r.cfg.show2 || VRM_RES_SHOW2); for (const m of r.toonMeshes) if (m.visible !== vis) m.visible = vis } // keepToon（特別枠の女の子）＝VRM表示中以外は常にトゥーンで見せる＝第一村人が一瞬消えない。★named（keepToonなし）もshow圏内(105m)ではトゥーンで見せる＝商店街コアの「named5人>CAP3」で遠い2人が消える穴を塞ぐ（枠が空けば視界外スイッチでVRMへ・圏外カリングの総入れ替え方針は不変・2026-07-10）
   // ③ 表示中(fade>0)のVRMを毎フレーム駆動（操り人形ブリッジ＝上半身だけ写す。脚は立ちのまま）
   for (const v of vrmResidents) {
     if (!v.shown || !v.vrm || !v.bones) continue
