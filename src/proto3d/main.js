@@ -7763,7 +7763,11 @@ const makeKennel = (x, z, rot) => { const g = new THREE.Group(), wood = toon(0xa
   g.traverse((o) => { if (o.isMesh) o.castShadow = true }); mergedOutline(g, 0.02); placeProp(g, x, z, rot, 0, 0.7) }
 const dogs = []
 // 住宅街の歩く所ぞいに番犬＋犬小屋（毛色ちがい）。各=｛犬, 犬小屋, 向き｝。位置は道/水を避けた家のそば
-for (const [dx, dz, rot, fc, cc] of [[2952, -64, 2.2, 0xc89b62, 0xf0e6d2], [3086, -150, -1.0, 0x6b5640, 0xe8ddc8]]) {
+for (const [dx0, dz0, rot, fc, cc] of [[2952, -64, 2.2, 0xc89b62, 0xf0e6d2], [3086, -150, -1.0, 0x6b5640, 0xe8ddc8]]) {
+  // ★家の中/道に埋まっていたら近くの開けた地面へ逃がす＝家の中の犬は永遠に見えない・入れないので必ず外に出す（ユーザー指摘2026-07-09。番犬(2952,-64)が建物内に埋没）。犬小屋も一緒に追従。※npcInWaterはこの行より後のconst＝TDZ回避で使わない（番犬は家のそば＝水は無関係）
+  let dx = dx0, dz = dz0
+  const bad = (x, z) => npcInCollider(x, z) || onYatoRoadCore(x, z) // npcInCollider=建物footprint+padの内側すべて＝家の壁からしっかり外へ（縁に触れたままにしない）。npcInColliderは関数宣言でホイスト済＝この行でも安全
+  if (bad(dx, dz)) { for (let rr = 2; rr <= 18 && bad(dx, dz); rr += 1.5) { for (let a = 0; a < 6.2832; a += 0.45) { const ex = dx0 + Math.cos(a) * rr, ez = dz0 + Math.sin(a) * rr; if (!bad(ex, ez)) { dx = ex; dz = ez; break } } } }
   const d = makeDog(fc, cc); const gy = heightAt(dx, dz); d.position.set(dx, gy, dz); d.rotation.y = rot
   makeKennel(dx - Math.cos(rot) * 1.7, dz + Math.sin(rot) * 1.7, rot + Math.PI) // 犬小屋は犬の後ろ（1.2→1.7mに離す＝犬の尻が犬小屋を貫通しない。向きは犬の鼻向き(cos rot,-sin rot)の逆＝犬の真後ろへ・z符号も鼻向きに合わせて修正）
   Object.assign(d.userData, { bark: 4 + Math.random() * 8, barkT: 0, ph: Math.random() * 6.28, hx: dx, hz: dz, ry0: rot, paceProg: 0, paceDir: 1, pacing: false, paceTimer: 4 + Math.random() * 6, gphase: Math.random() * 6.28, dmoving: false }); dogs.push(d) // pace=繋がれた犬が前後にうろうろ歩く（歩行モーション・2026-06-28）
@@ -9119,13 +9123,23 @@ function updateGroundSteam(dt) {
 function initFishers() {
   if (fishersInit || !YATO_PONDS.length) return; fishersInit = true
   const ponds = YATO_PONDS.slice().sort((a, b) => b.br - a.br).slice(0, 3) // 面積上位3つ（二ツ池・三ツ池の池）
+  // ★木の樹冠の下を避ける＝釣り人が大木に埋もれないよう、真上へレイキャストして頭上に木（or 屋根）がある岸は後回し（ユーザー指摘2026-07-09。池畔の大木は幹コライダーが無い個体があり、コライダー基準では捕まらなかった＝レイで実検出）
+  let _tallMeshes = null // 頭上判定に使う「背の高いメッシュ（樹冠/統合樹冠/建物）」を一度だけ収集してキャッシュ＝毎レイでシーン全走査しない（性能）
+  const _upRay = new THREE.Raycaster(); _upRay.far = 12; const _upO = new THREE.Vector3(), _upD = new THREE.Vector3(0, 1, 0), _bb = new THREE.Vector3()
+  const canopyAbove = (x, z) => {
+    if (!_tallMeshes) { _tallMeshes = []; scene.traverse((o) => { if (!o.isMesh || !o.geometry) return; if (o.geometry.boundingBox === null && o.geometry.computeBoundingBox) o.geometry.computeBoundingBox(); const b = o.geometry.boundingBox; if (!b) return; b.getSize(_bb); if (_bb.y > 2.5) _tallMeshes.push(o) }) } // 高さ2.5m超の立体だけ＝樹冠/建物/鉄塔。地面/水/道/小物は除外
+    _upO.set(x, heightAtYato(x, z) + 1.7, z); _upRay.set(_upO, _upD)
+    const hits = _upRay.intersectObjects(_tallMeshes, false)
+    for (const h of hits) { if (h.object && h.object.visible && h.distance > 0.4 && h.distance < 11) return true } return false }
   for (let pi = 0; pi < ponds.length; pi++) { const P = ponds[pi], nF = pi === 0 ? 2 : 1 // いちばん大きい池は2人
     let placed = 0
-    for (let tries = 0; tries < P.p.length && placed < nF; tries++) { const v = P.p[(tries * 5 + pi * 3) % P.p.length]
-      const ox = v[0] - P.cx, oz = v[1] - P.cz, ol = Math.hypot(ox, oz) || 1
-      const lx = v[0] + ox / ol * 1.7, lz = v[1] + oz / ol * 1.7, wx = v[0] - ox / ol * 2.6, wz = v[1] - oz / ol * 2.6
-      const landY = heightAtYato(lx, lz), waterY = yatoWaterYAt(wx, wz)
-      if (pip(wx, wz, P.p) && !npcInWater(lx, lz) && !npcInCollider(lx, lz) && landY > waterY - 0.1 && landY < waterY + 7) { fishers.push(makeFisher(lx, lz, P.cx, P.cz)); placed++ } // 陸点が水/建物でない岸だけに立たせる
+    for (let pass = 0; pass < 2 && placed < nF; pass++) { // pass0=頭上に木/屋根の無い岸を優先／pass1=どうしても無ければ従来通り（釣り人が消えるより多少木のそばでも居る方がよい）
+      for (let tries = 0; tries < P.p.length && placed < nF; tries++) { const v = P.p[(tries * 5 + pi * 3) % P.p.length]
+        const ox = v[0] - P.cx, oz = v[1] - P.cz, ol = Math.hypot(ox, oz) || 1
+        const lx = v[0] + ox / ol * 1.7, lz = v[1] + oz / ol * 1.7, wx = v[0] - ox / ol * 2.6, wz = v[1] - oz / ol * 2.6
+        const landY = heightAtYato(lx, lz), waterY = yatoWaterYAt(wx, wz)
+        if (pip(wx, wz, P.p) && !npcInWater(lx, lz) && !npcInCollider(lx, lz) && landY > waterY - 0.1 && landY < waterY + 7 && (pass === 1 || !canopyAbove(lx, lz))) { fishers.push(makeFisher(lx, lz, P.cx, P.cz)); placed++ } // 陸点が水/建物でない岸＝pass0では頭上に木/屋根がある所も除外
+      }
     }
   }
 }
@@ -9272,9 +9286,12 @@ function makeUchimizu(px, pz, ry) {
 function initUchimizu() {
   if (uchimizuInit) return; uchimizuInit = true
   const fwdOk = (fx, fz) => !npcInWater(fx, fz) && !npcInCollider(fx, fz) // まく先＝水/建物でなければOK（路面=道はむしろ正しい）
-  for (const [cx, cz] of [[3030, 18], [2958, -70], [3082, -158], [2772, -138], [3120, -70]]) {
+  // ★打ち水は平地の所作＝坂ではしない（坂だと水が流れて意味がない・ユーザー指摘2026-07-09「急な坂で水巻きする意味がわからない」）。候補地を増やし、スナップ後に傾斜を実測して急斜面は捨てる
+  const flatEnough = (x, z) => { let mn = 1e9, mx = -1e9; for (const [dx, dz] of [[2.2, 0], [-2.2, 0], [0, 2.2], [0, -2.2], [1.6, 1.6], [-1.6, -1.6]]) { const h = heightAtYato(x + dx, z + dz); if (h < mn) mn = h; if (h > mx) mx = h } return (mx - mn) <= 0.7 } // 約4mの範囲で高低差0.7m以下＝打ち水できる平地
+  for (const [cx, cz] of [[3030, 18], [3010, 8], [2772, -138], [3120, -70], [2958, -70], [3082, -158], [3145, -108], [2700, -30]]) {
     if (uchimizu.length >= 3) break
     const spot = placeNPCOnLand(cx, cz, 1.0, 16); if (!spot) continue
+    if (!flatEnough(spot.x, spot.z)) continue // 坂は打ち水に不適＝捨てて次の候補へ
     if (uchimizu.some((m) => Math.hypot(m.g.position.x - spot.x, m.g.position.z - spot.z) < 22)) continue
     // まく向き＝本来は路面（道）にまくので、まず前方が道になる向きを探し、無ければ開けた地面へ。方位も少しずつずらす（皆+zを向く不自然を解消）
     let ry = null
@@ -17003,6 +17020,7 @@ window.__proto3d = {
     if (typeof auditProps !== 'undefined') for (const pr of auditProps) { if (pr.x > 2200 && onYatoRoadCore(pr.x, pr.z)) out.push({ x: Math.round(pr.x), z: Math.round(pr.z), t: pr.kind }) }
     return out },
   _chores() { initChores(); return chores.map((c) => ({ x: +c.cx.toFixed(1), z: +c.cz.toFixed(1), kind: c.kind })) }, // 検証用：C3 静かなしぐさの位置と種類
+  _uchimizu() { initUchimizu(); return uchimizu.map((m) => { const x = m.g.position.x, z = m.g.position.z; let mn = 1e9, mx = -1e9; for (const [dx, dz] of [[2.2, 0], [-2.2, 0], [0, 2.2], [0, -2.2]]) { const h = heightAtYato(x + dx, z + dz); if (h < mn) mn = h; if (h > mx) mx = h } return { x: +x.toFixed(1), z: +z.toFixed(1), slope4m: +(mx - mn).toFixed(2) } }) }, // 検証用：打ち水の位置と足元4m範囲の高低差（坂に立っていないか）
   _chatMouths() { const out = []; for (const C of chatPairs) for (const g of [C.a, C.b]) { const m = g.userData.mouth; if (m) out.push({ vis: g.visible, sy: +m.scale.y.toFixed(3), by: +m.userData.by.toFixed(3) }) } return out }, // 検証用：C1 会話ペアの口の開き（sy>byなら口パク中）
   _dlgMouth() { const m = dlgWho && dlgWho.userData.mouth; return { active: !!(dialogue && dlgWho), typing: !!(dlgType && dlgType.timer), n: dlgType ? dlgType.n : -1, open: m ? +(m.scale.y / (m.userData.by || 1)).toFixed(2) : null, sx: m ? +m.scale.x.toFixed(2) : null } }, // 検証用：③会話相手の口パク（open>1で開・typingのnと連動して変動するのを確認）
   _startTalkAt(x, z) { placeBoy(x, z); startDialogue(); return { active: !!(dialogue && dlgWho), who: dlgWho ? +dlgWho.position.x.toFixed(0) + ',' + (+dlgWho.position.z.toFixed(0)) : null } }, // 検証用：指定座標へ主人公を置いて会話を起動（口パク検証用に相手を確保）
@@ -17301,11 +17319,14 @@ window.__proto3d = {
     const BR = bodyR != null ? bodyR : 0.42 // キャラ体の半径の目安（これより深く食い込むコライダーがあれば「クリップ」）
     try { if (typeof initFishers === 'function') initFishers() } catch (e) {}
     try { if (typeof initResters === 'function') initResters() } catch (e) {}
+    try { if (typeof initUchimizu === 'function') initUchimizu() } catch (e) {}
+    try { if (typeof initChores === 'function') initChores() } catch (e) {}
     const seen = new Set(), src = []
     const add1 = (g, tag) => { if (!g || !g.position || seen.has(g)) return; seen.add(g); const nm = (g.userData && g.userData.info && g.userData.info.name) || tag; src.push({ tag: nm || tag, g }) }
     const addArr = (arr, key, tag) => { if (!Array.isArray(arr)) return; for (const o of arr) add1(key ? o[key] : o, tag) }
     addArr(yatoFolk, null, '住人'); addArr(npcs, null, 'npc'); addArr(fishers, 'g', '釣り人'); addArr(resters, 'g', '涼む人')
     addArr(festFigs, 'g', '盆踊り'); addArr(taisoFigs, 'g', '体操'); addArr(suikaFigs, 'g', 'すいか割り')
+    addArr(uchimizu, 'g', '打ち水'); addArr(chores, 'g', 'しぐさ'); addArr(dogs, null, '番犬') // dogWalkersは道を移動＝家に埋まらないので監査対象外
     if (kidsCatch && typeof kidsCatch === 'object') { add1(kidsCatch.a, '虫取り'); add1(kidsCatch.b, '虫取り'); add1(kidsCatch.w, '虫取り') }
     try { if (Array.isArray(vrmResidents)) for (const r of vrmResidents) add1(r.toon, (r.cfg && r.cfg.kind) || '住人') } catch (e) {}
     const nearestCol = (x, z) => { let nd = 1e9, ndr = 0; const ci = Math.floor(x / CG_CELL), cj = Math.floor(z / CG_CELL)
