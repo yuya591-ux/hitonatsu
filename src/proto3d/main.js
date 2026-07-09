@@ -6856,9 +6856,14 @@ makeCar(TOWN.x - 28.5, TOWN.z - 9, 0, 0x9a6a4a, false)
 makeCar(TOWN.x - 34, TOWN.z + 1.5, 0, 0xeae6da, true)   // 軽トラ
 makeCar(TOWN.x - 7.5, TOWN.z + 9, Math.PI / 2, 0x6f8a6a, false) // 通りに路駐
 // ── 動く乗り物（プール制）：本通り（入口〜第三公園の実在の道）を、同時に最大2台だけがゆっくり通り抜けては端で消え、7〜16秒おきにまた現れる＝「渋滞」でなく自然な「往来」。ときどき2台がすれ違う。昭和の田舎の細い生活道路の空気（ユーザー要望2026-07-01・街の生きてる感A）。LOD（170m超は非表示）＋同時2台上限で描画予算は有界。郵便カブ/自転車は乗り手（人）が要るので次のC（人の往来）へ ──
-const vehPath = [[2993, -119], [2967, -69], [2975, -51], [2998, -30], [3058, -6], [3077, -4]] // 実在の車道(OSM)＝マリノス通り→サンライズ地下前→公園を迂回して上る道。旧経路(第三公園への路地)は歩行者専用の実態に合わせ車を通さない（ユーザー指摘2026-07-02「車が通れる場所ではとてもない」）
-const vehCum = [0]; for (let i = 1; i < vehPath.length; i++) { const a = vehPath[i - 1], b = vehPath[i]; vehCum[i] = vehCum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1]) }
-const vehLen = vehCum[vehCum.length - 1]
+// 動く乗り物の経路（複数）。プレイヤーの居る側の経路にだけ車を出す＝遠くの無駄描画ゼロで、地区ごとに交通量を変える（人はマンション/谷戸・車は駒岡＝ユーザー指示2026-07-09）
+const mkVehRoute = (path, maxA, iMin, iMax) => { const cum = [0]; for (let i = 1; i < path.length; i++) { const a = path[i - 1], b = path[i]; cum[i] = cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1]) } return { path, cum, len: cum[cum.length - 1], maxA, iMin, iMax } }
+const vehRoutes = [
+  mkVehRoute([[2993, -119], [2967, -69], [2975, -51], [2998, -30], [3058, -6], [3077, -4]], 1, 16, 30), // ①マンション前（実在OSM車道＝マリノス通り→サンライズ地下前→公園を迂回して上る道）＝住宅地なので車は少なめ・まれに1台（人はこちら）
+  mkVehRoute([[3208, -985], [3105, -1035], [3000, -1085], [2900, -1125], [2800, -1160], [2700, -1180], [2600, -1195], [2540, -1200]], 3, 5, 11), // ②駒岡通り（ジャスコ/ミニストップ/バーミヤン/ビッグヨーサンをつなぐ2車線）＝商業・工場地帯で車多め・最大3台
+]
+const _vehSegD = (px, pz, ax, az, bx, bz) => { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let t = ((px - ax) * dx + (pz - az) * dz) / l2; t = Math.max(0, Math.min(1, t)); return Math.hypot(px - (ax + dx * t), pz - (az + dz * t)) }
+const vehDistToPath = (px, pz, path) => { let m = 1e9; for (let i = 0; i < path.length - 1; i++) { const d = _vehSegD(px, pz, path[i][0], path[i][1], path[i + 1][0], path[i + 1][1]); if (d < m) m = d } return m }
 const vehGlass = new THREE.MeshToonMaterial({ color: 0x5a6a72, gradientMap: GRAD }), vehLamp = new THREE.MeshBasicMaterial({ color: 0xf0ecc8 }), vehTyre = toon(0x26282c) // 乗り物で共有（材質数を増やさない）
 function buildSedan(color) { const g = new THREE.Group(), wheels = []
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.66, 4.0), toon(color)); body.position.y = 0.62; g.add(body)
@@ -6877,25 +6882,40 @@ function buildKei(color) { const g = new THREE.Group(), wheels = [] // 軽トラ
   for (const lx of [0.48, -0.48]) { const l = new THREE.Mesh(new THREE.CircleGeometry(0.1, 10), vehLamp); l.position.set(lx, 0.56, 1.56); g.add(l) }
   return { g, wheels } }
 const vehSpecs = [{ build: () => buildSedan(0xa9b6bd), speed: 3.4 }, { build: () => buildKei(0xe6e2d6), speed: 3.0 }, { build: () => buildSedan(0xcfc3a6), speed: 3.2 }] // 淡青セダン/白軽トラ/ベージュセダン＝ご近所の車のばらつき
-const vehPool = vehSpecs.map((s) => { const { g, wheels } = s.build(); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); mergedOutline(g, 0.025); g.visible = false; scene.add(g); return { g, wheels, speed: s.speed, active: false, d: 0, dir: 1 } })
+const vehPool = Array.from({ length: 5 }, (_, i) => { const s = vehSpecs[i % vehSpecs.length]; const { g, wheels } = s.build(); g.traverse((o) => { if (o.isMesh) o.castShadow = true }); mergedOutline(g, 0.025); g.visible = false; scene.add(g); return { g, wheels, speed: s.speed, active: false, d: 0, dir: 1, route: null } }) // 5台プール（駒岡は最大3台＝地区移動時の入れ替え余裕込み。可視は≤3・LODで遠くは消す）
 let vehTimer = 2.5 // 最初の1台まで
-function spawnVehicle() { const idle = vehPool.filter((v) => !v.active); if (!idle.length) return
-  const v = idle[(Math.random() * idle.length) | 0], other = vehPool.find((o) => o.active)
-  const fromStart = other ? other.dir < 0 : Math.random() < 0.5 // 既に走っている車がいれば必ず反対の端から出す＝重ならず、むしろすれ違う
-  v.active = true; v.d = fromStart ? 0 : vehLen; v.dir = fromStart ? 1 : -1; v.g.visible = false } // 端から出す・向きは進行方向
+function vehProjectD(route) { // プレイヤーを経路に投影した累積距離d＝長い道(駒岡707m)でも車をプレイヤーの近くから出してすぐ通らせる
+  let best = 0, bd = 1e9
+  for (let i = 0; i < route.path.length - 1; i++) { const a = route.path[i], b = route.path[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1
+    let t = ((boy.position.x - a[0]) * dx + (boy.position.z - a[1]) * dz) / l2; t = Math.max(0, Math.min(1, t))
+    const cx = a[0] + dx * t, cz = a[1] + dz * t, d = Math.hypot(boy.position.x - cx, boy.position.z - cz)
+    if (d < bd) { bd = d; best = route.cum[i] + Math.hypot(cx - a[0], cz - a[1]) } }
+  return best }
+function spawnVehicle(route) { const idle = vehPool.filter((v) => !v.active); if (!idle.length) return
+  const v = idle[(Math.random() * idle.length) | 0], other = vehPool.find((o) => o.active && o.route === route) // 同じ経路に既にいる車
+  const dir = other ? -other.dir : (Math.random() < 0.5 ? 1 : -1) // 既に走っている車がいれば反対向き＝プレイヤーの前ですれ違う
+  const pd = vehProjectD(route), ahead = 180 + Math.random() * 22 // 視界(170m)の少し外から出す＝ポップは遠くで小さく・すぐプレイヤーの方へ来る
+  v.active = true; v.route = route; v.d = Math.max(0, Math.min(route.len, dir > 0 ? pd - ahead : pd + ahead)); v.dir = dir; v.g.visible = false }
 function updateVehicles(dt) {
   if (!onYato) { for (const v of vehPool) if (v.active) { v.active = false; v.g.visible = false } return }
-  let activeN = 0; for (const v of vehPool) if (v.active) activeN++
+  // プレイヤーの居る側の経路を選ぶ＝そこにだけ車を出す（マンション前=少なめ/駒岡=多め）。どの経路からも遠い地区の谷間では出さない
+  let curRoute = vehRoutes[0], curDist = 1e9
+  for (const r of vehRoutes) { const d = vehDistToPath(boy.position.x, boy.position.z, r.path); if (d < curDist) { curDist = d; curRoute = r } }
+  const nearRoute = curDist < 220 ? curRoute : null
+  let activeCur = 0; for (const v of vehPool) if (v.active && v.route === curRoute) activeCur++
   vehTimer -= dt
-  if (vehTimer <= 0) { if (activeN < 2) spawnVehicle(); vehTimer = 7 + Math.random() * 9 } // 7〜16秒おきに1台（同時最大2台＝予算有界）
+  if (vehTimer <= 0) { if (nearRoute && activeCur < nearRoute.maxA) spawnVehicle(nearRoute); vehTimer = nearRoute ? nearRoute.iMin + Math.random() * (nearRoute.iMax - nearRoute.iMin) : 4 } // 経路ごとの間隔（マンション16〜30秒=まれ/駒岡5〜11秒=ひんぱん）
   for (const v of vehPool) {
     if (!v.active) continue
+    const R = v.route
     v.d += v.speed * dt * v.dir
-    if (v.d >= vehLen || v.d <= 0) { v.active = false; v.g.visible = false; continue } // 端まで来たら消える（次にまた現れる）
-    let i = 1; while (i < vehCum.length - 1 && vehCum[i] < v.d) i++
-    const a = vehPath[i - 1], b = vehPath[i], segL = (vehCum[i] - vehCum[i - 1]) || 1, t = (v.d - vehCum[i - 1]) / segL
+    if (v.d >= R.len || v.d <= 0) { v.active = false; v.g.visible = false; continue } // 端まで来たら消える（次にまた現れる）
+    let i = 1; while (i < R.cum.length - 1 && R.cum[i] < v.d) i++
+    const a = R.path[i - 1], b = R.path[i], segL = (R.cum[i] - R.cum[i - 1]) || 1, t = (v.d - R.cum[i - 1]) / segL
     const x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t
-    const near = Math.hypot(boy.position.x - x, boy.position.z - z), vis = near < 170 // LOD：遠くは消す（描画予算）
+    const near = Math.hypot(boy.position.x - x, boy.position.z - z)
+    if (near > 210) { v.active = false; v.g.visible = false; continue } // 視界を通り過ぎた/別地区へ移ったら消してスロットを空ける（次がまた手前から現れる・長い駒岡通りでも近くを走り続ける）
+    const vis = near < 170 // LOD：遠くは消す（描画予算）
     if (v.g.visible !== vis) v.g.visible = vis
     if (!vis) continue
     v.g.position.set(x, heightAt(x, z) + 0.1, z) // 路面の持ち上げ(0.08)＋接地余白＝タイヤが路面の上に乗る（以前は+0.02で0.4m埋まっていた）
@@ -17177,9 +17197,11 @@ window.__proto3d = {
   _setFpvFov(v) { fpvFov = v; return fpvFov }, // 検証用：主観の画角を直接セット（最高ズームの揺れ確認）
   _bobStats() { return { boyY: +boy.position.y.toFixed(4), camY: +camera.position.y.toFixed(4), run: +(Math.hypot(vel.x, vel.z) / 7).toFixed(3), walkBobY: +walkBobY.toFixed(4), stepBobY: +stepBobY.toFixed(4) } }, // 検証用：走行時の上下ぴょこ（主人公boyY/カメラcamYの振幅を測る）
   _fpvSample() { const d = new THREE.Vector3(); camera.getWorldDirection(d); return { fov: +camera.fov.toFixed(3), yaw: +camCtl.yaw.toFixed(4), pitch: +camCtl.pitch.toFixed(4), px: +camera.position.x.toFixed(4), py: +camera.position.y.toFixed(4), pz: +camera.position.z.toFixed(4), dx: +d.x.toFixed(5), dy: +d.y.toFixed(5), dz: +d.z.toFixed(5) } }, // 検証用：主観カメラの画角/視点角/位置/向き（フレーム間の揺れ＝dx/dy/dzの不動を測る）
-  _vehSpawn() { let n = 0; for (const v of vehPool) if (v.active) n++; while (n < 2) { const before = vehPool.filter((v) => v.active).length; spawnVehicle(); if (vehPool.filter((v) => v.active).length === before) break; n++ } return vehPool.filter((v) => v.active).length }, // 検証用：往来の乗り物を最大2台まで強制スポーン（予算ピーク計測）
-  _vehSpawnKind(i) { for (const o of vehPool) { o.active = false; o.g.visible = false } const v = vehPool[i]; if (!v) return null; v.active = true; v.d = 12; v.dir = 1; vehTimer = 999; v.g.position.set(3016, heightAt(3016, 13.4) + 0.02, 13.4); v.g.rotation.y = 1.09; v.g.visible = true; return { x: 3016, z: 13.4 } }, // 検証用：他を消してプールの指定番号(0淡青セダン/1軽トラ/2ベージュ)だけを始点付近に出す（形の寄り確認・自動スポーン止め）
-  _vehStats() { let active = 0, vis = 0; const at = []; for (const v of vehPool) { if (v.active) { active++; const p = v.g.position; at.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: v.g.visible, ry: +v.g.rotation.y.toFixed(2) }); if (v.g.visible) vis++ } } return { active, vis, at } }, // 検証用：往来の乗り物の台数/位置/向き/可視
+  _vehSpawn() { let curR = vehRoutes[0], cd = 1e9; for (const r of vehRoutes) { const d = vehDistToPath(boy.position.x, boy.position.z, r.path); if (d < cd) { cd = d; curR = r } } let n = 0; for (const v of vehPool) if (v.active) n++; while (n < curR.maxA) { const before = vehPool.filter((v) => v.active).length; spawnVehicle(curR); if (vehPool.filter((v) => v.active).length === before) break; n++ } return { active: vehPool.filter((v) => v.active).length, route: curR === vehRoutes[1] ? '駒岡' : 'マンション', maxA: curR.maxA } }, // 検証用：プレイヤーの居る側の経路に上限まで強制スポーン（予算ピーク計測）
+  _vehSpawnKind(i) { for (const o of vehPool) { o.active = false; o.g.visible = false } const v = vehPool[i]; if (!v) return null; v.active = true; v.route = vehRoutes[0]; v.d = 12; v.dir = 1; vehTimer = 999; v.g.position.set(3016, heightAt(3016, 13.4) + 0.02, 13.4); v.g.rotation.y = 1.09; v.g.visible = true; return { x: 3016, z: 13.4 } }, // 検証用：他を消してプールの指定番号(0淡青セダン/1軽トラ/2ベージュ)だけを始点付近に出す（形の寄り確認・自動スポーン止め）
+  _vehStats() { let active = 0, vis = 0; const at = []; for (const v of vehPool) { if (v.active) { active++; const R = v.route; let cx = v.g.position.x, cz = v.g.position.z
+        if (R) { let i = 1; while (i < R.cum.length - 1 && R.cum[i] < v.d) i++; const a = R.path[i - 1], b = R.path[i], segL = (R.cum[i] - R.cum[i - 1]) || 1, t = (v.d - R.cum[i - 1]) / segL; cx = a[0] + (b[0] - a[0]) * t; cz = a[1] + (b[1] - a[1]) * t } // 不可視でも経路上の実位置(d)を出す
+        at.push({ x: +cx.toFixed(1), z: +cz.toFixed(1), vis: v.g.visible, near: +Math.hypot(boy.position.x - cx, boy.position.z - cz).toFixed(0), d: +v.d.toFixed(0), route: R === vehRoutes[1] ? 'K' : 'M' }); if (v.g.visible) vis++ } } return { active, vis, at } }, // 検証用：往来の乗り物の台数/経路上の位置/可視/プレイヤーまでの距離
   _walkers() { const at = townWalkers.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), wait: +w.wait.toFixed(1), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: townWalkers.length, at } }, // 検証用：日中の通行人の人数/位置/向き/経路端
   _bikers() { const at = bikeRiders.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: bikeRiders.length, at } }, // 検証用：自転車で通る人の人数/位置/向き/経路端
   _bikeStop() { for (const w of bikeRiders) w.sp = 0; return bikeRiders.length }, // 検証用：その場に止める（こぐアニメは続く・姿勢の寄り撮影用）
