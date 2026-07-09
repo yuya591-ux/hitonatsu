@@ -9594,7 +9594,7 @@ function updateStriders(dt) {
 }
 // ── 走り回る子（追いかけっこ）と立ち話＝公園/校庭/道の賑わい（賑わいPhase2・2026-06-27）──
 //   既存の歩行スイング(line8635)を速く・大きくし前傾＝走り。立ち話は2人が向き合い身振り/うなずき。時間帯＋距離でゲート。
-const runGroups = [], chatPairs = []
+const runGroups = [], chatPairs = [], chatPairVrmQueue = [] // chatPairVrmQueue＝立ち話ペア（背景モブ）のVRM作り分けcfgを貯め、startVrmresidentでvrmResidentsへ登録（総入れ替えの続き・2026-07-09）
 function makePlayKid(x, z, hue, sk, hr, penCol) {
   const g = makeVillager(x, z, { shirt: hue, skirt: 0x4f6f96, skin: sk, hair: hr, boy: true, simple: false, adult: false, hat: Math.random() < 0.4 ? 'cap' : false, hairStyle: 'short', garment: 'shorts', build: 0.9 + Math.random() * 0.1, scale: 0.8 + Math.random() * 0.08, shoe: 0xcfcabd, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // hat:booleanは無効だった隠れバグ→野球帽に（2026-07-04）
   g.rotation.order = 'YXZ'; g.visible = false // YXZ＝yaw後にpitch(前傾)を正しくかける
@@ -9635,6 +9635,37 @@ function updateRunKids(dt) {
     lay(G.a, G.ph, 0); lay(G.b, G.ph - 0.55, 1.4) // bはaを追いかける
   }
 }
+// ── 立ち話ペア（背景モブ）のVRM作り分け（2026-07-09・総入れ替えの続き）──
+// 毎回ランダムに湧く4種（大人♂=man/大人♀=lady/子♂=boy/子♀=girl）を、住人と同じVRM近接システムに載せる。
+// keepToon＝VRM未表示（CAP=3の溢れ/105m外）でもトゥーンで見せて“人が消えない”＝近い数体だけVRM・残りトゥーン混在（ユーザー承認済の割り切り）。
+// dayOnly＝昼〜夕だけVRM表示（夜はCAPスロットを無駄に取らない）。prep2/drop2＝準備・破棄の距離を住人(420/500m)より近く（210/260m）＝背景モブでRAMを溜めない。
+const CPV = {
+  shirt: [[1, 1, 1], [0.74, 0.86, 1.0], [0.72, 1.0, 0.82], [1.0, 0.95, 0.62], [1.0, 0.82, 0.78], [0.86, 0.83, 1.0]], // 白/浅葱/若草/からし/桜/藤（淡色シャツ・recolorNavyの[r,g,b]乗数）
+  pants: [0x44526a, 0x4f6f96, 0x6a5a4a, 0x556070, 0x4a5240, 0x7a6a58], // 紺/藍/茶/灰青/灰緑/砂（長ズボン）
+  hair: [0x3a2c20, 0x4a3626, 0x2a2018, 0x5a4433, 0x6e4d34], // 焦茶〜黒の短髪
+  cap: [0x33517e, 0x7a2e2e, 0x2e5a3a, 0x444a55, 0xb0662e], // 紺/えんじ/緑/炭/柿（野球帽）
+  skirt: [0x8a6a4a, 0x5a6a7a, 0x6a5a70, 0x7a6858, 0x556070], // 茶/灰青/藤鼠/砂/鉛（おばさんのスカート）
+  apron: [0xe8e2d4, 0xd8d2c4, 0xcdbfa0, 0xe8e0cc], // 生成り系エプロン/三角巾
+  ladyHair: [0x4a3a30, 0x6a5442, 0x554636, 0x4e3e30], // おばさんの髪
+  ladyStyle: ['bob', 'bun', 'pony', 'kerchief'], // 髪型で作り分け
+}
+const normHex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b] } // hex→[r,g,b]乗数（manizeのズボン色に渡す）
+function cpvCfg(g, boyP, adult) { // 立ち話ペアの各人のVRM作り分けcfg（そのロード内で色固定＝一様な人形化を避ける）
+  const c = { toon: g, file: boyP ? 'models/sakurada_fumiriya.vrm' : 'models/sendagaya_shibu.vrm', keepToon: true, dayOnly: true, prep2: 210 * 210, drop2: 260 * 260 } // ベースVRM＝男は桜田/女は千駄ヶ谷（渋）
+  if (!adult) { // 子ども（頭大きめ・小柄）
+    c.headScale = 1.40; c.worldScale = 0.64 + Math.random() * 0.06
+    if (boyP) { c.boy = true; c.aho = Math.random() < 0.4; c.shirt = wpick(CPV.shirt)
+      if (Math.random() < 0.4) { c.hat = Math.random() < 0.5 ? 'cap' : 'straw'; c.capCol = wpick(CPV.cap) } } // ときどき帽子（麦わら/野球帽）
+    else { c.girl = true; c.gHair = wpick(CPV.hair); c.gBlouse = wpick(CPV.shirt); c.gSkirt = wpick(CPV.shirt.concat([[0.92, 0.34, 0.30], [0.5, 0.6, 0.85]])) } // 女児＝髪/ブラウス/スカートをランダム（赤・青も混ぜる）
+  } else { // 大人
+    c.headScale = 1.05; c.worldScale = 0.85 + Math.random() * 0.09
+    if (boyP) { c.man = true; c.hair = wpick(CPV.hair); c.shirt = wpick(CPV.shirt); c.pants = normHex(wpick(CPV.pants))
+      if (Math.random() < 0.35) { c.hat = Math.random() < 0.5 ? 'straw' : 'cap'; c.capCol = wpick(CPV.cap) } } // ときどき麦わら/野球帽
+    else { c.role = 'lady'; c.hair = wpick(CPV.ladyHair); c.hairStyle = wpick(CPV.ladyStyle); c.blouse = wpick(CPV.shirt); c.skirtCol = wpick(CPV.skirt); c.apronCol = wpick(CPV.apron)
+      if (c.hairStyle === 'kerchief') c.kerchiefCol = wpick(CPV.apron) }
+  }
+  return c
+}
 function addChatPair(x, z, ang, noSnap) {
   const p = noSnap ? { x, z } : placeNPCOnLand(x, z, 1.6, 40); if (!p) { console.warn('chatPair配置不可(水/建物)', x, z); return } // 二人ぶんの足元が開けた地面に（noSnap=指定座標に直接＝狭い裏口脇などスナップで流れる所用）
   x = p.x; z = p.z
@@ -9644,12 +9675,13 @@ function addChatPair(x, z, ang, noSnap) {
     let shirt = wpick(WARD.tops), hair = wpick(WARD.hairs)
     for (let t = 0; t < 4 && mate && (shirt === mate.userData.wShirt || hair === mate.userData.wHair); t++) { shirt = wpick(WARD.tops); hair = wpick(WARD.hairs) }
     const boyP = Math.random() < 0.5
-    const g = makeVillager(px, pz, { shirt, skirt: wpick(WARD.bottoms), skin: wpick(WARD.skins), hair, boy: boyP, simple: false, adult: adultPair,
+    const g = makeVillager(px, pz, { shirt, skirt: wpick(WARD.bottoms), skin: wpick(WARD.skins), hair, boy: boyP, simple: false, noOutline: true, adult: adultPair, // noOutline＝VRM化時の二重輪郭ゴースト防止（反転ハル輪郭を省く・関節は残す・物語の女の子と同じ）
       hat: adultPair && Math.random() < 0.35 ? (boyP ? 'straw' : 'bucket') : false, hairStyle: cpick(boyP ? ['short', 'buzz'] : ['short', 'bob', 'pony']),
       garment: adultPair ? (boyP ? 'pants' : cpick(['dress', 'pants'])) : 'shorts', apron: adultPair && !boyP && Math.random() < 0.4,
       build: 0.95 + Math.random() * 0.25, headW: 0.94 + Math.random() * 0.12, eyeSc: 0.9 + Math.random() * 0.2,
       scale: adultPair ? 1.05 + Math.random() * 0.08 : 0.84, shoe: 0x5a4a3a, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 井戸端＝別人どうしの立ち話（明るい夏服・帽子復活・長ズボン/ワンピース/エプロンの個体差）
     g.userData.wShirt = shirt; g.userData.wHair = hair
+    chatPairVrmQueue.push(cpvCfg(g, boyP, adultPair)) // 立ち話ペアをVRM近接システムへ載せる（背景モブのVRM化・keepToon/dayOnly/prep2/drop2つき・2026-07-09）
     g.position.set(px, heightAtYato(px, pz), pz); g.rotation.y = Math.atan2(fx - px, fz - pz); g.visible = false; return g }
   const ax = x + Math.sin(ang) * off, az = z + Math.cos(ang) * off, bx = x - Math.sin(ang) * off, bz = z - Math.cos(ang) * off
   const A = mk(ax, az, bx, bz, null)
@@ -15134,14 +15166,15 @@ function grandpaize(vrm, opt = {}) { // opt.hair(白/灰)・opt.hat('straw'/'non
   }
 }
 // 素朴な女の子化（渋ベース・様式統一の試作）：黒髪＋リボンなし＋白ブラウス＋赤いスカート（2000年の田舎の夏の子）
-function girlize(vrm) {
+function girlize(vrm, opt = {}) { // 既定＝黒髪+白ブラウス+赤スカート（物語の女の子）。opt.gHair/gBlouse/gSkirtで背景の女児を作り分け（クローン回避）
+  const hc = opt.gHair ?? 0x55504a, hs = opt.gHairShade ?? 0x3a3733
   vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
       if (/AccessoryNeck/.test(m.name)) m.visible = false // 制服リボンを消す
-      else if (/HAIR|HairBack/.test(m.name)) { if (m.color) m.color.set(0x55504a); if (m.shadeColorFactor) m.shadeColorFactor.set(0x3a3733); m.needsUpdate = true } // 黒髪（乗算で沈める）
+      else if (/HAIR|HairBack/.test(m.name)) { if (m.color) m.color.set(hc); if (m.shadeColorFactor) m.shadeColorFactor.set(hs); m.needsUpdate = true } // 黒髪（既定）／opt.gHairで作り分け
     } })
-  recolorNavy(vrm, /Tops/) // 紺ベスト→白ブラウス
-  recolorNavy(vrm, /Bottoms/, 0.92, 0.34, 0.30) // 紺スカート→赤いスカート
+  recolorNavy(vrm, /Tops/, ...(opt.gBlouse || [1, 1, 1])) // 紺ベスト→白ブラウス（既定）／opt.gBlouseで淡色
+  recolorNavy(vrm, /Bottoms/, ...(opt.gSkirt || [0.92, 0.34, 0.30])) // 紺スカート→赤（既定）／opt.gSkirtで色替え
 }
 // ── 住民の髪型バリエーション（ユーザー要望2026-07-08：髪型で住民を作り分ける）──
 // VRoidの髪メッシュは新規造形できないが、長短(HairBack表示/HairJointのscale)・色・追加パーツ(おだんご/ポニー/三角巾)で作り分ける。
@@ -15190,6 +15223,27 @@ function ladyize(vrm, opt = {}) {
     apron.position.set(0, -0.24, -0.14); hips.add(apron) // 腰下の前掛け（幅広＝前身頃を覆い制服ベストを目立たなくする）
     const bib = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.02), charToon(opt.apronCol ?? 0xe8e2d4))
     bib.position.set(0, 0.08, -0.115); hips.add(bib) // 胸あて（大きめ）
+  }
+}
+// 大人の男化（桜田ベース・様式統一2026-07-09）：白髪化しないgrandpaize＝夏の普段着の中年〜青年。背景の立ち話ペア/通行人に使う（老人ではない）。
+// grandpaizeとの違い＝髪は茶のまま(白髪化しない)・しわ/ひげ無し・直立(spineBendを付けない)・長ズボンのまま。opt.shirt/pants[r,g,b]・opt.hair(hex)・opt.hat('straw'/'cap'/'none')で作り分け
+function manize(vrm, opt = {}) {
+  vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
+    for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { if (!m.name) continue
+      if (/AccessoryNeck/.test(m.name)) m.visible = false // ネクタイを消す（夏の普段着へ）
+      else if (/HairBack/.test(m.name)) m.visible = false // 腰までの後ろ髪を消して短髪に（男の普段の頭・boyize/grandmaizeと同手法）
+      else if (/HAIR_0/.test(m.name)) { m.map = null; const hc = opt.hair ?? 0x3a2c20; if (m.color) m.color.set(hc); if (m.shadeColorFactor) { m.shadeColorFactor.set(hc); m.shadeColorFactor.multiplyScalar(0.85) } m.needsUpdate = true } // 茶〜黒の短髪（白髪化しない＝老人回避・影底上げ0.85で青黒く沈まない）
+      else if (/Shoes/.test(m.name) && m.color) m.color.set(0x5a4e42) // 焦茶の靴
+      else if (/EyeIris/.test(m.name) && m.color) m.color.set(0x6a5443) } }) // 青い瞳→落ち着いた茶
+  const sh = opt.shirt || [0.86, 0.9, 0.98], pt = opt.pants || [0.4, 0.42, 0.48]
+  recolorNavy(vrm, /Tops/, sh[0], sh[1], sh[2]) // 紺ベスト→夏シャツ（opt.shirt）
+  recolorNavy(vrm, /Bottoms/, pt[0], pt[1], pt[2]) // 紺ズボン→長ズボン（すそは切らない＝大人・opt.pants）
+  const head = vrm.humanoid.getRawBoneNode('head')
+  if (head) {
+    for (const c of head.children) if (/^HairJoint/.test(c.name)) { if (c.position.y > 0.07) c.scale.setScalar(0.3); for (const g of c.children) if (/^HairJoint/.test(g.name)) g.scale.setScalar(0.5) } // アホ毛畳み（帽子貫通防止）
+    const hat = opt.hat || 'none'
+    if (hat === 'straw') strawHat(head, opt.hatCol ?? 0xd0ad5e, false) // 使い込んだ麦わら
+    else if (hat === 'cap') ballCap(head, opt.capCol ?? 0x3a4a5e) // 野球帽
   }
 }
 // ── 「Claude本気のゼロから造形」試作（2026-07-07・ユーザー依頼）＝外部モデル不使用・全部コードで作る小1〜2の男の子 ──
@@ -15638,8 +15692,10 @@ async function ensureResLibs() {
 function startVrmResident() { // スロットだけ用意（実VRMは近づいた住人を1体ずつ遅延ロード＝parse/表示/GPUの山を作らない）
   if (vrmResidentState !== 0) return
   vrmResidentState = 1
-  for (const cfg of VRM_RESIDENTS) { const toon = cfg.toon; const toonMeshes = []; toon.traverse((o) => { if (o.isMesh) toonMeshes.push(o) })
+  const add = (cfg) => { const toon = cfg.toon; const toonMeshes = []; toon.traverse((o) => { if (o.isMesh) toonMeshes.push(o) })
     vrmResidents.push({ cfg, toon, toonMeshes, vrm: null, bones: null, mats: null, state: 'idle', shown: false, fade: 0, fadeT: 0, blinkT: 2 + Math.random(), lady: cfg.role === 'lady', dwL: 1, dwR: 1, updT: 0, cd2: 1e9, idlePh: Math.random() * 6.28, idleWeightRight: Math.random() < 0.5 }) } // idlePh/idleWeightRight＝自然な佇まいの個人差（重心移動の位相・荷重脚の癖）
+  for (const cfg of VRM_RESIDENTS) add(cfg)
+  for (const cfg of chatPairVrmQueue) add(cfg) // 立ち話ペア（背景モブ）も同じ近接VRMシステムへ（keepToonでCAP溢れはトゥーン混在・prep2/drop2でRAMを溜めない・2026-07-09）
   vrmResidentState = 2
 }
 async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リフェイス＋256縮小＋combineMorphs＋ディザ設定＋シェーダー事前コンパイル＋テクスチャ先上げ。表示はまだしない(visible=false/opacity=0)
@@ -15672,8 +15728,9 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
             if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true }
           texList.push(t) } } })
-    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg); else if (cfg.girl) girlize(vrm) // 女の子＝黒髪+白ブラウス+赤スカート（第三公園パイロットと同じ変換）
+    if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg); else if (cfg.girl) girlize(vrm, cfg) // 女の子＝黒髪+白ブラウス+赤スカート（cfgのgHair/gBlouse/gSkirtで背景の女児は作り分け・物語の女の子は既定値で不変）
     else if (cfg.boy) boyize(vrm, cfg.aho, true, cfg) // 男の子＝boyize（cfgのhat/capCol/shirtで主人公と作り分け）。noNet=虫網は当面畳む（他の住人の所作道具と同じ）
+    else if (cfg.man) manize(vrm, cfg) // 大人の男（立ち話ペア/通行人＝白髪化しないgrandpaize・cfgのshirt/pants/hair/hatで作り分け）
     const hu = vrm.humanoid; const hb = hu.getRawBoneNode('head'); if (hb && cfg.headScale) hb.scale.setScalar(cfg.headScale)
     const nb = (n) => hu.getNormalizedBoneNode(n)
     const arm = (n, z) => { const b = nb(n); if (b) b.rotation.z = z } // T字→自然な下ろし手（zの基準。xは毎フレームbridgeで上書き）
@@ -15721,8 +15778,8 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   const preparing = vrmResidents.some((r) => r.state === 'preparing')
   for (const r of vrmResidents) {
     const cdx = boy.position.x - r.toon.position.x, cdz = boy.position.z - r.toon.position.z; r.cd2 = cdx * cdx + cdz * cdz
-    if (off || r.cd2 > VRM_RES_DROP2) { if (r.vrm) disposeResidentVrm(r); else if (r.state === 'failed') r.state = 'idle'; continue }
-    if (r.state === 'idle' && r.cd2 < VRM_RES_PREP2 && r.cd2 < nearIdleD2) { nearIdle = r; nearIdleD2 = r.cd2 } // 420m圏のidleだけ準備候補に
+    if (off || r.cd2 > (r.cfg.drop2 || VRM_RES_DROP2)) { if (r.vrm) disposeResidentVrm(r); else if (r.state === 'failed') r.state = 'idle'; continue } // 立ち話ペアはdrop2(260m)で早めに破棄＝背景モブでRAMを溜めない
+    if (r.state === 'idle' && r.cd2 < (r.cfg.prep2 || VRM_RES_PREP2) && r.cd2 < nearIdleD2) { nearIdle = r; nearIdleD2 = r.cd2 } // 420m(住人)/210m(立ち話ペア)圏のidleだけ準備候補に
   }
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   if (!off && nearIdle && !preparing && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > VRM_RES_GRACE) prepareResidentVrm(nearIdle)
@@ -15730,7 +15787,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   // 準備＋事前コンパイル＋テクスチャ先上げが済んでいるので、表示切替は「遠い58mで一瞬・引っかかり無し」（＝カクつきは前倒しで消してある）。VRMは完全不透明のまま＝洗われない
   const ready = vrmResidents.filter((r) => r.state === 'prepared').sort((a, b) => a.cd2 - b.cd2)
   for (let i = 0; i < ready.length; i++) { const r = ready[i]
-    const wantShow = !off && i < VRM_RES_CAP && r.cd2 < (r.shown ? VRM_RES_HIDE2 : VRM_RES_SHOW2)
+    const wantShow = !off && i < VRM_RES_CAP && r.cd2 < (r.shown ? VRM_RES_HIDE2 : VRM_RES_SHOW2) && (!r.cfg.dayOnly || (tday > 0.18 && tday < 0.82)) // dayOnly（立ち話ペア）＝昼〜夕だけVRM表示（夜は井戸端が無い＝CAPスロットを無駄に取らない）
     if (wantShow && !r.shown) { r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false; r.toon.userData._vrmShown = true; vrmResLiveCount++ }
     else if (!wantShow && r.shown) { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = (off || RESIDENT_TOON_FALLBACK); r.toon.userData._vrmShown = false; vrmResLiveCount = Math.max(0, vrmResLiveCount - 1) }
   }
