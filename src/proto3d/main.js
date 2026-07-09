@@ -4599,14 +4599,17 @@ function buildShishigaya() {
   const SLIDE_PATH = [[3690, -786], [3701, -766], [3714, -786], [3727, -808], [3740, -786], [3751, -766], [3759, -784], [3763, -772]] // 西の丘42m→ゆったり2つの大きな波(北→南→北)でなめらかに蛇行して降下し、中の池の西岸ぎわ(尾根の南の低帯)の開けた緑地(3763,-772)に着地。total約160m・upruns=0(完全に単調降下＝カクつかない)・埋まり0・水/建物を避ける(着地は建物26m/水28m)。※7スイッチバックの詰めすぎ版は「カーブが角ばる＋隣のレグの暗い床下が並んで黒い滑り台が二重に見え怖い」とユーザー指摘→レグ間を42〜50m離した広い波へ作り直し(2026-06-26)。_slidedesign.mjsで選定
   const POOL = [4082, -966], ATH = [3705, -842] // プール=下の池の北東(北門ぎわ)／アスレチック=遊びの森の南西(すべり台と離す)。各ビルダーと共有
   { const nearPath = (px, pz, rad) => { for (let s = 0; s < SLIDE_PATH.length - 1; s++) { const ax = SLIDE_PATH[s][0], az = SLIDE_PATH[s][1], bx = SLIDE_PATH[s + 1][0], bz = SLIDE_PATH[s + 1][1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let t = ((px - ax) * dx + (pz - az) * dz) / l2; t = Math.max(0, Math.min(1, t)); const cx = px - (ax + dx * t), cz = pz - (az + dz * t); if (cx * cx + cz * cz < rad * rad) return true } return false }
+    let roadCut = 0
     for (let i = tp.length - 1; i >= 0; i--) {
+      if (onYatoRoadCore(tp[i][0], tp[i][1])) { tp.splice(i, 1); roadCut++; continue } // ★道の舗装/土の上に立つ木(交差点で別の道に乗った街路樹・急斜面の山肌木)は伐採＝「道の真ん中の木」を断つ（ユーザー指摘2026-07-09）
       if (nearPath(tp[i][0], tp[i][1], 7)) { tp.splice(i, 1); continue } // すべり台の蛇行路から7m以内の木を伐採
       if (Math.abs(tp[i][0] - POOL[0]) < 22 && Math.abs(tp[i][1] - POOL[1]) < 12) { tp.splice(i, 1); continue } // プール＋幼児プールの敷地の木を伐採
       if (Math.abs(tp[i][0] - ATH[0]) < 20 && Math.abs(tp[i][1] - ATH[1]) < 16) { tp.splice(i, 1); continue } // アスレチック広場の木を間引く
       if (Math.abs(tp[i][0] - 2960) < 5.2 && tp[i][1] > -343 && tp[i][1] < -318) { tp.splice(i, 1); continue } // 神明社の参道軸（鳥居→石段→拝殿）の見通しを開ける＝軸上の木を伐採。鎮守の森は脇(±5m外)に残す
       { let inFest = false; for (const [fx, fz] of [[2020, 338], [2903, -484], [2644, 383], [2952, 190]]) if (Math.hypot(tp[i][0] - fx, tp[i][1] - fz) < 16) { inFest = true; break } if (inFest) { tp.splice(i, 1); continue } } // 夏祭り会場（踊りの輪+屋台の円±16m）の木を伐採＝金井公園で屋台と踊り手が木々に埋まっていた（会場総点検2026-07-07）。円の外の木は残す=木立に囲まれた会場の風情
       { const dxq = tp[i][0] - 3058.5, dzq = tp[i][1] - 11.5, duq = dxq * -0.4138 + dzq * 0.9103, dvq = Math.abs(dxq * 0.9103 + dzq * 0.4138)
-        if (duq > -14.5 && duq < 14.5 && dvq < 8.4) tp.splice(i, 1) } } } // 第三公園の園庭(ユーザーピン4点の回転長方形+縁1m)の木を伐採＝遊び場は開けた広場に。土手の木は残す（実物も周りだけ木・ユーザー指摘2026-07-02）
+        if (duq > -14.5 && duq < 14.5 && dvq < 8.4) tp.splice(i, 1) } } // 第三公園の園庭(ユーザーピン4点の回転長方形+縁1m)の木を伐採＝遊び場は開けた広場に。土手の木は残す（実物も周りだけ木・ユーザー指摘2026-07-02）
+    console.log('[shishigaya] 道の上の木を伐採', roadCut, '本') }
   // 木漏れ日：街路樹/木立の一部の真下に、葉の隙間から落ちる光のゆらぎ（既存dapple系を獅子ヶ谷へ＝歩く所に木かげのゆらめき。2026-06-24）。歩道沿いに散らす（数は控えめ＝加算半透明の負荷を抑える）
   { const step = Math.max(1, Math.floor(tp.length / 22)); let dn = 0; for (let i = 0; i < tp.length && dn < 22; i += step) { const tx = tp[i][0], tz = tp[i][1]; if (heightAtYato(tx, tz) < 2) continue; addDapple(tx, tz, 2.2 + Math.random() * 0.8); dn++ } }
   if (tp.length) {
@@ -4646,6 +4649,7 @@ function buildShishigaya() {
       const ai = idxA[a]++; canIs[a].setMatrixAt(ai, m4); canIs[a].setColorAt(ai, col.set(sak ? 0x5f8c42 : gr[(i * 3 + a) % gr.length]))
       trI.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y + 0.75, z))
       if (!sak && yatoTreePos.length < 60 && x > 2840 && x < 3230 && z > -600 && z < 90 && (i % 3 === 0)) yatoTreePos.push([x, z, y]) }) // 核の近くの木を控える＝虫取りのカブトムシ/セミを止める
+    trI.userData.propKind = 'tree' // 幹＝「木の根元」の監査対象（_propsOnRoadで道の上に立つ木を検出＝回帰ガード。樹冠は道にせり出すのが自然なので対象外）
     canIs.forEach((m) => { if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m) }); scene.add(trI)
   }
   // ───── 三ツ池公園の作り込み：あずまや（東屋）＋太鼓橋（朱塗りアーチ）─────
@@ -8618,7 +8622,18 @@ const yatoGrandpa = makeYatoResident(2732, -107, 2729, -107, {
     night: ['まだ 起きとるのか。星が きれいだのう。', '夜ふかしは いかんぞ。早く おやすみ。', '夜風が、やっと すずしくなってきたわい。', 'むしの声を きくと、よう ねむれるんじゃ。'],
   } },
 })
-npcs.push(yatoShopLady, yatoFlowerLady, yatoGrandpa) // 話せる人の輪に加える（townLady と同じ talkTarget 検出に乗る）
+// 商店街の 女子高生（八百屋の東どなり2748,-130・平ら・道7m＝必ず通る所）＝素の篠(shino)VRM＝黒セーラー服+ロングのCC0そのまま。話しかけられる“ご褒美”キャラ（モブに埋もれさせず1人立てる・ユーザー要望2026-07-09）。トゥーンの寸法は八百屋おばさん(scale1.16↔worldScale0.88)に合わせVRM入替でサイズが跳ねない
+const yatoSchoolGirl = makeYatoResident(2748, -130, 2740, -138, {
+  scale: 1.14, adult: true, build: 0.88, garment: 'dress', shirt: 0x2a2e3e, skirt: 0x24272f, skin: 0xf0c8a0,
+  hair: 0x1b1b24, hairStyle: 'pony', brow: true, browTilt: 0.7, eyeSc: 1.06,
+  info: { name: '女子高生', arcGreet: { 1: '…あ、こんにちは。この へん、はじめて?', 2: 'また 会ったね。ふふ。', 3: 'もう 夏休みも おわりかあ。…元気でね。' }, byPhase: {
+    morning: ['おはよう。部活の 朝れん、いってきたところ。', 'この 商店街、コロッケが おいしいんだよ。', 'あさは まだ すずしくて いいね。', '朝顔、うちでも そだててるんだ。'],
+    noon: ['あつ〜い。かき氷、たべたくなっちゃう。', 'お母さんに おつかい たのまれちゃって。', '日かげに いないと、とけちゃいそう。', 'せみ、うるさいくらい ないてるね。'],
+    evening: ['そろそろ 帰らなきゃ。門限 あるんだ。', 'ひぐらしが なくと、なんだか せつないね。', '夕やけ、きれいだね。ちょっと 見とれちゃった。', 'また あした、ここ 通るかも。'],
+    night: ['こんな じかんまで? 気を つけて 帰ってね。', 'わたしも もう 帰るとこ。', '星、たくさん 出てるね。', '夜は ひとりだと ちょっと こわいよね。'],
+  } },
+})
+npcs.push(yatoShopLady, yatoFlowerLady, yatoGrandpa, yatoSchoolGirl) // 話せる人の輪に加える（townLady と同じ talkTarget 検出に乗る）
 // ── 獅子ヶ谷の暮らしを満たす：話せる住人を町中に散らす（C13・商店街だけだったのを各所へ）。simpleでも会話/口パク/振り向きは完全に動く＝予算安全 ──
 // 駄菓子屋のおばあちゃん（しんみせ＝駄菓子屋の店先。10円玉とガチャと当てくじ＝昭和の子どもの聖地）
 const yatoDagashiBaa = makeYatoResident(2772.5, -148.5, 2769, -146, { // しんみせ(2775,-153・入口=南西)の店先へ。旧(2767,150)はz符号ミスで店から約300m北の倉庫地帯に取り残されていた（2026-07-04修正）
@@ -14956,6 +14971,8 @@ const VRM_RESIDENTS = [
   { toon: villager, file: 'models/sendagaya_shibu.vrm', role: 'girl', girl: true, walker: true, keepToon: true, worldScale: 0.72, headScale: 1.38 },
   // 駄菓子屋の男の子（しんみせ店先2773.5,-147.5・駄菓子ケースをのぞく gaze）＝桜田+boyize・子ども体型 scale0.64/headScale1.46。★主人公（麦わら+白シャツ）と瓜二つ回避＝紺の野球帽＋淡い黄シャツで作り分け（ユーザー要望2026-07-09）。立ち＝コントラポスト＋うつむきgazeが効く。虫網は当面畳む
   { toon: yatoBoyKid, file: 'models/sakurada_fumiriya.vrm', role: 'boy', boy: true, aho: true, worldScale: 0.64, headScale: 1.46, hat: 'cap', capCol: 0x33517e, shirt: [1.0, 0.93, 0.70] },
+  // 商店街の女子高生（八百屋の東どなり2748,-130）＝素の篠(shino)＝黒セーラー服+ロング髪のCC0そのまま（加工しない）。話せる住人・見つけやすい商店街に1人（ユーザー要望2026-07-09）。寸法は八百屋おばさん(worldScale0.88)に合わせトゥーン⇔VRMでサイズが跳ねない
+  { toon: yatoSchoolGirl, file: 'models/sendagaya_shino.vrm', role: 'shino', worldScale: 0.88, headScale: 1.10 },
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
 // 各係数はspineBend(=0.44)への倍率。教訓：腰の折れだけでは「胸張り+あご上げ」が勝って後ろ反りに見える＝
