@@ -4108,6 +4108,7 @@ function buildShishigaya() {
       for (let k = 0; k < p.length - 1 && wallP.length + hedgeP.length <= 760; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux, ang = Math.atan2(-uz, ux)
         for (let t = 2.5; t < l - 2.5; t += 5) for (const sd of [1, -1]) { const wx = x0 + ux * t + nx * sd * (hw + 0.8), wz = z0 + uz * t + nz * sd * (hw + 0.8)
           if (!occAt(wx + nx * sd * 3.5, wz + nz * sd * 3.5)) continue // 家がある側だけ＝塀の向こうに家
+          if (shopFronts.some((sf) => Math.hypot(wx - sf.x, wz - sf.z) < 7.5)) continue // ★店先(道側)の前には塀/生垣を置かない＝八百屋/花屋等の入口をブロック塀で塞がない（ユーザー指摘2026-07-09「店の前にブロックがある」。ガードレールの店先除外L4230と同じ思想。半径は店の間口8m＋前面距離を確実に空ける）
           if (Math.hypot(wx - 3008, wz + 8) < 50 || inWater(wx, wz) || heightAtYato(wx, wz) < 3) continue
           // 塀(長さ5m)を約0.6m間隔の9点で走査し、どれかが道に乗るなら置かない＝道を横切る塀を全面解消（細い道・曲がり角・斜めの道も漏らさない・ユーザー指摘2026-06-25）
           { let onR = false; for (const tt of [-2.5, -1.9, -1.25, -0.6, 0, 0.6, 1.25, 1.9, 2.5]) if (onYatoRoadCore(wx + ux * tt, wz + uz * tt)) { onR = true; break } if (onR) { nCross++; continue } }
@@ -8642,8 +8643,8 @@ const yatoGrandpa = makeYatoResident(2732, -107, 2729, -107, {
     night: ['まだ 起きとるのか。星が きれいだのう。', '夜ふかしは いかんぞ。早く おやすみ。', '夜風が、やっと すずしくなってきたわい。', 'むしの声を きくと、よう ねむれるんじゃ。'],
   } },
 })
-// 商店街の 女子高生（八百屋の東どなり2748,-130・平ら・道7m＝必ず通る所）＝素の篠(shino)VRM＝黒セーラー服+ロングのCC0そのまま。話しかけられる“ご褒美”キャラ（モブに埋もれさせず1人立てる・ユーザー要望2026-07-09）。トゥーンの寸法は八百屋おばさん(scale1.16↔worldScale0.88)に合わせVRM入替でサイズが跳ねない
-const yatoSchoolGirl = makeYatoResident(2748, -130, 2740, -138, {
+// 商店街の 女子高生（ユーザー指定の座標2866,-69へ移設・2026-07-09）＝素の篠(shino)VRM＝黒セーラー服+ロングのCC0そのまま。話しかけられる“ご褒美”キャラ（モブに埋もれさせず1人立てる・ユーザー要望2026-07-09）。トゥーンの寸法は八百屋おばさん(scale1.16↔worldScale0.88)に合わせVRM入替でサイズが跳ねない。向きは最寄りの道へ正対（placeNPCOnLandで開け地にスナップ＋道側を向く）
+const yatoSchoolGirl = makeYatoResident(2866, -69, 2862, -66, {
   scale: 1.14, adult: true, build: 0.88, garment: 'dress', shirt: 0x2a2e3e, skirt: 0x24272f, skin: 0xf0c8a0,
   hair: 0x1b1b24, hairStyle: 'pony', brow: true, browTilt: 0.7, eyeSc: 1.06,
   info: { name: '女子高生', arcGreet: { 1: '…あ、こんにちは。この へん、はじめて?', 2: 'また 会ったね。ふふ。', 3: 'もう 夏休みも おわりかあ。…元気でね。' }, byPhase: {
@@ -12733,7 +12734,7 @@ try {
 // スマホでホーム/他アプリへ移ったら音を止め、戻ったら再開（iPhoneのPWA対応・ユーザー要望2026-06-20）＋タブ離脱時の保存
 function audioSleep() { try { if (audioStarted && listener.context.state === 'running') listener.context.suspend() } catch (e) {} }
 function audioWake() { try { if (audioStarted && listener.context.state === 'suspended') listener.context.resume() } catch (e) {} }
-addEventListener('visibilitychange', () => { if (document.hidden) { saveState(); audioSleep() } else audioWake() })
+addEventListener('visibilitychange', () => { if (document.hidden) { saveState(); audioSleep(); if (typeof resetAllInput === 'function') resetAllInput() } else audioWake() })
 addEventListener('pagehide', () => { saveState(); audioSleep() })  // iOSのPWAはvisibilitychangeが来ないことがあるので併用
 addEventListener('pageshow', () => audioWake())
 addEventListener('pointerdown', () => audioWake(), { passive: true }) // 復帰直後のタップでも確実に再開（iOSのresume制約対策）
@@ -12810,6 +12811,7 @@ const stickEl = document.getElementById('stick')
 const knobEl = document.getElementById('knob')
 const STICK_R = 60
 const puni = { active: false, id: -1, ox: 0, oy: 0, vx: 0, vy: 0 } // vx,vy = -1..1
+let puniLostT = 0 // 移動スティックの“貼り付き”自己修復用：ポインタキャプチャが外れている連続時間（重い処理でpointerupを取りこぼしても走り続けないよう毎フレーム監視・ユーザー報告2026-07-09）
 const pointers = new Map() // 多点タッチ
 // 一般的なスマホ3人称操作：画面左半分＝移動スティック／右半分＝視点ドラッグ／2本指ピンチ＝ズーム／ボタン＝ジャンプ
 // ※ボタン連打のダブルタップ拡大・長押しのテキスト選択は proto3d.html 側で防止（viewport user-scalable=no＋button touch-action:manipulation/user-select:none/touch-callout:none・2026-06-19）
@@ -12851,7 +12853,7 @@ function doJump() { if (jumpY <= 0.02 && jumpCrouch <= 0 && mode === 'walk' && !
   todayFlags.jumped = true } } // 浮遊中は不可
 
 function startPuni(id, x, y) {
-  puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0
+  puni.active = true; puni.id = id; puni.ox = x; puni.oy = y; puni.vx = 0; puni.vy = 0; puni.hadCapture = false; puniLostT = 0
   stickEl.style.left = x + 'px'; stickEl.style.top = y + 'px'
   knobEl.style.left = '50%'; knobEl.style.top = '50%'
   stickEl.style.display = 'block'
@@ -12944,6 +12946,14 @@ function onUp(e) {
 }
 canvas.addEventListener('pointerup', onUp)
 canvas.addEventListener('pointercancel', onUp)
+// ★ポインタキャプチャが外れたら確実に解除＝重い処理でpointerup/cancelを取りこぼしても、その指の移動スティック/視点が“貼り付いた”まま走り続けない（ユーザー報告2026-07-09：重くなると左スティックが左上に固定され走り続ける）
+canvas.addEventListener('lostpointercapture', (e) => { const id = e.pointerId
+  if (id === puni.id) endPuni()
+  if (lookIds.has(id)) { lookIds.delete(id); if (lookIds.size === 2) pinchInit(); else pinchD = 0 }
+  pointers.delete(id) })
+// ★アプリ切替/通知/タブ非表示で指を離した時のpointerup欠落に備え、フォーカスを失ったら全入力をゼロに戻す（走りっぱなし・押しっぱなしの防止）
+function resetAllInput() { endPuni(); lookIds.clear(); pinchD = 0; pointers.clear(); for (const k in keys) keys[k] = false }
+addEventListener('blur', resetAllInput)
 addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; pokeUI(); if (e.key === ' ') doJump() })
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false })
 
@@ -14324,6 +14334,13 @@ function update(dt) {
   cloudShadowU.uCloudAmt.value = 0.13 * (1 - nightFactor(tday)) * (1 - weather * 0.85) * (0.45 + 0.55 * THREE.MathUtils.smoothstep(tday, 0.16, 0.42)) // 朝はうっすら→昼に最大・控えめ
   godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
 
+  // ★移動スティックの“貼り付き”自己修復：一度ポインタキャプチャを保持したのに外れた（＝指を離した/重い処理でpointerupを取りこぼした）ら解除し、走り続けを止める。0.25秒の猶予でキャプチャの一瞬の揺れは無視。※hadCaptureを見るのはキャプチャ非対応ブラウザで正常な長押しを誤って切らないため（そこはイベント側nets=lostpointercapture/blurに任せる）
+  if (puni.active && puni.id >= 0) {
+    let capOk = false; try { capOk = canvas.hasPointerCapture(puni.id) } catch (e) { capOk = false }
+    if (capOk) { puni.hadCapture = true; puniLostT = 0 }
+    else if (puni.hadCapture) { puniLostT += dt; if (puniLostT > 0.25) { pointers.delete(puni.id); endPuni(); puniLostT = 0 } }
+  }
+
   if (mode === 'walk') {
     // カメラ基準の前/右（地面上）。指のスライド方向を世界の向きへ変換。
     camera.getWorldDirection(camFwd); camFwd.y = 0; camFwd.normalize()
@@ -14999,7 +15016,7 @@ const VRM_RESIDENTS = [
   { toon: villager, file: 'models/sendagaya_shibu.vrm', role: 'girl', girl: true, walker: true, keepToon: true, worldScale: 0.72, headScale: 1.38 },
   // 駄菓子屋の男の子（しんみせ店先2773.5,-147.5・駄菓子ケースをのぞく gaze）＝桜田+boyize・子ども体型 scale0.64/headScale1.46。★主人公（麦わら+白シャツ）と瓜二つ回避＝紺の野球帽＋淡い黄シャツで作り分け（ユーザー要望2026-07-09）。立ち＝コントラポスト＋うつむきgazeが効く。虫網は当面畳む
   { toon: yatoBoyKid, file: 'models/sakurada_fumiriya.vrm', role: 'boy', boy: true, aho: true, worldScale: 0.64, headScale: 1.46, hat: 'cap', capCol: 0x33517e, shirt: [1.0, 0.93, 0.70] },
-  // 商店街の女子高生（八百屋の東どなり2748,-130）＝素の篠(shino)＝黒セーラー服+ロング髪のCC0そのまま（加工しない）。話せる住人・見つけやすい商店街に1人（ユーザー要望2026-07-09）。寸法は八百屋おばさん(worldScale0.88)に合わせトゥーン⇔VRMでサイズが跳ねない
+  // 商店街の女子高生（ユーザー指定座標2866,-69へ移設・2026-07-09）＝素の篠(shino)＝黒セーラー服+ロング髪のCC0そのまま（加工しない）。話せる住人・見つけやすい所に1人（ユーザー要望2026-07-09）。寸法は八百屋おばさん(worldScale0.88)に合わせトゥーン⇔VRMでサイズが跳ねない
   { toon: yatoSchoolGirl, file: 'models/sendagaya_shino.vrm', role: 'shino', worldScale: 0.88, headScale: 1.10 },
 ]
 // おばあちゃんの前かがみ姿勢（毎フレーム適用＝開発中は__proto3d.GPOSEからライブ調整可）。
@@ -17279,6 +17296,34 @@ window.__proto3d = {
     scene.traverse((o) => { const nm = o.name || (o.userData && o.userData.name); if (!nm) return; o.getWorldPosition(tmp); const d = Math.hypot(tmp.x - x, tmp.z - z); if (d < r * 2) grps.push({ name: nm, x: +tmp.x.toFixed(1), z: +tmp.z.toFixed(1), d: +d.toFixed(1) }) })
     grps.sort((a, b) => a.d - b.d)
     return { probe: { gy: +heightAt(x, z).toFixed(2), road: onYatoRoadCore(x, z), bld: deepInBuilding(x, z) }, colliders: cols.slice(0, 12), groups: grps.slice(0, 8) }
+  },
+  _charAudit(bodyR) { // 検証用：配置キャラの“被り”総点検＝全キャラ中心が池/建物/木/道の上に来ていないか、体の半径ぶん食い込んでいないか（ユーザー指摘2026-07-09「配置キャラが建物/木/池と被ってる・多すぎる」）
+    const BR = bodyR != null ? bodyR : 0.42 // キャラ体の半径の目安（これより深く食い込むコライダーがあれば「クリップ」）
+    try { if (typeof initFishers === 'function') initFishers() } catch (e) {}
+    try { if (typeof initResters === 'function') initResters() } catch (e) {}
+    const seen = new Set(), src = []
+    const add1 = (g, tag) => { if (!g || !g.position || seen.has(g)) return; seen.add(g); const nm = (g.userData && g.userData.info && g.userData.info.name) || tag; src.push({ tag: nm || tag, g }) }
+    const addArr = (arr, key, tag) => { if (!Array.isArray(arr)) return; for (const o of arr) add1(key ? o[key] : o, tag) }
+    addArr(yatoFolk, null, '住人'); addArr(npcs, null, 'npc'); addArr(fishers, 'g', '釣り人'); addArr(resters, 'g', '涼む人')
+    addArr(festFigs, 'g', '盆踊り'); addArr(taisoFigs, 'g', '体操'); addArr(suikaFigs, 'g', 'すいか割り')
+    if (kidsCatch && typeof kidsCatch === 'object') { add1(kidsCatch.a, '虫取り'); add1(kidsCatch.b, '虫取り'); add1(kidsCatch.w, '虫取り') }
+    try { if (Array.isArray(vrmResidents)) for (const r of vrmResidents) add1(r.toon, (r.cfg && r.cfg.kind) || '住人') } catch (e) {}
+    const nearestCol = (x, z) => { let nd = 1e9, ndr = 0; const ci = Math.floor(x / CG_CELL), cj = Math.floor(z / CG_CELL)
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const cell = cgrid.get(cgKey(ci + di, cj + dj)); if (!cell) continue
+        for (const idx of cell) { const c = colliders[idx]; let d
+          if (c.box) { const dx = x - c.x, dz = z - c.z, lx = c.c * dx - c.s * dz, lz = c.s * dx + c.c * dz; const qx = Math.max(Math.abs(lx) - c.hw, 0), qz = Math.max(Math.abs(lz) - c.hd, 0); d = Math.hypot(qx, qz) }
+          else d = Math.hypot(x - c.x, z - c.z) - c.r
+          if (d < nd) { nd = d; ndr = c.box ? -1 : c.r } } }
+      return { d: nd, r: ndr } }
+    const out = []
+    const _wp = new THREE.Vector3()
+    for (const s of src) { s.g.updateWorldMatrix(true, false); s.g.getWorldPosition(_wp); const x = _wp.x, z = _wp.z // ★ワールド座標（祭りの踊り手等は会場グループの子＝localでなくworldで判定）
+      const inW = npcInWater(x, z), inC = npcInCollider(x, z), onR = onYatoRoadCore(x, z), deep = deepInBuilding(x, z)
+      const nc = nearestCol(x, z), clip = nc.d < BR // 中心は外でも体半径ぶん食い込む＝木の幹などにクリップ
+      if (inW || inC || onR || clip) { let sev = 0; if (inW) sev += 100; if (deep) sev += 60; if (inC) sev += 40; if (onR) sev += 20; if (clip) sev += Math.max(0, 30 - nc.d * 40)
+        out.push({ tag: s.tag, x: +x.toFixed(0), z: +z.toFixed(0), water: inW, road: onR, inBldgOrTree: inC, deepBldg: deep, nearColGap: +nc.d.toFixed(2), colR: nc.r, sev: +sev.toFixed(0) }) } }
+    out.sort((a, b) => b.sev - a.sev)
+    return { total: src.length, flagged: out.length, items: out }
   },
 }
 
