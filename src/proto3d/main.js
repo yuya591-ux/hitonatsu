@@ -9296,7 +9296,9 @@ const leashMat = new THREE.MeshBasicMaterial({ color: 0x5a4a38, fog: true }), LE
 const _wUP = new THREE.Vector3(0, 1, 0), _wA = new THREE.Vector3(), _wB = new THREE.Vector3(), _wD = new THREE.Vector3()
 function makeDogWalker(seg) {
   const fpick = (a) => a[Math.floor(Math.random() * a.length)], adult = Math.random() < 0.7
-  const person = makeVillager(seg.ax, seg.az, { shirt: wpick(WARD.tops), skirt: wpick(WARD.bottoms), skin: wpick(WARD.skins), hair: fpick([0x5a4632, 0x6e4d34, 0x8c8c86]), boy: Math.random() < 0.5, simple: true, adult, hat: Math.random() < 0.3 ? 'cap' : false, hairStyle: 'short', scale: adult ? 1.12 : 0.86, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 共有ワードローブ（近黒の髪・暗い服の廃止・2026-07-04）
+  const boyP = Math.random() < 0.5
+  const person = makeVillager(seg.ax, seg.az, { shirt: wpick(WARD.tops), skirt: wpick(WARD.bottoms), skin: wpick(WARD.skins), hair: fpick([0x5a4632, 0x6e4d34, 0x8c8c86]), boy: boyP, simple: true, adult, hat: Math.random() < 0.3 ? 'cap' : false, hairStyle: 'short', scale: adult ? 1.12 : 0.86, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 共有ワードローブ（近黒の髪・暗い服の廃止・2026-07-04）
+  person.userData._boyP = boyP // VRM作り分け用
   const dog = makeDog(fpick([0xc89b62, 0x6b5640, 0xd8c098, 0x8a7a5a]), fpick([0xf0e6d2, 0xe8ddc8])); dog.scale.setScalar(0.9)
   const leash = new THREE.Mesh(LEASH_GEO, leashMat); leash.castShadow = false; leash.layers.set(1); scene.add(leash)
   person.visible = dog.visible = leash.visible = false
@@ -9326,7 +9328,7 @@ function updateDogWalkers(dt) {
     if (!vis) continue
     w.t += (w.sp * w.dir * dt) / w.len; if (w.t > 1) { w.t = 1; w.dir = -1 } else if (w.t < 0) { w.t = 0; w.dir = 1 } // 区間を往復
     const px = w.ax + (w.bx - w.ax) * w.t, pz = w.az + (w.bz - w.az) * w.t, faceY = w.dir > 0 ? w.ang : w.ang + Math.PI
-    const u = w.person.userData; w.wph += dt * (u.adult ? 5 : 6.5)
+    const u = w.person.userData; u.walking = true; w.wph += dt * (u.adult ? 5 : 6.5) // walking=散歩は常に歩く＝VRMの歩く脚ブリッジ用
     w.person.position.set(px, heightAtYato(px, pz) + Math.abs(Math.sin(w.wph)) * 0.03, pz); w.person.rotation.y = faceY
     const sw = Math.sin(w.wph) * 0.42; u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw; u.armR.rotation.x = -0.4 // 右手はリードを前へ持つ
     if (u.kneeL) { u.kneeL.rotation.x = Math.max(0, sw) * 0.75; u.kneeR.rotation.x = Math.max(0, -sw) * 0.75 // 振り出す側の膝を持ち上げて歩く
@@ -9373,8 +9375,9 @@ function roadRouteNear(px, pz, minLen) { // 種の近くの太い道から、連
   return p.slice(lo, hi + 1).map((q) => [q[0], q[1]])
 }
 function makeTownWalker(route, bagCol) {
-  const fpick = (a) => a[Math.floor(Math.random() * a.length)], adult = Math.random() < 0.7
-  const person = makeVillager(route[0][0], route[0][1], { shirt: wpick(WARD.tops), skirt: wpick(WARD.bottoms), skin: wpick(WARD.skins), hair: fpick([0x5a4632, 0x6e4d34, 0x8c8c86]), boy: Math.random() < 0.5, simple: true, adult, hat: Math.random() < 0.28 ? 'straw' : false, hairStyle: 'short', scale: adult ? 1.12 : 0.86, bag: bagCol, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 共有ワードローブ（2026-07-04）
+  const fpick = (a) => a[Math.floor(Math.random() * a.length)], adult = Math.random() < 0.7, boyP = Math.random() < 0.5
+  const person = makeVillager(route[0][0], route[0][1], { shirt: wpick(WARD.tops), skirt: wpick(WARD.bottoms), skin: wpick(WARD.skins), hair: fpick([0x5a4632, 0x6e4d34, 0x8c8c86]), boy: boyP, simple: true, adult, hat: Math.random() < 0.12 ? 'straw' : false, hairStyle: 'short', scale: adult ? 1.12 : 0.86, bag: bagCol, face: 0, info: { name: '', byPhase: { noon: [''] } } }) // 共有ワードローブ（2026-07-04）。麦わらは少なめ（主人公と被る・2026-07-09）
+  person.userData._boyP = boyP // VRM作り分け用
   person.visible = false
   const cum = [0]; for (let i = 1; i < route.length; i++) cum[i] = cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1])
   return { person, route, cum, len: cum[cum.length - 1], d: Math.random() * cum[cum.length - 1], dir: Math.random() < 0.5 ? 1 : -1, sp: 0.75 + Math.random() * 0.25, wph: Math.random() * 6, wait: 0 }
@@ -9407,7 +9410,7 @@ function updateTownWalkers(dt) {
     const near = Math.hypot(boy.position.x - px, boy.position.z - pz) < 4.5
     if (near && !moving) { let dd = Math.atan2(boy.position.x - px, boy.position.z - pz) - w.person.rotation.y; while (dd > Math.PI) dd -= 6.2832; while (dd < -Math.PI) dd += 6.2832; w.person.rotation.y += dd * Math.min(1, dt * 4) } // 佇んでいて近づかれたら気づいてこちらを向く
     else { let dd = faceY - w.person.rotation.y; while (dd > Math.PI) dd -= 6.2832; while (dd < -Math.PI) dd += 6.2832; w.person.rotation.y += dd * Math.min(1, dt * 8) } // ふだんは進行方向を向く
-    const sw = moving ? Math.sin(w.wph) * 0.42 : 0
+    const sw = moving ? Math.sin(w.wph) * 0.42 : 0; u.walking = moving // VRMの歩く脚ブリッジ用（佇む間はコントラポスト）
     u.legL.rotation.x = sw; u.legR.rotation.x = -sw
     u.armL.rotation.x = -sw; u.armR.rotation.x = -0.32 // 左手を振り、右手は買い物袋を持つ（袋は体側に付く）
     if (u.kneeL) { u.kneeL.rotation.x = Math.max(0, sw) * 0.75; u.kneeR.rotation.x = Math.max(0, -sw) * 0.75 } // 振り出す側の膝を持ち上げて歩く
@@ -15714,6 +15717,8 @@ function startVrmResident() { // スロットだけ用意（実VRMは近づい�
   for (const q of pedVrmRaw) add(pedVrmCfg(q.toon, q.boyP, q.adult)) // 通行人（歩く背景モブ）＝起動時にcfg組み立て（CPV定義済）＝walker脚ブリッジ＋show55m/gateVis・2026-07-09
   for (const p of shopkeepers) if (!p.userData.sweep) add(shopVrmCfg(p, !!p.userData._woman)) // 店番（立ち・掃除中でない）＝おばさん/おじさん。掃除中はほうき所作を残すためトゥーンのまま・2026-07-09
   for (const G of runGroups) { add(playkidVrmCfg(G.a)); add(playkidVrmCfg(G.b)) } // 走り回る子（校庭/三ツ池/祭り会場）＝走りの脚ブリッジ・2026-07-09
+  initTownWalkers(); for (const w of townWalkers) { const c = pedVrmCfg(w.person, !!w.person.userData._boyP, !!w.person.userData.adult); c.kind = 'townwalk'; add(c) } // 買い物通行人（歩き）＝歩きの脚ブリッジ。袋は所作道具として当面畳む（他の住人と同じ）・2026-07-09
+  initDogWalkers(); for (const w of dogWalkers) { const c = pedVrmCfg(w.person, !!w.person.userData._boyP, !!w.person.userData.adult); c.kind = 'dogwalk'; add(c) } // 犬の散歩の人（歩き）＝人だけVRM・犬はトゥーンのまま（動物）・リードは手元付近へ・2026-07-09
   vrmResidentState = 2
 }
 async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リフェイス＋256縮小＋combineMorphs＋ディザ設定＋シェーダー事前コンパイル＋テクスチャ先上げ。表示はまだしない(visible=false/opacity=0)
