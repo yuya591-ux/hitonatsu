@@ -15998,7 +15998,7 @@ const RESIDENT_TOON_FALLBACK = false
 // ★準備(parse＋コンパイル)は PREP2=420m圏で前倒し（商店街まで約300mの出発地点/坂の途中＝忙しい到着間際でなく静かな早い段階でMToonシェーダーをコンパイル）。破棄は DROP2=500m（ヒステリシスでしきい際のバタつき防止）。表示は SHOW2=58m のまま
 // ★表示SHOW=105m/隠しHIDE=120m：範囲外はトゥーンでなく"消す"方針にしたので、遠くからでもVRMで見える距離まで広げる（近づくと現れる的な空きを防ぐ）。表示は準備済み(=compile/texUp完了)のVRMを可視化するだけ＝描画のみで軽く、クラッシュ源の準備(PREP=420m)/破棄(DROP=500m)は不変＝安全。
 // ★KEEP=8＝準備済みVRMの保有上限（LRU）：破棄がdrop2(500m)だけだと商店街の中心で20体超が同時preparedになりRAM100MB級＝保有に上限を付け、超えたら「表示していない最遠」を返す（監査2026-07-10）
-const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = 3, VRM_RES_KEEP = 8, VRM_RES_SHOW2 = 105 * 105, VRM_RES_HIDE2 = 120 * 120, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0) // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
+const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = 8, VRM_RES_KEEP = 20, VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0) // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
 async function ensureResLibs() {
   if (vrmResLibs) return vrmResLibs
   const [{ GLTFLoader }, vm] = await Promise.all([import('three/examples/jsm/loaders/GLTFLoader.js'), import('@pixiv/three-vrm')])
@@ -16172,7 +16172,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
     if (r.noPrepT > 0) r.noPrepT -= dt // LRU追い出し後の再準備クールダウン（準備↔破棄の往復churn防止）
     if (off || r.cd2 > (r.cfg.drop2 || VRM_RES_DROP2)) { if (r.vrm) disposeResidentVrm(r); else if (r.state === 'failed') r.state = 'idle'; continue } // 立ち話ペアはdrop2(260m)で早めに破棄＝背景モブでRAMを溜めない
     if (r.state === 'prepared') { prepped++; if (!r.shown && (!farKeep || r.cd2 > farKeep.cd2)) farKeep = r }
-    if (r.state === 'idle' && !(r.noPrepT > 0) && r.cd2 < (r.cfg.prep2 || VRM_RES_PREP2) && r.cd2 < nearIdleD2) { nearIdle = r; nearIdleD2 = r.cd2 } // 420m(住人)/210m(立ち話ペア)圏のidleだけ準備候補に
+    if (r.state === 'idle' && !(r.noPrepT > 0) && !(r.cfg.gateObj && !r.cfg.gateObj.visible) && r.cd2 < (r.cfg.prep2 || VRM_RES_PREP2) && r.cd2 < nearIdleD2) { nearIdle = r; nearIdleD2 = r.cd2 } // 420m(住人)/210m(立ち話ペア)圏のidleだけ準備候補に。★会場が出ていないイベント住人（昼の盆踊り/屋台など）は準備すらしない＝小学校裏の準備往復フリーズの根治（計画②・2026-07-10）
   }
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   // ★保有上限KEEP=8（LRU・監査2026-07-10）：上限到達時は「候補が保有最遠より距離比0.8以上近い」場合だけ最遠を返して入れ替え＝しきい際の往復（0.9秒ごとのparse往復＝発熱源）を距離マージンで断つ
@@ -16185,8 +16185,9 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   // 準備＋事前コンパイル＋テクスチャ先上げが済んでいるので、表示切替は「遠い58mで一瞬・引っかかり無し」（＝カクつきは前倒しで消してある）。VRMは完全不透明のまま＝洗われない
   const ready = vrmResidents.filter((r) => r.state === 'prepared').sort((a, b) => ((a.cfg.keepToon ? 1 : 0) - (b.cfg.keepToon ? 1 : 0)) || (a.cd2 * (a.shown ? 0.81 : 1)) - (b.cd2 * (b.shown ? 0.81 : 1))) // ★①代替のない住人（keepToonなし＝named＝範囲外は消える）を先に枠へ＝商店街でモブに枠を奪われ「話せる住人が消える・消えた相手と会話」になるのを止める ★④順位ヒステリシス＝表示中はcd2×0.81（距離比0.9）のげたで居座り優先＝同距離帯の順位フリップで毎フレームのパッ切替を防ぐ（表示数はCAP=3のまま増えない・監査2026-07-10）
   camera.getWorldDirection(_vrmSwapF) // ⑤視界外スイッチ用＝カメラの向き（毎フレーム1回）
+  const capN = (settings && settings.light) ? 4 : VRM_RES_CAP // ★軽量モード＝同時VRMを4に絞る（発熱の安全弁・計画②）
   for (let i = 0; i < ready.length; i++) { const r = ready[i]
-    const wantShow = !off && i < VRM_RES_CAP && r.cd2 < (r.shown ? (r.cfg.hide2 || VRM_RES_HIDE2) : (r.cfg.show2 || VRM_RES_SHOW2)) && (!r.cfg.dayOnly || (tday > 0.18 && tday < 0.82)) && (!r.cfg.gateVis || r.toon.visible) && (!r.cfg.gateObj || r.cfg.gateObj.visible) // dayOnly（立ち話）＝昼〜夕だけ／gateVis（通行人）＝p.visible(人出/時刻)で表示ゲート＋show2/hide2で通行人は55m内だけVRM（計算LOD60mの内側＝凍り歩き回避）／gateObj＝会場グループ(体操/すいか割り等)の表示に連動（イベントの人は自分のvisibleでなく親グループで出入りする・2026-07-10）
+    const wantShow = !off && i < capN && r.cd2 < (r.shown ? (r.cfg.hide2 || VRM_RES_HIDE2) : (r.cfg.show2 || VRM_RES_SHOW2)) && (!r.cfg.dayOnly || (tday > 0.18 && tday < 0.82)) && (!r.cfg.gateVis || r.toon.visible) && (!r.cfg.gateObj || r.cfg.gateObj.visible) // dayOnly（立ち話）＝昼〜夕だけ／gateVis（通行人）＝p.visible(人出/時刻)で表示ゲート＋show2/hide2で通行人は55m内だけVRM（計算LOD60mの内側＝凍り歩き回避）／gateObj＝会場グループ(体操/すいか割り等)の表示に連動（イベントの人は自分のvisibleでなく親グループで出入りする・2026-07-10）
     if (wantShow === r.shown) { r.swapT = 0; continue }
     // ★⑤視界外スイッチ（切替の自然化・監査2026-07-10）＝トゥーン⇄VRMの入替は「カメラの真後ろ(水平内積<0)」か「遠距離(show×1.2超)」でだけ実行。
     //   凝視中は保留して3.5秒で強制実行（出す側＝namedは代替が無いので「見ている間ずっと現れない」穴を塞ぐfallback。むかしの姿OFF切替(off)は即時）
