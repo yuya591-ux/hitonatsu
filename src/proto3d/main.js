@@ -751,7 +751,7 @@ SEAT.y = heightAt(SEAT.x, SEAT.z)
 // antialias は EffectComposer 経由だと最終ブリットにしか効かず実質無駄なので切る（軽量化）
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }) // A4：preserveDrawingBuffer廃止（TBDR/iPhoneの毎フレーム保持コスト削減）。画面のキャプチャは「描画直後に同じタスク内でcanvasを読む」方式へ統一（requestFrameCapture／絵日記のrenderDiaryViewは自前render直後に同期読み）
 let pixelRatioCap = 1.25 // ピクセル比の上限（発熱対策）。軽量モード(C1 v2)では1.0に下げて描画画素を減らす＝resize()もこの上限を使う
-let __adaptScale = 1, __adaptCd = 0 // C4（動的解像度・2026-07-11）：発熱/高負荷でフレームが落ちる時だけ描画解像度を段階的に下げ(×1→0.86→0.72)、余裕が戻ったら戻す＝「止め絵は綺麗・重い時だけ少しソフト」。調査結論＝iPhoneの発熱の主因はGPUフィルレート(画素数)＝解像度を下げるのが最も直接効く。resize()が pixelRatioCap×__adaptScale を実解像度に反映
+let __adaptScale = 1, __adaptCd = 0, __adaptEnabled = false // C4（動的解像度・2026-07-11）：発熱/高負荷でフレームが落ちる時だけ描画解像度を段階的に下げ(×1→0.86→0.72)、余裕が戻ったら戻す。調査上は画素数削減が発熱に効くが──★実機FB(2026-07-11)で既定OFFに変更＝(1)解像度変更のたびresize()がGPUバッファ(コンポーザ/ブルーム/法線+深度RT)を再確保→自転車走行中にFPSがしきい値(約23fps)を上下するたびヒッチ＝「定期的に画面が一瞬チラつき暗転」の主因、(2)0.72倍まで落ちて画質低下(ユーザー「以前より画質が悪い」)。発熱は"チラつかない"手段で担う＝手動モード(中くらい/軽量＝解像度1.0)＋負荷持続時の軽量モード提案トースト。__adaptScale=1で固定→解像度は pixelRatioCap で安定→走行中のresizeゼロ＝チラつき無し・画質フル。※_adapt()デバッグフックとモード切替の解像度追従は引き続き機能（再有効化は__adaptEnabled=trueで可能・非破壊）
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap * __adaptScale)) // 発熱対策でさらに控えめ（動的解像度の係数込み）
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
@@ -16542,7 +16542,8 @@ renderer.setAnimationLoop(() => { try {
     __playT += realInterval // 実プレイ経過（放置/飛行/タイトルは除く）
     __fpsEma += (realInterval - __fpsEma) * 0.06 // なめらかな移動平均（常に更新＝GRACE明けに即なまった値で判定できる）
     // C4（動的解像度・2026-07-11）：30fps目標なのに描画が追いつかない（発熱スロットリング/祭り等の高負荷）が続く時だけ描画解像度を一段下げ、余裕が戻れば一段戻す。ヒステリシス(0.044/0.035)＋クールダウンで往復のガタつきを防ぐ。発熱の主因＝GPUフィルレート(画素数)を直接削る最も筋の良い一手（調査結論2026-07-11）。resize()でRT/コンポーザも追従（変更は数秒に一度＝再確保コストは無視できる）
-    if (__fpsCap === 30 && __playT > 18) { __adaptCd -= realInterval // ★起動猶予8→18秒（2026-07-11 ユーザー「起動直後に1〜2回 一瞬不安定」）＝起動直後のVRMコンパイル/初回描画のカクつきで__fpsEmaが跳ね、動的解像度が解像度を下げ→戻しで2回resize（再確保のヒッチ）していた。コンパイルが落ち着く18秒までは解像度を動かさない
+    if (__adaptEnabled && __fpsCap === 30 && __playT > 18) { __adaptCd -= realInterval // ★__adaptEnabled=既定OFF（2026-07-11 実機FB）＝下のresize()呼び出しが走行中のチラつき暗転＋画質低下の主因だったため停止。起動猶予18秒は再有効化時のなごり（起動直後のVRMコンパイルで__fpsEmaが跳ねるのを避ける）
+
       if (__adaptCd <= 0) {
         if (__fpsEma > 0.044 && __adaptScale > 0.72) { __adaptScale = Math.max(0.72, +(__adaptScale - 0.14).toFixed(2)); __adaptCd = 4; try { resize() } catch (e) {} } // 重い(実測<約23fps)→解像度を一段下げて4秒待つ
         else if (__fpsEma < 0.035 && __adaptScale < 1) { __adaptScale = Math.min(1, +(__adaptScale + 0.14).toFixed(2)); __adaptCd = 7; try { resize() } catch (e) {} } // 余裕(約28fps+)→一段戻して7秒待つ（戻しは慎重に＝往復防止）
