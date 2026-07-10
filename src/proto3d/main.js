@@ -14509,7 +14509,9 @@ function update(dt) {
       if (gd > 0.7) { const gs = gd > 30 ? 15 : gd > 8 ? 6.5 : 3.0; tx = gdx / gd * Math.min(gs, gd * 1.6); tz = gdz / gd * Math.min(gs, gd * 1.6) } // 離れているほど早足で追いつく・近くはそろり
       else { tx = 0; tz = 0 } }
     // 加速はやや速く・減速はゆっくり（歩いてる身体の惰性）
-    const k = floatMode ? 1.7 : ((Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)) ? 5.5 : 2.7) // 加速はやや穏やか/減速はゆるく＝離すとスーッと滑って止まる“ふわり”散歩（夢のゆったり感・2026-06-24）。浮遊はもとからふんわり
+    const _accel = Math.abs(tx) + Math.abs(tz) > Math.abs(vel.x) + Math.abs(vel.z)
+    let k = floatMode ? 1.7 : (_accel ? 5.5 : 2.7) // 加速はやや穏やか/減速はゆるく＝離すとスーッと滑って止まる“ふわり”散歩（夢のゆったり感・2026-06-24）。浮遊はもとからふんわり
+    if (airborne && !riding && !floatMode) k = _accel ? 2.0 : 0.35 // ★ジャンプの空中＝地面の摩擦が無いので水平の勢いを保つ（走って跳ぶと前へ弧を描く“本物の跳躍”に・その場ジャンプは真上のまま・2026-07-11）。空中で入力すれば弱く方向転換もできる（軽いエアコントロール）
     vel.x += (tx - vel.x) * Math.min(1, dt * k)
     vel.z += (tz - vel.z) * Math.min(1, dt * k)
     const speedNow = Math.hypot(vel.x, vel.z)
