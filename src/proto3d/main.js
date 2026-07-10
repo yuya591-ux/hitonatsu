@@ -16542,7 +16542,7 @@ renderer.setAnimationLoop(() => { try {
     __playT += realInterval // 実プレイ経過（放置/飛行/タイトルは除く）
     __fpsEma += (realInterval - __fpsEma) * 0.06 // なめらかな移動平均（常に更新＝GRACE明けに即なまった値で判定できる）
     // C4（動的解像度・2026-07-11）：30fps目標なのに描画が追いつかない（発熱スロットリング/祭り等の高負荷）が続く時だけ描画解像度を一段下げ、余裕が戻れば一段戻す。ヒステリシス(0.044/0.035)＋クールダウンで往復のガタつきを防ぐ。発熱の主因＝GPUフィルレート(画素数)を直接削る最も筋の良い一手（調査結論2026-07-11）。resize()でRT/コンポーザも追従（変更は数秒に一度＝再確保コストは無視できる）
-    if (__fpsCap === 30 && __playT > 8) { __adaptCd -= realInterval
+    if (__fpsCap === 30 && __playT > 18) { __adaptCd -= realInterval // ★起動猶予8→18秒（2026-07-11 ユーザー「起動直後に1〜2回 一瞬不安定」）＝起動直後のVRMコンパイル/初回描画のカクつきで__fpsEmaが跳ね、動的解像度が解像度を下げ→戻しで2回resize（再確保のヒッチ）していた。コンパイルが落ち着く18秒までは解像度を動かさない
       if (__adaptCd <= 0) {
         if (__fpsEma > 0.044 && __adaptScale > 0.72) { __adaptScale = Math.max(0.72, +(__adaptScale - 0.14).toFixed(2)); __adaptCd = 4; try { resize() } catch (e) {} } // 重い(実測<約23fps)→解像度を一段下げて4秒待つ
         else if (__fpsEma < 0.035 && __adaptScale < 1) { __adaptScale = Math.min(1, +(__adaptScale + 0.14).toFixed(2)); __adaptCd = 7; try { resize() } catch (e) {} } // 余裕(約28fps+)→一段戻して7秒待つ（戻しは慎重に＝往復防止）
