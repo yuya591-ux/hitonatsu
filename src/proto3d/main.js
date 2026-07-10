@@ -16036,7 +16036,7 @@ const RESIDENT_TOON_FALLBACK = false
 // ★準備(parse＋コンパイル)は PREP2=420m圏で前倒し（商店街まで約300mの出発地点/坂の途中＝忙しい到着間際でなく静かな早い段階でMToonシェーダーをコンパイル）。破棄は DROP2=500m（ヒステリシスでしきい際のバタつき防止）。表示は SHOW2=58m のまま
 // ★表示SHOW=105m/隠しHIDE=120m：範囲外はトゥーンでなく"消す"方針にしたので、遠くからでもVRMで見える距離まで広げる（近づくと現れる的な空きを防ぐ）。表示は準備済み(=compile/texUp完了)のVRMを可視化するだけ＝描画のみで軽く、クラッシュ源の準備(PREP=420m)/破棄(DROP=500m)は不変＝安全。
 // ★KEEP=8＝準備済みVRMの保有上限（LRU）：破棄がdrop2(500m)だけだと商店街の中心で20体超が同時preparedになりRAM100MB級＝保有に上限を付け、超えたら「表示していない最遠」を返す（監査2026-07-10）
-const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = 8, VRM_RES_KEEP = 20, VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
+const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = 8, VRM_RES_KEEP = 20, VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9), _vrmSwapCamL = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す）／_vrmSwapCamL=前フレームのカメラ位置（カットの検知＝タイトル明け/テレポートの瞬間は切替が絶対に見えない） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
 async function ensureResLibs() {
   if (vrmResLibs) return vrmResLibs
   const [{ GLTFLoader }, vm] = await Promise.all([import('three/examples/jsm/loaders/GLTFLoader.js'), import('@pixiv/three-vrm')])
@@ -16217,7 +16217,7 @@ function disposeResidentVrm(r) { // とても離れた(>150m)/むかしの姿の
 function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの関節がその日ぶん書き込まれた後）
   if (vrmResidentState === 0 && settings.vrmboy) { const dx = boy.position.x - RESIDENT_TRIGGER[0], dz = boy.position.z - RESIDENT_TRIGGER[1]; if (dx * dx + dz * dz < 460 * 460) startVrmResident() } // ★onYato条件を外し半径を460mへ＝出発地点(商店街まで約300m)/坂の途中でスロットを用意し、準備(コンパイル)を静かな早い段階へ前倒しできるようにする
   if (vrmResPrepCd > 0) vrmResPrepCd -= dt
-  if (!titleView && settings.vrmboy) vrmResGrace += dt // 起動(タイトル明け)からの経過。読み込みの山（主人公VRM＋世界のセットアップ）が過ぎるまで住人の準備を始めない＝出発地点そばの住人が最繁忙でコンパイルして落ちるのを防ぐ
+  if (settings.vrmboy && (!titleView || vrmBoyState >= 2)) vrmResGrace += dt // 起動からの経過。読み込みの山（主人公VRM＋世界のセットアップ）が過ぎるまで住人の準備を始めない＝出発地点そばの住人が最繁忙でコンパイルして落ちるのを防ぐ。★タイトル中も主人公VRM適用後（=山は過ぎた）ならカウント＝タイトルで待つ静かな時間を開始地点の住人準備に使う（2026-07-10「開始直後は近くの子がトゥーンのまま」対策）
   if (!vrmResidents.length) return
   const M = VBMAP, off = !settings.vrmboy // 「むかしの姿」ON時はVRMを全部たたんでトゥーンに戻す
   const tsec = clock.elapsedTime // ★自然な佇まい（コントラポスト）の時間。update内のtsecは別関数スコープで見えない＝ここでモジュールのclockから取り直す（loop-local-scope-gotcha：立ち住人のVRM表示中に毎フレームReferenceErrorでrender()が飛び画面が固まる不具合の修正・2026-07-08）
@@ -16235,7 +16235,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   // ★保有上限KEEP=8（LRU・監査2026-07-10）：上限到達時は「候補が保有最遠より距離比0.8以上近い」場合だけ最遠を返して入れ替え＝しきい際の往復（0.9秒ごとのparse往復＝発熱源）を距離マージンで断つ
   if (!off && prepped > VRM_RES_KEEP && farKeep) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepped-- } // 上限超過は毎フレーム「表示していない最遠」から1体ずつ静かに返す（開発フック/往来の蓄積もここで絞られる）
-  else if (!off && nearIdle && !preparing && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > VRM_RES_GRACE) {
+  else if (!off && nearIdle && !preparing && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 2.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の2.5秒後から準備開始（世界は静止＝定常運転と同じ負荷。9秒はタイトル明け直後の最繁忙向けの余白）＝「はじめる」を押す頃には開始地点の女の子/おじいさんがVRM済み・2026-07-10
     if (prepped < VRM_RES_KEEP) prepareResidentVrm(nearIdle)
     else if (farKeep && nearIdleD2 < farKeep.cd2 * 0.64) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepareResidentVrm(nearIdle) } // cd2比0.64＝距離比0.8。追い出した体は10秒再準備しない
   }
@@ -16246,6 +16246,8 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   const swapFL = Math.hypot(_vrmSwapF.x, _vrmSwapF.z) || 1 // 前方ベクトルの水平成分長（見下ろし時の角度補正）
   const boySpd = dt > 0 ? Math.hypot(boy.position.x - _vrmSwapLast.x, boy.position.z - _vrmSwapLast.z) / dt : 0 // 主人公の水平速度（自転車≈5.7m/s・歩き≈2m/s）
   _vrmSwapLast.set(boy.position.x, 0, boy.position.z)
+  const camJump = Math.hypot(camera.position.x - _vrmSwapCamL.x, camera.position.z - _vrmSwapCamL.z) > 6 // カメラが1フレームで6m超動いた＝カット（タイトル明け/テレポート/回想）＝画の切り替わりで入替は絶対に見えない
+  _vrmSwapCamL.set(camera.position.x, 0, camera.position.z)
   const capN = (settings && settings.light) ? 4 : VRM_RES_CAP // ★軽量モード＝同時VRMを4に絞る（発熱の安全弁・計画②）
   for (let i = 0; i < ready.length; i++) { const r = ready[i]
     const wantShow = !off && i < capN && r.cd2 < (r.shown ? (r.cfg.hide2 || VRM_RES_HIDE2) : (r.cfg.show2 || VRM_RES_SHOW2)) && (!r.cfg.dayOnly || (tday > 0.18 && tday < 0.82)) && (!r.cfg.gateVis || r.toon.visible) && (!r.cfg.gateObj || r.cfg.gateObj.visible) // dayOnly（立ち話）＝昼〜夕だけ／gateVis（通行人）＝p.visible(人出/時刻)で表示ゲート＋show2/hide2で通行人は78m内だけVRM（計算LOD85mの内側＝凍り歩き回避）／gateObj＝会場グループ(体操/すいか割り等)の表示に連動（イベントの人は自分のvisibleでなく親グループで出入りする・2026-07-10）
@@ -16256,7 +16258,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
     const dxC = r.toon.position.x - camera.position.x, dzC = r.toon.position.z - camera.position.z
     const offAxis = (dxC * _vrmSwapF.x + dzC * _vrmSwapF.z) < 0.54 * Math.hypot(dxC, dzC) * swapFL // cos57°≈0.54＝横持ちの水平半視野(約45〜50°)より外＝画面に映っていない
     r.swapT += dt
-    if (!(off || offAxis || r.cd2 > 34 * 34 || (boySpd > 3.5 && r.cd2 > 12 * 12) || r.swapT > 2.6)) continue
+    if (!(off || camJump || offAxis || r.cd2 > 34 * 34 || (boySpd > 3.5 && r.cd2 > 12 * 12) || r.swapT > 2.6)) continue
     r.swapT = 0
     if (wantShow) { r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false; r.toon.userData._vrmShown = true; vrmResLiveCount++ }
     else { r.shown = false; r.vrm.scene.visible = false; for (const m of r.toonMeshes) m.visible = (off || RESIDENT_TOON_FALLBACK); r.toon.userData._vrmShown = false; vrmResLiveCount = Math.max(0, vrmResLiveCount - 1); if (r.netObj) r.netObj.visible = false } // 網（シーン直付け）はvrm.scene連動しない＝明示で隠す
@@ -16500,7 +16502,7 @@ renderer.setAnimationLoop(() => { try {
       if (__hotT > 14) { __hotSuggested = true; suggestLightMode() } // 約14秒 追いつかない状態が続いたら提案（GRACE後の“今まさに重い”を確認＝実際の発熱スロットリング）
     }
   }
-  if (!titleReady) { titleReady = true; markTitleReady() } // B⑩：本物の最初のフレームが出た＝「はじめる」を押せる状態に
+  if (!titleReady && (!settings.vrmboy || vrmBoyState >= 2)) { titleReady = true; markTitleReady() } // B⑩：本物の最初のフレームが出た＋主人公VRMの適用済み（2=適用/3=失敗も通す）＝「はじめる」を押せる状態に。★VRM読込完了まで「じゅんびちゅう…」を維持＝開始時点で主人公がトゥーンで始まり数秒後にパッと変わる実機報告の対策（2026-07-10）。読込が長引いても下の8秒保険で必ず押せる
   } catch (e) { onFrameError(e) } }) // J3：このフレームで例外が出ても次フレームへ（ループは止めない）
 
 // B⑩：初期化が終わって最初の絵が出たら、タイトルの「はじめる」を有効化（じゅんびちゅう…→はじめる）。
@@ -17368,6 +17370,7 @@ window.__proto3d = {
   __taiso(on) { if (on) { area = 'yato'; dayAuto = false; tday = 0.08; setTimeOfDay(tday); boy.position.set(3118, heightAtYato(3118, -186), -180); startTaiso() } else stopTaiso(); return doingTaiso }, // 検証用：ラジオ体操に参加（姿勢確認）
   _doJump() { doJump() }, get _jump() { return { y: +jumpY.toFixed(2), v: +jumpV.toFixed(2), air: airborne, crouch: +jumpCrouch.toFixed(2), squash: +landSquash.toFixed(2) } }, // 検証用：ジャンプ発火と状態（VRMジャンプモーションの位相狙い撮り）
   get _doingTaiso() { return doingTaiso }, // 検証用
+  get _resGate() { return { grace: +vrmResGrace.toFixed(1), prepCd: +vrmResPrepCd.toFixed(2), title: titleView, resState: vrmResidentState, boySt: vrmBoyState } }, // 検証用：住人準備の門の入力（タイトル中準備の切り分け・2026-07-10）
   sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(2999, heightAt(2999, 16.5), 16.5) } boy.userData._cy = null }, // 検証用：屋上/入口(風除室の表)に置く
   sunRoofY: { get top() { return SUN_ROOF.top } }, // 検証用：屋上top
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
