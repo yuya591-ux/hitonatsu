@@ -8546,9 +8546,14 @@ for (const [dx, col, sp, boyP] of pedDefs) {
   pedestrians.push(p)
 }
 // ── 獅子ヶ谷の町に通行人を配く（C10・2026-06-25）：今まで人は旧プロト町(x≈1000)だけで、磨いている獅子ヶ谷(x>2200)は無人だった。賑わいの核（商店街/学校通り/バス通り/各所）の最寄りの道に沿って前後に歩く人を置く ──
-{ const anchors = [[2740, -125], [2762, -150], [2690, -112], [2770, -180], [3012, -440], [3052, -22], [3060, -160], [3122, -82], [2960, -330], [3200, -44], [2950, -520], [2520, 230],
+{ const anchors = [[2740, -125], [2690, -112], [3012, -440], [3052, -22], [3060, -160], [3122, -82], [2960, -330], [3200, -44], [2950, -520], [2520, 230],
     [2820, -200], [2680, -55], [3072, -52], [3098, -112], [2945, -270],
-    [2900, -90], [3040, -240], [3120, -150], [2710, -140], [2960, 90], [2840, -200]] // game座標の賑わい候補。※2026-07-08：開始地点(マンション前)そばの4点[3010,22][2995,45][3026,5][3030,30]を、人の少ない他エリア(二ツ池北3012,-440／学校通り北2820,-200／食堂通り西2680,-55／北の田んぼ道2960,90)へ移設＝通行人の総数は保ったままマンション前を静かに（ユーザー要望：にぎわいは保って分散）
+    [2900, -90], [3040, -240], [3120, -150], [2710, -140], [2960, 90], [2840, -200], // game座標の賑わい候補。※2026-07-08：開始地点(マンション前)そばの4点[3010,22][2995,45][3026,5][3030,30]を、人の少ない他エリアへ移設＝マンション前を静かに（ユーザー要望：にぎわいは保って分散）。※2026-07-10：商店街の密集2点[2762,-150][2770,-180]を撤去し下記の空いた場所へ散らす（実機報告「道の人をもう少し散らして」）
+    // ★人を増やす/散らす場所（実機報告2026-07-10）＝二ツ池付近・上野ファミマ裏のたばこ屋・小学校の裏側・三ツ池公園への道中の住宅街。各点は最寄りの歩ける道(60m内)に着く＝道が無ければ自動で不発（安全）。着いたかは__proto3d._peds()で確認
+    [2985, -460], [3040, -472], // 二ツ池付近（既存3012,-440に足して賑わす）
+    [3342, 54], [3352, 66],     // 上野ファミリーマート/たばこ屋（3347,44・3347,65の道沿い）
+    [3040, -174], [3006, -176], // 獅子ヶ谷小学校の裏手（裏門の道・addFlatRoad 3082,-171→3006,-175 沿い）
+    [3280, -258], [3360, -330]] // 三ツ池公園方面の道中の住宅街
   const nearestSeg = (px, pz) => { let best = null, bd = 1e18
     for (const rd of SG.roads) { if ((rd.w || 2) < 3 || !rd.p || rd.p.length < 2) continue // 幅3m以上の歩ける道だけ
       for (let k = 0; k < rd.p.length - 1; k++) { const a = rd.p[k], b = rd.p[k + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 7) continue
@@ -17737,6 +17742,7 @@ window.__proto3d = {
         if (R) { let i = 1; while (i < R.cum.length - 1 && R.cum[i] < v.d) i++; const a = R.path[i - 1], b = R.path[i], segL = (R.cum[i] - R.cum[i - 1]) || 1, t = (v.d - R.cum[i - 1]) / segL; cx = a[0] + (b[0] - a[0]) * t; cz = a[1] + (b[1] - a[1]) * t } // 不可視でも経路上の実位置(d)を出す
         at.push({ x: +cx.toFixed(1), z: +cz.toFixed(1), vis: v.g.visible, near: +Math.hypot(boy.position.x - cx, boy.position.z - cz).toFixed(0), d: +v.d.toFixed(0), route: R === vehRoutes[1] ? 'K' : 'M' }); if (v.g.visible) vis++ } } return { active, vis, at } }, // 検証用：往来の乗り物の台数/経路上の位置/可視/プレイヤーまでの距離
   _walkers() { const at = townWalkers.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), wait: +w.wait.toFixed(1), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: townWalkers.length, at } }, // 検証用：日中の通行人の人数/位置/向き/経路端
+  _peds() { return { n: pedestrians.length, at: pedestrians.map((p) => ({ x: +p.position.x.toFixed(0), z: +p.position.z.toFixed(0) })) } }, // 検証用：賑わいの通行人(anchor由来)の人数/位置＝どのanchorが道に着いたか（人配置の分散・追加の確認2026-07-10）
   _bikers() { const at = bikeRiders.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: bikeRiders.length, at } }, // 検証用：自転車で通る人の人数/位置/向き/経路端
   _bikeStop() { for (const w of bikeRiders) w.sp = 0; return bikeRiders.length }, // 検証用：その場に止める（こぐアニメは続く・姿勢の寄り撮影用）
   _setVista(fogFar, camFar) { window.__freezeCam = true; if (scene.fog) { scene.fog.near = Math.max(60, fogFar * 0.4); scene.fog.far = fogFar } camera.far = camFar; camera.updateProjectionMatrix(); renderer.render(scene, camera) }, // 検証用：屋上/飛行の眺望条件（霧far・カメラfar）を固定して描画＝遠景の山並みの確認
