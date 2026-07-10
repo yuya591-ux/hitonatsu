@@ -15405,17 +15405,18 @@ function applyHairStyle(vrm, opt = {}) {
   // ※頭ボーンの局所座標は実測（scripts/_headmeasure：shibuの髪塊 y[-0.061..0.217]・水平r=0.134・前=-z）。かぶり物は「髪塊の外」に置いて干渉(突き抜け/埋没)を避ける
   if (style === 'bun') { // 後頭部の丸髷＝髪頂(0.217)より上かつ後方(z0.098)へ大きめに出し、濃い束ね輪で「結った玉」と読ませる（同色の埋没を回避）
     const bun = new THREE.Mesh(new THREE.SphereGeometry(0.066, 16, 14), charToon(col)); bun.scale.set(1.06, 0.98, 1.06); bun.position.set(0, 0.188, 0.098); head.add(bun)
-    const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.018, 8, 18), charToon(hairShade(col))); wrap.position.set(0, 0.168, 0.08); wrap.rotation.x = 1.15; head.add(wrap) } // 束ねの根元（濃色）
+    const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.018, 8, 18), charToon(hairShade(col))); wrap.position.set(0, 0.168, 0.08); wrap.rotation.x = 1.15; head.add(wrap) // 束ねの根元（濃色）
+    addBackHair(vrm, col, true) } // ★おだんご＝HairBack非表示で襟足の地肌が透けていた実機報告2026-07-10→うなじ帯だけの当て布（おだんご本体は隠さない napeOnly）
   else if (style === 'pony') { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.016, 0.2, 8), charToon(col)); p.position.set(0, 0.02, 0.10); p.rotation.x = -0.5; head.add(p) // 束ねたポニー（後ろへ垂らす）
     const tie = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.008, 6, 12), charToon(0xc7a34a)); tie.position.set(0, 0.095, 0.092); tie.rotation.x = Math.PI / 2; head.add(tie) }
   else if (style === 'kerchief') { const kc = opt.kerchiefCol ?? 0xd3c8ae // バンダナ/三角巾＝髪塊(r0.134/頂0.217)の外(r0.142/頂0.255)で crown を覆い、額の上(rim≈0.098)で切る＝顔・前髪・横の髪は出る
     // ※飾り(垂れ布/結び目/垂れ端)は髪メッシュと交差して破綻したため、確実に読めるドーム単体に留める（裾から覗く髪でバンダナに見える）
     const k = new THREE.Mesh(new THREE.SphereGeometry(0.142, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.54), charToon(kc)); k.scale.set(1.0, 1.0, 1.05); k.position.set(0, 0.112, 0.008); head.add(k) }
-  else if (style === 'bob' || style === 'short') addBackHair(vrm, col) // ★ボブ/短髪＝VRoidの短い後頭部に継ぎ足しの後ろ髪＝襟足の肌透け/後ろが薄い見えを塞ぐ（ユーザー指摘2026-07-09）
+  else if (style === 'bob' || style === 'short') addBackHair(vrm, col) // ボブ/短髪＝つむじ〜襟足の当て布（頭頂の地肌透けを塞ぐ）
 }
 // VRoidのボブは後頭部(HairJoint)が短く襟足の肌が透け「後ろが薄い/はげ」に見える。頭の骨に後頭部〜襟足を覆う継ぎ足しの後ろ髪を1枚足す非破壊対策（前-zは開けるので顔/前髪/横は不変）。
 // 全shibu女性のボブ/短髪＋物語の女の子の既定ボブに共通で効く。色は各キャラの髪色colを渡して合わせる。頭髪塊は実測 r0.134・y[-0.061..0.217]・前=-z（_headmeasure）。
-function addBackHair(vrm, col) {
+function addBackHair(vrm, col, napeOnly) { // napeOnly＝うなじ帯だけの短い当て布（おだんご/ポニーを隠さないbun用）。既定＝つむじ〜襟足を覆う一枚（bob/short/既定ボブ用）
   const head = vrm.humanoid.getRawBoneNode('head'); if (!head || head.userData._backHair) return
   head.userData._backHair = true // 二重付け防止（同じVRMに複数回呼ばれても1枚）
   // ①既存の髪マテリアルを複製＝同じMToonの色・陰影で「別素材ののっぺり面」感/継ぎ目を消す（mapはUV不一致なので外す。取れなければ髪色トゥーンで代替）
@@ -15427,8 +15428,12 @@ function addBackHair(vrm, col) {
   // ②後頭部を「つむじ〜襟足」まで一枚で覆う殻＝外髪(r0.134)の内側(r0.127)に密着して膨らませない。★旧版(theta0.34π..0.74π・中心y-0.006)は
   //   (a)頭頂(y0.20)に届かず＝ボブを短くした背景女児で地肌が透け「はげ」／(b)裾がうなじより下(y-0.12)へ出て「背中の黒い塊＋首に肌の隙間」に見えた（ユーザー実機報告2026-07-10）。
   //   新版＝中心を頭のほぼ中心(y0.055)へ上げ・縦にわずかに伸ばし(scaleY1.16)、theta0.03π(頭頂)〜0.78π(うなじ≈y-0.06で丁度止める)＝頭頂の地肌を塞ぎ・裾は襟足で止めて塊/隙間を出さない。phiは後ろ半分(耳ぎわ0.07π..0.93π)＝前(-z/顔/前髪)は不変。頭骨の実測 r0.134・y[-0.061..0.217]（_headmeasure）
-  const back = new THREE.Mesh(new THREE.SphereGeometry(0.127, 26, 22, Math.PI * 0.07, Math.PI * 0.86, Math.PI * 0.01, Math.PI * 0.77), mat) // theta0.01π＝つむじ頂点まで塞ぐ（真上からの小さな隙間も無くす）〜0.78π（うなじy≈-0.058で止め）
-  back.scale.set(1.02, 1.16, 1.04); back.position.set(0, 0.055, 0.006); head.add(back)
+  const back = napeOnly
+    ? new THREE.Mesh(new THREE.SphereGeometry(0.127, 26, 20, Math.PI * 0.07, Math.PI * 0.86, Math.PI * 0.42, Math.PI * 0.40), mat) // うなじ帯（theta0.42π〜0.82π＝y0.03〜-0.12）＝おだんご(y0.188)より下だけ塞ぐ
+    : new THREE.Mesh(new THREE.SphereGeometry(0.127, 26, 22, Math.PI * 0.07, Math.PI * 0.86, Math.PI * 0.01, Math.PI * 0.77), mat) // theta0.01π＝つむじ頂点まで塞ぐ（真上からの小さな隙間も無くす）〜0.78π（うなじy≈-0.058で止め）
+  if (napeOnly) back.scale.set(1.02, 1.06, 1.04), back.position.set(0, -0.005, 0.006)
+  else back.scale.set(1.02, 1.16, 1.04), back.position.set(0, 0.055, 0.006)
+  head.add(back)
   return back
 }
 // おばさん化（中年女性・様式統一2026-07-08）：女子高生ベース(篠/渋)を「田舎の商店街のおばさん」へ。
@@ -16954,6 +16959,13 @@ if (guideOk) guideOk.addEventListener('click', () => { if (guideEl) guideEl.clas
 if (startBtn) startBtn.addEventListener('click', () => {
   startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
   tday = 0.18; dayAuto = true; setTimeOfDay(0.18) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
+  // ★開始カメラの導入（実機報告2026-07-10「はじめるを押すと間の家が画面を覆って寄る＝チカチカして嫌」）。
+  //   旧＝はがき構図(南の上空)から通常追従へlerpで“フライスルー”→途中のマンション前の家が画面を覆う。
+  //   新＝主人公の背後へ一旦カット(camSnap)＋主人公に寄った画から通常距離へゆっくり引く＝家を突き抜けず、夏の朝がふわっと開ける導入に。fovもタイトルの50°→45°へ即合わせ残りのズームを消す
+  camSnap = true
+  camCtl.dist = Math.max(camCtl.minDist, camDistTarget * 0.55) // 寄った画から通常距離(camDistTarget)へ自動でゆっくり引く（settle-in）
+  camCtl.yaw = 0.02 // 主人公の真後ろ（はがきカメラ中に動いた向きを戻す）
+  camera.fov = BASE_FOV; camera.updateProjectionMatrix()
   pokeUI(); idleMs = 5000 // 始めた直後もHUDを長めに出す（ガイドを2回目以降スキップした人にも初見の猶予・以降2.5秒）
   const willShowGuide = !seenGuide && guideEl
   if (willShowGuide) { guideEl.classList.add('on'); seenGuide = true } // ガイドを出す回はガイドを閉じてから散歩の一言（guideOkで発火）
