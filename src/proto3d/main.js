@@ -736,7 +736,8 @@ SEAT.y = heightAt(SEAT.x, SEAT.z)
 // antialias は EffectComposer 経由だと最終ブリットにしか効かず実質無駄なので切る（軽量化）
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }) // A4：preserveDrawingBuffer廃止（TBDR/iPhoneの毎フレーム保持コスト削減）。画面のキャプチャは「描画直後に同じタスク内でcanvasを読む」方式へ統一（requestFrameCapture／絵日記のrenderDiaryViewは自前render直後に同期読み）
 let pixelRatioCap = 1.25 // ピクセル比の上限（発熱対策）。軽量モード(C1 v2)では1.0に下げて描画画素を減らす＝resize()もこの上限を使う
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap)) // 発熱対策でさらに控えめ
+let __adaptScale = 1, __adaptCd = 0 // C4（動的解像度・2026-07-11）：発熱/高負荷でフレームが落ちる時だけ描画解像度を段階的に下げ(×1→0.86→0.72)、余裕が戻ったら戻す＝「止め絵は綺麗・重い時だけ少しソフト」。調査結論＝iPhoneの発熱の主因はGPUフィルレート(画素数)＝解像度を下げるのが最も直接効く。resize()が pixelRatioCap×__adaptScale を実解像度に反映
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap * __adaptScale)) // 発熱対策でさらに控えめ（動的解像度の係数込み）
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
 renderer.toneMapping = THREE.NeutralToneMapping
@@ -10951,7 +10952,7 @@ composer.addPass(postPass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0）
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap * __adaptScale)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0）＋C4動的解像度の係数（重い時だけ下がる）
   renderer.setSize(w, h)
   composer.setSize(w, h)            // EffectComposer内部の読み書きRT（全ポストプロセス）を追従
   bloom.setSize(w / 2, h / 2)       // ブルームは半解像度を維持
@@ -16526,6 +16527,13 @@ renderer.setAnimationLoop(() => { try {
   if (!titleView && !floatMode && !flying) {
     __playT += realInterval // 実プレイ経過（放置/飛行/タイトルは除く）
     __fpsEma += (realInterval - __fpsEma) * 0.06 // なめらかな移動平均（常に更新＝GRACE明けに即なまった値で判定できる）
+    // C4（動的解像度・2026-07-11）：30fps目標なのに描画が追いつかない（発熱スロットリング/祭り等の高負荷）が続く時だけ描画解像度を一段下げ、余裕が戻れば一段戻す。ヒステリシス(0.044/0.035)＋クールダウンで往復のガタつきを防ぐ。発熱の主因＝GPUフィルレート(画素数)を直接削る最も筋の良い一手（調査結論2026-07-11）。resize()でRT/コンポーザも追従（変更は数秒に一度＝再確保コストは無視できる）
+    if (__fpsCap === 30 && __playT > 8) { __adaptCd -= realInterval
+      if (__adaptCd <= 0) {
+        if (__fpsEma > 0.044 && __adaptScale > 0.72) { __adaptScale = Math.max(0.72, +(__adaptScale - 0.14).toFixed(2)); __adaptCd = 4; try { resize() } catch (e) {} } // 重い(実測<約23fps)→解像度を一段下げて4秒待つ
+        else if (__fpsEma < 0.035 && __adaptScale < 1) { __adaptScale = Math.min(1, +(__adaptScale + 0.14).toFixed(2)); __adaptCd = 7; try { resize() } catch (e) {} } // 余裕(約28fps+)→一段戻して7秒待つ（戻しは慎重に＝往復防止）
+      }
+    }
     if (__fpsCap === 30 && !(settings && settings.light) && !__hotSuggested && __playT > C2_GRACE) {
       if (__fpsEma > 0.050) __hotT += realInterval; else __hotT = Math.max(0, __hotT - realInterval) // <20fps相当が続く時間を貯め、回復で減らす
       if (__hotT > 14) { __hotSuggested = true; suggestLightMode() } // 約14秒 追いつかない状態が続いたら提案（GRACE後の“今まさに重い”を確認＝実際の発熱スロットリング）
@@ -17752,6 +17760,7 @@ window.__proto3d = {
   _setVolBgm(v) { settings.volBgm = v }, // 検証用：BGM音量スライダーの値を直接置く（夕夜BGM/オルゴールが従うか）
   _festTick(d) { updateFestival(d) }, // 検証用：縁日の更新を1回回す
   _sceneStats() { renderer.render(scene, camera); return { calls: renderer.info.render.calls, tris: renderer.info.render.triangles } }, // 検証用：シーンのドローコール/三角形
+  _adapt(force) { if (typeof force === 'number') { __adaptScale = Math.max(0.5, Math.min(1, force)); try { resize() } catch (e) {} } return { scale: __adaptScale, fpsEma: +__fpsEma.toFixed(4), cd: +__adaptCd.toFixed(1), pr: +renderer.getPixelRatio().toFixed(3), fpsCap: __fpsCap } }, // 検証用：C4動的解像度の状態（引数で強制スケール＝実解像度が変わるか確認）
   _setInk(s, th, hex) { if (s != null) postPass.uniforms.inkStrength.value = s; if (th != null) postPass.uniforms.thickness.value = th; if (hex != null) postPass.uniforms.inkColor.value.set(hex); return { s: postPass.uniforms.inkStrength.value, th: postPass.uniforms.thickness.value, c: '#' + postPass.uniforms.inkColor.value.getHexString() } }, // 検証用：インク線の濃さ/太さ/色をライブ調整（B4：統合パス）
   _setFpvFov(v) { fpvFov = v; return fpvFov }, // 検証用：主観の画角を直接セット（最高ズームの揺れ確認）
   _bobStats() { return { boyY: +boy.position.y.toFixed(4), camY: +camera.position.y.toFixed(4), run: +(Math.hypot(vel.x, vel.z) / 7).toFixed(3), walkBobY: +walkBobY.toFixed(4), stepBobY: +stepBobY.toFixed(4) } }, // 検証用：走行時の上下ぴょこ（主人公boyY/カメラcamYの振幅を測る）
