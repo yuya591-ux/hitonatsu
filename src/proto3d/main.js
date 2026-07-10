@@ -15424,9 +15424,11 @@ function addBackHair(vrm, col) {
     for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m.name && /HAIR/.test(m.name) && !/Outline/i.test(m.name)) { hairMat = m; break } })
   let mat
   if (hairMat && hairMat.clone) { mat = hairMat.clone(); mat.map = null; mat.name = 'BackHairPatch'; if (mat.color && col != null) mat.color.set(col) } else mat = charToon(col)
-  // ②頭に密着(r0.124・髪塊0.134の内側)＝膨らませない・上は髪に隠れる。③耳ぎわまで回して(phi 0.08π..0.92π)側面のボブと繋げ、耳〜首横の肌の隙間を無くす（斜めで前後が繋がる）。短め(裾y≈-0.09)。前(-z/顔)は開ける
-  const back = new THREE.Mesh(new THREE.SphereGeometry(0.124, 24, 20, Math.PI * 0.08, Math.PI * 0.84, Math.PI * 0.34, Math.PI * 0.40), mat)
-  back.scale.set(1.0, 1.04, 1.02); back.position.set(0, -0.006, 0.004); head.add(back) // 裾をy≈-0.09（前より短く）・側面まで連続
+  // ②後頭部を「つむじ〜襟足」まで一枚で覆う殻＝外髪(r0.134)の内側(r0.127)に密着して膨らませない。★旧版(theta0.34π..0.74π・中心y-0.006)は
+  //   (a)頭頂(y0.20)に届かず＝ボブを短くした背景女児で地肌が透け「はげ」／(b)裾がうなじより下(y-0.12)へ出て「背中の黒い塊＋首に肌の隙間」に見えた（ユーザー実機報告2026-07-10）。
+  //   新版＝中心を頭のほぼ中心(y0.055)へ上げ・縦にわずかに伸ばし(scaleY1.16)、theta0.03π(頭頂)〜0.78π(うなじ≈y-0.06で丁度止める)＝頭頂の地肌を塞ぎ・裾は襟足で止めて塊/隙間を出さない。phiは後ろ半分(耳ぎわ0.07π..0.93π)＝前(-z/顔/前髪)は不変。頭骨の実測 r0.134・y[-0.061..0.217]（_headmeasure）
+  const back = new THREE.Mesh(new THREE.SphereGeometry(0.127, 26, 22, Math.PI * 0.07, Math.PI * 0.86, Math.PI * 0.01, Math.PI * 0.77), mat) // theta0.01π＝つむじ頂点まで塞ぐ（真上からの小さな隙間も無くす）〜0.78π（うなじy≈-0.058で止め）
+  back.scale.set(1.02, 1.16, 1.04); back.position.set(0, 0.055, 0.006); head.add(back)
   return back
 }
 // おばさん化（中年女性・様式統一2026-07-08）：女子高生ベース(篠/渋)を「田舎の商店街のおばさん」へ。
@@ -16230,12 +16232,12 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
     if (r.noPrepT > 0) r.noPrepT -= dt // LRU追い出し後の再準備クールダウン（準備↔破棄の往復churn防止）
     if (off || r.cd2 > (r.cfg.drop2 || VRM_RES_DROP2)) { if (r.vrm) disposeResidentVrm(r); else if (r.state === 'failed') r.state = 'idle'; continue } // 立ち話ペアはdrop2(260m)で早めに破棄＝背景モブでRAMを溜めない
     if (r.state === 'prepared') { prepped++; if (!r.shown && (!farKeep || r.cd2 > farKeep.cd2)) farKeep = r }
-    if (r.state === 'idle' && !(r.noPrepT > 0) && !(r.cfg.gateObj && !r.cfg.gateObj.visible) && r.cd2 < (r.cfg.prep2 || VRM_RES_PREP2) && r.cd2 < nearIdleD2) { nearIdle = r; nearIdleD2 = r.cd2 } // 420m(住人)/210m(立ち話ペア)圏のidleだけ準備候補に。★会場が出ていないイベント住人（昼の盆踊り/屋台など）は準備すらしない＝小学校裏の準備往復フリーズの根治（計画②・2026-07-10）
+    if (r.state === 'idle' && !(r.noPrepT > 0) && !(r.cfg.gateObj && !r.cfg.gateObj.visible) && r.cd2 < (r.cfg.prep2 || VRM_RES_PREP2)) { const eff = r.cd2 * (r.cfg.keepToon ? 0.3 : 1); if (eff < nearIdleD2) { nearIdle = r; nearIdleD2 = eff } } // 420m(住人)/210m(立ち話ペア)圏のidleだけ準備候補に。★keepToon（物語の女の子など＝目の前で入替が見えてしまう主役級）は実効距離を0.3倍して優先準備＝開始地点で真っ先にVRM化（camJump/視界外で自然に入替）・2026-07-10。★会場が出ていないイベント住人（昼の盆踊り/屋台など）は準備すらしない＝小学校裏の準備往復フリーズの根治（計画②・2026-07-10）
   }
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   // ★保有上限KEEP=8（LRU・監査2026-07-10）：上限到達時は「候補が保有最遠より距離比0.8以上近い」場合だけ最遠を返して入れ替え＝しきい際の往復（0.9秒ごとのparse往復＝発熱源）を距離マージンで断つ
   if (!off && prepped > VRM_RES_KEEP && farKeep) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepped-- } // 上限超過は毎フレーム「表示していない最遠」から1体ずつ静かに返す（開発フック/往来の蓄積もここで絞られる）
-  else if (!off && nearIdle && !preparing && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 2.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の2.5秒後から準備開始（世界は静止＝定常運転と同じ負荷。9秒はタイトル明け直後の最繁忙向けの余白）＝「はじめる」を押す頃には開始地点の女の子/おじいさんがVRM済み・2026-07-10
+  else if (!off && nearIdle && !preparing && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10
     if (prepped < VRM_RES_KEEP) prepareResidentVrm(nearIdle)
     else if (farKeep && nearIdleD2 < farKeep.cd2 * 0.64) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepareResidentVrm(nearIdle) } // cd2比0.64＝距離比0.8。追い出した体は10秒再準備しない
   }
@@ -16502,9 +16504,21 @@ renderer.setAnimationLoop(() => { try {
       if (__hotT > 14) { __hotSuggested = true; suggestLightMode() } // 約14秒 追いつかない状態が続いたら提案（GRACE後の“今まさに重い”を確認＝実際の発熱スロットリング）
     }
   }
-  if (!titleReady && (!settings.vrmboy || vrmBoyState >= 2)) { titleReady = true; markTitleReady() } // B⑩：本物の最初のフレームが出た＋主人公VRMの適用済み（2=適用/3=失敗も通す）＝「はじめる」を押せる状態に。★VRM読込完了まで「じゅんびちゅう…」を維持＝開始時点で主人公がトゥーンで始まり数秒後にパッと変わる実機報告の対策（2026-07-10）。読込が長引いても下の8秒保険で必ず押せる
+  if (!titleReady && (!settings.vrmboy || vrmBoyState >= 2) && spawnHeroineReady()) { titleReady = true; markTitleReady() } // B⑩：本物の最初のフレームが出た＋主人公VRMの適用済み（2=適用/3=失敗も通す）＋開始地点そばの主役級住人（物語の女の子）がVRM準備済み＝「はじめる」を押せる状態に。★VRM読込完了まで「じゅんびちゅう…」を維持＝開始時点で主人公/女の子がトゥーンで始まり目の前で数秒後にパッと変わる実機報告の対策（2026-07-10）。読込が長引いても下の8秒保険で必ず押せる
   } catch (e) { onFrameError(e) } }) // J3：このフレームで例外が出ても次フレームへ（ループは止めない）
 
+// ★開始地点そばの主役級住人（keepToon＝物語の女の子など）がVRM準備済みか＝目の前（40m内）で入替が丸見えになる子だけを対象に、タイトルのうちに準備を待つ。
+// 準備済み/失敗/そもそも近くに居ない（遠い開始地点/カスタムスポーン）なら即OK＝ハングしない。8秒保険で最終的には必ず解放。vrmboy OFFなら待たない。
+function spawnHeroineReady() {
+  if (!settings.vrmboy || !vrmResidents.length) return true
+  for (const r of vrmResidents) {
+    if (!r.cfg.keepToon) continue // 目の前で見えてしまう主役級（keepToon）だけ待つ＝一般モブは待たせない（開始を過度に遅らせない）
+    const dx = boy.position.x - r.toon.position.x, dz = boy.position.z - r.toon.position.z
+    if (dx * dx + dz * dz > 40 * 40) continue // 40m超は開始時に目立たない（近づく頃に視界外/遠方で入替）＝待たない
+    if (r.state !== 'prepared' && r.state !== 'failed') return false // 目の前の主役級がまだ準備中＝じゅんびちゅう…を維持
+  }
+  return true
+}
 // B⑩：初期化が終わって最初の絵が出たら、タイトルの「はじめる」を有効化（じゅんびちゅう…→はじめる）。
 // 万一ループ初描画が来ない異常時の保険として、起動から十分経ったら強制的に有効化する。
 function markTitleReady() {
@@ -17370,7 +17384,8 @@ window.__proto3d = {
   __taiso(on) { if (on) { area = 'yato'; dayAuto = false; tday = 0.08; setTimeOfDay(tday); boy.position.set(3118, heightAtYato(3118, -186), -180); startTaiso() } else stopTaiso(); return doingTaiso }, // 検証用：ラジオ体操に参加（姿勢確認）
   _doJump() { doJump() }, get _jump() { return { y: +jumpY.toFixed(2), v: +jumpV.toFixed(2), air: airborne, crouch: +jumpCrouch.toFixed(2), squash: +landSquash.toFixed(2) } }, // 検証用：ジャンプ発火と状態（VRMジャンプモーションの位相狙い撮り）
   get _doingTaiso() { return doingTaiso }, // 検証用
-  get _resGate() { return { grace: +vrmResGrace.toFixed(1), prepCd: +vrmResPrepCd.toFixed(2), title: titleView, resState: vrmResidentState, boySt: vrmBoyState } }, // 検証用：住人準備の門の入力（タイトル中準備の切り分け・2026-07-10）
+  get _resGate() { let hero = null; for (const r of vrmResidents) { if (!r.cfg.keepToon) continue; const dx = boy.position.x - r.toon.position.x, dz = boy.position.z - r.toon.position.z; const d2 = dx * dx + dz * dz; if (d2 <= 40 * 40 && (!hero || d2 < hero.d2)) hero = { d2, state: r.state } }
+    return { grace: +vrmResGrace.toFixed(1), prepCd: +vrmResPrepCd.toFixed(2), title: titleView, resState: vrmResidentState, boySt: vrmBoyState, heroReady: spawnHeroineReady(), heroSt: hero ? hero.state : 'none', heroD: hero ? +Math.sqrt(hero.d2).toFixed(0) : -1, tStart: !(document.getElementById('t-start') || {}).disabled } }, // 検証用：住人準備の門の入力＋開始地点の主役級住人の準備状態/開始ボタン（タイトル中準備の切り分け・2026-07-10）
   sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(2999, heightAt(2999, 16.5), 16.5) } boy.userData._cy = null }, // 検証用：屋上/入口(風除室の表)に置く
   sunRoofY: { get top() { return SUN_ROOF.top } }, // 検証用：屋上top
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
