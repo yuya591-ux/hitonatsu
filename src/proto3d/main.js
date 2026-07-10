@@ -8287,7 +8287,7 @@ function populateFestDancers() {
     return { g: v, armL: v.userData.armL, armR: v.userData.armR, elbowL: v.userData.elbowL, elbowR: v.userData.elbowR, kneeL: v.userData.kneeL, kneeR: v.userData.kneeR }
   }
   for (const job of festDancerJobs) {
-    const { group, ox, oz, oy } = job, RD = Math.min(6.0, (job.RR || 10) - 3.5), N1 = 6, N2 = 6 // 内輪6＋外輪6＋太鼓打ち1（主人公級なので数は控えめ＝質で賑わい）
+    const { group, ox, oz, oy } = job, RD = Math.min(6.0, (job.RR || 10) - 3.5), N1 = 5, N2 = 5 // 内輪5＋外輪5＋太鼓打ち1（★2026-07-11 発熱対策＝旧6+6から適正化。2重リングの輪は保つ＝盆踊りの絵は維持しつつ祭りの人数を減らす・ユーザー「夏祭りが重い・人多すぎ」）
     for (let i = 0; i < N1; i++) { const a = (i / N1) * 6.283, c1 = yukataCols[i % yukataCols.length], d = mk(group, ox + Math.cos(a) * RD, oz + Math.sin(a) * RD, c1, i, i === 2, false)
       festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, elbowL: d.elbowL, elbowR: d.elbowR, kneeL: d.kneeL, kneeR: d.kneeR, cx: ox, cz: oz, r: RD, a0: a, ph: i * 0.73, baseY: oy, beat: false, style: i % 3, col: c1, child: i === 2 }) } // col/child＝VRM化の作り分け用（浴衣色をスワップで変えない・子どもはトゥーン専任）2026-07-10
     const RD2 = RD + 3.0
@@ -8296,7 +8296,7 @@ function populateFestDancers() {
     const dr = mk(group, ox, oz - 0.62, 0xeae6da, 0, false, true); festFigs.push({ g: dr.g, armL: dr.armL, armR: dr.armR, elbowL: dr.elbowL, elbowR: dr.elbowR, cx: ox, cz: oz - 0.62, r: 0, a0: 0, ph: 0, baseY: oy + 3.02, beat: true }) // 2階建て櫓の舞台で太鼓を打つ人（甚平）＝床DECK2.9+0.12。太鼓の手前(-z)に立って打つ（土台に埋まるバグの修正2026-07-07）
     for (let i = 0; i < 2; i++) { const a = 0.5 + i * Math.PI, c3 = yukataCols[(i + 5) % yukataCols.length], d = mk(group, ox + Math.cos(a) * 1.15, oz + Math.sin(a) * 1.15, c3, i + 4, false, false) // 2階の舞台で踊る音頭取り2人＝櫓の上でも盆踊り（ユーザー要望2026-07-07）
       festFigs.push({ g: d.g, armL: d.armL, armR: d.armR, elbowL: d.elbowL, elbowR: d.elbowR, kneeL: d.kneeL, kneeR: d.kneeR, cx: ox, cz: oz, r: 1.15, a0: a, ph: i * 1.7, baseY: oy + 3.02, beat: false, style: 1, col: c3 }) }
-    for (let i = 0; i < 3; i++) { const d = mk(group, ox - 8 + i * 6, oz + 9, [0xe06a8a, 0x4a9ad0, 0xf0c84a][i], i + 1, true, false) // 走り回る子ども（浴衣・小柄）
+    for (let i = 0; i < 2; i++) { const d = mk(group, ox - 8 + i * 6, oz + 9, [0xe06a8a, 0x4a9ad0, 0xf0c84a][i], i + 1, true, false) // 走り回る子ども（浴衣・小柄）★2026-07-11 3→2（発熱対策・祭りの子を1人減らす）
       const it = new THREE.Group()
       if (i === 0) { const bag = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 7), new THREE.MeshToonMaterial({ color: 0xcfe8f0, gradientMap: GRAD, transparent: true, opacity: 0.82 })); bag.scale.y = 1.25; it.add(bag); const fish = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), toon(0xe0622a)); fish.position.y = -0.015; it.add(fish) } // 金魚袋
       else { const yo = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 7), toon([0xe03a5a, 0x3a8ad0, 0xf0c020][i % 3])); it.add(yo) } // ヨーヨー
@@ -8328,7 +8328,7 @@ function populateFestSpectators() {
   for (const job of festSpectatorJobs) { const { group, ox, oz, oy, RR } = job, R = RR || 10
     // ① 立ち見＝踊りの輪を囲む客。南〜西の弧にゆるく散らし、櫓を向く（一列にしない＝自然な群れ）
     const ok = (x, z, r) => typeof npcSpotOk !== 'function' || npcSpotOk(x, z, r || 0.6) // 水/建物/道のど真ん中は避ける（どの会場でも刺さらない）
-    const N = 5
+    const N = 3 // ★2026-07-11 立ち見の客 5→3（発熱対策・見物の人だかりを適正化）。練り歩く2人は残す＝屋台前の賑わいは保つ
     for (let i = 0; i < N; i++) { const a = 0.7 + (i / (N - 1)) * 2.5 + (Math.random() - 0.5) * 0.28, rad = R + 0.4 + Math.random() * 2.4
       const x = ox + Math.cos(a) * rad, z = oz + Math.sin(a) * rad
       if (!ok(x, z)) continue
@@ -11877,7 +11877,7 @@ function updateFestival(dt) {
       // ★性能（計算LOD）：会場は見えていても約60m以遠の踊り手は腕/脚/旋回の計算を停止＝その場の最後のポーズで静止して立つ（会場内は近接して一斉に切替＝境界線は出ない・2026-06-29）
       // ★性能（描画LOD）：約130m以遠の踊り手は描画も止める（yatoFolkと同じ作法）＝夕方に会場が出ると遠くからでも人が全部描かれ描画コールが+45%跳ねる主因（発熱・2026-07-02）。櫓/提灯/屋台は遠景の誘いとして残す
       { const fdx = boy.position.x - d.cx, fdz = boy.position.z - d.cz, fd2 = fdx * fdx + fdz * fdz
-        const farHide = fd2 > 16900
+        const farHide = fd2 > 12100 // ★2026-07-11 描画LOD 130→110m（発熱対策＝遠方の小さな踊り手の描画も省く。櫓/提灯/屋台は遠景の誘いとして残る）
         if (d.g.visible === farHide) d.g.visible = !farHide
         if (farHide || fd2 > LOD_PERSON2) { _perfAnim.fest.skip++; continue } }
       _perfAnim.fest.ran++
@@ -11901,7 +11901,7 @@ function updateFestival(dt) {
       if (s.g.parent && !s.g.parent.visible) continue // ★性能：見えていない会場の見物客は動かさない（密度は維持・2026-06-28）
       // ★性能（計算LOD）：約60m以遠の見物客は計算停止／★描画LOD：約130m以遠は描画も止める（踊り手と同じ・夕方の描画コール急増対策2026-07-02）
       { const sdx = boy.position.x - s.g.position.x, sdz = boy.position.z - s.g.position.z, sd2 = sdx * sdx + sdz * sdz
-        const farHide = sd2 > 16900
+        const farHide = sd2 > 12100 // ★2026-07-11 描画LOD 130→110m（発熱対策・踊り手と同じ）
         if (s.g.visible === farHide) s.g.visible = !farHide
         if (farHide || sd2 > LOD_PERSON2) { _perfAnim.spec.skip++; continue } }
       _perfAnim.spec.ran++
