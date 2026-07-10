@@ -9505,7 +9505,7 @@ function makeTownWalker(route, bagCol) {
 }
 function initTownWalkers() {
   if (townWalkersInit || !SG.roads) return; townWalkersInit = true
-  for (const [sx, sz, bag] of [[2745, -118, 0xd08a5a], [2980, -60, 0xb7c0a0], [3060, -135, 0xc8a060], [2740, -150, 0x9aa8b0]]) { if (townWalkers.length >= 2) break // 買い物袋の色ばらつき＝別人
+  for (const [sx, sz, bag] of [[3347, 52, 0xd08a5a], [2980, -60, 0xb7c0a0], [2662, -40, 0xc8a060], [3352, 66, 0x9aa8b0]]) { if (townWalkers.length >= 2) break // ★2026-07-11 買い物通行人の種を商店街/しんみせ(旧2745,-118 / 2740,-150)から、ファミマ通り/北/西へ移設＝しんみせ付近の密度(周辺10人>CAP8)を下げてVRM化の溢れ/遅延を解消（ユーザー「しんみせ付近がトゥーンのまま・モブをもっと散らして」）。買い物客は別の店エリアへ分散＝賑わいは保つ。袋の色ばらつき＝別人
     const route = roadRouteNear(sx, sz, 42); if (!route) continue
     if (townWalkers.some((w) => Math.hypot(w.route[0][0] - route[0][0], w.route[0][1] - route[0][1]) < 40)) continue // 近すぎる2人を避ける
     townWalkers.push(makeTownWalker(route, bag))
@@ -14710,12 +14710,13 @@ function update(dt) {
       if (jumpY <= 0) { jumpY = 0; jumpV = 0; if (airborne) { airborne = false; landSquash = 1; playLand(0.05) } } // 着地＝つぶれ開始＋とすっ
       boy.position.y += jumpY
       // 人が跳ぶ動き（ユーザー要望2026-07-08）＝①踏切りで腕を上へ振り上げ体を伸ばす②頂点〜落下でひざを抱えて着地に構える
-      const rise = THREE.MathUtils.clamp(jumpV / 7, 0, 1), fall = THREE.MathUtils.clamp(-jumpV / 8, 0, 1), tuck = 1 - rise
+      const rise = THREE.MathUtils.clamp(jumpV / 7, 0, 1), fall = THREE.MathUtils.clamp(-jumpV / 8, 0, 1)
+      const tuck = Math.min(1, (1 - rise) * 1.5) // ★上昇の出だしだけ脚を伸ばし、すぐ深く畳む→頂点〜落下は畳んだまま（ユーザー「もっと足を折りたたんで」2026-07-11＝旧 tuck=1-rise は頂点の一瞬しか畳まず上昇中は棒立ちだった）
       const u = boy.userData
       boy.rotation.x += ((-0.10 * rise + 0.16 * fall) - boy.rotation.x) * Math.min(1, dt * 8) // 上昇=胸を開いて伸び上がる／落下=着地へ軽く前かがみ
-      u.legL.rotation.x = -0.5 * tuck - 0.05; u.legR.rotation.x = -0.42 * tuck - 0.03 // 上昇=脚を伸ばして蹴り出す→落下=腿を抱える
-      u.kneeL.rotation.x = 0.12 + tuck * 0.62; u.kneeR.rotation.x = 0.12 + tuck * 0.52 // 頂点〜落下でひざをたたむ
-      u.ankleL.rotation.x = rise * 0.38; u.ankleR.rotation.x = rise * 0.34 // 蹴り出しでつま先を下げる（背伸びして跳ぶ）
+      u.legL.rotation.x = -0.66 * tuck - 0.05; u.legR.rotation.x = -0.58 * tuck - 0.03 // 腿を前へしっかり抱える（-0.5→-0.66）＝空中で膝が前に来る
+      u.kneeL.rotation.x = 0.12 + tuck * 1.0; u.kneeR.rotation.x = 0.12 + tuck * 0.92 // ★ひざを深くたたむ（0.62→1.0＝約63°）＝空中で脚がしっかり折りたたまれて見える（VRM主人公もこの膝角を写す）
+      u.ankleL.rotation.x = rise * 0.38 - tuck * 0.22; u.ankleR.rotation.x = rise * 0.34 - tuck * 0.20 // 蹴り出しでつま先を下げ→畳む時はかかとをお尻へ引く（体育座り風の跳躍）
       const armJ = -(0.3 + rise * 1.5) + fall * 0.9 // 上昇=腕を上へ振り上げ／落下=前へ下ろしてバランス
       u.armL.rotation.x += (armJ - u.armL.rotation.x) * Math.min(1, dt * 14)
       u.armR.rotation.x += (armJ - u.armR.rotation.x) * Math.min(1, dt * 14)
