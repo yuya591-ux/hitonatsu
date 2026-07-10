@@ -15824,6 +15824,7 @@ async function startVrmBoy() {
     if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
     if (VRMUtils.combineMorphs) VRMUtils.combineMorphs(vrm) // 使う表情ぶんだけにモーフを畳む＝VRoidの約50ブレンドシェイプのデータテクスチャVRAM/RAMを削減（モバイルのmorph上限→context lostの対策）。口パクaa/まばたきblink/relaxedは保持
     VRMUtils.rotateVRM0(vrm)
+    if (VRM_MERGE_MESHES) mergeVrmMeshes(vrm) // ★主人公も同マテリアル統合＝常時表示の描画コールを大幅削減（計画①・2026-07-10）
     const seenTex = new Set() // パイロットと同じ軽量化（MToon輪郭の二重描き停止・法線マップ除去・>1024縮小）
     vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
       for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
@@ -15953,6 +15954,44 @@ let vrmResidents = [], vrmResidentState = 0, vrmResLibs = null, vrmResLiveCount 
 // ★事前生成版（テクスチャを256pxへ焼き込んだ軽量VRM＝public/models/baked/）を使うか。true＝焼き版で「展開RAMの山」を消す（初回強制終了の恒久保険）。
 //   false＝元の1024版＋実行時縮小＝以前と完全に同じ挙動へ即戻せる（可逆・安全）。焼き版が無ければ自動で元VRMへフォールバック。生成は scripts/_bake-residents.mjs
 const BAKED_RESIDENTS = true
+// ★描画コール統合（2026-07-10・「視界内ぜんぶVRM」計画①）：同じマテリアルを使うスキンメッシュ同士をジオメトリ統合＝1体約68メッシュ→十数メッシュ。
+//   マテリアルは温存＝着せ替え（-ize系の名前regexでの再彩色/非表示）はそのまま効く。表情モーフ持ち（顔パーツ）・マルチマテリアル・
+//   バインド行列が異なるものは安全のため統合しない（髪の揺れはボーンが担う＝スキン結合しても揺れる）。falseで即戻せる（可逆）
+const VRM_MERGE_MESHES = true
+function mergeVrmMeshes(vrm) {
+  try {
+    vrm.scene.traverse((o) => { if (!o.isSkinnedMesh || !Array.isArray(o.material)) return // 正規化＝[本体, 輪郭]のマルチマテリアルは輪郭を捨てて単一へ（輪郭はどのみち後段でvisible=false＝二重描きの温存は無意味。単一化で下の統合対象にもなる）
+      const vis = o.material.filter((m) => !/ \(Outline\)$/.test((m && m.name) || ''))
+      if (vis.length === 1) { o.material = vis[0]; o.geometry.clearGroups() } })
+    const groups = new Map()
+    vrm.scene.traverse((o) => { if (!o.isSkinnedMesh || Array.isArray(o.material)) return
+      if (o.geometry.morphAttributes && Object.keys(o.geometry.morphAttributes).length) return // 表情モーフ（まばたき/口パク）は温存
+      const key = o.material.uuid
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(o) })
+    let before = 0, after = 0
+    for (const list of groups.values()) { if (list.length < 2) continue
+      const base = list[0]
+      if (!list.every((o) => o.skeleton === base.skeleton && o.bindMatrix.equals(base.bindMatrix) && o.bindMode === base.bindMode)) continue // 同一スケルトン/同一バインドのみ
+      const someIndexed = list.some((o) => !!o.geometry.index), allIndexed = list.every((o) => !!o.geometry.index)
+      const geos = list.map((o) => { let g = o.geometry.clone()
+        if (someIndexed && !allIndexed && g.index) g = g.toNonIndexed() // 混在はmergeGeometriesが失敗する＝非インデックスへ揃える
+        for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(name)) g.deleteAttribute(name) // tangent等の不一致で失敗しない最小属性へ
+        g.morphAttributes = {}; return g })
+      const need = ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']
+      if (!geos.every((g) => need.every((n) => g.attributes[n]))) { geos.forEach((g) => g.dispose()); continue }
+      const merged = mergeGeometries(geos, false); geos.forEach((g) => g.dispose())
+      if (!merged) continue
+      const nm = new THREE.SkinnedMesh(merged, base.material)
+      nm.bind(base.skeleton, base.bindMatrix); nm.bindMode = base.bindMode
+      nm.frustumCulled = false; nm.castShadow = false; nm.receiveShadow = base.receiveShadow; nm.renderOrder = base.renderOrder; nm.name = base.name + '_mg'
+      base.parent.add(nm)
+      for (const o of list) { o.parent.remove(o); o.geometry.dispose() }
+      before += list.length; after++
+    }
+    return { before, after }
+  } catch (e) { console.warn('メッシュ統合に失敗（未統合で続行）', e); return null }
+}
 // ★総入れ替え方針（2026-07-08）：VRM住人は「近くVRM／表示範囲外は消す（カリング）」に統一。以前の「範囲外は大きな低ポリのトゥーンを出す」を廃止＝近づくと大きさ/絵柄が"化ける"混在感を消す（ユーザー指摘＝トゥーンとVRMが別世界に見える）。トゥーンは骨組み（会話/視線/当たり）としてのみ残し見た目は出さない。VRM読込失敗時だけ安全網でトゥーンを出す。true＝昔どおり遠景にトゥーンを出す（可逆・即戻せる）。
 const RESIDENT_TOON_FALLBACK = false
 // ★上限3＝同時表示は最大3体。表示切替はvisibleの即時反転（クロスフェードは不採用＝alphaHashは目が黒空洞・opacityフェードはMToon多層の透明ソート破綻。旧コメントの「ディザでクロスフェード」は未実装の虚偽記載だった＝監査2026-07-10で訂正）
@@ -16036,6 +16075,7 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     VRMUtils.removeUnnecessaryVertices(gltf.scene); if (VRMUtils.combineSkeletons) VRMUtils.combineSkeletons(gltf.scene)
     if (VRMUtils.combineMorphs) VRMUtils.combineMorphs(vrm) // 約50モーフを使う表情ぶんへ畳む＝隠れVRAM/RAM削減（モバイルmorph上限→context lost対策）。口パクaa/まばたきは保持
     VRMUtils.rotateVRM0(vrm)
+    if (VRM_MERGE_MESHES) mergeVrmMeshes(vrm) // ★同マテリアルのスキンメッシュを統合＝1体約68→十数描画コール（「視界内ぜんぶVRM」計画①・2026-07-10）
     const seenTex = new Set(), MAXW = 256, texList = [] // 住人=背景キャラ＝256（主人公1024の1/16面積）。全チャンネル保持のまま縮小（nullはrim/emissive factorを露出させ色化けするため禁止）
     vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
       for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
