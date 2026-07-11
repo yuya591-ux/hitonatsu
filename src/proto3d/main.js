@@ -38,6 +38,50 @@ const lookHint = document.getElementById('look')
 // J8：Service Worker を登録（オフライン対応＋確実な更新）。読み込み後に静かに登録し、失敗してもゲームは普通に動く（外部CDN非依存）
 if ('serviceWorker' in navigator) { try { addEventListener('load', () => { navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {}) }) } catch (e) {} }
 
+// ── キャラ(VRM)を本体へ「確実に」保存＋進捗の可視化（ユーザー要望2026-07-11「VRM含め全部ローカル保存・機内モードでもVRM」／オフラインで主人公・通行人がトゥーンのまま＝取りこぼしの実機報告への根治）──
+// なぜ必要か＝SW側のプリキャッシュ(install)はallSettledで一部失敗を黙認＝「全部落ちた保証」が無い／初回はSWが未制御でアプリのfetchがSWキャッシュに入らない。
+// ここではアプリ自身が6個(＝全VRM。主人公=非baked/住人=baked＋予備)をCacheStorage 'hitonatsu-v4'（SWと同じ器）へ直接putする＝SW未制御でも確実に入る・何個入ったかを設定に出す＝本人が「保存ずみ」を確認できる。
+const VRM_DL_FILES = [
+  'models/sakurada_fumiriya.vrm', 'models/sendagaya_shibu.vrm', 'models/sendagaya_shino.vrm',
+  'models/baked/sakurada_fumiriya.vrm', 'models/baked/sendagaya_shibu.vrm', 'models/baked/sendagaya_shino.vrm',
+]
+const VRM_DL_CACHE = 'hitonatsu-v4' // ★sw.jsのCACHEと必ず一致させる（SWのactivateが別名キャッシュを消すため／版を上げる時は両方直す）
+let __vrmDlHave = 0, __vrmDlState = 'init', __vrmDlRunning = false // init/checking/downloading/done/partial/offline/unsupported
+function __updVrmDlUI() {
+  const b = document.getElementById('set-vrmdl'); if (!b) return
+  const n = VRM_DL_FILES.length; b.classList.toggle('on', __vrmDlState === 'done')
+  b.textContent =
+    __vrmDlState === 'done' ? '✓ 保存ずみ' :
+    __vrmDlState === 'downloading' ? `ダウンロード中 ${__vrmDlHave}/${n}` :
+    __vrmDlState === 'partial' ? `あと少し ${__vrmDlHave}/${n}（電波のある所でもう一度）` :
+    __vrmDlState === 'offline' ? `${__vrmDlHave}/${n}（電波が無いと保存できません）` :
+    __vrmDlState === 'unsupported' ? 'この端末では未対応' : 'かくにん中…'
+}
+async function warmVrmCache() {
+  if (__vrmDlRunning) return; __vrmDlRunning = true
+  try {
+    if (!('caches' in window)) { __vrmDlState = 'unsupported'; __updVrmDlUI(); return }
+    __vrmDlState = 'checking'; __updVrmDlUI()
+    const base = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || './'
+    const urls = VRM_DL_FILES.map((f) => new URL(base + f, location.href).href)
+    const c = await caches.open(VRM_DL_CACHE)
+    let have = 0; for (const u of urls) { if (await c.match(u)) have++ }
+    __vrmDlHave = have
+    if (have >= urls.length) { __vrmDlState = 'done'; __updVrmDlUI(); return }
+    if (!navigator.onLine) { __vrmDlState = 'offline'; __updVrmDlUI(); return }
+    __vrmDlState = 'downloading'; __updVrmDlUI()
+    for (const u of urls) {
+      if (await c.match(u)) continue
+      try { const res = await fetch(u, { cache: 'force-cache' }); if (res && res.ok) { await c.put(u, res.clone()); __vrmDlHave++; __updVrmDlUI() } }
+      catch (e) { /* 途中で電波が切れた等＝入った分は残す・次回続き */ }
+    }
+    __vrmDlState = (__vrmDlHave >= urls.length) ? 'done' : 'partial'; __updVrmDlUI()
+  } catch (e) { __vrmDlState = 'partial'; __updVrmDlUI() }
+  finally { __vrmDlRunning = false }
+}
+// 起動が落ち着いてから静かに走らせる（初回描画・主人公VRMの読込と競合させない）。オンラインに戻った時も再挑戦。
+try { addEventListener('load', () => setTimeout(warmVrmCache, 4500)); addEventListener('online', () => setTimeout(warmVrmCache, 800)) } catch (e) {}
+
 // ── 地面の高さ（解析式）。地面メッシュもキャラの足元もこの式で揃える。──
 const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
 const YATO_PONDS = [] // 谷戸で釣りができる池（二ツ池/森のため池）。各 {x,z,r,y(水面の高さ)}＝建設時にpushする（D2・2026-06-27）
@@ -17239,6 +17283,9 @@ function applyVrmBoyBtn() { const btn = document.getElementById('set-vrmboy'); i
     applyVrmBoyVisible()
     showToast(settings.vrmboy ? '主人公が あたらしい男の子に なったよ' : '主人公を むかしの姿に もどしたよ') }) }
 applyVrmBoyBtn()
+// キャラのデータ保存ボタン＝押すと今すぐ確実にダウンロード（機内モード前の総ざらい用）。状態は起動時の自動保存でも更新される
+{ const b = document.getElementById('set-vrmdl'); if (b) b.addEventListener('click', () => { if (__vrmDlState === 'done') { showToast('キャラのデータは ぜんぶ 保存ずみだよ') } else { showToast('キャラのデータを 本体に 保存しています…'); warmVrmCache() } }) }
+try { __updVrmDlUI(); setTimeout(warmVrmCache, 1200) } catch (e) {} // 設定を開いた時に現状（何個保存済みか）を即表示＋確認
 applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); applyBigText(); applyGeo()
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
