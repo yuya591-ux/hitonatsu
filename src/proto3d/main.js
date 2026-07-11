@@ -14621,7 +14621,7 @@ function update(dt) {
       const gFloor = heightAt(boy.position.x, boy.position.z) + 0.9
       if (floatExiting) { // 着地＝最低14m/sは必ず降りる時間ベース＋高所では速く（fps非依存で必ず着く）
         boy.position.y -= Math.max(dt * 14, (boy.position.y - gFloor) * Math.min(1, dt * 3)); floatVel.set(0, 0, 0)
-        if (boy.position.y <= gFloor + 0.05) { boy.position.y = gFloor; floatMode = false; floatExiting = false; document.body.classList.remove('floating'); if (!flying) { document.body.classList.remove('dev-float', 'dev-aerial'); setDevCoord(false); const fu = document.getElementById('flyui'); if (fu) fu.classList.remove('on') } if (fpv) { fpv = false; camSnap = true; const ff = document.getElementById('fl-fpv'); if (ff) ff.classList.remove('on'); if (setFpvBtn) { setFpvBtn.classList.remove('on'); setFpvBtn.textContent = 'OFF' } } } // 着地したら主観視点は解除＋開発の座標読みUIも畳む（座標モード解除＝主人公を戻す。地上で一人称のまま取り残されない）
+        if (boy.position.y <= gFloor + 0.05) { boy.position.y = gFloor; floatMode = false; floatExiting = false; document.body.classList.remove('floating'); if (!flying) { document.body.classList.remove('dev-float', 'dev-aerial'); setDevCoord(false); const fu = document.getElementById('flyui'); if (fu) fu.classList.remove('on') } if (fpv) { const hn = document.getElementById('hint'); if (hn) hn.classList.add('gone'); lookHint.textContent = 'スワイプで見わたす ・ 🔭でもどる'; lookHint.style.display = 'block' } } // 着地しても主観視点は維持＝そのまま歩いて見わたし続けられる（強制解除は不評・実機報告2026-07-12）。地上FPVの案内文だけ出す。開発の座標読みUIは従来どおり畳む
       } else {
         const ty = (floatUp - floatDown + (padAxis('R2') ? 1 : 0) - (padAxis('L2') ? 1 : 0)) * 6.0 // ▲うく/▼おりる（＋コントローラー R2=上/L2=下）
         floatVel.y += (ty - floatVel.y) * Math.min(1, dt * 1.6) // ふんわり上下＝慣性を強めて“ふわり”動き出し/止まりに（2.4→1.6・ユーザー要望2026-06-29）
