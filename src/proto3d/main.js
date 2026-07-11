@@ -10958,7 +10958,7 @@ composer.addPass(gradePass)
 const _db = renderer.getDrawingBufferSize(new THREE.Vector2())
 // A5（省電力）：法線/深度プリパスRTを実解像度の0.75xに＝プリパスのフィル(帯域/画素シェーダ)を約44%削減（0.75²=0.56）。
 //   ink/dofはUVで読むので解像度非依存。エッジ検出のtexel幅だけ0.75xに合わせる（下のresizeで追従）。インク線が僅かに太る可能性→A/B確認済み。
-const PREPASS_SCALE = 0.75
+let PREPASS_SCALE = 0.62 // A5→案A：法線/深度プリパスRTの倍率（実解像度比）。0.75→0.62でプリパスのフィルを削る（ink線はFXAAで維持・スクショ差分2.84で確認済）。letは計測フック__perfPrepassでの実行時比較用
 const _pdx = Math.max(1, Math.round(_db.x * PREPASS_SCALE)), _pdy = Math.max(1, Math.round(_db.y * PREPASS_SCALE))
 const normalRT = new THREE.WebGLRenderTarget(_pdx, _pdy, { depthTexture: new THREE.DepthTexture(_pdx, _pdy, THREE.UnsignedIntType) })
 // プリパス（法線/深度RTへのシーン二重描画）だけ描画距離を300mに絞る＝インク線はfadeFar150で消え・DoFのボケも289mで最大に飽和しているため出力は同一のまま、
@@ -17524,6 +17524,7 @@ window.__proto3d = {
   __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
   __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
   __perfDPR(cap) { pixelRatioCap = cap; resize(); return renderer.getPixelRatio() }, // 計測用：描画解像度(DPR上限)を一時変更してフィルレート感度を測る（resizeでRT/コンポーザ追従。cap=1で等倍・3でDSF3フル）
+  __perfPrepass(s) { PREPASS_SCALE = s; resize(); return PREPASS_SCALE }, // 計測用：プリパスRT倍率を実行時に変えて同一run内で比較（クロスrunのノイズを排除）
   get _camDist() { return camCtl.dist }, // 検証用：追従カメラの現在距離（VRM時の寄せ確認）
   _vbApplyOnce() { const f = window.__vbFreeze; window.__vbFreeze = false; vrmBoyTick(0.001); window.__vbFreeze = f }, // 検証用：今のuserDataポーズを実際の写し式で1回だけVRMへ反映（真横フリーズ撮影用）
   _setBoyPose(p) { const u = boy.userData; for (const k in p) if (u[k]) u[k].rotation.x = p[k] }, // 検証用：プロシージャル骨に手ポーズを直接入れる
