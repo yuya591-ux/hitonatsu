@@ -13130,7 +13130,7 @@ function onUp(e) {
   pointers.delete(e.pointerId)
   if (mode !== 'walk') {
     if (sitTap && !sitTap.moved) { if (mode === 'swing') swingAmp = Math.min(0.95, swingAmp + 0.14); else if (mode !== 'sliding') standUp() } // ブランコはタップで こぐ／滑走中はタップで降りない（見回しを邪魔せず最後まで滑る・ユーザー要望2026-06-26）
-
+    if (lookIds.has(e.pointerId)) { lookIds.delete(e.pointerId); if (lookIds.size === 2) pinchInit(); else pinchD = 0 } // 視点ドラッグ中にモードが変わって離した指もここで必ず掃除＝lookIdsに死にポインタを残さない（残ると以後の視点タッチがピンチ扱いで無反応・実機報告2026-07-12）
     sitTap = null; return
   }
   if (flying) { // 飛行中：指を動かさず軽くタップ＝その場所へ主人公をワープ（ドラッグは移動/見回す）
@@ -14542,6 +14542,15 @@ function update(dt) {
     if (capOk) { puni.hadCapture = true; puniLostT = 0 }
     else if (puni.hadCapture) { puniLostT += dt; if (puniLostT > 0.25) { pointers.delete(puni.id); endPuni(); puniLostT = 0 } }
   }
+  // ★視点ドラッグ側にも同じ自己修復（実機報告2026-07-12：移動＋自転車の高速中、右指の視点操作が時折効かない）
+  //   真因＝取りこぼした死にポインタが lookIds に残る→次の右タッチが「2本指ピンチ」扱いになり回転しない。
+  //   ①pointersから消えた孤児idは即除去（モード切替中のonUp早期returnで漏れた分）②キャプチャ喪失0.25秒で除去（スティックと同条件）
+  if (lookIds.size) { for (const id of [...lookIds]) { const p = pointers.get(id)
+    if (!p) { lookIds.delete(id); if (lookIds.size === 2) pinchInit(); else pinchD = 0; continue }
+    let capOk = false; try { capOk = canvas.hasPointerCapture(id) } catch (e) { capOk = false }
+    if (capOk) { p.hadCap = true; p.lostT = 0 }
+    else if (p.hadCap) { p.lostT = (p.lostT || 0) + dt
+      if (p.lostT > 0.25) { lookIds.delete(id); pointers.delete(id); if (lookIds.size === 2) pinchInit(); else pinchD = 0 } } } }
 
   if (mode === 'walk') {
     // カメラ基準の前/右（地面上）。指のスライド方向を世界の向きへ変換。
