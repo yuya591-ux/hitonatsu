@@ -10831,7 +10831,7 @@ const godrayPass = new ShaderPass({
     void main(){
       vec3 col = texture2D(tDiffuse, vUv).rgb;
       if (strength > 0.001) {
-        const int N = 36; // ステップ数を増やしてサンプル間隔を詰める＝太陽の白熱が離散コピーされて“ぶどう房/泡の塊”に見えるのを解消
+        const int N = 24; // 案A：36→24（太陽直視時の36タップ/pxのスパイクを1/3削減）。ぶどう房/泡の塊を防ぐ下限には十分な余裕（過去の破綻域は16以下）＝控えめ設計(strength0.2)で通常視界は不変
         vec2 uv = vUv;
         vec2 delta = (uv - lightPos) * (0.5 / float(N));
         // ★点々の正体＝以前入れた per-pixel ジッター(fract(sin(...)))がモバイルの低精度で破綻し、太陽上に細かいノイズを生んでいた→撤去。
