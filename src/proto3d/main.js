@@ -2026,7 +2026,7 @@ function makeTorii(x, z, rot, s = 1) {
 makeTorii(GATE_SHRINE_F.x, GATE_SHRINE_F.z, 0) // 野原に立つ鳥居（神社への入口）
 // エリアをつなぐ門（複数エリア対応）。area=今いる所, to=行き先, t*=到着位置/向き
 const GATE_YATO_T = new THREE.Vector3(830, 0, 46)            // 町側の出入口（→獅子ヶ谷の谷戸へ）。二つ池↔しんみせの道沿い（絶対座標）
-const GATE_YATO = new THREE.Vector3(YATO.x, 0, YATO.z + 38)   // 谷戸側の出入口（→町へもどる）
+const GATE_YATO = new THREE.Vector3(2890, 0, -360)   // ★2026-07-11 谷戸側の出入口（→町へもどる）＝旧(3000,38)はマンション前に鳥居が立ち「そんな物は無い」不自然（ユーザー撤去要望）→神明社の鎮守の森の縁（社殿/玉垣から南西70m以上離す）の丘へ移設。森の中に佇む「別の街への門」（鳥居＝ゲート機能はそのまま／placePropで自動接地・makeGate/GATESが全てこのVector3を参照＝1点変更で鳥居メッシュ＋テレポート先＋門判定が一緒に動く）
 const GATES = [
   { area: 'field', x: GATE_FIELD.x, z: GATE_FIELD.z, label: '町へ →', to: 'town', tx: GATE_TOWN.x, tz: GATE_TOWN.z + 2.2, tf: 0 },
   { area: 'town', x: GATE_TOWN.x, z: GATE_TOWN.z, label: 'はらっぱへ →', to: 'field', tx: GATE_FIELD.x, tz: GATE_FIELD.z - 2.2, tf: Math.PI },
