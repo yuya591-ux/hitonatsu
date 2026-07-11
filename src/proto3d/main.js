@@ -9563,7 +9563,7 @@ function makeTownWalker(route, bagCol) {
 }
 function initTownWalkers() {
   if (townWalkersInit || !SG.roads) return; townWalkersInit = true
-  for (const [sx, sz, bag] of [[3347, 52, 0xd08a5a], [2980, -60, 0xb7c0a0], [2662, -40, 0xc8a060], [3352, 66, 0x9aa8b0]]) { if (townWalkers.length >= 2) break // ★2026-07-11 買い物通行人の種を商店街/しんみせ(旧2745,-118 / 2740,-150)から、ファミマ通り/北/西へ移設＝しんみせ付近の密度(周辺10人>CAP8)を下げてVRM化の溢れ/遅延を解消（ユーザー「しんみせ付近がトゥーンのまま・モブをもっと散らして」）。買い物客は別の店エリアへ分散＝賑わいは保つ。袋の色ばらつき＝別人
+  for (const [sx, sz, bag] of [[3347, 52, 0xd08a5a], [3280, -258, 0xb7c0a0], [2662, -40, 0xc8a060], [3352, 66, 0x9aa8b0]]) { if (townWalkers.length >= 2) break // ★2026-07-11 買い物通行人の種＝ファミマ通り/三ツ池方面の道中へ。旧(2980,-60)は しんみせ→二ツ池の道で犬散歩の種と重なり昼CAP8に張り付いた(_daycrowd実測)→三ツ池方面の手薄な道(3280,-258)へ移設＝道の混雑を分散（ユーザー「全箇所 分散を徹底」）。買い物客は別の店エリアへ分散＝賑わいは保つ。袋の色ばらつき＝別人
     const route = roadRouteNear(sx, sz, 42); if (!route) continue
     if (townWalkers.some((w) => Math.hypot(w.route[0][0] - route[0][0], w.route[0][1] - route[0][1]) < 40)) continue // 近すぎる2人を避ける
     townWalkers.push(makeTownWalker(route, bag))
@@ -10134,7 +10134,7 @@ addChatPair(2980, -300, 1.2) // 谷戸の道＝神明社の下手の平らな道
 addChatPair(3818, -726, 1.0) // 三ツ池公園の池端（散歩の人の立ち話）
 addChatPair(2788, -1168, -0.35) // 駒岡＝ジャスコの駐車場ぎわ（買い物帰りの立ち話・町の活気2026-07-07）
 addChatPair(2836, -1240, 1.35) // 駒岡＝鶴見川の土手の上（夕涼みの立ち話）
-addChatPair(3050, 13, 0.4)  // 第三公園のブランコぎわ（公園に必ず人を。園庭のユーザーピン移設2026-07-02に追従）
+addChatPair(3360, -330, 1.0)  // ★2026-07-11 旧(3050,13)第三公園＝朝の通りが昼CAP8に張り付く一因(_daycrowd)。三ツ池方面の道中の手薄な所へ散らす（ユーザー「全箇所 分散を徹底・三ツ池方面までOK」）。第三公園はブランコの子(addParkKids 3058,11)が残る＝無人にしない
 // ── 空気中の光の粒（ふわふわ漂う埃／花粉）＝生気と奥行き ──
 {
   const N = 140
@@ -17836,6 +17836,14 @@ window.__proto3d = {
   _peds() { return { n: pedestrians.length, at: pedestrians.map((p) => ({ x: +p.position.x.toFixed(0), z: +p.position.z.toFixed(0) })) } }, // 検証用：賑わいの通行人(anchor由来)の人数/位置＝どのanchorが道に着いたか（人配置の分散・追加の確認2026-07-10）
   _bikers() { const at = bikeRiders.map((w) => { const p = w.person.position; return { x: +p.x.toFixed(1), z: +p.z.toFixed(1), vis: w.person.visible, ry: +w.person.rotation.y.toFixed(2), r0: w.route[0], rN: w.route[w.route.length - 1] } }); return { n: bikeRiders.length, at } }, // 検証用：自転車で通る人の人数/位置/向き/経路端
   _bikeStop() { for (const w of bikeRiders) w.sp = 0; return bikeRiders.length }, // 検証用：その場に止める（こぐアニメは続く・姿勢の寄り撮影用）
+  _daycrowd() { // 検証用：昼に実際に見える住人だけで各地点のVRM候補数を数える＝夜/祭りの提灯行列(runGroups.night)と会場ゲート(gateObj)を除外＝_loadResidents強制ロードの過大計上を排除。分散の判断材料
+    const nightSet = new Set(); for (const G of runGroups) if (G.night) { nightSet.add(G.a); nightSet.add(G.b) }
+    const fixedSet = new Set(yatoFolk) // 名前付き店番/おばあちゃん等（makeYatoResident＝話せる住人）＝固定・動かさない。VRM cfgにinfoが載らないのでtoon参照で判定
+    const rs = vrmResidents.filter((r) => !r.cfg.gateObj && !nightSet.has(r.toon)).map((r) => { const p = r.toon.position; const c = r.cfg
+      return { x: Math.round(p.x), z: Math.round(p.z), show: Math.round(Math.sqrt(c.show2 || 120 * 120)), kind: c.kind || '', mov: !fixedSet.has(r.toon) } }) // mov=動かせる背景モブ（立ち話/通行人/遊ぶ子/所作）・固定=名前付き
+    for (const a of rs) { let n = 0, nm = 0; for (const b of rs) { const dx = a.x - b.x, dz = a.z - b.z; if (dx * dx + dz * dz < b.show * b.show) { n++; if (b.mov) nm++ } } a.crowd = n; a.movN = nm } // movN=そのうち動かせる数
+    return rs
+  },
   _setVista(fogFar, camFar) { window.__freezeCam = true; if (scene.fog) { scene.fog.near = Math.max(60, fogFar * 0.4); scene.fog.far = fogFar } camera.far = camFar; camera.updateProjectionMatrix(); renderer.render(scene, camera) }, // 検証用：屋上/飛行の眺望条件（霧far・カメラfar）を固定して描画＝遠景の山並みの確認
   _hillStats() { let n = 0, vis = 0; scene.traverse((o) => { if (o.name && (o.name === 'yatoFarCity' || o.name === 'yatoFarFuji' || o.name.startsWith('yatoFarHills'))) { n++; if (o.visible) vis++ } }); return { meshes: n, visible: vis, chunkObjs: yatoChunks.length } }, // 検証用：遠景の市街シルエット帯/富士メッシュの数/表示状態（チャンクに巻き込まれて消えていないか。旧yatoFarHillsは撤去済）
   _groundY(x, z) { return heightAt(x, z) }, // 検証用：地面の標高（スクショのカメラ高さ合わせ）
