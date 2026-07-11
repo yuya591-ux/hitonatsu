@@ -2537,6 +2537,13 @@ const shopkeepers = [] // 店番（昼〜夕に店先に立つ・主人公に気
 let yokomizoYard = null // 横溝屋敷の前庭（あとで にわとり を放す。buildYokomizoで代入）
 let YOKOMIZO = null // 横溝屋敷の中心（buildYokomizoで代入）。おばあさん/無人販売所がこれを基準に配置＝屋敷を動かしても付いてくる
 try { const u = new URLSearchParams(location.search); if (u.has('v')) villageLevel = Math.max(0, Math.min(2, +u.get('v') | 0)); else villageLevel = Math.max(0, Math.min(2, +(localStorage.getItem('hn3d_village') || 0) | 0)) } catch (e) {}
+// ── 検証用キルスイッチ（発熱の切り分け専用）。URLパラメータが無ければ全て false ＝ デフォルトの挙動・描画は一切変わらない（下の各分岐が実行されないため）──
+//   ?noprepass=1 … 法線/深度プリパス（シーンの2度目描画）を停止＋postPass(輪郭/DOF)もバイパス
+//   ?prehalf=1  … プリパスは残すが移動中も2フレームに1回へ間引く
+//   ?minpost=1  … EffectComposerを RenderPass + FXAA のみに（godray/bloom/grade/postPassをバイパス）
+//   ?hud=1      … 画面左上にFPS/フレーム時間/ドローコール等の小さな計測オーバーレイ（pointer-events:none）
+const __KS = { noprepass: false, prehalf: false, minpost: false, hud: false }
+try { const _ksu = new URLSearchParams(location.search); __KS.noprepass = _ksu.get('noprepass') === '1'; __KS.prehalf = _ksu.get('prehalf') === '1'; __KS.minpost = _ksu.get('minpost') === '1'; __KS.hud = _ksu.get('hud') === '1' } catch (e) {}
 function buildShishigaya() {
   const gw = SG.half * 2 + WEST_EXT, gcx = SG.gx0 - WEST_EXT / 2 // 西へWEST_EXTだけ広げた地面（中心を西へずらす＝師岡まで地続き。heightAtYatoは±half外を縁の値でクランプ＝平らに延びる）
   for (const wt of SG.waters) if (wt.p.length >= 3) { let wy = 1e9; for (const q of wt.p) { const h = heightAtYato(q[0], q[1]); if (h < wy) wy = h } wt.flatY = wy + 0.15 } // 池ごとのフラット水面＝岸の最低点+0.15（P0-3。従来の“地形+0.2に追従するうねる水”は池の中で地面が顔を出し泥沼に見えた）
@@ -16510,6 +16517,33 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
 freezeStaticMatrices() // 起動時に1回（この時点で静的ワールド・生き物・洗濯物・祭り会場はすべて生成済み。会場は不可視＝踊り手ごと凍結）
 buildYatoFogGrid() // A2：霧の彼方カリング用のセルグリッドを1回構築（yatoStatics/チャンク/洗濯布が揃った後）
 
+// ── 検証用HUD（?hud=1のときだけ生成・更新。無指定なら一切触らない）──
+let __hudEl = null, __hudT0 = 0, __hudStart = 0, __hudLog = [], __hudFirstN = 0, __hudFirstFps = 0, __hudFirstDone = false, __hudCalls = 0, __hudTris = 0, __hudDrawT = 0
+function __hudActiveList() { const a = []; if (__KS.noprepass) a.push('noprepass'); if (__KS.prehalf) a.push('prehalf'); if (__KS.minpost) a.push('minpost'); if (__KS.hud) a.push('hud'); return a.length ? a.join(' + ') : '(なし)' }
+function __hudInit() { const el = document.createElement('div'); el.id = 'ks-hud'
+  el.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99999;pointer-events:none;font:11px/1.45 ui-monospace,monospace;color:#e8f0ff;background:rgba(10,16,28,0.55);padding:6px 8px;border-radius:6px;white-space:pre;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.6)'
+  document.body.appendChild(el); __hudEl = el }
+function __hudTick(now, cpuMs) {
+  if (!__hudEl) __hudInit()
+  if (!__hudStart) __hudStart = now
+  __hudLog.push([now, cpuMs]); while (__hudLog.length && __hudLog[0][0] < now - 30000) __hudLog.shift() // 直近30秒のフレームだけ保持
+  const elapsed = (now - __hudStart) / 1000
+  if (!__hudFirstDone) { if (elapsed <= 30) __hudFirstN++; else { __hudFirstDone = true; __hudFirstFps = __hudFirstN / 30 } } // 初期30秒の平均FPSを一度だけ確定
+  if (now - __hudDrawT < 250) return // DOM更新は約4Hzに間引く（計測は毎フレーム＝HUD自身の描画負荷を測定に乗せない）
+  __hudDrawT = now
+  let n1 = 0, msSum = 0, msMax = 0, n30 = 0
+  for (const e of __hudLog) { if (e[0] > now - 1000) { n1++; msSum += e[1]; if (e[1] > msMax) msMax = e[1] } if (e[0] > now - 30000) n30++ }
+  const avg = n1 ? msSum / n1 : 0
+  const fps30 = n30 / (Math.min(30, elapsed) || 1)
+  const drop = (__hudFirstDone && __hudFirstFps > 0.1) ? ((__hudFirstFps - fps30) / __hudFirstFps * 100) : null
+  __hudEl.textContent =
+    'FPS ' + n1 + '  (上限 ' + __fpsCap + ')\n' +
+    'cpu ' + avg.toFixed(1) + ' / ' + msMax.toFixed(1) + ' ms (avg/max)\n' +
+    'draw ' + __hudCalls + '  tri ' + (__hudTris / 1000).toFixed(0) + 'k\n' +
+    'switch: ' + __hudActiveList() + '\n' +
+    't ' + elapsed.toFixed(0) + 's  first30 ' + (__hudFirstDone ? __hudFirstFps.toFixed(1) : '—') + ' / last30 ' + fps30.toFixed(1) + '  低下 ' + (drop == null ? '—' : drop.toFixed(0) + '%')
+}
+
 renderer.setAnimationLoop(() => { try {
   frameAcc += Math.min(clock.getDelta(), 0.1)
   // フレーム上限：通常は30fps。タイトル(はがき)中はカメラがごくゆっくり流れるだけなので18fpsに落とす＝
@@ -16524,6 +16558,7 @@ renderer.setAnimationLoop(() => { try {
   if (frameAcc < _fpsMin && !__captureQueue.length) return // A4：キャプチャ要求がある時は間引かず必ず描画→直後に読む
   const realInterval = Math.min(frameAcc, 0.25) // C2：実際のフレーム間隔（描画時点の蓄積時間・大外れは0.25でクランプ）
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
+  if (__KS.hud) { __hudT0 = performance.now(); renderer.info.autoReset = false; renderer.info.reset() } // KILLSWITCH ?hud：このフレームの全描画（プリパス＋全パス）のdraw/triを合算するため一時的にautoResetを止めて0化
   pollGamepad(); applyPadLook(dt) // コントローラー：スティック/ボタンを読み、右スティックで視点を回す（移動は各移動式でpad.lx/lyを参照）
   vrmPilotTick(dt) // 画風パス②パイロット：近づいたら遅延読込＋呼吸/まばたき/視線（未読込時は距離チェックのみ＝ほぼゼロコスト）
   // 画面録画など外的な割り込みでAudioContextが勝手に止まると、ゲーム音が消えて変な音だけ残ることがある→表示中で音ONなら自動で復帰（背景化はdocument.hiddenなので除外＝意図したsuspendは尊重）
@@ -16559,6 +16594,7 @@ renderer.setAnimationLoop(() => { try {
   const dofOn = !aerial && !fpv && mode !== 'sit' && mode !== 'lie' && !(settings && settings.light)
   postPass.uniforms.uInkOn.value = inkOn ? 1 : 0; postPass.uniforms.uDofOn.value = dofOn ? 1 : 0
   postPass.enabled = inkOn || dofOn
+  if (__KS.noprepass) postPass.enabled = false // KILLSWITCH ?noprepass：プリパスを止めると法線/深度RTが更新されず輪郭/DOFが破綻するため、postPass自体もバイパス
   const camMoved = camera.position.distanceToSquared(_prevCamPos) > 1e-5 || Math.abs(camera.quaternion.dot(_prevCamQuat)) < 0.999995 || mode !== 'walk' || moving
   _prevCamPos.copy(camera.position); _prevCamQuat.copy(camera.quaternion)
   cullYatoChunks() // 谷戸の巨大メッシュをチャンク化したぶんの距離カリング（fog far+余裕より遠いチャンクを非表示・カメラ確定後＝この場フレームで反映）。フラスタムカリングは Three.js が描画時に自動で行う
@@ -16568,7 +16604,8 @@ renderer.setAnimationLoop(() => { try {
   //   近くの動く物に対しては会話ズーム等でcamMoved=毎フレームになるため実害は小さい。完全に静的な景色ではプリパスは不変＝画は同一。
   if (camMoved) staticFrames = 0; else staticFrames++
   const prepassInterval = Math.min(6, 2 + (staticFrames >> 4)) // 静止16フレームごとに間隔+1（2→3→…→6でキャップ）
-  if ((inkOn || dofOn) && (camMoved || (nrtTick % prepassInterval === 0))) {
+  const _ksPrepassMoved = (__KS.prehalf && camMoved) ? (nrtTick % 2 === 0) : camMoved // KILLSWITCH ?prehalf：移動中もプリパスを2フレームに1回へ。未指定時は camMoved そのもの＝下の条件は元の式と恒等
+  if (!__KS.noprepass && (inkOn || dofOn) && (_ksPrepassMoved || (nrtTick % prepassInterval === 0))) { // KILLSWITCH ?noprepass：先頭ガードで停止。未指定時は !false && (元の条件) ＝ 元の条件と恒等
     __prepassRuns++
     scene.overrideMaterial = normalMat; camera.layers.disable(1)
     const _mainFar = camera.far // プリパスだけfarを絞って300m先を描かない（出力は同一＝上のPREPASS_FARの注記）。屋上のfog拡張等でcamera.farが変わっていてもmin側に倒す
@@ -16577,7 +16614,10 @@ renderer.setAnimationLoop(() => { try {
     camera.far = _mainFar; camera.updateProjectionMatrix()
     renderer.setRenderTarget(null); scene.overrideMaterial = null; camera.layers.enable(1)
   }
+  if (__KS.minpost) { godrayPass.enabled = false; bloom.enabled = false; gradePass.enabled = false; postPass.enabled = false } // KILLSWITCH ?minpost：毎フレーム強制OFF（godray/postPassは他所で毎フレームenabledを書くため一括OFFでは不十分）＝RenderPass+FXAAのみ
+  if (window.__perf) { const p = window.__perf; if (p.godray != null) godrayPass.enabled = p.godray; if (p.bloom != null) bloom.enabled = p.bloom; if (p.grade != null) gradePass.enabled = p.grade; if (p.post != null) postPass.enabled = p.post } // 計測用：各ポストパスを個別に上書き（window.__perf未設定なら何もしない＝既定不変。Phase1のコスト計測専用）
   composer.render()
+  if (__KS.hud) { const _n = performance.now(); __hudCalls = renderer.info.render.calls; __hudTris = renderer.info.render.triangles; renderer.info.autoReset = true; __hudTick(_n, _n - __hudT0) } // KILLSWITCH ?hud：この描画フレームのdraw/tri（プリパス＋全パス合算）を読み、autoResetを既定に戻してHUD更新
   // A4：描画直後（このタスク内・ブラウザの合成前）にキャプチャ要求を処理＝preserveDrawingBuffer無しでもcanvasが空にならない
   if (__captureQueue.length) { const q = __captureQueue; __captureQueue = []; for (const cb of q) { try { cb(renderer.domElement) } catch (e) {} } }
   // C2：発熱スロットリング検知＝通常プレイ(30fps目標)で描画が追いつかない状態が「実プレイC2_GRACE秒を過ぎてから」続いたら軽量モードを一度だけ提案。放置24fps/飛行/タイトル/軽量中は除外。
@@ -17480,6 +17520,10 @@ window.__proto3d = {
   VBMAP, get vrmBoy() { return vrmBoy }, get vrmBoyState() { return vrmBoyState }, // 検証用：VRM主人公の写し符号/取り付け寸法のライブ調整
   get vrmResidentState() { return vrmResidentState }, get vrmResidents() { return vrmResidents }, get vrmResLiveCount() { return vrmResLiveCount }, _loadResidents() { if (vrmResidentState === 0) startVrmResident(); for (const r of vrmResidents) if (r.state === 'idle') prepareResidentVrm(r) }, _forceShowResidents() { for (const r of vrmResidents) { if (r.state !== 'prepared' || !r.vrm) continue; r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false } }, // 検証用：住人VRMを上限無視で全員準備＋強制表示（撮影用）
   get renderer() { return renderer }, _glInfo() { return { tex: renderer.info.memory.textures, geo: renderer.info.memory.geometries, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, glLost: __glLost } }, // 検証用：GPUリソース量（住人VRM追加のcontext lost診断・今後のperf検証）
+  __ks: __KS, // 計測用：キルスイッチ実体を公開＝ランタイムでprepass/prehalf/minpostを切替（Phase1のコスト計測用。URLパラメータと同じ効果）
+  __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
+  __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
+  __perfDPR(cap) { pixelRatioCap = cap; resize(); return renderer.getPixelRatio() }, // 計測用：描画解像度(DPR上限)を一時変更してフィルレート感度を測る（resizeでRT/コンポーザ追従。cap=1で等倍・3でDSF3フル）
   get _camDist() { return camCtl.dist }, // 検証用：追従カメラの現在距離（VRM時の寄せ確認）
   _vbApplyOnce() { const f = window.__vbFreeze; window.__vbFreeze = false; vrmBoyTick(0.001); window.__vbFreeze = f }, // 検証用：今のuserDataポーズを実際の写し式で1回だけVRMへ反映（真横フリーズ撮影用）
   _setBoyPose(p) { const u = boy.userData; for (const k in p) if (u[k]) u[k].rotation.x = p[k] }, // 検証用：プロシージャル骨に手ポーズを直接入れる
