@@ -796,7 +796,9 @@ SEAT.y = heightAt(SEAT.x, SEAT.z)
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }) // A4：preserveDrawingBuffer廃止（TBDR/iPhoneの毎フレーム保持コスト削減）。画面のキャプチャは「描画直後に同じタスク内でcanvasを読む」方式へ統一（requestFrameCapture／絵日記のrenderDiaryViewは自前render直後に同期読み）
 let pixelRatioCap = 1.30 // ピクセル比の上限（発熱対策）。案A再投資：プリパス/godray/CSSぼかし削減で浮いた予算を鮮鋭度へ1.25→1.30。軽量/中モードは1.0のまま。★実機で熱ければ1.25へ戻すのが安全網（フィル律速はheadless計測不可）
 let __adaptScale = 1, __adaptCd = 0, __adaptEnabled = false // C4（動的解像度・2026-07-11）：発熱/高負荷でフレームが落ちる時だけ描画解像度を段階的に下げ(×1→0.86→0.72)、余裕が戻ったら戻す。調査上は画素数削減が発熱に効くが──★実機FB(2026-07-11)で既定OFFに変更＝(1)解像度変更のたびresize()がGPUバッファ(コンポーザ/ブルーム/法線+深度RT)を再確保→自転車走行中にFPSがしきい値(約23fps)を上下するたびヒッチ＝「定期的に画面が一瞬チラつき暗転」の主因、(2)0.72倍まで落ちて画質低下(ユーザー「以前より画質が悪い」)。発熱は"チラつかない"手段で担う＝手動モード(中くらい/軽量＝解像度1.0)＋負荷持続時の軽量モード提案トースト。__adaptScale=1で固定→解像度は pixelRatioCap で安定→走行中のresizeゼロ＝チラつき無し・画質フル。※_adapt()デバッグフックとモード切替の解像度追従は引き続き機能（再有効化は__adaptEnabled=trueで可能・非破壊）
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap * __adaptScale)) // 発熱対策でさらに控えめ（動的解像度の係数込み）
+let __fpvDprOn = false // ★主観視点の鮮鋭化（2026-07-12実機FB「特に主観でガビガビ」）＝地上の主観視点中だけDPR上限を1.30→1.50に上げる。状態が変わった時だけresize（毎フレームのRT再確保はしない＝チラつき無し。切替の1回は視点カットに隠れる）
+const effDprCap = () => (__fpvDprOn && pixelRatioCap === 1.30) ? 1.50 : pixelRatioCap // 1.30ちょうど（標準モード）の時のみブースト＝軽量/中くらい(1.0)の約束と計測フック(__perfDPR)の手動値には効かせない。空中(浮遊/飛行)は発熱優先で据え置き
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, effDprCap() * __adaptScale)) // 発熱対策でさらに控えめ（動的解像度の係数込み）
 renderer.outputColorSpace = THREE.SRGBColorSpace
 // トゥーンの明るく彩度のある色を保つため、Neutral トーンマップ（ACESは色がくすむ）
 renderer.toneMapping = THREE.NeutralToneMapping
@@ -11022,7 +11024,7 @@ composer.addPass(fxaaPass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap * __adaptScale)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0）＋C4動的解像度の係数（重い時だけ下がる）
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, effDprCap() * __adaptScale)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0・地上の主観視点は1.50）＋C4動的解像度の係数（重い時だけ下がる）
   renderer.setSize(w, h)
   composer.setSize(w, h)            // EffectComposer内部の読み書きRT（全ポストプロセス）を追従
   bloom.setSize(w / 2, h / 2)       // ブルームは半解像度を維持
@@ -16567,6 +16569,8 @@ renderer.setAnimationLoop(() => { try {
   if (frameAcc < _fpsMin && !__captureQueue.length) return // A4：キャプチャ要求がある時は間引かず必ず描画→直後に読む
   const realInterval = Math.min(frameAcc, 0.25) // C2：実際のフレーム間隔（描画時点の蓄積時間・大外れは0.25でクランプ）
   const dt = Math.min(frameAcc, 0.05); frameAcc = 0
+  { const wantFpvDpr = fpv && !flying && !floatMode && !titleView // ★地上の主観視点だけDPR1.50へ（2026-07-12「主観がガビガビ」）。空中はfpvでも据え置き＝発熱優先。変化した時だけresize＝切替カットに隠れる1回きり
+    if (wantFpvDpr !== __fpvDprOn) { __fpvDprOn = wantFpvDpr; try { resize() } catch (e) {} } }
   if (__KS.hud) { __hudT0 = performance.now(); renderer.info.autoReset = false; renderer.info.reset() } // KILLSWITCH ?hud：このフレームの全描画（プリパス＋全パス）のdraw/triを合算するため一時的にautoResetを止めて0化
   pollGamepad(); applyPadLook(dt) // コントローラー：スティック/ボタンを読み、右スティックで視点を回す（移動は各移動式でpad.lx/lyを参照）
   vrmPilotTick(dt) // 画風パス②パイロット：近づいたら遅延読込＋呼吸/まばたき/視線（未読込時は距離チェックのみ＝ほぼゼロコスト）
