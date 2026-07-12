@@ -258,9 +258,24 @@
       #settings { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 28; }
       #settings.on { display: flex; }
-      .set-card { width: min(86vw, 420px); max-height: 90dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
+      .set-card { width: min(86vw, 420px); max-height: 90dvh; display: flex; flex-direction: column; overflow: hidden; padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
         box-shadow: 0 12px 40px rgba(0,0,0,0.4); text-align: center; }
       .set-card h2 { margin: 0 0 0.8em; font-size: clamp(19px,4.2vw,26px); color: #4a4032; letter-spacing: 0.1em; }
+      /* ── たんす式せってい（A案・2026-07-12）：中身だけスクロール＋引き出しの開閉 ── */
+      .set-body { overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
+      #settings.on .set-card { animation: setPop 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+      @keyframes setPop { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+      .set-group { margin: 0.42em 0; border: 1px solid rgba(150,130,90,0.22); border-radius: 12px; background: rgba(255,252,244,0.65); overflow: hidden; }
+      .set-g-h { appearance: none; border: none; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.6em;
+        padding: 0.6em 0.85em; background: transparent; font: inherit; font-size: clamp(14px,3vw,17px); color: #4a4032; letter-spacing: 0.04em; text-align: left; }
+      .set-g-h:active { background: rgba(150,140,118,0.14); }
+      .set-chev { font-style: normal; color: #9a8f78; transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1); }
+      .set-group.open .set-chev { transform: rotate(180deg); }
+      .set-g-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms cubic-bezier(0.16, 1, 0.3, 1); }
+      .set-group.open .set-g-body { grid-template-rows: 1fr; }
+      .set-g-inner { min-height: 0; overflow: hidden; padding: 0 0.85em; }
+      .set-g-inner .set-row:last-child { margin-bottom: 0.75em; }
+      @media (prefers-reduced-motion: reduce) { .set-g-body, .set-chev { transition: none; } #settings.on .set-card { animation: none; } }
       /* いまの時刻＝古い柱時計（クリーム面・茶色の枠と針）。本家のように今が何時か分かる */
       #set-clock { display: flex; flex-direction: column; align-items: center; gap: 0.3em; margin: 0 0 0.9em; }
       #set-clock-face { width: clamp(82px, 22vw, 104px); height: clamp(82px, 22vw, 104px); }
@@ -273,9 +288,8 @@
       #set-clock-label { font-size: clamp(14px,3vw,18px); color: #6a5e48; letter-spacing: 0.06em; }
       @media (orientation: landscape) and (max-height: 460px) { #set-clock { flex-direction: row; gap: 0.7em; margin-bottom: 0.5em; } #set-clock-face { width: 64px; height: 64px; } }
       /* 開発・実験用＝残すが目立たせない（小さく・薄く・下に。触れば不透明に戻る） */
-      .set-dev { margin-top: 1.1em; padding-top: 0.4em; border-top: 1px dashed rgba(150,130,90,0.3); opacity: 0.5; transition: opacity 0.2s; }
+      .set-dev { opacity: 0.55; transition: opacity 0.2s; border-style: dashed; } /* たんす式＝グループ枠に馴染ませる（点線枠＋薄め・2026-07-12） */
       .set-dev:hover, .set-dev:focus-within { opacity: 0.92; }
-      .set-dev-h { font-size: 11px; color: #9a8f78; letter-spacing: 0.12em; margin: 0 0 0.2em; }
       .set-dev .set-row { font-size: clamp(12px,2.4vw,14px); margin: 0.35em 0; }
       .set-dev .set-toggle { min-width: 64px; padding: 0.3em 0.7em; font-size: clamp(11px,2.2vw,13px); }
       .set-dev { display: none; } /* A4：開発ツールは本番では隠す。body.dev-on（タイトル5連打 or ?dev=1）の時だけ表示 */
@@ -407,6 +421,7 @@
       /* ── 横持ち(縦が短い)対応：モーダルが画面からはみ出して「閉じる」が見切れる問題を解消（縦余白を詰める＋カードは内部スクロール。max-heightと併用）── */
       @media (max-height: 540px) {
         .set-card, .guide-card { padding: 0.8em 1.2em 0.85em; max-height: 94dvh; }
+        .set-g-h { padding: 0.45em 0.75em; } /* 横持ちの低い画面＝引き出し見出しを少し詰める（2026-07-12） */
         .set-card h2, .guide-card h2 { margin-bottom: 0.4em; font-size: clamp(17px,3.4vw,22px); }
         .set-row { margin: 0.4em 0; font-size: clamp(13px,2.6vw,17px); }
         .set-toggle { padding: 0.32em 0.9em; }
@@ -497,6 +512,7 @@
       <div class="set-card">
         <button id="set-x" aria-label="とじる">×</button>
         <h2>せってい</h2>
+        <div class="set-body"><!-- 中身だけスクロール＝×とタイトルは常に見える（2026-07-12） -->
         <!-- いまの時刻（柱時計）＝本家のように、いつでも今が何時か分かる -->
         <div id="set-clock" aria-label="いまの時刻">
           <svg viewBox="0 0 100 100" id="set-clock-face" aria-hidden="true">
@@ -522,31 +538,61 @@
           </svg>
           <div id="set-clock-label">—</div>
         </div>
-        <div class="set-row"><span>おと（環境音・効果音）</span><button class="set-toggle" id="set-sound">ON</button></div>
-        <div class="set-row"><span>おんがく（オルゴール）</span><button class="set-toggle" id="set-bgm">ON</button></div>
-        <div class="set-row"><span>見まわす はやさ</span><button class="set-toggle on" id="set-sens">ふつう</button></div>
-        <div class="set-row"><span>画面のゆれを へらす</span><button class="set-toggle" id="set-motion">OFF</button></div>
-        <div class="set-row"><span>手描きの線（おもいとき OFF）</span><button class="set-toggle on" id="set-ink">ON</button></div>
-        <div class="set-row"><span>中くらいモード（線は残して 少し軽く・暑い時に）</span><button class="set-toggle" id="set-med">OFF</button></div>
-        <div class="set-row"><span>軽量モード（カクつく時・線とボケを省いて軽く）</span><button class="set-toggle" id="set-light">OFF</button></div>
-        <div class="set-row"><span>主観視点（一人称で見わたす）</span><button class="set-toggle" id="set-fpv">OFF</button></div>
-        <div class="set-row"><span>はじまりの場所（いまいる所にする）</span><button class="set-toggle" id="set-spawn">ここにする</button></div>
-        <div class="set-row"><span>はじまりの場所を 標準にもどす</span><button class="set-toggle" id="set-spawn-reset">もどす</button></div>
-        <div class="set-row"><span>むかしの田舎に寄せる（実験・いつでも戻せます）</span><button class="set-toggle" id="set-village">忠実</button></div>
-        <div class="set-row"><span>主人公のすがた（あたらしい男の子 ⇄ むかしの姿）</span><button class="set-toggle on" id="set-vrmboy">あたらしい</button></div>
-        <div class="set-row"><span>キャラのデータを本体に保存（機内モードでもVRM・押すと今すぐ）</span><button class="set-toggle" id="set-vrmdl">かくにん中…</button></div>
-        <div class="set-row"><span>🧭 おでかけモード（ほんものの獅子ヶ谷を歩くと、ゲームのじぶんも歩く・位置情報を使います）</span><button class="set-toggle" id="set-geo">OFF</button></div>
-        <div class="set-row"><span>🧭 位置あわせ（ずれたとき・いまの場所をここにする）</span><button class="set-toggle" id="set-geo-cal">あわせる</button></div>
-        <div class="set-row"><span>🎮 コントローラーのボタン（割当を見る・変える）</span><button class="set-toggle" id="set-pad">ひらく</button></div>
-        <!-- 開発・実験用：本番では隠す（A4＝商品の設定画面に開発ツールを出さない）。残置はするが、表示は「せってい」の見出しを5回タップ か ?dev=1 のときだけ（body.dev-on）。ユーザーは飛行モードを使うので簡単に出せるようにする -->
-        <div class="set-dev">
-          <div class="set-dev-h">― 開発・実験用 ―</div>
-          <div class="set-row"><span>🗺 ばしょマップ（場所をつたえる）</span><button class="set-toggle" id="set-map">ひらく</button></div>
-          <div class="set-row"><span>🏢 ビエント横濱菊名へ（確認用）</span><button class="set-toggle" id="set-biento" style="background:#c8956a">いく</button></div>
-          <div class="set-row"><span>✈ 飛んでみる（開発用）</span><button class="set-toggle" id="set-fly">とぶ</button></div>
+        <!-- たんす式（A案・2026-07-12）：6つの引き出しに整理。開くのは常に1つ＝メニューが短いまま。既存idは全部そのまま＝ハンドラ不変 -->
+        <div class="set-group">
+          <button class="set-g-h" type="button">🔊 おと<i class="set-chev">▾</i></button>
+          <div class="set-g-body"><div class="set-g-inner">
+            <div class="set-row"><span>おと（環境音・効果音）</span><button class="set-toggle" id="set-sound">ON</button></div>
+            <div class="set-row"><span>おんがく（オルゴール）</span><button class="set-toggle" id="set-bgm">ON</button></div>
+          </div></div>
+        </div>
+        <div class="set-group">
+          <button class="set-g-h" type="button">🎮 そうさ・カメラ<i class="set-chev">▾</i></button>
+          <div class="set-g-body"><div class="set-g-inner">
+            <div class="set-row"><span>見まわす はやさ</span><button class="set-toggle on" id="set-sens">ふつう</button></div>
+            <div class="set-row"><span>画面のゆれを へらす</span><button class="set-toggle" id="set-motion">OFF</button></div>
+            <div class="set-row"><span>主観視点（一人称で見わたす）</span><button class="set-toggle" id="set-fpv">OFF</button></div>
+            <div class="set-row"><span>🎮 コントローラーのボタン（割当を見る・変える）</span><button class="set-toggle" id="set-pad">ひらく</button></div>
+          </div></div>
+        </div>
+        <div class="set-group">
+          <button class="set-g-h" type="button">🔋 かるさ・でんち<i class="set-chev">▾</i></button>
+          <div class="set-g-body"><div class="set-g-inner">
+            <div class="set-row"><span>中くらいモード（線は残して 少し軽く・暑い時に）</span><button class="set-toggle" id="set-med">OFF</button></div>
+            <div class="set-row"><span>軽量モード（カクつく時・線とボケを省いて軽く）</span><button class="set-toggle" id="set-light">OFF</button></div>
+            <div class="set-row"><span>ひかりの しあげを 半分に（見た目ほぼそのまま・あついとき）</span><button class="set-toggle" id="set-posthalf">OFF</button></div>
+          </div></div>
+        </div>
+        <div class="set-group">
+          <button class="set-g-h" type="button">🎨 えの みため<i class="set-chev">▾</i></button>
+          <div class="set-g-body"><div class="set-g-inner">
+            <div class="set-row"><span>手描きの線（おもいとき OFF）</span><button class="set-toggle on" id="set-ink">ON</button></div>
+            <div class="set-row"><span>主人公のすがた（あたらしい男の子 ⇄ むかしの姿）</span><button class="set-toggle on" id="set-vrmboy">あたらしい</button></div>
+            <div class="set-row"><span>むかしの田舎に寄せる（実験・いつでも戻せます）</span><button class="set-toggle" id="set-village">忠実</button></div>
+            <div class="set-row"><span>キャラのデータを本体に保存（機内モードでもVRM・押すと今すぐ）</span><button class="set-toggle" id="set-vrmdl">かくにん中…</button></div>
+          </div></div>
+        </div>
+        <div class="set-group">
+          <button class="set-g-h" type="button">🏠 はじまり・おでかけ<i class="set-chev">▾</i></button>
+          <div class="set-g-body"><div class="set-g-inner">
+            <div class="set-row"><span>はじまりの場所（いまいる所にする）</span><button class="set-toggle" id="set-spawn">ここにする</button></div>
+            <div class="set-row"><span>はじまりの場所を 標準にもどす</span><button class="set-toggle" id="set-spawn-reset">もどす</button></div>
+            <div class="set-row"><span>🧭 おでかけモード（ほんものの獅子ヶ谷を歩くと、ゲームのじぶんも歩く・位置情報を使います）</span><button class="set-toggle" id="set-geo">OFF</button></div>
+            <div class="set-row"><span>🧭 位置あわせ（ずれたとき・いまの場所をここにする）</span><button class="set-toggle" id="set-geo-cal">あわせる</button></div>
+          </div></div>
+        </div>
+        <!-- 開発・実験用：本番では隠す（A4）。表示は「せってい」の見出し5回タップ/長押し か ?dev=1 のとき（body.dev-on） -->
+        <div class="set-group set-dev">
+          <button class="set-g-h" type="button">🛠 開発・実験用<i class="set-chev">▾</i></button>
+          <div class="set-g-body"><div class="set-g-inner">
+            <div class="set-row"><span>🗺 ばしょマップ（場所をつたえる）</span><button class="set-toggle" id="set-map">ひらく</button></div>
+            <div class="set-row"><span>🏢 ビエント横濱菊名へ（確認用）</span><button class="set-toggle" id="set-biento" style="background:#c8956a">いく</button></div>
+            <div class="set-row"><span>✈ 飛んでみる（開発用）</span><button class="set-toggle" id="set-fly">とぶ</button></div>
+          </div></div>
         </div>
         <button id="set-close">とじる</button>
         <button id="set-guide">あそびかたを みる</button>
+        </div><!-- /.set-body -->
       </div>
     </div>
     <!-- ばしょマップ：開発中だけ、場所をことばや座標でなく“タップ＋コピー”で伝える道具（ユーザー要望） -->

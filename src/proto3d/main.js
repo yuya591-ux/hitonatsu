@@ -17278,6 +17278,16 @@ const setCloseEl = document.getElementById('set-close')
 if (setCloseEl) setCloseEl.addEventListener('click', closeSettings)
 const setXEl = document.getElementById('set-x') // 右上の×でも閉じられる（横持ちでスクロール不要・必ず届く）
 if (setXEl) setXEl.addEventListener('click', closeSettings)
+// ── たんす式せってい（A案・2026-07-12）＝引き出しの開閉。開くのは常に1つ＝メニューがいつも短い ──
+for (const gh of document.querySelectorAll('.set-g-h')) gh.addEventListener('click', () => {
+  const g = gh.closest('.set-group'); if (!g) return
+  const was = g.classList.contains('open')
+  for (const o of document.querySelectorAll('.set-group.open')) o.classList.remove('open')
+  if (!was) g.classList.add('open')
+})
+// ── 外側タップ / Esc でも閉じる（スクロールで×まで戻るのが手間・実機要望2026-07-12）──
+if (settingsEl) settingsEl.addEventListener('click', (e) => { if (e.target === settingsEl) closeSettings() })
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && settingsEl && settingsEl.classList.contains('on')) closeSettings() })
 const setGuideEl = document.getElementById('set-guide')
 if (setGuideEl) setGuideEl.addEventListener('click', () => { if (settingsEl) settingsEl.classList.remove('on'); if (guideEl) guideEl.classList.add('on') }) // あそびかたを もう一度みる
 if (setSoundBtn) setSoundBtn.addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); applySound() })
