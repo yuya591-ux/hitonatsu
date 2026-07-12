@@ -16303,8 +16303,11 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     r.vrm = vrm
     try { if (renderer.compileAsync) await renderer.compileAsync(vrm.scene, camera, scene) } catch (_) {} // シェーダー事前コンパイル＝初回描画のストール(山②)を遠くへ追い出す（iOSでKHR拡張が無くても発生タイミングが近接フレームから外れる）
     try { for (const t of texList) renderer.initTexture(t) } catch (_) {} // テクスチャ先上げ＝表示時のGPUアップロードスパイクを消す
-    r.state = 'prepared'
-  } catch (e) { console.warn('住人VRMの準備失敗（従来のトゥーンで続行）', e); r.state = 'failed' }
+    r.state = 'prepared'; r.failN = 0
+  } catch (e) { console.warn('住人VRMの準備失敗', e); if (r.vrm) { try { disposeResidentVrm(r) } catch (_) {} } // 途中まで組んだVRMがあれば返してから仕切り直す（再準備の二重addを防ぐ）
+    r.failN = (r.failN || 0) + 1
+    if (r.failN >= 3) { r.state = 'failed' } // 3回失敗＝この体は今セッション諦めてトゥーン安全網（無限リトライの発熱を防ぐ）
+    else { r.state = 'idle'; r.noPrepT = 12 } } // ★1〜2回目の失敗は12秒後に自動リトライ（2026-07-12）＝iPhoneの一時的な負荷/読み込み不調で失敗した住人が「近くにいる限り永久にトゥーン」で固着しない（従来failedは500m離れるまで復活しなかった）
   finally { vrmResPrepCd = 0.55 } // 次の準備まで0.55秒あける＝GPUがコンパイル(山)の後に落ち着く間を作る（累積ピーク回避）。★0.9→0.55（2026-07-10）＝自転車で新しい人だかりへ乗り込んだ時に準備が追いつかず「到着後に目の前でパッ」になるのを軽減（実機で負荷余裕を確認済み）
 }
 function disposeResidentVrm(r) { // とても離れた(>150m)/むかしの姿のVRMを捨ててRAMを返す（再接近で prepare からやり直し）
@@ -16340,7 +16343,7 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   // ★保有上限KEEP=8（LRU・監査2026-07-10）：上限到達時は「候補が保有最遠より距離比0.8以上近い」場合だけ最遠を返して入れ替え＝しきい際の往復（0.9秒ごとのparse往復＝発熱源）を距離マージンで断つ
   if (!off && prepped > VRM_RES_KEEP && farKeep) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepped-- } // 上限超過は毎フレーム「表示していない最遠」から1体ずつ静かに返す（開発フック/往来の蓄積もここで絞られる）
-  else if (!off && nearIdle && !preparing && !flying && !floatMode && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10。★空中（浮遊/飛行）では準備を休止＝時速94kmで町を掃くと準備半径420mが全住人を舐め「捨てて作り直す」チャーンが数十回/横断＝空中では誰とも話せず上空からは豆粒（トゥーン）なので成果ゼロの発熱・カクつき源だった（実機FB「飛行中の発熱」2026-07-12）。着地で即再開・準備済みの表示/破棄はそのまま
+  else if (!off && nearIdle && !preparing && !(floatMode && playerSpeed > 12) && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10。★浮遊の「高速巡航中(>12m/s＝ふつう16/はやい26)」だけ準備を休止＝420mの準備半径が町を掃く「捨てて作り直す」チャーン（発熱源・実機FB2026-07-12）はそのまま断ちつつ、減速/ホバー/着地降下では即再開＝到着前に周辺を前倒し準備。※前版の「空中は全部休止」は移動が浮遊中心の実プレイで「着地後10〜30秒 町じゅうトゥーン」の窓を作る実機退行（2026-07-12夕FB「みんなトゥーンに戻った」の真因）／開発✈飛行は主人公が動かず掃かないのでゲート不要
     if (prepped < VRM_RES_KEEP) prepareResidentVrm(nearIdle)
     else if (farKeep && nearIdleD2 < farKeep.cd2 * 0.64) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepareResidentVrm(nearIdle) } // cd2比0.64＝距離比0.8。追い出した体は10秒再準備しない
   }
