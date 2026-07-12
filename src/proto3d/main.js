@@ -796,6 +796,7 @@ SEAT.y = heightAt(SEAT.x, SEAT.z)
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }) // A4：preserveDrawingBuffer廃止（TBDR/iPhoneの毎フレーム保持コスト削減）。画面のキャプチャは「描画直後に同じタスク内でcanvasを読む」方式へ統一（requestFrameCapture／絵日記のrenderDiaryViewは自前render直後に同期読み）
 let pixelRatioCap = 1.30 // ピクセル比の上限（発熱対策）。案A再投資：プリパス/godray/CSSぼかし削減で浮いた予算を鮮鋭度へ1.25→1.30。軽量/中モードは1.0のまま。★実機で熱ければ1.25へ戻すのが安全網（フィル律速はheadless計測不可）
 let __adaptScale = 1, __adaptCd = 0, __adaptEnabled = false // C4（動的解像度・2026-07-11）：発熱/高負荷でフレームが落ちる時だけ描画解像度を段階的に下げ(×1→0.86→0.72)、余裕が戻ったら戻す。調査上は画素数削減が発熱に効くが──★実機FB(2026-07-11)で既定OFFに変更＝(1)解像度変更のたびresize()がGPUバッファ(コンポーザ/ブルーム/法線+深度RT)を再確保→自転車走行中にFPSがしきい値(約23fps)を上下するたびヒッチ＝「定期的に画面が一瞬チラつき暗転」の主因、(2)0.72倍まで落ちて画質低下(ユーザー「以前より画質が悪い」)。発熱は"チラつかない"手段で担う＝手動モード(中くらい/軽量＝解像度1.0)＋負荷持続時の軽量モード提案トースト。__adaptScale=1で固定→解像度は pixelRatioCap で安定→走行中のresizeゼロ＝チラつき無し・画質フル。※_adapt()デバッグフックとモード切替の解像度追従は引き続き機能（再有効化は__adaptEnabled=trueで可能・非破壊）
+let __postHalfOn = false // ★半解像度ポスト（設定「ひかりの しあげを 半分に」・2026-07-12）＝settings.posthalfのミラー（resize()がsettings定義前に走ってもTDZで死なないための実体）。光の筋を半分の下塗りで計算＋ブルームの下塗りを1/2→1/4へ
 let __fpvDprOn = false // ★主観視点の鮮鋭化（2026-07-12実機FB「特に主観でガビガビ」）＝地上の主観視点中だけDPR上限を1.30→1.50に上げる。状態が変わった時だけresize（毎フレームのRT再確保はしない＝チラつき無し。切替の1回は視点カットに隠れる）
 const effDprCap = () => (__fpvDprOn && pixelRatioCap === 1.30) ? 1.50 : pixelRatioCap // 1.30ちょうど（標準モード）の時のみブースト＝軽量/中くらい(1.0)の約束と計測フック(__perfDPR)の手動値には効かせない。空中(浮遊/飛行)は発熱優先で据え置き
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, effDprCap() * __adaptScale)) // 発熱対策でさらに控えめ（動的解像度の係数込み）
@@ -10868,6 +10869,50 @@ const godrayPass = new ShaderPass({
     }`,
 })
 composer.addPass(godrayPass)
+// ★半解像度ポスト（設定「ひかりの しあげを 半分に」・2026-07-12）＝光の筋を「半分の下塗りRT」で計算し、全解像度では足し算2タップだけ。
+//   24タップ×全画素 → 24タップ×1/4画素＋合成＝太陽が画面にある時の塗り量を約1/4に。輪郭線・紙の質感・鮮明さは全解像度のまま不変（そこは触らない約束・実機相談2026-07-12）。
+//   ON/OFFはループ内でstrengthとsettingsに応じて godrayPass とどちらか一方だけをenable（両方同時には走らない）
+const godrayHalfRT = new THREE.WebGLRenderTarget(2, 2, { depthBuffer: false })
+const godrayShaftMat = new THREE.ShaderMaterial({
+  uniforms: { tDiffuse: { value: null }, lightPos: godrayPass.uniforms.lightPos, strength: godrayPass.uniforms.strength }, // lightPos/strengthは本パスの実体を共有＝既存の毎フレーム更新がそのまま両方に効く
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform vec2 lightPos; uniform float strength;
+    void main(){
+      const int N = 24; // 本パスと同じ照度式＝見た目を変えない（違いは解像度だけ）
+      vec2 uv = vUv;
+      vec2 delta = (uv - lightPos) * (0.5 / float(N));
+      float coreFade = smoothstep(0.02, 0.20, distance(vUv, lightPos));
+      float illum = 1.0;
+      vec3 ray = vec3(0.0);
+      for (int i = 0; i < N; i++) {
+        uv -= delta;
+        vec3 s = texture2D(tDiffuse, uv).rgb;
+        float b = max(0.0, max(s.r, max(s.g, s.b)) - 0.90);
+        ray += s * b * illum;
+        illum *= 0.95;
+      }
+      gl_FragColor = vec4(ray * (strength / float(N)) * 1.8 * coreFade, 1.0);
+    }`,
+})
+const godrayHalfPass = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, tRay: { value: null } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+  fragmentShader: 'varying vec2 vUv; uniform sampler2D tDiffuse; uniform sampler2D tRay; void main(){ gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb + texture2D(tRay, vUv).rgb, 1.0); }', // 光条は低周波＝バイリニア拡大で違いは見えない
+})
+godrayHalfPass.enabled = false
+const _ghpBase = godrayHalfPass.render.bind(godrayHalfPass) // 元のShaderPass.render（合成側）
+godrayHalfPass.render = function (rdr, writeBuffer, readBuffer, deltaTime, maskActive) {
+  const fq = this.fsQuad, m0 = fq.material
+  godrayShaftMat.uniforms.tDiffuse.value = readBuffer.texture
+  fq.material = godrayShaftMat
+  const rt0 = rdr.getRenderTarget()
+  rdr.setRenderTarget(godrayHalfRT); fq.render(rdr) // ①半分の下塗りに光の筋だけ描く
+  rdr.setRenderTarget(rt0)
+  fq.material = m0
+  this.uniforms.tRay.value = godrayHalfRT.texture
+  _ghpBase(rdr, writeBuffer, readBuffer, deltaTime, maskActive) // ②全解像度で 元絵＋筋 を合成
+}
+composer.addPass(godrayHalfPass)
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.42, 0.62, 0.89) // やわらかな“記憶のにじみ”。しきい値0.86→0.89・強さ0.46→0.42＝明るい雲が純白に飛ぶのを抑える（夢の質感は残しつつ白飛びを防ぐ・定量検証2026-06-27）。半解像度
 composer.addPass(bloom)
 
@@ -11043,9 +11088,10 @@ function resize() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, effDprCap() * __adaptScale)) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0・地上の主観視点は1.50）＋C4動的解像度の係数（重い時だけ下がる）
   renderer.setSize(w, h)
   composer.setSize(w, h)            // EffectComposer内部の読み書きRT（全ポストプロセス）を追従
-  bloom.setSize(w / 2, h / 2)       // ブルームは半解像度を維持
+  bloom.setSize(w / (__postHalfOn ? 4 : 2), h / (__postHalfOn ? 4 : 2)) // ブルームは半解像度を維持。★「ひかりの しあげを 半分に」ON時はさらに1/4＝にじみ玉は低周波なので見た目差ほぼ無し（2026-07-12）
   gradePass.uniforms.texel.value.set(1 / w, 1 / h) // 水彩のエッジ/にじみ用の1テクセル幅
   const db = renderer.getDrawingBufferSize(new THREE.Vector2())
+  godrayHalfRT.setSize(Math.max(2, Math.round(db.x / 2)), Math.max(2, Math.round(db.y / 2))) // 光の筋の半分下塗りRT＝実解像度の1/2に追従
   try { fxaaPass.material.uniforms.resolution.value.set(1 / db.x, 1 / db.y) } catch (e) {} // FXAAは実解像度の1テクセル幅で隣の画素を読む＝解像度変更(回転/動的解像度)に必ず追従
   // ★輪郭線(インク)の法線/深度RTを実解像度へ。THREEの setSize は色texのみで depthTexture を追従しないため、
   //   サイズが変わったら depthTexture を作り直す。これを怠ると回転後に“古いサイズの深度バッファ”が残り、
@@ -14550,7 +14596,9 @@ function update(dt) {
   // 流れる雲の影（B1）：ゆっくり流れる＋昼に最も濃く・夜と雨でうすれる（夜は影が見えない・雨は曇って影が消える）。地面の均一な緑に動きと陰影
   cloudShadowU.uCloudTime.value = tsec
   cloudShadowU.uCloudAmt.value = 0.13 * (1 - nightFactor(tday)) * (1 - weather * 0.85) * (0.45 + 0.55 * THREE.MathUtils.smoothstep(tday, 0.16, 0.42)) // 朝はうっすら→昼に最大・控えめ
-  godrayPass.enabled = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
+  { const _gOn = godrayPass.uniforms.strength.value > 0.001 // 太陽が画面外/夜は丸ごとスキップ＝軽量化
+    godrayPass.enabled = _gOn && !__postHalfOn // ★「ひかりの しあげを 半分に」ON時は半解像度版だけを走らせる（両方同時には走らない・2026-07-12）
+    godrayHalfPass.enabled = _gOn && __postHalfOn }
 
   // ★移動スティックの“貼り付き”自己修復：一度ポインタキャプチャを保持したのに外れた（＝指を離した/重い処理でpointerupを取りこぼした）ら解除し、走り続けを止める。0.25秒の猶予でキャプチャの一瞬の揺れは無視。※hadCaptureを見るのはキャプチャ非対応ブラウザで正常な長押しを誤って切らないため（そこはイベント側nets=lostpointercapture/blurに任せる）
   if (puni.active && puni.id >= 0) {
@@ -16646,8 +16694,8 @@ renderer.setAnimationLoop(() => { try {
     camera.far = _mainFar; camera.updateProjectionMatrix()
     renderer.setRenderTarget(null); scene.overrideMaterial = null; camera.layers.enable(1)
   }
-  if (__KS.minpost) { godrayPass.enabled = false; bloom.enabled = false; gradePass.enabled = false; postPass.enabled = false } // KILLSWITCH ?minpost：毎フレーム強制OFF（godray/postPassは他所で毎フレームenabledを書くため一括OFFでは不十分）＝RenderPass+FXAAのみ
-  if (window.__perf) { const p = window.__perf; if (p.godray != null) godrayPass.enabled = p.godray; if (p.bloom != null) bloom.enabled = p.bloom; if (p.grade != null) gradePass.enabled = p.grade; if (p.post != null) postPass.enabled = p.post } // 計測用：各ポストパスを個別に上書き（window.__perf未設定なら何もしない＝既定不変。Phase1のコスト計測専用）
+  if (__KS.minpost) { godrayPass.enabled = false; godrayHalfPass.enabled = false; bloom.enabled = false; gradePass.enabled = false; postPass.enabled = false } // KILLSWITCH ?minpost：毎フレーム強制OFF（godray/postPassは他所で毎フレームenabledを書くため一括OFFでは不十分）＝RenderPass+FXAAのみ
+  if (window.__perf) { const p = window.__perf; if (p.godray != null) { godrayPass.enabled = p.godray && !__postHalfOn; godrayHalfPass.enabled = p.godray && __postHalfOn } if (p.bloom != null) bloom.enabled = p.bloom; if (p.grade != null) gradePass.enabled = p.grade; if (p.post != null) postPass.enabled = p.post } // 計測用：各ポストパスを個別に上書き（window.__perf未設定なら何もしない＝既定不変。Phase1のコスト計測専用）
   composer.render()
   if (__KS.hud) { const _n = performance.now(); __hudCalls = renderer.info.render.calls; __hudTris = renderer.info.render.triangles; renderer.info.autoReset = true; __hudTick(_n, _n - __hudT0) } // KILLSWITCH ?hud：この描画フレームのdraw/tri（プリパス＋全パス合算）を読み、autoResetを既定に戻してHUD更新
   // A4：描画直後（このタスク内・ブラウザの合成前）にキャプチャ要求を処理＝preserveDrawingBuffer無しでもcanvasが空にならない
@@ -17155,7 +17203,7 @@ const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
 const setInkBtn = document.getElementById('set-ink')
-const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, med: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1, bigText: false, geo: false, vrmboy: true } // light=軽量モード（既定OFF＝フル品質）。med=中くらいモード（輪郭線は残したまま解像度/フレーム/VRM人数だけ落とす中間・既定OFF・lightと排他）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)。geo=おでかけモード（現地連動・既定OFF）。vrmboy=主人公のすがた（VRMの男の子・既定ON／OFFで従来の姿）
+const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, med: false, posthalf: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1, bigText: false, geo: false, vrmboy: true } // light=軽量モード（既定OFF＝フル品質）。med=中くらいモード（輪郭線は残したまま解像度/フレーム/VRM人数だけ落とす中間・既定OFF・lightと排他）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)。geo=おでかけモード（現地連動・既定OFF）。vrmboy=主人公のすがた（VRMの男の子・既定ON／OFFで従来の姿）
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
 const hadSavedSettings = (() => { try { return !!localStorage.getItem('hn3d_settings') } catch (e) { return false } })()
 try { Object.assign(settings, JSON.parse(localStorage.getItem('hn3d_settings') || '{}')) } catch (e) {}
@@ -17325,6 +17373,12 @@ if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
 const setLightBtn = document.getElementById('set-light')
 if (setLightBtn) setLightBtn.addEventListener('click', () => { settings.light = !settings.light; if (settings.light) settings.med = false; saveSettings(); applyLight(); showToast(settings.light ? '軽量モード ON（線とボケを省き 24fpsで 電池と発熱にやさしく）' : '軽量モード OFF（いつもの絵に もどしたよ）') }) // C3：軽量モードは常時24fps上限も兼ねる。中くらいとは排他
+// ── 半解像度ポスト「ひかりの しあげを 半分に」（2026-07-12・実機相談の推奨）＝光の筋を半分の下塗りで計算＋ブルーム下塗り1/2→1/4。輪郭線・紙・鮮明さは不変 ──
+const setPosthalfBtn = document.getElementById('set-posthalf')
+function applyPosthalf() { if (setPosthalfBtn) { setPosthalfBtn.textContent = settings.posthalf ? 'ON' : 'OFF'; setPosthalfBtn.classList.toggle('on', !!settings.posthalf) } }
+if (setPosthalfBtn) setPosthalfBtn.addEventListener('click', () => { settings.posthalf = !settings.posthalf; __postHalfOn = !!settings.posthalf; saveSettings(); applyPosthalf(); try { resize() } catch (e) {} // resize＝ブルーム下塗りサイズの追従
+  showToast(settings.posthalf ? 'ひかりの しあげを 半分の下塗りにしたよ（見た目ほぼそのまま・すこし涼しく）' : 'ひかりの しあげを もとに もどしたよ') })
+__postHalfOn = !!settings.posthalf; applyPosthalf(); if (__postHalfOn) { try { resize() } catch (e) {} } // 保存値を起動時に反映
 const setMedBtn = document.getElementById('set-med')
 if (setMedBtn) setMedBtn.addEventListener('click', () => { settings.med = !settings.med; if (settings.med) settings.light = false; saveSettings(); applyLight(); showToast(settings.med ? '中くらいモード ON（輪郭線は残して 解像度と人数をおさえ 24fpsで軽く）' : '中くらいモード OFF（いつもの絵に もどしたよ）') }) // 中くらい＝軽量ほど絵は寂しくならない中間（輪郭線＋DOFは残す／解像度1.0・24fps・VRM同時6）。applyLightがmedも見て解像度とボタンをまとめて反映
 const setFpvBtn = document.getElementById('set-fpv')
@@ -17565,6 +17619,7 @@ window.__proto3d = {
   __ks: __KS, // 計測用：キルスイッチ実体を公開＝ランタイムでprepass/prehalf/minpostを切替（Phase1のコスト計測用。URLパラメータと同じ効果）
   __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
   __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
+  _postHalf() { return { on: __postHalfOn, full: godrayPass.enabled, half: godrayHalfPass.enabled, rt: [godrayHalfRT.width, godrayHalfRT.height], bloom: bloom.renderTargetBright ? [bloom.renderTargetBright.width, bloom.renderTargetBright.height] : null } }, // 検証用：半解像度ポストの内部状態（設定ON/OFF・どちらのパスが生きているか・下塗りRTサイズ）
   __perfDPR(cap) { pixelRatioCap = cap; resize(); return renderer.getPixelRatio() }, // 計測用：描画解像度(DPR上限)を一時変更してフィルレート感度を測る（resizeでRT/コンポーザ追従。cap=1で等倍・3でDSF3フル）
   __perfPrepass(s) { PREPASS_SCALE = s; resize(); return PREPASS_SCALE }, // 計測用：プリパスRT倍率を実行時に変えて同一run内で比較（クロスrunのノイズを排除）
   get _camDist() { return camCtl.dist }, // 検証用：追従カメラの現在距離（VRM時の寄せ確認）
