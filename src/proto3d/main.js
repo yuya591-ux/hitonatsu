@@ -2867,11 +2867,12 @@ function buildShishigaya() {
   // ───── サンライズ直下の坂のランドマーク（住人情報）：谷側(NW)の駐車場入口(シャッター兼マンション入口)＋坂を下った先のゲームショップ「ビスコ」 ─────
   { const grp = new THREE.Group(); grp.name = 'sunriseSurround'; scene.add(grp)
     const mk = (geo, mat, x, y, z, sh) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (sh) { m.castShadow = true; m.receiveShadow = true } return m } // positionは非書込なので.setで設定
-    const ex = 2992, ez = 32, eg = heightAtYato(ex, ez) // (1) NW擁壁の足元のシャッター。道から短い下りスロープで車が入る＝駐車場入口兼マンション入口
-    grp.add(mk(new THREE.BoxGeometry(10, 0.4, 9), toon(0x8d8d88), ex, eg + 0.05, ez + 3.5, true)) // 駐車場前の舗装/下りスロープ床
-    grp.add(mk(new THREE.BoxGeometry(6.5, 3, 0.5), toon(0x60656b), ex, eg + 1.6, ez)) // シャッター本体
-    for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(6.5, 0.12, 0.56), toon(0x808790), ex, eg + 0.55 + i * 0.55, ez)) // シャッターの横桟
-    grp.add(mk(new THREE.BoxGeometry(8, 0.4, 2.6), toon(0xb0b0aa), ex, eg + 3.4, ez + 1.3, true)) // 入口の庇
+    // ★(1) NW擁壁の足元の駐車場シャッター一式＝実機写真の「変な壁（中央の暗い構造）」の正体（ユーザー2026-07-11「そんなものありません」→撤去）。非破壊＝if(false)で温存・戻す時はtrueに
+    if (false) { const ex = 2992, ez = 32, eg = heightAtYato(ex, ez) // NW擁壁の足元のシャッター。道から短い下りスロープで車が入る＝駐車場入口兼マンション入口
+      grp.add(mk(new THREE.BoxGeometry(10, 0.4, 9), toon(0x8d8d88), ex, eg + 0.05, ez + 3.5, true)) // 駐車場前の舗装/下りスロープ床
+      grp.add(mk(new THREE.BoxGeometry(6.5, 3, 0.5), toon(0x60656b), ex, eg + 1.6, ez)) // シャッター本体
+      for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(6.5, 0.12, 0.56), toon(0x808790), ex, eg + 0.55 + i * 0.55, ez)) // シャッターの横桟
+      grp.add(mk(new THREE.BoxGeometry(8, 0.4, 2.6), toon(0xb0b0aa), ex, eg + 3.4, ez + 1.3, true)) } // 入口の庇
     const sx = 2903, sz = -55, sg = heightAtYato(sx, sz), sry = faceRoad(sx, sz), shop = new THREE.Group(); shop.position.set(sx, sg, sz); shop.rotation.y = sry; shop.scale.set(1.5, 1.05, 1.4); grp.add(shop) // (2) ゲームショップ「ビスコ」：店先(+z)を最寄りの道に正対。旧(2898,-63)はOSM実位置の無線塔(2893,-67)が屋根を貫通→塔の真横(南12m)へ移設＝現実も塔の真横（ユーザー2026-07-02）
     addBox(sx, sz, 12, 9, sry, 0.3) // ビスコの当たり判定（移設先・見た目と同じ角度に統一）
     shop.add(mk(new THREE.BoxGeometry(11, 6, 8), toon(0xd9cdb0), 0, 3, 0, true))
@@ -4705,6 +4706,7 @@ function buildShishigaya() {
       if (Math.abs(tp[i][0] - POOL[0]) < 22 && Math.abs(tp[i][1] - POOL[1]) < 12) { tp.splice(i, 1); continue } // プール＋幼児プールの敷地の木を伐採
       if (Math.abs(tp[i][0] - ATH[0]) < 20 && Math.abs(tp[i][1] - ATH[1]) < 16) { tp.splice(i, 1); continue } // アスレチック広場の木を間引く
       if (Math.abs(tp[i][0] - 2960) < 5.2 && tp[i][1] > -343 && tp[i][1] < -318) { tp.splice(i, 1); continue } // 神明社の参道軸（鳥居→石段→拝殿）の見通しを開ける＝軸上の木を伐採。鎮守の森は脇(±5m外)に残す
+      if (tp[i][0] > 2994 && tp[i][0] < 3016 && tp[i][1] > 34 && tp[i][1] < 50) { tp.splice(i, 1); continue } // マンション北東面ぎわの木を伐採＝実機写真の「変な壁の右の木」（建物の顔に張り付き輪郭ハルが黒い塊に見え不気味・実物のこの面に木は無い・ユーザー2026-07-11）。25m東の芝の木(3030,49)は残す
       { let inFest = false; for (const [fx, fz] of [[2020, 338], [2903, -484], [2644, 383], [2952, 190]]) if (Math.hypot(tp[i][0] - fx, tp[i][1] - fz) < 16) { inFest = true; break } if (inFest) { tp.splice(i, 1); continue } } // 夏祭り会場（踊りの輪+屋台の円±16m）の木を伐採＝金井公園で屋台と踊り手が木々に埋まっていた（会場総点検2026-07-07）。円の外の木は残す=木立に囲まれた会場の風情
       { const dxq = tp[i][0] - 3058.5, dzq = tp[i][1] - 11.5, duq = dxq * -0.4138 + dzq * 0.9103, dvq = Math.abs(dxq * 0.9103 + dzq * 0.4138)
         if (duq > -14.5 && duq < 14.5 && dvq < 8.4) tp.splice(i, 1) } } // 第三公園の園庭(ユーザーピン4点の回転長方形+縁1m)の木を伐採＝遊び場は開けた広場に。土手の木は残す（実物も周りだけ木・ユーザー指摘2026-07-02）
