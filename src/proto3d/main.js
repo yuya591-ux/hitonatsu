@@ -16336,14 +16336,14 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   // ★保有上限KEEP=8（LRU・監査2026-07-10）：上限到達時は「候補が保有最遠より距離比0.8以上近い」場合だけ最遠を返して入れ替え＝しきい際の往復（0.9秒ごとのparse往復＝発熱源）を距離マージンで断つ
   if (!off && prepped > VRM_RES_KEEP && farKeep) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepped-- } // 上限超過は毎フレーム「表示していない最遠」から1体ずつ静かに返す（開発フック/往来の蓄積もここで絞られる）
-  else if (!off && nearIdle && !preparing && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10
+  else if (!off && nearIdle && !preparing && !flying && !floatMode && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10。★空中（浮遊/飛行）では準備を休止＝時速94kmで町を掃くと準備半径420mが全住人を舐め「捨てて作り直す」チャーンが数十回/横断＝空中では誰とも話せず上空からは豆粒（トゥーン）なので成果ゼロの発熱・カクつき源だった（実機FB「飛行中の発熱」2026-07-12）。着地で即再開・準備済みの表示/破棄はそのまま
     if (prepped < VRM_RES_KEEP) prepareResidentVrm(nearIdle)
     else if (farKeep && nearIdleD2 < farKeep.cd2 * 0.64) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepareResidentVrm(nearIdle) } // cd2比0.64＝距離比0.8。追い出した体は10秒再準備しない
   }
   // ② 表示集合＝準備済みのうち近い順に最大CAP体でSHOW距離内。CAP=3＝住人3人全員→入替が起きない。
   // 準備＋事前コンパイル＋テクスチャ先上げが済んでいるので、表示切替は「遠い58mで一瞬・引っかかり無し」（＝カクつきは前倒しで消してある）。VRMは完全不透明のまま＝洗われない
   const _fpk = (r) => (r.cfg.festPrio && r.cd2 < (r.cfg.show2 || VRM_RES_SHOW2) && (!r.cfg.gateObj || r.cfg.gateObj.visible)) ? 0 : 1 // ★祭りの人（B案=踊り手5+音頭1+店番1）は開催中の会場圏内でだけ枠を最優先＝ペンライトの子ら等に枠を奪われ輪の一部がトゥーンへ落ちる混在を防ぐ（named優先は上位のまま・圏外/非開催日は通常順位・2026-07-12）
-  const ready = vrmResidents.filter((r) => r.state === 'prepared').sort((a, b) => ((a.cfg.keepToon ? 1 : 0) - (b.cfg.keepToon ? 1 : 0)) || (_fpk(a) - _fpk(b)) || (a.cd2 * (a.shown ? 0.81 : 1)) - (b.cd2 * (b.shown ? 0.81 : 1))) // ★①代替のない住人（keepToonなし＝named＝範囲外は消える）を先に枠へ＝商店街でモブに枠を奪われ「話せる住人が消える・消えた相手と会話」になるのを止める ★④順位ヒステリシス＝表示中はcd2×0.81（距離比0.9）のげたで居座り優先＝同距離帯の順位フリップで毎フレームのパッ切替を防ぐ（表示数はCAP=3のまま増えない・監査2026-07-10） // ★①代替のない住人（keepToonなし＝named＝範囲外は消える）を先に枠へ＝商店街でモブに枠を奪われ「話せる住人が消える・消えた相手と会話」になるのを止める ★④順位ヒステリシス＝表示中はcd2×0.81（距離比0.9）のげたで居座り優先＝同距離帯の順位フリップで毎フレームのパッ切替を防ぐ（表示数はCAP=3のまま増えない・監査2026-07-10）
+  const ready = vrmResidents.filter((r) => r.state === 'prepared').sort((a, b) => ((a.cfg.keepToon ? 1 : 0) - (b.cfg.keepToon ? 1 : 0)) || (_fpk(a) - _fpk(b)) || (a.cd2 * (a.shown ? 0.81 : 1)) - (b.cd2 * (b.shown ? 0.81 : 1))) // ★①代替のない住人（keepToonなし＝named＝範囲外は消える）を先に枠へ＝商店街でモブに枠を奪われ「話せる住人が消える・消えた相手と会話」になるのを止める ★④順位ヒステリシス＝表示中はcd2×0.81（距離比0.9）のげたで居座り優先＝同距離帯の順位フリップで毎フレームのパッ切替を防ぐ（表示数はCAP=3のまま増えない・監査2026-07-10）
   camera.getWorldDirection(_vrmSwapF) // ⑤視界外スイッチ用＝カメラの向き（毎フレーム1回）
   const swapFL = Math.hypot(_vrmSwapF.x, _vrmSwapF.z) || 1 // 前方ベクトルの水平成分長（見下ろし時の角度補正）
   const boySpd = dt > 0 ? Math.hypot(boy.position.x - _vrmSwapLast.x, boy.position.z - _vrmSwapLast.z) / dt : 0 // 主人公の水平速度（自転車≈5.7m/s・歩き≈2m/s）
