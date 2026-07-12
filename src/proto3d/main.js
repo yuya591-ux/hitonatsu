@@ -4392,12 +4392,25 @@ function buildShishigaya() {
     const gv = [], gidx = []; let go = 0, mhP = []
     const cenD4 = (rd) => { const m = rd.p[rd.p.length >> 1]; return Math.hypot(m[0] - 3010, m[1] + 60) }
     const rds = SG.roads.filter((rd) => rd.k !== 'path' && rd.w >= 3).sort((a, b) => cenD4(a) - cenD4(b))
-    for (const rd of rds) { if (go > 5200) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
-      for (let k = 0; k < p.length - 1 && go <= 5200; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
-        for (const sd of [1, -1]) { const i0 = hw + 0.05, i1 = hw + 0.45 // 路肩のすぐ外＝側溝のフタ
-          const aIn = [x0 + nx * sd * i0, z0 + nz * sd * i0], aOut = [x0 + nx * sd * i1, z0 + nz * sd * i1], bIn = [x1 + nx * sd * i0, z1 + nz * sd * i0], bOut = [x1 + nx * sd * i1, z1 + nz * sd * i1]
-          for (const q of [aIn, aOut, bIn, bOut]) gv.push(q[0], heightAtYato(q[0], q[1]) + 0.07, q[1]); gidx.push(go, go + 2, go + 1, go + 1, go + 2, go + 3); go += 4 } // 側溝フタ（薄い帯）
-        for (let t = 14; t < l; t += 26) { const mx = x0 + ux * t, mz = z0 + uz * t; if (Math.hypot(mx - 3008, mz + 8) > 30) mhP.push([mx, mz]) } } } // マンホール（道の中央寄り）
+    // ★交差点の「汚し」根治（実機報告2026-07-12・しんみせ前）＝側溝フタが他の道の舗装の上を突っ切って濃灰の帯が縦横に交差していた。
+    //   全道路セグメントの一覧を作り、フタを7m刻みに分割して「他の道の舗装内」に落ちる切れ端は描かない＝実物どおり交差点でフタが途切れる
+    const allSegs = []
+    for (const rd of rds) { const shw = Math.max(2.0, rd.w / 2); for (let k = 0; k < rd.p.length - 1; k++) { const a = rd.p[k], b = rd.p[k + 1]
+      allSegs.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], hw: shw, rd, mnx: Math.min(a[0], b[0]) - shw, mxx: Math.max(a[0], b[0]) + shw, mnz: Math.min(a[1], b[1]) - shw, mxz: Math.max(a[1], b[1]) + shw }) } }
+    const overOther = (x, z, self) => { for (const s of allSegs) { if (s.rd === self || x < s.mnx || x > s.mxx || z < s.mnz || z > s.mxz) continue
+      const dx = s.bx - s.ax, dz = s.bz - s.az, l2 = dx * dx + dz * dz || 1; let t = ((x - s.ax) * dx + (z - s.az) * dz) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t
+      const qx = s.ax + dx * t - x, qz = s.az + dz * t - z; if (qx * qx + qz * qz < (s.hw - 0.2) * (s.hw - 0.2)) return true } return false }
+    for (const rd of rds) { if (go > 24000) break; const p = rd.p, hw = Math.max(2.0, rd.w / 2)
+      for (let k = 0; k < p.length - 1 && go <= 24000; k++) { const x0 = p[k][0], z0 = p[k][1], x1 = p[k + 1][0], z1 = p[k + 1][1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l, nx = -uz, nz = ux
+        for (const sd of [1, -1]) { const i0 = hw + 0.05, i1 = hw + 0.45, mo = hw + 0.25 // 路肩のすぐ外＝側溝のフタ（moはフタ帯の中心＝交差判定のサンプル位置）
+          const nP = Math.max(1, Math.ceil(l / 7))
+          for (let pi = 0; pi < nP && go <= 24000; pi++) { const t0 = (pi / nP) * l, t1 = ((pi + 1) / nP) * l, tm = (t0 + t1) / 2
+            if (overOther(x0 + ux * tm + nx * sd * mo, z0 + uz * tm + nz * sd * mo, rd) ||
+                overOther(x0 + ux * t0 + nx * sd * mo, z0 + uz * t0 + nz * sd * mo, rd) ||
+                overOther(x0 + ux * t1 + nx * sd * mo, z0 + uz * t1 + nz * sd * mo, rd)) continue // 他の道の舗装内＝交差点/並走の重なり＝フタを切る
+            const aIn = [x0 + ux * t0 + nx * sd * i0, z0 + uz * t0 + nz * sd * i0], aOut = [x0 + ux * t0 + nx * sd * i1, z0 + uz * t0 + nz * sd * i1], bIn = [x0 + ux * t1 + nx * sd * i0, z0 + uz * t1 + nz * sd * i0], bOut = [x0 + ux * t1 + nx * sd * i1, z0 + uz * t1 + nz * sd * i1]
+            for (const q of [aIn, aOut, bIn, bOut]) gv.push(q[0], heightAtYato(q[0], q[1]) + 0.07, q[1]); gidx.push(go, go + 2, go + 1, go + 1, go + 2, go + 3); go += 4 } } // 側溝フタ（薄い帯・7m刻み）
+        for (let t = 14; t < l; t += 26) { const mx = x0 + ux * t, mz = z0 + uz * t; if (Math.hypot(mx - 3008, mz + 8) > 30 && !overOther(mx, mz, rd)) mhP.push([mx, mz]) } } } // マンホール（道の中央寄り・交差点の重なり内は置かない）
     if (gv.length) { const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gv, 3)); gg.setIndex(gidx); gg.computeVertexNormals(); scene.add(new THREE.Mesh(gg, new THREE.MeshToonMaterial({ color: 0x9a9c98, gradientMap: GRAD, side: THREE.DoubleSide }))) } // 側溝のフタ（コンクリ色）
     if (mhP.length) { const mI = new THREE.InstancedMesh(new THREE.CircleGeometry(0.42, 14), new THREE.MeshBasicMaterial({ map: mhTex, side: THREE.DoubleSide }), mhP.length); const m4 = new THREE.Matrix4(), qx = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), qs = new THREE.Quaternion(), es = new THREE.Euler(), qb = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), col = new THREE.Color()
       mhP.forEach(([x, z], i) => { es.set(0, 0, Math.random() * 6.283); qs.setFromEuler(es); qb.copy(qx).multiply(qs) // 蓋ごとに向きをばらつかせる（盤面で回す＝平らは保つ）＝一様な並びを解消
