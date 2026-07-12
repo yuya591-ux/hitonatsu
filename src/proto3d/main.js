@@ -2538,6 +2538,7 @@ const roadWetMats = [] // 道路の路面マテリアル（雨上がりに暗く
 let villageLevel = 0
 let tvGlowMesh = null // 夜の窓の“ブラウン管TVの青い明滅”メッシュ（buildShishigayaで生成・ループで明滅）
 const shopFronts = [] // 店の店先(道側)の位置と向き＝あとで店番を立てる（makeVillagerはbuildShishigayaの後で安全に呼べる＝TDZ回避でここでは座標だけ集める）
+let ptOverPlacedG = null // 建物の足形（OBB）テスト＝builder閉包から公開（店番の壁埋まりガード用・2026-07-12）
 const shopkeepers = [] // 店番（昼〜夕に店先に立つ・主人公に気づいて顔を向ける）
 let yokomizoYard = null // 横溝屋敷の前庭（あとで にわとり を放す。buildYokomizoで代入）
 let YOKOMIZO = null // 横溝屋敷の中心（buildYokomizoで代入）。おばあさん/無人販売所がこれを基準に配置＝屋敷を動かしても付いてくる
@@ -2699,6 +2700,7 @@ function buildShishigaya() {
   const BCELL = 20, bgrid = new Map(), placedB = []
   const inOBB = (px, pz, b) => { const dx = px - b.cx, dz = pz - b.cz, lx = b.co * dx + b.si * dz, lz = -b.si * dx + b.co * dz; return Math.abs(lx) <= b.hw && Math.abs(lz) <= b.hd }
   const ptOverPlaced = (px, pz) => { const ci = Math.floor(px / BCELL), cj = Math.floor(pz / BCELL); for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const arr = bgrid.get((ci + di) + ',' + (cj + dj)); if (arr) for (const b of arr) if (inOBB(px, pz, b)) return true } return false }
+  ptOverPlacedG = ptOverPlaced // ★builder閉包の建物足形テストをモジュールへ公開＝あとで走る店番スポーンの「壁埋まり」ガードで使う（実機報告2026-07-12・香取米店横）
   const regPlaced = (cx, cz, hw, hd, co, si) => { const b = { cx, cz, hw, hd, co, si }; placedB.push(b); const cells = new Set(); for (const [lx, lz] of [[0, 0], [-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) cells.add(Math.floor((cx + lx * co - lz * si) / BCELL) + ',' + Math.floor((cz + lx * si + lz * co) / BCELL)); for (const k of cells) { let arr = bgrid.get(k); if (!arr) { arr = []; bgrid.set(k, arr) } arr.push(b) } }
   let nOnRoad = 0, nOnWater = 0, nOverlap = 0, nVillage = 0, nNudged = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）＋田舎寄せで間引いた数＋道から押し出した数(2026-07-07)
   const villThin = villageLevel >= 2 ? 55 : villageLevel >= 1 ? 35 : 0 // 田舎寄せ：間引く割合(%)。0=間引かない(忠実)
@@ -8686,6 +8688,7 @@ for (const [dx, col, sp, boyP] of pedDefs) {
     if (Math.random() < 0.42) continue // 半分強の店に店番（出払ってる店もある）
     const px = sf.x + sf.dx * 2.6, pz = sf.z + sf.dz * 2.6 // 店先(道側)へ2.6m（旧2.0＝店先の陳列/庇テントに店番が食い込むのを防ぐ・ユーザー指摘2026-07-10）＝陳列より一歩前・道の手前に立つ
     if (onYatoRoadCore(px, pz) || heightAtYato(px, pz) < 2) continue // 道の上/低地には立たせない
+    if (ptOverPlacedG && (ptOverPlacedG(px, pz) || ptOverPlacedG(px + 0.35, pz) || ptOverPlacedG(px - 0.35, pz) || ptOverPlacedG(px, pz + 0.35) || ptOverPlacedG(px, pz - 0.35))) continue // ★隣の建物の足形の中/際に立たせない＝「壁に半分埋まった店番」の撤去（実機報告2026-07-12・香取米店横。体の半径ぶん4方向も見る）
     if (shopkeepers.some((q) => (q.position.x - px) ** 2 + (q.position.z - pz) ** 2 < 14 * 14)) continue // 隣り合う店の店番が近すぎる密を避ける（14m内に先客の店番が居たら立てない・保険）
     const woman = sf.kind === 'green' || sf.kind === 'flower' || (sf.kind === 'eat' && Math.random() < 0.6) || (sf.kind === 'rice' && Math.random() < 0.4) // 八百屋/花屋はおばさん中心
     const adult = true
