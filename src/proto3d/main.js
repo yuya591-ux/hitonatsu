@@ -17208,6 +17208,7 @@ const setBgmBtn = document.getElementById('set-bgm')
 const setSensBtn = document.getElementById('set-sens')
 const setMotionBtn = document.getElementById('set-motion')
 const setInkBtn = document.getElementById('set-ink')
+const setBigtextBtn = document.getElementById('set-bigtext') // 文字を大きく（読みやすさ・小さい画面/配信プレイ向け）
 const settings = { sound: true, bgm: false, motion: false, sens: 1, ink: true, light: false, med: false, posthalf: false, volCicada: 1, volBgm: 1, volAmb: 1, volLife: 1, bigText: false, geo: false, vrmboy: true } // light=軽量モード（既定OFF＝フル品質）。med=中くらいモード（輪郭線は残したまま解像度/フレーム/VRM人数だけ落とす中間・既定OFF・lightと排他）。BGM(オルゴール)は既定OFF＝環境音中心。G5：vol*＝蝉/BGM/環境/声の項目別音量(0..1.5・既定1)。geo=おでかけモード（現地連動・既定OFF）。vrmboy=主人公のすがた（VRMの男の子・既定ON／OFFで従来の姿）
 const SENS_STEPS = [{ v: 0.6, label: 'ひくい' }, { v: 1, label: 'ふつう' }, { v: 1.6, label: 'たかい' }]
 const hadSavedSettings = (() => { try { return !!localStorage.getItem('hn3d_settings') } catch (e) { return false } })()
@@ -17237,8 +17238,8 @@ function applySens() { // 見まわす はやさ（3段階）
 }
 function applyMotion() { reduceMotion = settings.motion; if (setMotionBtn) { setMotionBtn.textContent = settings.motion ? 'ON' : 'OFF'; setMotionBtn.classList.toggle('on', settings.motion) } }
 // I3：文字を大きく（読みやすさ）。本文系（会話/絵日記/トースト/おもいで/あそびかた）のフォントを少し大きく
-;(function () { const s = document.createElement('style'); s.textContent = `body.big-text #dlg-text,body.big-text #diary-body .line,body.big-text #toast,body.big-text #mb-body .line,body.big-text #mb-body h4,body.big-text .mb-cre .ds,body.big-text .mb-cre .nm,body.big-text #guide-body,body.big-text #dialogue{font-size:1.2em !important;line-height:1.75 !important;}`; document.head.appendChild(s) })()
-function applyBigText() { document.body.classList.toggle('big-text', !!settings.bigText) }
+;(function () { const s = document.createElement('style'); s.textContent = `body.big-text #dlg-text,body.big-text #diary-body .line,body.big-text #toast,body.big-text #mb-body .line,body.big-text #mb-body h4,body.big-text .mb-cre .ds,body.big-text .mb-cre .nm,body.big-text #guide-body,body.big-text #dialogue{font-size:1.35em !important;line-height:1.7 !important;}`; document.head.appendChild(s) })() // 1.2→1.35em（配信の小さい画面でも読める大きさに・実機FB2026-07-13）
+function applyBigText() { document.body.classList.toggle('big-text', !!settings.bigText); if (setBigtextBtn) { setBigtextBtn.textContent = settings.bigText ? 'ON' : 'OFF'; setBigtextBtn.classList.toggle('on', settings.bigText) } }
 // ── 🧭 おでかけモード（現地連動・Pokémon GOライクP1・2026-07-07）＝ほんものの獅子ヶ谷を歩くと、ゲームの中のじぶんも同じ場所を歩く ──
 // 原点＝サンライズ北寺尾(35.5155N,139.6500E)=game(3000,0)。最終ワールドは +x=東/−z=北（L148のz反転後）・1単位=1m＝実寸1:1なので座標変換は単純式（外部API不要・ブラウザのGeolocationのみ）
 // P1＝モード切替+watchPosition+変換+平滑化+位置あわせ（較正）。GPSは住宅地で±5〜13m揺れる→精度連動の指数移動平均で「雰囲気同期」に
@@ -17360,13 +17361,7 @@ if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !setti
     sl.addEventListener('input', () => { settings[key] = +sl.value / 100; saveSettings() })
     row.appendChild(lab); row.appendChild(sl); wrap.appendChild(row)
   }
-  // I3：文字を大きく トグル（読みやすさ）
-  const trow = document.createElement('div'); trow.className = 'set-vol-row'; trow.style.marginTop = '0.7em'
-  const tlab = document.createElement('span'); tlab.className = 'set-vol-lab'; tlab.style.width = 'auto'; tlab.textContent = 'もじ 大きめ'
-  const tbtn = document.createElement('button'); tbtn.type = 'button'; tbtn.style.cssText = 'margin-left:auto;appearance:none;border:none;cursor:pointer;border-radius:999px;padding:0.3em 1.1em;font-size:13px;font-family:inherit;'
-  const paint = () => { tbtn.textContent = settings.bigText ? 'ON' : 'OFF'; tbtn.style.background = settings.bigText ? '#8aa86a' : '#b6aa92'; tbtn.style.color = '#fff' }
-  paint(); tbtn.addEventListener('click', () => { settings.bigText = !settings.bigText; saveSettings(); applyBigText(); paint() })
-  trow.appendChild(tlab); trow.appendChild(tbtn); wrap.appendChild(trow)
+  // 「文字を大きく」は🎨えの みため引き出しの set-bigtext へ移設（おと引き出しの音量の下は見つけにくかった＝配信プレイFB2026-07-13）
   const anchor = setBgmBtn && setBgmBtn.closest('.set-row, li, .row, div')
   if (anchor && anchor.parentNode && anchor.parentNode !== document.body) anchor.parentNode.insertBefore(wrap, anchor.nextSibling); else settingsEl.appendChild(wrap)
   const s = document.createElement('style'); s.textContent = `#set-vols{margin:0.7em 0;padding:0.6em 0;border-top:1px solid rgba(120,108,86,0.22);}
@@ -17379,6 +17374,7 @@ if (setBgmBtn) setBgmBtn.addEventListener('click', () => { settings.bgm = !setti
 if (setSensBtn) setSensBtn.addEventListener('click', () => { const i = SENS_STEPS.findIndex((s) => Math.abs(s.v - settings.sens) < 0.01); settings.sens = SENS_STEPS[(i + 1) % SENS_STEPS.length].v; saveSettings(); applySens() }) // ひくい→ふつう→たかい
 if (setMotionBtn) setMotionBtn.addEventListener('click', () => { settings.motion = !settings.motion; saveSettings(); applyMotion() })
 if (setInkBtn) setInkBtn.addEventListener('click', () => { settings.ink = !settings.ink; saveSettings(); applyInk() })
+if (setBigtextBtn) setBigtextBtn.addEventListener('click', () => { settings.bigText = !settings.bigText; saveSettings(); applyBigText(); showToast(settings.bigText ? '文字を 大きくしたよ（会話・おもいで帳など）' : '文字を もとの大きさに もどしたよ') })
 const setLightBtn = document.getElementById('set-light')
 if (setLightBtn) setLightBtn.addEventListener('click', () => { settings.light = !settings.light; if (settings.light) settings.med = false; saveSettings(); applyLight(); showToast(settings.light ? '軽量モード ON（線とボケを省き 24fpsで 電池と発熱にやさしく）' : '軽量モード OFF（いつもの絵に もどしたよ）') }) // C3：軽量モードは常時24fps上限も兼ねる。中くらいとは排他
 // ── 半解像度ポスト「ひかりの しあげを 半分に」（2026-07-12・実機相談の推奨）＝光の筋を半分の下塗りで計算＋ブルーム下塗り1/2→1/4。輪郭線・紙・鮮明さは不変 ──
