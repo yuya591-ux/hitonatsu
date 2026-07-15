@@ -799,7 +799,10 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 //   iPhoneやスマホで普通に開いた時は付かない＝発熱の約束（DPR1.30・30fps）は一切変えない。安全側の既定。
 let __HQ = false
 try { __HQ = new URLSearchParams(location.search).get('hq') === '1' } catch (e) {}
-const HQ_DPR = 2.0 // 母艦は等倍(devicePixelRatio=1〜1.5)なので、これは実質スーパーサンプリング＝拡大して描いて縮める＝輪郭がなめらかになる
+// ★配信の起動スクリプトは --force-device-scale-factor でブラウザの拡大率を上げ、iPhone実機と同じ大きさ・同じ配置のUIにする（2026-07-16）。
+//   その時は「1CSSピクセル＝パネルの実ピクセル」なので、そのままの値で描くのが最も鮮明（引き伸ばしのにじみが出ない）。
+//   拡大率の指定が無い普通のパソコン（ピクセル比1）では2.0＝スーパーサンプリング＝大きく描いて縮める＝輪郭がなめらかになる。
+const HQ_DPR = Math.max(2.0, Math.min(4.0, window.devicePixelRatio || 1))
 let pixelRatioCap = __HQ ? HQ_DPR : 1.30 // ピクセル比の上限（発熱対策）。案A再投資：プリパス/godray/CSSぼかし削減で浮いた予算を鮮鋭度へ1.25→1.30。軽量/中モードは1.0のまま。★実機で熱ければ1.25へ戻すのが安全網（フィル律速はheadless計測不可）
 let __adaptScale = 1, __adaptCd = 0, __adaptEnabled = false // C4（動的解像度・2026-07-11）：発熱/高負荷でフレームが落ちる時だけ描画解像度を段階的に下げ(×1→0.86→0.72)、余裕が戻ったら戻す。調査上は画素数削減が発熱に効くが──★実機FB(2026-07-11)で既定OFFに変更＝(1)解像度変更のたびresize()がGPUバッファ(コンポーザ/ブルーム/法線+深度RT)を再確保→自転車走行中にFPSがしきい値(約23fps)を上下するたびヒッチ＝「定期的に画面が一瞬チラつき暗転」の主因、(2)0.72倍まで落ちて画質低下(ユーザー「以前より画質が悪い」)。発熱は"チラつかない"手段で担う＝手動モード(中くらい/軽量＝解像度1.0)＋負荷持続時の軽量モード提案トースト。__adaptScale=1で固定→解像度は pixelRatioCap で安定→走行中のresizeゼロ＝チラつき無し・画質フル。※_adapt()デバッグフックとモード切替の解像度追従は引き続き機能（再有効化は__adaptEnabled=trueで可能・非破壊）
 let __postHalfOn = false // ★半解像度ポスト（設定「ひかりの しあげを 半分に」・2026-07-12）＝settings.posthalfのミラー（resize()がsettings定義前に走ってもTDZで死なないための実体）。光の筋を半分の下塗りで計算＋ブルームの下塗りを1/2→1/4へ
@@ -13269,12 +13272,15 @@ function openPadCfg() {
   if (!padCfg.el) {
     const el = document.createElement('div'); el.id = 'padcfg'
     el.style.cssText = 'position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,0.55)'
-    el.innerHTML = '<div style="background:#fdf4e2;color:#3a3026;border-radius:18px;max-width:min(92vw,480px);max-height:86vh;overflow:auto;padding:18px 18px 14px;box-shadow:0 10px 34px rgba(0,0,0,.4)">'
-      + '<h2 style="margin:0 0 4px;font-size:19px">🎮 コントローラーのボタン</h2>'
-      + '<div style="font-size:12.5px;opacity:.75;margin-bottom:10px">行をタップ→コントローラーのボタンを押すと 割当が変わるよ（同じボタンは入れ替え）<br>コントローラーだけでも：十字↑↓で えらんで A、そのあと 割り当てたいボタンを押す</div>'
+    // ★カード全体をスクロールさせると「とじる」が下に押し出されて見えない（横持ちの低い画面＝実機でもそうなっていた・2026-07-16）。
+    //   縦に並べて、真ん中の一覧だけをスクロールさせ、見出しとボタンは常に見えるようにする。
+    el.innerHTML = '<div class="pc-card" style="background:#fdf4e2;color:#3a3026;border-radius:18px;width:min(92vw,480px);max-height:86vh;display:flex;flex-direction:column;padding:18px 18px 14px;box-shadow:0 10px 34px rgba(0,0,0,.4)">'
+      + '<h2 style="margin:0 0 4px;font-size:19px;flex:0 0 auto">🎮 コントローラーのボタン</h2>'
+      + '<div class="pc-note" style="font-size:12.5px;opacity:.75;margin-bottom:10px;flex:0 0 auto">行をタップ→コントローラーのボタンを押すと 割当が変わるよ（同じボタンは入れ替え）<br>コントローラーだけでも：十字↑↓で えらんで A、そのあと 割り当てたいボタンを押す</div>'
       + '<div class="pc-body"></div>'
-      + '<div style="display:flex;gap:8px;margin-top:12px"><button id="pc-reset" style="flex:1;padding:10px;border:0;border-radius:11px;background:rgba(0,0,0,0.08);font-size:14px">標準にもどす</button><button id="pc-close" style="flex:1.4;padding:10px;border:0;border-radius:11px;background:#e8d9b6;font-weight:bold;font-size:14px">とじる</button></div></div>'
-    const st = document.createElement('style'); st.textContent = '#padcfg .pc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-size:14px}#padcfg .pc-row:nth-child(odd){background:rgba(0,0,0,0.045)}#padcfg .pc-row b{color:#7a5a2a;white-space:nowrap}#padcfg .pc-row.listen{background:#f3e3ba}#padcfg .pc-row.listen b{color:#b03a2e}'
+      + '<div class="pc-foot" style="display:flex;gap:8px;margin-top:12px;flex:0 0 auto"><button id="pc-reset" style="flex:1;padding:10px;border:0;border-radius:11px;background:rgba(0,0,0,0.08);font-size:14px">標準にもどす</button><button id="pc-close" style="flex:1.4;padding:10px;border:0;border-radius:11px;background:#e8d9b6;font-weight:bold;font-size:14px">とじる</button></div></div>'
+    // min-height:0 が要る＝flexの子は既定で中身より小さくならず、これが無いと一覧が縮まずカードごと伸びて元の木阿弥になる。
+    const st = document.createElement('style'); st.textContent = '#padcfg .pc-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}#padcfg .pc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-size:14px}#padcfg .pc-row:nth-child(odd){background:rgba(0,0,0,0.045)}#padcfg .pc-row b{color:#7a5a2a;white-space:nowrap}#padcfg .pc-row.listen{background:#f3e3ba}#padcfg .pc-row.listen b{color:#b03a2e}'
     document.head.appendChild(st); document.body.appendChild(el)
     el.addEventListener('pointerdown', (e) => { if (e.target === el) closePadCfg() })
     el.querySelector('#pc-close').addEventListener('pointerdown', (e) => { e.stopPropagation(); closePadCfg() })
