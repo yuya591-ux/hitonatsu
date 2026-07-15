@@ -128,7 +128,7 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption, reque
   const finder = $('div', '', document.body); finder.id = 'pm-finder'
   finder.innerHTML = '<div id="pm-rec">PHOTO</div><div id="pm-tools"><button class="pm-tool" id="pm-quality">画質:標準</button><button class="pm-tool" id="pm-date">日付:ON</button></div><div class="pm-corner pm-tl"></div><div class="pm-corner pm-tr"></div><div class="pm-corner pm-bl"></div><div class="pm-corner pm-br"></div>'
   const bar = $('div', '', document.body); bar.id = 'pm-bar'
-  const closeBtn = $('button', '', bar); closeBtn.className = 'pm-side'; closeBtn.textContent = '×'; closeBtn.title = 'もどる'
+  const closeBtn = $('button', '', bar); closeBtn.id = 'pm-close'; closeBtn.className = 'pm-side'; closeBtn.textContent = '×'; closeBtn.title = 'もどる' // idはコントローラーから押すため（2026-07-15）
   const shutter = $('button', '', bar); shutter.id = 'pm-shutter'
   const albumBtn = $('button', '', bar); albumBtn.className = 'pm-side'; albumBtn.id = 'pm-album-side'; albumBtn.textContent = '🖼'; albumBtn.title = 'アルバム'
   const flash = $('div', '', document.body); flash.id = 'pm-flash'
@@ -139,7 +139,7 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption, reque
   const viewImg = $('img', '', view)
   const viewCap = $('div', '', view); viewCap.id = 'pm-view-cap' // 写真の下の一行（いつ・どこで）
   const viewBar = $('div', '', document.body); viewBar.id = 'pm-view-bar'; view.appendChild(viewBar)
-  const viewClose = $('button', '', viewBar); viewClose.textContent = 'とじる'
+  const viewClose = $('button', '', viewBar); viewClose.id = 'pm-view-x'; viewClose.textContent = 'とじる' // idはコントローラーから押すため（2026-07-15）
   const viewDel = $('button', '', viewBar); viewDel.textContent = 'けす'
 
   // ── アルバム（J5：IndexedDBに永続化。photosは{id,url,day}の配列＝表示は従来どおりurl(dataURL)）──
