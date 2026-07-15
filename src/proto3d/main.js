@@ -13247,9 +13247,11 @@ const PAD_BTN = ['A', 'B', 'X', 'Y', 'L1', 'R1', 'L2', 'R2', 'SELECT', 'START', 
 const PAD_ACTIONS = [ // [キー, 一覧の表示名]（この順で割当表に並ぶ）
   ['jump', 'ジャンプ・その場の行動'], ['talk', '話す・行動（すわる/のる）'], ['back', 'もどる・立つ・降りる'], ['photo', '📷 しゃしん'],
   ['fpv', '🔭 主観視点'], ['bike', '🚲 じてんしゃ'], ['float', '🎈 ふわり浮く'], ['diary', '📔 おもいで帳'],
-  ['lie', '🌿 ねころぶ'], ['sleep', '🌙 ねる（一日を終える）'], ['zoomIn', 'ズーム（寄る）'], ['zoomOut', 'ズーム（引く）'],
+  ['lie', '🌿 ねころぶ'], ['sleep', '🌙 ねる（一日を終える）'], ['senko', '🎆 線香花火（夜だけ）'], ['zoomIn', 'ズーム（寄る）'], ['zoomOut', 'ズーム（引く）'],
   ['settings', '⚙ せってい'], ['padmap', '🎮 この割当表を開く']]
-const PAD_DEFAULT = { jump: 'A', talk: 'X', back: 'B', photo: 'Y', fpv: 'L1', bike: 'R1', float: 'L3', diary: 'UP', lie: 'DOWN', sleep: 'LEFT', zoomIn: 'R2', zoomOut: 'L2', settings: 'START', padmap: 'SELECT' }
+// senko は十字→（空いていた最後の枠）＝夜の線香花火にパッドから手が届かなかった（2026-07-15）。
+// 保存済みの割当に senko が無くても PAD_DEFAULT から既定が入る＝既存のリマップは壊れない。
+const PAD_DEFAULT = { jump: 'A', talk: 'X', back: 'B', photo: 'Y', fpv: 'L1', bike: 'R1', float: 'L3', diary: 'UP', lie: 'DOWN', sleep: 'LEFT', senko: 'RIGHT', zoomIn: 'R2', zoomOut: 'L2', settings: 'START', padmap: 'SELECT' }
 const PAD_BTN_LABEL = { A: 'A', B: 'B', X: 'X', Y: 'Y', L1: 'L1', R1: 'R1', L2: 'L2', R2: 'R2', SELECT: 'View（左の小ボタン）', START: 'Menu（右の小ボタン）', L3: '左スティック押込', R3: '右スティック押込', UP: '十字↑', DOWN: '十字↓', LEFT: '十字←', RIGHT: '十字→' }
 let padMap = { ...PAD_DEFAULT }
 try { const sv = JSON.parse(localStorage.getItem('hn3d_padmap') || '{}'); for (const k in sv) if (k in PAD_DEFAULT && PAD_BTN.includes(sv[k])) padMap[k] = sv[k] } catch (e) {}
@@ -13257,9 +13259,11 @@ const padActHit = (act) => padHit(padMap[act])
 const padCfg = { open: false, listenKey: null, el: null } // アプリ内キーコンフィグの状態
 function padCfgRender() {
   if (!padCfg.el) return
+  const keep = (padNavEl && padNavEl.dataset) ? padNavEl.dataset.k : null // 行を作り直すので、パッドの目印が迷子にならないよう覚えておく
   const rows = PAD_ACTIONS.map(([k, label]) => `<div class="pc-row${padCfg.listenKey === k ? ' listen' : ''}" data-k="${k}"><span>${label}</span><b>${padCfg.listenKey === k ? 'ボタンを おしてね…' : (PAD_BTN_LABEL[padMap[k]] || padMap[k] || 'ー')}</b></div>`).join('')
   padCfg.el.querySelector('.pc-body').innerHTML = rows
   for (const r of padCfg.el.querySelectorAll('.pc-row')) r.addEventListener('pointerdown', (e) => { e.stopPropagation(); padCfg.listenKey = r.dataset.k; padCfgRender() })
+  if (keep) { const r = padCfg.el.querySelector('.pc-row[data-k="' + keep + '"]'); if (r) padNavSet(r) } // 同じ行へ目印を戻す
 }
 function openPadCfg() {
   if (!padCfg.el) {
@@ -13267,7 +13271,7 @@ function openPadCfg() {
     el.style.cssText = 'position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,0.55)'
     el.innerHTML = '<div style="background:#fdf4e2;color:#3a3026;border-radius:18px;max-width:min(92vw,480px);max-height:86vh;overflow:auto;padding:18px 18px 14px;box-shadow:0 10px 34px rgba(0,0,0,.4)">'
       + '<h2 style="margin:0 0 4px;font-size:19px">🎮 コントローラーのボタン</h2>'
-      + '<div style="font-size:12.5px;opacity:.75;margin-bottom:10px">行をタップ→コントローラーのボタンを押すと 割当が変わるよ（同じボタンは入れ替え）</div>'
+      + '<div style="font-size:12.5px;opacity:.75;margin-bottom:10px">行をタップ→コントローラーのボタンを押すと 割当が変わるよ（同じボタンは入れ替え）<br>コントローラーだけでも：十字↑↓で えらんで A、そのあと 割り当てたいボタンを押す</div>'
       + '<div class="pc-body"></div>'
       + '<div style="display:flex;gap:8px;margin-top:12px"><button id="pc-reset" style="flex:1;padding:10px;border:0;border-radius:11px;background:rgba(0,0,0,0.08);font-size:14px">標準にもどす</button><button id="pc-close" style="flex:1.4;padding:10px;border:0;border-radius:11px;background:#e8d9b6;font-weight:bold;font-size:14px">とじる</button></div></div>'
     const st = document.createElement('style'); st.textContent = '#padcfg .pc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-size:14px}#padcfg .pc-row:nth-child(odd){background:rgba(0,0,0,0.045)}#padcfg .pc-row b{color:#7a5a2a;white-space:nowrap}#padcfg .pc-row.listen{background:#f3e3ba}#padcfg .pc-row.listen b{color:#b03a2e}'
@@ -13301,7 +13305,8 @@ function padTapEl(id) { padTapNode(document.getElementById(id)) }
 //   閉じた引き出しの中身は getClientRects()が空＝自動的に飛ばされる。
 //   音量つまみ(input[type=range])も仲間に入れる＝ボタンだけ拾うと「おとの おおきさ」に手が届かない。
 let padNavEl = null
-const padNavList = (root) => [...root.querySelectorAll('button:not([disabled]), input[type=range]')].filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
+//   .pc-row（🎮割当表の各行）はdivだが、ここを選べないと「コントローラーの割当画面がコントローラーで操作できない」。
+const padNavList = (root) => [...root.querySelectorAll('button:not([disabled]), input[type=range], .pc-row')].filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
 // つまみを十字←→で動かす（押した所と同じ input イベントを出す＝保存も音量反映も既存の処理に任せる）
 function padNavAdjust(dir) { const el = padNavEl
   if (!el || el.tagName !== 'INPUT') return false
@@ -13361,7 +13366,13 @@ function handlePadButtons() {
       const old = padMap[padCfg.listenKey]; for (const k in padMap) if (padMap[k] === n) padMap[k] = old
       padMap[padCfg.listenKey] = n; try { localStorage.setItem('hn3d_padmap', JSON.stringify(padMap)) } catch (e) {}
       padCfg.listenKey = null; padCfgRender(); padRumble(60, 0.3); break } } }
-    else if (padHit('B') || padActHit('padmap')) closePadCfg()
+    // 行を十字↑↓でえらんで A＝「ボタンを おしてね…」待ちへ（旧＝行をタップするしか手が無く、
+    // コントローラーの割当画面をコントローラーで操作できなかった・実機報告2026-07-15）
+    else { padNavIn(padCfg.el)
+      if (padHit('UP')) padNavMove(padCfg.el, -1)
+      else if (padHit('DOWN')) padNavMove(padCfg.el, 1)
+      else if (padHit('A')) padNavHit(padCfg.el)
+      else if (padHit('B') || padActHit('padmap')) { padNavSet(null); closePadCfg() } }
     return
   }
   // ── 開いている物は必ずパッドで閉じられるようにする（実機報告2026-07-15「パッドで開けるのに閉じられない＝詰む」）──
@@ -13400,6 +13411,7 @@ function handlePadButtons() {
   if (padActHit('float')) padTapEl('float') // 🎈浮遊トグル
   if (padActHit('lie')) padTapEl('lie') // 🌿ねころぶ（原っぱで寝ころんで空を見る）
   if (padActHit('sleep')) padTapEl('sleep') // 🌙ねる（夜だけ出るボタン＝出ていない時は何もしない）
+  if (padActHit('senko')) padTapEl('senko-btn') // 🎆線香花火（同じく夜だけ出る）
   if (padActHit('settings')) { if (typeof openSettings === 'function') openSettings() } // ⚙せってい
   if (padActHit('padmap')) openPadCfg() // 🎮ボタンの割当表（View＝左の小ボタン）
   if (padActHit('diary')) padTapEl('mb-btn') // 📔おもいで帳（割当表の表示名どおりの物を開く。旧＝えにっきが開いていた＝🌙ねると重複していた・2026-07-15）
