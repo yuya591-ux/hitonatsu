@@ -13381,8 +13381,12 @@ function handlePadButtons() {
   //   ※📷ボタン自身は写真モード中に消えるので、ここが唯一の出口＝これが無いと写真モードから帰れない。
   if (document.body.classList.contains('pm-on')) {
     const layerOn = (id) => { const e = document.getElementById(id); return !!(e && e.classList.contains('on')) }
+    const inFinder = !layerOn('pm-album') && !layerOn('pm-view') // ファインダーを覗いている＝道具が使える
     if (padHit('B') || padActHit('photo')) { if (layerOn('pm-view')) padTapEl('pm-view-x'); else if (layerOn('pm-album')) padTapEl('pm-close-album'); else padTapEl('pm-close') }
-    else if (padHit('A') && !layerOn('pm-album') && !layerOn('pm-view')) { padTapEl('pm-shutter'); padRumble(85, 0.45) }
+    else if (padHit('A') && inFinder) { padTapEl('pm-shutter'); padRumble(85, 0.45) }
+    else if (inFinder && padHit('X')) padTapEl('pm-album-side') // 🖼 アルバムを見る
+    else if (inFinder && padHit('UP')) padTapEl('pm-quality') // 画質を切り替え
+    else if (inFinder && padHit('DOWN')) padTapEl('pm-date') // 日付の焼き込み ON/OFF
     return
   }
   if (diaryOpen) { if (padHit('A')) padTapEl('diary-close'); else if (padHit('B')) padTapEl('diary-cancel'); return } // えにっき：A＝おやすみ（一日を綴じる）／B＝まだ ねない
