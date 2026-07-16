@@ -4207,7 +4207,17 @@ function buildShishigaya() {
       for (const [cx, cz] of cand) { if (picked.length >= 16 || near(cx, cz, 30)) continue; parkPos.push([cx, cz]); picked.push([cx, cz]) }
       console.log('[shishigaya] ご近所公園の救済', JSON.stringify(picked)) }
     // 公園の遊具（すべり台/ブランコ/砂場/鉄棒/ベンチ）を全公園にインスタンシング配置（1ドロー）。公園ごとに向きを少し変える
-    if (parkPos.length) { const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
+    if (parkPos.length) {
+      // ── 遊具広場の適地補正（ユーザー指摘2026-07-17「遊具が池の中・木に埋もれて公園っぽくない」）＝①水にかかる遊具は乾いた場所へずらす ②明るい土の広場を敷いて開放感を出す（木の伐採は後段のtp cullで） ──
+      const dryOk = (qx, qz) => { if (inWaterAny(qx, qz)) return false; for (let a = 0; a < 6; a++) { if (inWaterAny(qx + Math.cos(a / 6 * 6.283) * 5.5, qz + Math.sin(a / 6 * 6.283) * 5.5)) return false } return true }
+      for (const p of parkPos) { if (dryOk(p[0], p[1])) continue
+        let done = false
+        for (let r = 6; r <= 24 && !done; r += 6) for (let a = 0; a < 8 && !done; a++) { const nx2 = p[0] + Math.cos(a / 8 * 6.283) * r, nz2 = p[1] + Math.sin(a / 8 * 6.283) * r
+          if (dryOk(nx2, nz2) && !onYatoRoadCore(nx2, nz2)) { console.log('[shishigaya] 遊具を水際から乾いた場所へ移動', p[2] || '', Math.round(nx2), Math.round(nz2)); p[0] = nx2; p[1] = nz2; done = true } }
+        if (!done) console.log('[shishigaya] 遊具の適地なし（水際のまま）', p[2] || '') }
+      const pkG = new THREE.Group(); scene.add(pkG) // 各園の土の広場（地形追従パッチ）
+      for (const [px2, pz2] of parkPos) { if (gmax4(px2, pz2, 18, 18) - gmin4(px2, pz2, 18, 18) < 2.5) groundPatch(pkG, px2, pz2, 19, 19, 0xc9ba96) } // 急斜面の園はパッチが不自然なので敷かない
+      const pgI = new THREE.InstancedMesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD }), parkPos.length); pgI.castShadow = pgI.receiveShadow = true
       const m4b = new THREE.Matrix4(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3(1, 1, 1), e2 = new THREE.Euler(); let pn = 0
       for (const [px, pz] of parkPos) { const seed = Math.abs(Math.round(px) + Math.round(pz) * 3); e2.set(0, (seed % 4) * 1.5708, 0); q2.setFromEuler(e2); m4b.compose(new THREE.Vector3(px, heightAtYato(px, pz), pz), q2, s2); pgI.setMatrixAt(pn++, m4b) }
       pgI.count = pn; scene.add(pgI); console.log('[shishigaya] 公園遊具', pn)
@@ -5130,6 +5140,7 @@ function buildShishigaya() {
       if (Math.abs(tp[i][0] - 2960) < 5.2 && tp[i][1] > 318 && tp[i][1] < 343) { tp.splice(i, 1); continue } // 神明社の参道軸（鳥居→石段→拝殿）の見通しを開ける＝軸上の木を伐採。鎮守の森は脇(±5m外)に残す。★旧範囲(-343..-318)は鏡座標＝神社の実位置は(2960,+335)（2026-07-16実測で発覚・おばあさん/立ち話も同じ鏡ズレだった）
       if (tp[i][0] > 2994 && tp[i][0] < 3016 && tp[i][1] > 34 && tp[i][1] < 50) { tp.splice(i, 1); continue } // マンション北東面ぎわの木を伐採＝実機写真の「変な壁の右の木」（建物の顔に張り付き輪郭ハルが黒い塊に見え不気味・実物のこの面に木は無い・ユーザー2026-07-11）。25m東の芝の木(3030,49)は残す
       { let inFest = false; for (const [fx, fz] of [[2020, 338], [2903, -484], [2644, 383], [2952, 190]]) if (Math.hypot(tp[i][0] - fx, tp[i][1] - fz) < 16) { inFest = true; break } if (inFest) { tp.splice(i, 1); continue } } // 夏祭り会場（踊りの輪+屋台の円±16m）の木を伐採＝金井公園で屋台と踊り手が木々に埋まっていた（会場総点検2026-07-07）。円の外の木は残す=木立に囲まれた会場の風情
+      { let inPark = false; for (const pq of builtParkPos) if (Math.hypot(tp[i][0] - pq[0], tp[i][1] - pq[1]) < 11.5) { inPark = true; break } if (inPark) { tp.splice(i, 1); continue } } // ★全公園の遊具広場(半径11.5m)の木を伐採＝遊具が木に埋もれ開放感が無い（ユーザー指摘2026-07-17）。外周の木は残す=木立に囲まれた公園の風情
       { const dxq = tp[i][0] - 3058.5, dzq = tp[i][1] - 11.5, duq = dxq * -0.4138 + dzq * 0.9103, dvq = Math.abs(dxq * 0.9103 + dzq * 0.4138)
         if (duq > -14.5 && duq < 14.5 && dvq < 8.4) tp.splice(i, 1) } } // 第三公園の園庭(ユーザーピン4点の回転長方形+縁1m)の木を伐採＝遊び場は開けた広場に。土手の木は残す（実物も周りだけ木・ユーザー指摘2026-07-02）
     console.log('[shishigaya] 道の上の木を伐採', roadCut, '本') }
