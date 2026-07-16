@@ -4188,7 +4188,30 @@ function buildShishigaya() {
       for (const [px, pz] of parkPos) { const seed = Math.abs(Math.round(px) + Math.round(pz) * 3); e2.set(0, (seed % 4) * 1.5708, 0); q2.setFromEuler(e2); m4b.compose(new THREE.Vector3(px, heightAtYato(px, pz), pz), q2, s2); pgI.setMatrixAt(pn++, m4b) }
       pgI.count = pn; scene.add(pgI); console.log('[shishigaya] 公園遊具', pn)
       builtParkPos = parkPos
-      window.__parkPos = parkPos.map((p) => [Math.round(p[0]), Math.round(p[1]), p[2] || '']) } // 検証用：遊具が実在する公園の一覧＝addParkKidsの座標ずれ監査（遊具なしの草地に子が浮くバグの検出・2026-07-16）
+      window.__parkPos = parkPos.map((p) => [Math.round(p[0]), Math.round(p[1]), p[2] || '']) // 検証用：遊具が実在する公園の一覧＝addParkKidsの座標ずれ監査（遊具なしの草地に子が浮くバグの検出・2026-07-16）
+      // ── 小さな公園の個性化（施設作り込みサイクル2026-07-16）：名前つき5園は同じ遊具一式の使い回し＝1園ずつ「らしさ」の一品を足して書き分ける。遊具一式のローカル空き地(0,3.4)へ、インスタンスと同じseed回転で置く ──
+      { const uniq = { '獅子ヶ谷第三公園': 'fountain', '渋沢金井公園': 'clock', '北寺尾五丁目公園': 'spring', '馬場第一公園': 'tires', '獅子ケ谷公園': 'spring2' }
+        for (const [px, pz, nm] of parkPos) { const kind2 = nm && uniq[nm]; if (!kind2) continue
+          const seed = Math.abs(Math.round(px) + Math.round(pz) * 3), ang = (seed % 4) * 1.5708, ca = Math.cos(ang), sa = Math.sin(ang)
+          const at = (lx, lz) => [px + lx * ca + lz * sa, pz - lx * sa + lz * ca]
+          if (kind2 === 'fountain') { const [ux, uz] = at(0, 3.4), uy = heightAtYato(ux, uz) // 水飲み場（コンクリの柱＋鉢＋蛇口）
+            grp.add(mk(new THREE.CylinderGeometry(0.2, 0.24, 0.75, 8), toon(0xb8b4a8), ux, uy + 0.37, uz, 0, true))
+            grp.add(mk(new THREE.CylinderGeometry(0.3, 0.26, 0.14, 10), toon(0xc8c4b8), ux, uy + 0.8, uz, 0, true))
+            grp.add(mk(new THREE.CylinderGeometry(0.03, 0.03, 0.14, 5), toon(0x8a8f96), ux + 0.12, uy + 0.93, uz, 0, true)) } // 蛇口
+          else if (kind2 === 'clock') { const [ux, uz] = at(0, 3.6), uy = heightAtYato(ux, uz) // 公園のポール時計（両面・10時8分）
+            grp.add(mk(new THREE.CylinderGeometry(0.055, 0.07, 3.1, 7), toon(0x3f5a4a), ux, uy + 1.55, uz, 0, true))
+            const ckTx = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 64; const x6 = c.getContext('2d'); x6.fillStyle = '#f4f2ea'; x6.beginPath(); x6.arc(32, 32, 30, 0, 7); x6.fill(); x6.strokeStyle = '#3a3a3a'; x6.lineWidth = 3; x6.beginPath(); x6.arc(32, 32, 29, 0, 7); x6.stroke(); x6.lineWidth = 2; for (let i2 = 0; i2 < 12; i2++) { const a2 = i2 / 12 * 6.283; x6.beginPath(); x6.moveTo(32 + Math.cos(a2) * 24, 32 + Math.sin(a2) * 24); x6.lineTo(32 + Math.cos(a2) * 27, 32 + Math.sin(a2) * 27); x6.stroke() } x6.lineWidth = 3.5; x6.beginPath(); x6.moveTo(32, 32); x6.lineTo(20, 24); x6.stroke(); x6.lineWidth = 2.5; x6.beginPath(); x6.moveTo(32, 32); x6.lineTo(38, 14); x6.stroke(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t })()
+            const ckBody = new THREE.CylinderGeometry(0.42, 0.42, 0.12, 16); ckBody.rotateX(Math.PI / 2); grp.add(mk(ckBody, toon(0xe8e6dc), ux, uy + 3.2, uz, ang, true)) // 時計の胴
+            for (const s9 of [0.071, -0.071]) grp.add(mk(new THREE.CircleGeometry(0.38, 16), new THREE.MeshBasicMaterial({ map: ckTx }), ux + sa * s9, uy + 3.2, uz + ca * s9, s9 > 0 ? ang : ang + Math.PI)) } // 文字盤（両面）
+          else if (kind2 === 'spring' || kind2 === 'spring2') { const [ux, uz] = at(0.6, 3.2), uy = heightAtYato(ux, uz) // スプリング遊具（ばねの上の動物＝2000年ごろの公園の定番）
+            const panda = kind2 === 'spring', bodyC = panda ? 0xf0eee6 : 0xd0563e, earC = panda ? 0x2d2d2f : 0xa03828
+            grp.add(mk(new THREE.CylinderGeometry(0.09, 0.13, 0.3, 7), toon(0x8a8f96), ux, uy + 0.15, uz, 0, true)) // ばね
+            const bd = mk(new THREE.SphereGeometry(0.24, 9, 8), toon(bodyC), ux, uy + 0.44, uz, ang, true); bd.scale.set(1.5, 0.85, 0.7); grp.add(bd) // 胴（横長）
+            const hd = mk(new THREE.SphereGeometry(0.15, 9, 8), toon(bodyC), ux + ca * 0.36, uy + 0.62, uz - sa * 0.36, 0, true); grp.add(hd) // 頭
+            for (const de of [-0.08, 0.08]) grp.add(mk(new THREE.SphereGeometry(0.05, 6, 5), toon(earC), ux + ca * 0.4 + sa * de, uy + 0.74, uz - sa * 0.4 + ca * de, 0, true)) // 耳
+            grp.add(mk(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 5), toon(0xd8a83a), ux + ca * 0.18, uy + 0.62, uz - sa * 0.18, 0, true)) } // 持ち手
+          else if (kind2 === 'tires') { for (let i2 = 0; i2 < 3; i2++) { const [ux, uz] = at(-1.2 + i2 * 1.1, 3.2), uy = heightAtYato(ux, uz) // 半分埋めたタイヤ（昭和の公園の定番）
+            const tg = new THREE.TorusGeometry(0.34 - i2 * 0.04, 0.1, 7, 14); const tm = mk(tg, toon(0x3a3d40), ux, uy + 0.1, uz, ang + Math.PI / 2, true); grp.add(tm) } } } } }
     // マリノスのグラウンド＝ユーザー指定の4隅(2026-06-23移設)に。膝丈の雑草の原っぱ＋4辺の金網＋サッカーゴール2基(向かい合う)
     { const quad = MARINOS_QUAD, m4 = new THREE.Matrix4(), sc = new THREE.Vector3()
       const pinq = (x, z) => { let inside = false; for (let i = 0, j = quad.length - 1; i < quad.length; j = i++) { const xi = quad[i][0], zi = quad[i][1], xj = quad[j][0], zj = quad[j][1]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) inside = !inside } return inside }
