@@ -4104,7 +4104,29 @@ function buildShishigaya() {
         else { const aw = name === 'コスモ綱島グランステージ' ? 30 : 24; const [ax, az] = nudgeOffRoad(x, z, aw, 12); buildApt(ax, az, aw, 12, floors, name) } } // 実在の中層マンション(団地は複数棟)。道/水に重なる時は最寄りの空き地へ自動でずらす
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
       else if (type === 'kinder') buildKinder(x, z, name) // 幼稚園/保育園＝カラフルな園舎＋砂の園庭＋遊具＋門
-      else if (type === 'koban') buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
+      else if (type === 'koban') { buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
+        // 駐在所の記号＝夜に灯る赤灯・白い自転車・おしらせの掲示板（漏れ監査2026-07-17＝汎用の箱だけで一番薄かった）
+        const kry = faceRoad(x, z), kf = [Math.sin(kry), Math.cos(kry)], ks = [Math.cos(kry), -Math.sin(kry)]
+        { const px = x + kf[0] * 3.6 + ks[0] * 2.3, pz = z + kf[1] * 3.6 + ks[1] * 2.3, py = heightAtYato(px, pz) // 赤灯（入口わきのポール）
+          grp.add(mk(new THREE.CylinderGeometry(0.05, 0.06, 2.6, 6), toon(0x8a8f96), px, py + 1.3, pz, 0, true))
+          grp.add(mk(new THREE.SphereGeometry(0.15, 9, 8), new THREE.MeshToonMaterial({ color: 0xd0302a, gradientMap: GRAD, emissive: 0x7a1512 }), px, py + 2.72, pz, 0, true))
+          grp.add(mk(new THREE.CylinderGeometry(0.19, 0.21, 0.06, 8), toon(0x4a4f56), px, py + 2.88, pz)) // 笠
+          const kg = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ color: 0xe86a5a, fog: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }))
+          kg.position.set(px, py + 2.72, pz); kg.rotation.y = kry; kg.layers.set(1); grp.add(kg); townNightLights.push({ m: kg, base: 0.4, ph: Math.random() * 6, fa: 0.05 }) } // 夜だけ赤くにじむ
+        { const bx = x + kf[0] * 2.2 - ks[0] * 3.4, bz = z + kf[1] * 2.2 - ks[1] * 3.4, by = heightAtYato(bx, bz), bg2 = new THREE.Group() // 白い駐在所の自転車（壁ぎわ）
+          const fr = toon(0xe8e8e4), bk3 = toon(0x2d2d2f), sil = toon(0x9aa0a6)
+          for (const px8 of [-0.42, 0.42]) { const w2 = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.026, 6, 14), bk3); w2.position.set(px8, 0.3, 0); bg2.add(w2) }
+          const tube = (x1, y1, x2, y2, r8) => { const L2 = Math.hypot(x2 - x1, y2 - y1); const t2 = new THREE.Mesh(new THREE.CylinderGeometry(r8, r8, L2, 5), fr)
+            t2.position.set((x1 + x2) / 2, (y1 + y2) / 2, 0); t2.rotation.z = -Math.atan2(x2 - x1, y2 - y1); bg2.add(t2) }
+          tube(-0.42, 0.3, -0.34, 0.84, 0.02); tube(-0.36, 0.78, 0.38, 0.86, 0.02); tube(0.42, 0.3, 0.38, 0.9, 0.02); tube(-0.42, 0.3, 0.05, 0.52, 0.018); tube(0.05, 0.52, 0.42, 0.3, 0.018)
+          { const hb = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.34, 5), sil); hb.rotation.x = Math.PI / 2; hb.position.set(0.38, 0.94, 0); bg2.add(hb) }
+          { const sd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.12), bk3); sd.position.set(-0.34, 0.9, 0); bg2.add(sd) }
+          { const bs = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.24), sil); bs.position.set(0.52, 0.78, 0); bg2.add(bs) }
+          bg2.position.set(bx, by, bz); bg2.rotation.y = kry + Math.PI / 2 + 0.15; bg2.rotation.z = 0.09; bg2.traverse((o) => { if (o.isMesh) o.castShadow = true }); grp.add(bg2) }
+        { const nx = x + kf[0] * 3.4 - ks[0] * 2.5, nz = z + kf[1] * 3.4 - ks[1] * 2.5, ny = heightAtYato(nx, nz) // おしらせの掲示板（貼り紙2枚）
+          for (const s of [-0.5, 0.5]) grp.add(mk(new THREE.BoxGeometry(0.07, 1.5, 0.07), toon(0x6a5236), nx + ks[0] * s, ny + 0.75, nz + ks[1] * s, 0, true))
+          grp.add(mk(new THREE.BoxGeometry(1.3, 0.8, 0.05), toon(0x8a7a5e), nx, ny + 1.25, nz, kry, true))
+          for (const [s, h2] of [[-0.3, 0.5], [0.28, 0.42]]) grp.add(mk(new THREE.PlaneGeometry(0.4, h2), new THREE.MeshToonMaterial({ color: 0xf2eee0, gradientMap: GRAD }), nx + ks[0] * s + kf[0] * 0.04, ny + 1.25, nz + ks[1] * s + kf[1] * 0.04, kry)) } }
       else if (type === 'conbini') buildConbini(x, z, name) // 90年代の郊外型コンビニ（一面ガラス＋電照看板＋駐車場＋のぼり＋自販機）
       else if (type === 'auto') buildCarShop(x, z, name) // 80〜90年代の自動車販売店（ガラスのショールーム＋展示車＋万国旗＝家のそばの旧セブン-イレブン跡）
       else if (type === 'super') { const [sx, sz] = nudgeOffRoad(x, z, 22, 16); buildSuper(sx, sz, name) } // 町のスーパー（マミート等）＝大きな箱＋赤看板＋駐車場。大きいので専用サイズで道よけ
@@ -4192,7 +4214,8 @@ function buildShishigaya() {
       builtParkPos = parkPos
       window.__parkPos = parkPos.map((p) => [Math.round(p[0]), Math.round(p[1]), p[2] || '']) // 検証用：遊具が実在する公園の一覧＝addParkKidsの座標ずれ監査（遊具なしの草地に子が浮くバグの検出・2026-07-16）
       // ── 小さな公園の個性化（施設作り込みサイクル2026-07-16）：名前つき5園は同じ遊具一式の使い回し＝1園ずつ「らしさ」の一品を足して書き分ける。遊具一式のローカル空き地(0,3.4)へ、インスタンスと同じseed回転で置く ──
-      { const uniq = { '獅子ヶ谷第三公園': 'fountain', '渋沢金井公園': 'clock', '北寺尾五丁目公園': 'spring', '馬場第一公園': 'tires', '獅子ケ谷公園': 'spring2' }
+      { const uniq = { '獅子ヶ谷第三公園': 'fountain', '渋沢金井公園': 'clock', '北寺尾五丁目公園': 'spring', '馬場第一公園': 'tires', '獅子ケ谷公園': 'spring2',
+        '獅子ヶ谷第二公園': 'clock', '北寺尾四丁目公園': 'tires', '北寺尾渋沢公園': 'fountain', '北寺尾第四公園': 'spring', '北寺尾第二公園': 'tires', '北寺尾第三公園': 'clock', 'かに山公園': 'spring2', '西谷広場': 'fountain', '下谷広場': 'clock', '新池広場': 'fountain', '旭台広場': 'spring', '灰ヶ久保広場': 'tires' } // 残り12園も個性化＝全17園に一品（漏れ監査2026-07-17）
         for (const [px, pz, nm] of parkPos) { const kind2 = nm && uniq[nm]; if (!kind2) continue
           const seed = Math.abs(Math.round(px) + Math.round(pz) * 3), ang = (seed % 4) * 1.5708, ca = Math.cos(ang), sa = Math.sin(ang)
           const at = (lx, lz) => [px + lx * ca + lz * sa, pz - lx * sa + lz * ca]
