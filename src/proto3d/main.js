@@ -3090,6 +3090,11 @@ function buildShishigaya() {
         for (const sx of [-6.5, -2.5, 2.5, 6.5]) grp.add(mk(new THREE.CircleGeometry(0.75, 16), toon(0xd6ecf4), bx + sx, bg + 3.7, bz + 5.07)) // 丸窓
         addBox(bx, bz, 10, 5, 0, 0.3) }
       { const px = cx, pz = cz + 9, m = new THREE.Mesh(PLAYGROUND_GEO, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD })); m.castShadow = m.receiveShadow = true; m.position.set(px, heightAtYato(px, pz), pz); m.rotation.y = Math.PI; grp.add(m) } // 遊具一式（すべり台/ブランコ/砂場/鉄棒/ベンチ）
+      { const px7 = cx + 9, pz7 = cz + 13, py7 = heightAtYato(px7, pz7) // 夏の園庭のビニールプール（丸・水色＝周縁園の軽い1パス・2026-07-17）
+        grp.add(mk(new THREE.CylinderGeometry(1.5, 1.4, 0.5, 14, 1, true), new THREE.MeshToonMaterial({ color: 0x4a8ac0, gradientMap: GRAD, side: THREE.DoubleSide }), px7, py7 + 0.25, pz7, 0, true)) // 側面（開いた筒）
+        { const tg7 = new THREE.TorusGeometry(1.47, 0.07, 6, 16); tg7.rotateX(Math.PI / 2); grp.add(mk(tg7, toon(0xeef2f4), px7, py7 + 0.5, pz7)) } // 白いふち
+        grp.add(mk(new THREE.CylinderGeometry(1.44, 1.44, 0.05, 14), new THREE.MeshToonMaterial({ color: 0xa8d8e8, gradientMap: GRAD, transparent: true, opacity: 0.92 }), px7, py7 + 0.4, pz7)) // 水面
+        addBox(px7, pz7, 1.6, 1.6, 0, 0.2) }
       { const gx = cx, gz = cz + 19, gg = heightAtYato(gx, gz) // 低いカラフルな門＋園名
         for (const sx of [-3.2, 3.2]) grp.add(mk(new THREE.CylinderGeometry(0.18, 0.2, 2.3, 8), toon(0xe07a3a), gx + sx, gg + 1.15, gz, 0, true))
         grp.add(mk(new THREE.BoxGeometry(7.0, 0.45, 0.45), toon(0xf2b03a), gx, gg + 2.3, gz, 0, true))
@@ -3140,6 +3145,17 @@ function buildShishigaya() {
       grp.add(mk(new THREE.PlaneGeometry(2.1, 2.0), glass, cx + fwd[0] * (D / 2 + 0.2), gB + 1.1, cz + fwd[1] * (D / 2 + 0.2), ry)) // 自動ドアのガラス
       for (const s of [-1, 1]) { const [nx, nz] = f(s * 4.6, D / 2 + 1.4), ny = heightAtYato(nx, nz); grp.add(mk(new THREE.CylinderGeometry(0.05, 0.05, 3.4, 6), toon(0xcfcabd), nx, ny + 1.7, nz, 0, true)); grp.add(mk(new THREE.PlaneGeometry(0.5, 2.4), new THREE.MeshToonMaterial({ color: s > 0 ? 0xd8542e : 0x2e6db0, gradientMap: GRAD, side: THREE.DoubleSide }), nx + side[0] * 0.3, ny + 2.0, nz + side[1] * 0.3, ry)) } // のぼり2本
       { const [v1x, v1z] = f(5.6, D / 2 + 0.7); vending(v1x, v1z, ry, 0xc0392b); const [v2x, v2z] = f(6.7, D / 2 + 0.7); vending(v2x, v2z, ry, 0x2e6db0) } // 店先の自販機2台
+      { const [tx2, tz2] = f(-3.9, D / 2 + 0.8), ty2 = heightAtYato(tx2, tz2) // 緑の公衆電話（台の上）＝2000年ごろのコンビニ入口の定番（店頭の作り込み2026-07-17）
+        grp.add(mk(new THREE.BoxGeometry(0.5, 0.92, 0.5), toon(0x9aa0a6), tx2, ty2 + 0.46, tz2, ry, true)) // 台
+        grp.add(mk(new THREE.BoxGeometry(0.42, 0.34, 0.3), toon(0x1f8a4d), tx2, ty2 + 1.09, tz2, ry, true)) // 緑の電話機
+        grp.add(mk(new THREE.BoxGeometry(0.3, 0.09, 0.1), toon(0x14663a), tx2, ty2 + 1.3, tz2, ry)) // 受話器
+        addBox(tx2, tz2, 0.3, 0.3, ry, 0.1) }
+      for (const [off, col] of [[-0.62, 0x2e6db0], [0, 0x8a9096]]) { const [bx2, bz2] = f(-2.4 + off, D / 2 + 0.75), by2 = heightAtYato(bx2, bz2) // 入口わきの分別ゴミ箱（青=カン・ビン/灰=もえるゴミ）
+        grp.add(mk(new THREE.BoxGeometry(0.46, 0.72, 0.46), toon(col), bx2, by2 + 0.36, bz2, ry, true))
+        grp.add(mk(new THREE.BoxGeometry(0.5, 0.08, 0.5), toon(0x4a4f55), bx2, by2 + 0.76, bz2, ry)) }
+      { const kami = (txt) => { const c = document.createElement('canvas'); c.width = 44; c.height = 18 + txt.length * 15; const x6 = c.getContext('2d'); x6.fillStyle = '#f7f3e6'; x6.fillRect(0, 0, c.width, c.height); x6.fillStyle = '#c9352b'; x6.font = 'bold 13px sans-serif'; x6.textAlign = 'center'; txt.split('').forEach((ch, i) => x6.fillText(ch, 22, 16 + i * 15)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t } // ガラスの貼り紙（縦書き・高さは文字数追従）
+        for (const [lx8, txt] of [[-3.4, 'アイス'], [1.9, 'サイダー'], [3.5, 'せんこうはなび']]) { const [px2, pz2] = f(lx8, D / 2 + 0.12)
+          grp.add(mk(new THREE.PlaneGeometry(0.5, 0.24 + txt.length * 0.17), new THREE.MeshBasicMaterial({ map: kami(txt) }), px2, gB + 1.9, pz2, ry)) } } // 夏の売り文句＝時代の記号
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
     // ───── 自動車販売店（1980〜90年代の町の車屋）＝ガラスのショールーム＋アスファルトの展示場に並ぶ車＋万国旗風の小旗の連なり＋のぼり＋紺の素朴な看板。家のそばのセブン-イレブンは当時まだ無く車販売店だった、というユーザーの記憶(2026-06-24)を反映。※実在ブランドのロゴ/社名は使わず架空名＝著作権セーフ ─────
     const buildCarShop = (cx, cz, name) => { const gB = gmin4(cx, cz, 12, 9), gT = gmax4(cx, cz, 12, 9), slope = Math.min(5, gT - gB), ry = faceRoad(cx, cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)], W = 11, D = 8, H = slope + 3.4
@@ -3152,12 +3168,20 @@ function buildShishigaya() {
       const mull = toon(0xb6bcc0); for (const i of [-1.5, -0.5, 0.5, 1.5]) { const [mx, mz] = f(i * 2.4, D / 2 + 0.07); grp.add(mk(new THREE.BoxGeometry(0.1, H - 1.0, 0.1), mull, mx, gB + (H - 1.0) / 2 + 0.1, mz, ry)) } // ガラスの方立
       grp.add(mk(new THREE.BoxGeometry(W + 0.6, 1.1, 0.3), new THREE.MeshBasicMaterial({ map: signTex(name, '#1b3c6e', '#fff8e8') }), cx + fwd[0] * (D / 2 + 0.2), gB + H - 0.6, cz + fwd[1] * (D / 2 + 0.2), ry)) // 上部の看板帯（紺）
       const carCols = [0xc9352b, 0xe8e4da, 0x2f6db0], cgM = new THREE.MeshToonMaterial({ color: 0x2b3a44, gradientMap: GRAD }) // 展示車（当時の低ポリのセダン）
-      const car = (lx, lz, ca, col) => { const [wx, wz] = f(lx, lz), wy = heightAtYato(wx, wz), g = new THREE.Group(); g.position.set(wx, wy, wz); g.rotation.y = ry + ca; grp.add(g)
+      const car = (lx, lz, ca, col, price) => { const [wx, wz] = f(lx, lz), wy = heightAtYato(wx, wz), g = new THREE.Group(); g.position.set(wx, wy, wz); g.rotation.y = ry + ca; grp.add(g)
         const a = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m) }
         a(new THREE.BoxGeometry(1.9, 0.62, 4.1), toon(col), 0, 0.62, 0); a(new THREE.BoxGeometry(1.72, 0.5, 2.3), cgM, 0, 1.08, -0.1); a(new THREE.BoxGeometry(1.56, 0.22, 1.9), toon(col), 0, 1.36, -0.1) // ボディ/窓帯/屋根
         const tire = toon(0x1b1b1e); for (const [tx, tz] of [[0.92, 1.3], [-0.92, 1.3], [0.92, -1.3], [-0.92, -1.3]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.22, 12), tire); m.rotation.z = Math.PI / 2; m.position.set(tx, 0.34, tz); m.castShadow = true; g.add(m) } // タイヤ4
+        if (price) { const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshBasicMaterial({ map: signTex(price, '#fff8e8', '#c9352b') })); pm.position.set(0, 1.28, 1.05); pm.rotation.x = -0.42; g.add(pm) } // フロントガラスの価格札（中古車屋の定番・数字だけ＝著作権セーフ）
         addBox(wx, wz, 1.05, 2.1, ry + ca, 0.2) }
-      car(-4.2, 7.2, 0.32, carCols[0]); car(0, 8.0, -0.12, carCols[1]); car(4.2, 7.0, 0.22, carCols[2]) // 展示場に3台
+      car(-4.2, 7.2, 0.32, carCols[0], '39.8万円'); car(0, 8.0, -0.12, carCols[1], '29.8万円'); car(4.2, 7.0, 0.22, carCols[2], '49.8万円') // 展示場に3台（価格札つき）
+      for (const s of [-1, 1]) { const [tx3, tz3] = f(s * 7.6, 1.2), ty3 = heightAtYato(tx3, tz3) // タイヤの山＝町の車屋の店先の定番（店頭の作り込み2026-07-17）
+        for (let i = 0; i < 4; i++) grp.add(mk(new THREE.CylinderGeometry(0.37, 0.37, 0.21, 12), toon(0x232326), tx3 + (i % 2) * 0.05, ty3 + 0.11 + i * 0.21, tz3 + (i % 2) * 0.04, 0, true))
+        addBox(tx3, tz3, 0.45, 0.45, 0, 0.1) }
+      { const [dx3, dz3] = f(7.7, 3.2), dy3 = heightAtYato(dx3, dz3) // ドラム缶2本（オイル缶＝整備の気配）
+        grp.add(mk(new THREE.CylinderGeometry(0.3, 0.3, 0.88, 10), toon(0xb0392b), dx3, dy3 + 0.44, dz3, 0, true))
+        grp.add(mk(new THREE.CylinderGeometry(0.3, 0.3, 0.88, 10), toon(0x2e6db0), dx3 + side[0] * 0.66, dy3 + 0.44, dz3 + side[1] * 0.66, 0, true))
+        addBox(dx3, dz3, 0.4, 0.4, 0, 0.1) }
       const [plx, plz] = f(-9.5, 4), [prx, prz] = f(9.5, 4), ply = heightAtYato(plx, plz), pry2 = heightAtYato(prx, prz) // 万国旗風の旗（中古車屋の定番。前面左右のポール間に張る）
       for (const [px, pz, py] of [[plx, plz, ply], [prx, prz, pry2]]) grp.add(mk(new THREE.CylinderGeometry(0.05, 0.07, 4.0, 6), toon(0xcfcabd), px, py + 2.0, pz, 0, true)) // ポール2本
       { const ay = ply + 3.5, by = pry2 + 3.5, N = 14, fcol = [0xd8542e, 0xf1c40f, 0x2e8b57, 0x2f6db0, 0xe07a2e], flagGeo = new THREE.PlaneGeometry(0.32, 0.44)
@@ -3289,6 +3313,13 @@ function buildShishigaya() {
           a(new THREE.BoxGeometry(1.9, 0.62, 4.1), toon(0xe8e4da), 0, 0.62, 0); a(new THREE.BoxGeometry(1.72, 0.5, 2.3), new THREE.MeshToonMaterial({ color: 0x2b3a44, gradientMap: GRAD }), 0, 1.08, -0.1); a(new THREE.BoxGeometry(1.56, 0.22, 1.9), toon(0xe8e4da), 0, 1.36, -0.1)
           const tire = toon(0x1b1b1e); for (const [tx3, tz3] of [[0.92, 1.3], [-0.92, 1.3], [0.92, -1.3], [-0.92, -1.3]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.22, 12), tire); m.rotation.z = Math.PI / 2; m.position.set(tx3, 0.34, tz3); g.add(m) }
           addBox(wx2, wz2, 1.05, 2.1, ry, 0.2) }
+        { const [mx2, mz2] = f(3.0, D / 2 + 1.7), my2 = heightAtYato(mx2, mz2) // 入口わきのメニュー立て看板（料理写真の並ぶ白いボード＝当時のロードサイド店の定番。店頭の作り込み2026-07-17）
+          grp.add(mk(new THREE.BoxGeometry(0.1, 1.35, 0.1), toon(0x8a8f8a), mx2, my2 + 0.67, mz2, ry, true))
+          const mc = document.createElement('canvas'); mc.width = 48; mc.height = 60; const m6 = mc.getContext('2d'); m6.fillStyle = '#f6f1e2'; m6.fillRect(0, 0, 48, 60); const cols6 = ['#c8342a', '#e0a53a', '#7a9a3a', '#b56a3a', '#c88a3a', '#a34a5a']
+          for (let i6 = 0; i6 < 6; i6++) { m6.fillStyle = cols6[i6]; m6.fillRect(5 + (i6 % 2) * 22, 5 + Math.floor(i6 / 2) * 18, 16, 12) }
+          const mt = new THREE.CanvasTexture(mc); mt.colorSpace = THREE.SRGBColorSpace
+          grp.add(mk(new THREE.PlaneGeometry(0.95, 1.15), new THREE.MeshBasicMaterial({ map: mt, side: THREE.DoubleSide }), mx2 + fwd[0] * 0.07, my2 + 1.35, mz2 + fwd[1] * 0.07, ry))
+          addBox(mx2, mz2, 0.25, 0.25, ry, 0.1) }
         addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
       // --- ビッグヨーサン＝倉庫型の平屋＋黄×赤の派手な看板＋店頭の青果ワゴン（1995開店・樽綱橋のたもと＝橋の手前に圧縮） ---
       { const cx = 2640, cz = -1156, ry = Math.atan2(2640 - cx, -1189 - cz), fwd = [Math.sin(ry), Math.cos(ry)], side = [Math.cos(ry), -Math.sin(ry)] // 地理院検証2026-07-07＝樽町3-7-75の実相対位置(ジャスコの南西160m・樽綱橋のたもと)へ移設・通り(z-1191)へ北向きに正対
@@ -3311,6 +3342,11 @@ function buildShishigaya() {
           grp.add(mk(new THREE.PlaneGeometry(1.0, 3.3), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv2), side: THREE.DoubleSide }), bx2, gB + 3.2, bz2, ry)) }
         for (const [o, wc] of [[-9, 0xd94f2a], [-6.5, 0x6fae3f], [-4, 0xe8c23a], [-1.5, 0xc23a5a], [1, 0x4a8ac0]]) { const [wx2, wz2] = f(o, D / 2 + 1.6); grp.add(mk(new THREE.BoxGeometry(2.0, 0.8, 1.1), toon(0x9a7a4e), wx2, heightAtYato(wx2, wz2) + 0.5, wz2, ry, true)); grp.add(mk(new THREE.BoxGeometry(1.8, 0.35, 0.9), toon(wc), wx2, heightAtYato(wx2, wz2) + 1.05, wz2, ry, true)) } // 店頭の青果ワゴンの列（激安スーパーの店先）
         for (const o of [7.4, 8.0, 8.6]) { const [wx2, wz2] = f(o, D / 2 + 1.8); grp.add(mk(new THREE.BoxGeometry(0.5, 0.55, 0.72), new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.7 }), wx2, heightAtYato(wx2, wz2) + 0.45, wz2, ry, true)) } // カート
+        { const hk = (txt, fg9) => { const c = document.createElement('canvas'); c.width = 44; c.height = 18 + txt.length * 16; const x6 = c.getContext('2d'); x6.fillStyle = '#f7f3e2'; x6.fillRect(0, 0, c.width, c.height); x6.fillStyle = fg9; x6.font = 'bold 14px sans-serif'; x6.textAlign = 'center'; txt.split('').forEach((ch, i) => x6.fillText(ch, 22, 17 + i * 16)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t } // 手書き風の特売ポスター（激安スーパーのガラス面の熱気。店頭の作り込み2026-07-17）
+          for (const [lx9, txt, fg9] of [[-7.5, 'お肉', '#d3232a'], [3.8, 'お魚', '#2a6ab0'], [5.8, 'やさい', '#2e7a46']]) { const [px9, pz9] = f(lx9, D / 2 + 0.12)
+            grp.add(mk(new THREE.PlaneGeometry(0.55, 0.28 + txt.length * 0.2), new THREE.MeshBasicMaterial({ map: hk(txt, fg9) }), px9, gB + 2.0, pz9, ry)) } }
+        { const [kx, kz] = f(2.6, D / 2 + 0.8), ky = heightAtYato(kx, kz) // 入口わきの買い物かごの山（マミートと同じ型）
+          for (const [dx3, col] of [[-0.3, 0x4a78c0], [0.3, 0xc9584a]]) for (let i = 0; i < 3; i++) grp.add(mk(new THREE.BoxGeometry(0.44 - i * 0.02, 0.16, 0.32 - i * 0.02), new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, transparent: true, opacity: 0.85 }), kx + side[0] * dx3, ky + 0.1 + i * 0.13, kz + side[1] * dx3, ry, true)) }
         addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
       // --- ミニストップ（ユーザー記憶・現存確認できず＝閉店とみられる）＝90年代の実物は「黄色い看板帯に青文字」（画像調査2026-07-07で修正・青地→黄色地） ---
       buildConbini(3222, -982, 'ミニストップ', '#ffd400', '#1d4f9e') // 地理院検証2026-07-07＝駒岡1-25-20の実位置(3215,-975)ぎわ・バーミヤンと南北道(x≈3208)を挟んで向かい＝実際どおり
@@ -3327,6 +3363,20 @@ function buildShishigaya() {
       for (const [tx, ts] of [[2620, 1.1], [2760, 0.95], [2900, 1.15], [3020, 1.0], [2470, 0.9]]) { const tz = -1228, ty = heightAtYato(tx, tz)
         grp.add(mk(new THREE.CylinderGeometry(0.2, 0.3, 2.0 * ts, 5), toon(0x6a4e34), tx, ty + 1.0 * ts, tz, 0, true))
         const cv = mk(new THREE.IcosahedronGeometry(2.2 * ts, 1), toon(0x567e3a), tx, ty + 2.0 * ts + 1.6 * ts, tz, 0, true); cv.scale.set(1, 1.08, 1); grp.add(cv) }
+      // --- 土手の気配（漏れ監査⑥の消化・2026-07-17）＝夕涼みのベンチ＋置き釣り竿（誰かが川で遊んでいる気配）＋川辺の白サギ ---
+      { const bx4 = 2560, bz4 = -1228, by4 = heightAtYato(bx4, bz4) // 川を向くベンチ（土手の上・樽綱橋のたもと）
+        grp.add(mk(new THREE.BoxGeometry(2.0, 0.12, 0.6), toon(0x8a6a40), bx4, by4 + 0.44, bz4, 0, true))
+        for (const s of [-0.8, 0.8]) grp.add(mk(new THREE.BoxGeometry(0.12, 0.4, 0.5), toon(0x6a4e30), bx4 + s, by4 + 0.2, bz4, 0, true))
+        grp.add(mk(new THREE.CylinderGeometry(0.16, 0.13, 0.3, 8), toon(0xc9584a), bx4 + 1.5, by4 + 0.15, bz4 - 0.2, 0, true)) // 赤いバケツ
+        { const rod = mk(new THREE.CylinderGeometry(0.015, 0.03, 2.6, 5), toon(0x8a6a3f), bx4 - 1.15, by4 + 1.05, bz4 - 0.1, 0, true); rod.rotation.z = 0.42; grp.add(rod) } // ベンチに立てかけた釣り竿
+        addBox(bx4, bz4, 1.1, 0.4, 0, 0.2) }
+      for (const [sx4, sz4, sry] of [[2620, -1262, 0.7], [2740, -1258, -1.9]]) { const g4 = new THREE.Group(); g4.position.set(sx4, 0.55, sz4); g4.rotation.y = sry; grp.add(g4) // 白サギ2羽＝浅瀬にたたずむ（川面Y0.55に脚で立つ）
+        const a4 = (geo, col, x2, y2, z2) => { const m = new THREE.Mesh(geo, toon(col)); m.position.set(x2, y2, z2); m.castShadow = true; g4.add(m); return m }
+        for (const s of [-0.06, 0.06]) a4(new THREE.CylinderGeometry(0.015, 0.015, 0.42, 4), 0x3a3a34, s, 0.21, 0) // 細い脚2本
+        { const b4 = a4(new THREE.SphereGeometry(0.16, 8, 7), 0xf2f2ea, 0, 0.52, 0); b4.scale.set(1, 0.85, 1.5) } // 胴（前後にのびる）
+        { const n4 = a4(new THREE.CylinderGeometry(0.03, 0.04, 0.4, 5), 0xf2f2ea, 0, 0.78, 0.14); n4.rotation.x = -0.3 } // 首
+        a4(new THREE.SphereGeometry(0.07, 7, 6), 0xf0f0e8, 0, 0.97, 0.24) // 頭
+        { const k4 = new THREE.ConeGeometry(0.025, 0.18, 5); k4.rotateX(Math.PI / 2); a4(k4, 0xd8b23a, 0, 0.96, 0.37) } } // くちばし
       // --- 駒岡通りの街路樹（歩道側に交互・郊外の買い物通りの並木＝画像調査でイオン前に街路樹を確認） ---
       { const P = [[3208, -985], [3105, -1035], [3000, -1085], [2900, -1125], [2800, -1160], [2700, -1180], [2600, -1195], [2540, -1200]] // 移設2026-07-07＝新しい通りの折れ線に追従
         for (let k = 0; k < P.length - 1; k++) { const [x0, z0] = P[k], [x1, z1] = P[k + 1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz), nx = -dz / l, nz = dx / l
@@ -4097,7 +4147,15 @@ function buildShishigaya() {
         else { const d3 = name === '獅子ヶ谷第三公園'; if (name !== '獅子ヶ谷一丁目公園') parkPos.push(d3 ? [3058, 11, name] : [x, z, name]) } } // 名前は入口の標石に刻む（中央の木看板buildParkSignは廃止＝実物は入口の石が定番・ユーザー2026-07-06） // 一丁目公園はマリノスのグラウンドなので遊具なし。第三公園は看板を西角の入口(3049.5,22.5)へ・表を進入路(北西)向きに＝2.5だと坂から鏡文字。遊具/柵の中心を園庭(3058,11)へ（ユーザーピン4点の中心・2026-07-02。addParkKidsのブランコの子と同じ座標にすること＝ずれると子が宙に浮く）
       else if (type === 'yashiki') buildYokomizo(x, z, name) // 旧横溝家住宅＝長屋門/主屋/文庫蔵/穀蔵/蚕小屋の名主屋敷
       else if (type === 'school') { if (name === '獅子ヶ谷小学校') { buildSchoolDetailed(x, z, name); FEST_VENUES.push({ name: '校庭', pos: new THREE.Vector2(3124, -186), days: [1], g: buildBonOdori(3124, heightAtYato(3124, -186), -186, null, FEST_VARIANTS['校庭']) }) } // 校庭(3124,-186)に夏の盆踊り会場＝開催日は1日目。お囃子/花火もこの会場（2026-06-24 ユーザー要望）
-        else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else if (name === '上の宮中学校') { buildKaminomiya(x, z, name); FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22, null, FEST_VARIANTS['上の宮中学校']) }) } else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a') } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
+        else if (name === '橘学苑高校') buildTachibana(x, z, name, 4); else if (name === '橘学苑中学') buildTachibana(x, z, name, 3); else if (name === '上の宮中学校') { buildKaminomiya(x, z, name); FEST_VENUES.push({ name: '上の宮中学校', pos: new THREE.Vector2(x + 8, z - 22), days: [3], g: buildBonOdori(x + 8, heightAtYato(x + 8, z - 22), z - 22, null, FEST_VARIANTS['上の宮中学校']) }) } else { schoolBldg(x, z, 44, 12, 3, 0, 0x9a4f3e); schoolBldg(x - 14, z + 12, 12, 22, 3, 0, 0x9a4f3e); ground(x + 8, z - 22, 48, 34, 0xccb78a); signOn(x, z - 6.5, 12, gmax4(x, z, 44, 12), 11, name, '#2f5a8a')
+        { const gx5 = x + 26, gz5 = z - 22, gy5 = heightAtYato(gx5, gz5) // 校庭の気配（周縁校の軽い1パス・2026-07-17）＝サッカーゴール
+          for (const s of [-1.8, 1.8]) grp.add(mk(new THREE.CylinderGeometry(0.06, 0.06, 1.6, 6), toon(0xe8e8e2), gx5, gy5 + 0.8, gz5 + s, 0, true))
+          { const bar5 = mk(new THREE.CylinderGeometry(0.05, 0.05, 3.72, 6), toon(0xe8e8e2), gx5, gy5 + 1.58, gz5, 0, true); bar5.rotation.x = Math.PI / 2; grp.add(bar5) }
+          addBox(gx5, gz5, 0.3, 2.0, 0, 0.2) }
+        { const dx5 = x + 8, dz5 = z - 10, dy5 = heightAtYato(dx5, dz5) // 朝礼台（校庭の校舎寄り）
+          grp.add(mk(new THREE.BoxGeometry(1.7, 0.7, 1.2), toon(0x8f9a8a), dx5, dy5 + 0.35, dz5, 0, true))
+          grp.add(mk(new THREE.BoxGeometry(0.7, 0.32, 0.5), toon(0x7a857a), dx5, dy5 + 0.16, dz5 + 0.82, 0, true))
+          addBox(dx5, dz5, 0.9, 0.9, 0, 0.2) } } } // 橘学苑＝中高一貫キャンパス／他校＝校舎＋校庭＋校庭の気配。上の宮中学校はグラウンドで夏祭り（3日目）＝ユーザー記憶2026-06-24
       else if (type === 'apt') { if (name === '獅子ヶ谷ハイツ') { // 団地3棟のL字配置。3棟のどれも道/水に乗らない最小移動を“塊ごと”螺旋探索（ユーザー指摘2026-07-05：団地が道路に食い込む。従来の36×30 nudgeは翼棟の張り出し(+26z/-24x)を見きれず翼が道に乗っていた）
           const parts = [[0, 0, 34, 11], [4, 26, 11, 28], [-24, 14, 28, 11]] // [offsetX, offsetZ, w, d]（設計どおりのL字＝棟どうしは重ねない）
           const clusterBad = (dx, dz) => parts.some(([ox, oz, pw, pd]) => { const px = x + dx + ox, pz = z + dz + oz, pry = faceRoad(px, pz); return fpCover(px, pz, pw, pd, pry, onYatoRoad) > 0.04 || inWaterAny(px, pz) || fpCover(px, pz, pw + 4, pd + 4, pry, inWaterAny) > 0.04 })
