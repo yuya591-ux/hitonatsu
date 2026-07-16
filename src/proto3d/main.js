@@ -2703,10 +2703,11 @@ function buildShishigaya() {
     [2735, 427, 'temple', '光明寺', 24], [2518, 235, 'temple', '真如山本覺寺', 24], [3617, 208, 'temple', '妙光寺', 24], // 寺は境内(約26×32m)が広い＝clearRを24にして山門前/玉砂利に汎用建物がめり込まないように
     [3412, -330, 'park', '馬場第一公園', 4], [3162, 384, 'park', '獅子ケ谷公園', 4], [3361, 513, 'park', '獅子ヶ谷第二公園', 4], [3565, 182, 'park', '北寺尾四丁目公園', 4], [2938, -198, 'park', '渋沢金井公園', 4], [2698, -300, 'park', '北寺尾渋沢公園', 4], [2354, -208, 'park', '北寺尾第四公園', 4], [3059, -14, 'park', '獅子ヶ谷第三公園', 4], [3152, -118, 'park', '北寺尾五丁目公園', 4], [2683, -317, 'park', '北寺尾第二公園', 4], [2462, -500, 'park', '北寺尾第三公園', 4], [2836, -619, 'park', 'かに山公園', 4], [2987, 123, 'park', '獅子ヶ谷一丁目公園', 4], [2586, 378, 'park', '西谷広場', 4], [2740, 539, 'park', '下谷広場', 4], [2458, 161, 'park', '新池広場', 4], [2442, 24, 'park', '旭台広場', 4], [2385, 180, 'park', '灰ヶ久保広場', 4],
     [1983, 493, 'park', '師岡町公園', 6], // 港北区師岡町401-2＝獅子ヶ谷市民の森に隣接。西へワールド拡張(HALF=1080)して収録
-    // 学校・幼稚園・町の店（コンビニは時代に合わないので、当時の個人商店＝酒屋/食堂/よろず屋/米店に置換。中身は当時の定番で仮置き＝ユーザーの記憶で要修正・2026-06-24）
+    // 学校・幼稚園・町の店（コンビニは時代に合わないので、当時の個人商店＝酒屋/食堂/よろず屋/米店に置換・2026-06-24）
+    // ★店名の恒久方針（ユーザー明言2026-07-17）：架空の固有名は付けない。実名が確かな店（香取米店・しんみせ・マミート等）以外は業種名だけの看板にする
     [2478, -631, 'school', '馬場小学校', 40], [3448, 58, 'school', '旭小学校', 40], [3358, -902, 'school', '上寺尾小学校', 40], [3830, 475, 'school', '寺尾中学校', 40], [2012, -360, 'school', '上の宮中学校', 40], [3702, 41, 'school', '白鵬女子高校', 40],
     [2817, -275, 'kinder', '寺尾第二幼稚園', 18], [2550, -733, 'kinder', 'すみれが丘幼稚園', 18], [3126, -843, 'kinder', '馬場保育園', 18], [2938, -1015, 'kinder', 'やよいケ丘幼稚園', 18],
-    [3028, -998, 'liquor', 'みのり酒店', 16], [3462, -555, 'shop', 'よろずや', 16], [3156, 922, 'eat', '大衆食堂 ひので', 16], [3052, -991, 'liquor', 'さかえ酒店', 16], [2924, 1042, 'rice', 'こめ屋', 16]
+    [3028, -998, 'liquor', '酒店', 16], [3462, -555, 'shop', 'よろず屋', 16], [3156, 922, 'eat', '大衆食堂', 16], [3052, -991, 'liquor', '酒店', 16], [2924, 1042, 'rice', '米店', 16] // 旧仮置き名(みのり/さかえ/ひので/こめ屋/よろずや)は架空のため業種名化（2026-07-17）
   ]
   for (const n of NAMED) n[1] = -n[1] // 鏡像補正：zを反転
   // 実ランドマークの区画は汎用建物を消す（＝下で実物を描画）。＋マリノスG(ユーパリノス隣)・サンライズ地下出口の森。zは反転後の値
@@ -3118,7 +3119,7 @@ function buildShishigaya() {
     const norenTex = (txt, col) => { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const x = c.getContext('2d'); x.fillStyle = col; x.fillRect(0, 0, 128, 64)
       x.fillStyle = 'rgba(0,0,0,0.16)'; for (const sx of [43, 85]) x.fillRect(sx, 6, 2, 58) // 暖簾の切れ目
       x.fillStyle = '#fdf6e6'; x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(txt, 64, 34); return new THREE.CanvasTexture(c) }
-    const noren = (nx, nz, w, nry, txt, col, yy) => { const ny = heightAtYato(nx, nz); grp.add(mk(new THREE.PlaneGeometry(w, 0.95), new THREE.MeshBasicMaterial({ map: norenTex(txt, col), transparent: true, side: THREE.DoubleSide }), nx, ny + yy, nz, nry)) } // 暖簾
+    const noren = (nx, nz, w, nry, txt, col, yAbs) => { grp.add(mk(new THREE.PlaneGeometry(w, 0.95), new THREE.MeshBasicMaterial({ map: norenTex(txt, col), transparent: true, side: THREE.DoubleSide }), nx, yAbs, nz, nry)) } // 暖簾。★yは絶対高さ＝店の床(gB+slope)基準で渡す（店先の現地地面を足すと、前が高い斜面の店で暖簾が2階看板の高さまで浮く・実写2026-07-17）
     const bench = (bx, bz, bry) => { const by = heightAtYato(bx, bz), g = new THREE.Group(); g.position.set(bx, by, bz); g.rotation.y = bry; grp.add(g) // 縁台（店先のベンチ）
       const a = (geo, col, x, y, z) => { const m = new THREE.Mesh(geo, toon(col)); m.position.set(x, y, z); m.castShadow = true; g.add(m) }
       a(new THREE.BoxGeometry(2.0, 0.12, 0.6), 0x8a6a40, 0, 0.42, 0); for (const s of [-0.85, 0.85]) a(new THREE.BoxGeometry(0.1, 0.42, 0.5), 0x6a4e30, s, 0.21, 0) }
@@ -3380,7 +3381,7 @@ function buildShishigaya() {
         const top = new THREE.Mesh(new THREE.BoxGeometry(W + 0.5, 0.05, 1.75), awnMat); top.rotation.x = -0.4; top.position.set(0, 0, 0.82); awnG.add(top) // 斜めの天面
         const val = new THREE.Mesh(new THREE.BoxGeometry(W + 0.5, 0.34, 0.04), awnMat); val.position.set(0, -0.36, 1.58); awnG.add(val) // 前垂れ（スカラップ風の前縁）
         awnG.traverse((o) => { if (o.isMesh) o.castShadow = true }) }
-      noren(cx + fwd[0] * (D / 2 + 0.55), cz + fwd[1] * (D / 2 + 0.55), 2.8, ry, kind === 'rice' ? 'こめ' : kind === 'eat' ? 'お食事' : kind === 'liquor' ? 'さけ' : kind === 'green' ? 'やおや' : kind === 'flower' ? 'はな' : kind === 'tobacco' ? 'たばこ' : 'だがし', kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#6a4a1a' : kind === 'liquor' ? '#355a8a' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#3a5a8a' : '#b5462f', slope + H1 - 0.55) // 暖簾
+      noren(cx + fwd[0] * (D / 2 + 0.55), cz + fwd[1] * (D / 2 + 0.55), 2.8, ry, kind === 'rice' ? 'こめ' : kind === 'eat' ? 'お食事' : kind === 'liquor' ? 'さけ' : kind === 'green' ? 'やおや' : kind === 'flower' ? 'はな' : kind === 'tobacco' ? 'たばこ' : 'だがし', kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#6a4a1a' : kind === 'liquor' ? '#355a8a' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#3a5a8a' : '#b5462f', gB + slope + H1 - 0.55) // 暖簾（店の床基準の絶対高さ）
       grp.add(mk(new THREE.PlaneGeometry(Math.min(W * 0.9, 6), 1.2), new THREE.MeshBasicMaterial({ map: signTex(name, kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#5a4a2a' : kind === 'liquor' ? '#1b3c6e' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#2f5a8a' : '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (D / 2 + 0.2), gB + slope + H1 + H2 - 0.9, cz + fwd[1] * (D / 2 + 0.2), ry)) // 2階正面の看板
       if (kind === 'rice') { const bagM = toon(0xd8cdae); for (const [lx, lz, ly] of [[-2.3, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.0, 1], [-1.4, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.65, 0]]) { const [wx, wz] = f(lx, lz); grp.add(mk(new THREE.BoxGeometry(0.7, 0.5, 0.5), bagM, wx, heightAtYato(wx, wz) + 0.25 + ly * 0.5, wz, ry, true)) } // 店先に積んだ米袋
         const [vx, vz] = f(2.7, D / 2 + 0.9); vending(vx, vz, ry, 0x2e6db0)
