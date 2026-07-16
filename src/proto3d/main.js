@@ -3374,6 +3374,35 @@ function buildShishigaya() {
         const [bx, bz] = f(3.0, D / 2 + 1.3); bench(bx, bz, ry) }
       else { const [bx, bz] = f(2.6, D / 2 + 1.3); bench(bx, bz, ry); const [g1x, g1z] = f(-2.7, D / 2 + 0.9); gacha(g1x, g1z, ry); const [g2x, g2z] = f(-3.3, D / 2 + 0.9); gacha(g2x, g2z, ry); const [vx, vz] = f(3.5, D / 2 + 0.9); vending(vx, vz, ry, 0xc0392b) // 駄菓子屋＝縁台/ガチャ/自販機
         const [scx, scz] = f(0, D / 2 + 1.1); grp.add(mk(new THREE.BoxGeometry(3.0, 0.9, 0.7), toon(0x8a6a44), scx, heightAtYato(scx, scz) + 0.45, scz, ry, true)); grp.add(mk(new THREE.BoxGeometry(2.9, 0.5, 0.6), new THREE.MeshToonMaterial({ color: 0xd0e0e4, gradientMap: GRAD, transparent: true, opacity: 0.5 }), scx, heightAtYato(scx, scz) + 1.1, scz, ry, true)) // 店先の駄菓子のガラスケース
+        // ── 2000年ごろの駄菓子屋の店先を作り込み（実物調査サイクル2026-07-16）＝空っぽで素っ気なかった店先に「夏の駄菓子屋の記号」を全部＝アイスの冷凍ケース/ラムネの木箱/吊り下げ駄菓子/ケースの中身/手書きの貼り紙/のぼり ──
+        { const ccy2 = heightAtYato(scx, scz) // ケースの中の駄菓子＝カラフルな小箱8個（すりガラス越しに色がにじむ＝空のケースの解消）
+          const cCol = [0xe05a4a, 0xf0c23a, 0x4a90d0, 0x58b060, 0xe08a3a, 0xc060b0, 0xe8e4d4, 0x8a5ad0]
+          for (let i = 0; i < 8; i++) { const lx4 = -1.15 + (i % 4) * 0.72 + (i > 3 ? 0.34 : 0), lz4 = D / 2 + 1.1 + (i > 3 ? 0.15 : -0.13)
+            const [bx4, bz4] = f(lx4, lz4); grp.add(mk(new THREE.BoxGeometry(0.28, 0.2, 0.16), toon(cCol[i]), bx4, ccy2 + 0.98 + (i % 2) * 0.06, bz4, ry + ((i % 3) - 1) * 0.22, true)) } }
+        { const sRy = ry + Math.PI / 2 // アイスの冷凍ストッカー＝東側面の前角（白い箱＋空色の引きガラス天面＋赤帯「アイス」）＝夏の駄菓子屋の顔
+          const [fx4, fz4] = f(W / 2 + 0.55, 2.1), fy4 = heightAtYato(fx4, fz4)
+          grp.add(mk(new THREE.BoxGeometry(1.45, 0.85, 0.65), toon(0xeceae2), fx4, fy4 + 0.42, fz4, sRy, true))
+          grp.add(mk(new THREE.BoxGeometry(1.35, 0.05, 0.55), new THREE.MeshToonMaterial({ color: 0xbfdfe8, gradientMap: GRAD, transparent: true, opacity: 0.85 }), fx4, fy4 + 0.87, fz4, sRy))
+          const iceTex2 = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 40; const x4 = c.getContext('2d'); x4.fillStyle = '#d23c30'; x4.fillRect(0, 0, 128, 40); x4.fillStyle = '#fff6ea'; x4.font = 'bold 26px sans-serif'; x4.textAlign = 'center'; x4.fillText('アイス', 64, 30); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t })()
+          const sv = [Math.sin(sRy), Math.cos(sRy)]
+          grp.add(mk(new THREE.PlaneGeometry(1.3, 0.36), new THREE.MeshBasicMaterial({ map: iceTex2 }), fx4 + sv[0] * 0.34, fy4 + 0.5, fz4 + sv[1] * 0.34, sRy))
+          addBox(fx4, fz4, 0.75, 0.35, sRy, 0.2) }
+        { const [lx5, lz5] = f(-2.0, D / 2 + 0.85), ly5 = heightAtYato(lx5, lz5) // ラムネの木箱2段＋青緑の瓶（ケースとガチャの間）
+          for (const st5 of [0, 1]) grp.add(mk(new THREE.BoxGeometry(0.82, 0.3, 0.56), toon(0x9a7a4a), lx5, ly5 + 0.15 + st5 * 0.3, lz5, ry, true))
+          for (let i = 0; i < 6; i++) { const [bx5, bz5] = f(-2.0 + ((i % 3) - 1) * 0.24, D / 2 + 0.85 + (i > 2 ? 0.12 : -0.12))
+            grp.add(mk(new THREE.CylinderGeometry(0.035, 0.042, 0.16, 6), toon(0x7ab8ac), bx5, ly5 + 0.68, bz5, 0)) } }
+        for (const sx5 of [-0.95, 0.95]) { const [hx5, hz5] = f(sx5, D / 2 + 0.3) // 軒下の吊り下げ駄菓子（ひもに色とりどりの小袋）＝駄菓子屋の記号
+          grp.add(mk(new THREE.CylinderGeometry(0.006, 0.006, 0.6, 4), toon(0xd8d2c2), hx5, eaveY - 0.3, hz5, 0))
+          const pCol = [0xe0604a, 0x58b060, 0xf0c23a, 0x4a90d0, 0xc060b0]
+          for (let i = 0; i < 5; i++) grp.add(mk(new THREE.BoxGeometry(0.11, 0.13, 0.02), toon(pCol[(i + (sx5 > 0 ? 2 : 0)) % 5]), hx5 + fwd[0] * 0.03, eaveY - 0.08 - i * 0.11, hz5 + fwd[1] * 0.03, ry + (i % 2 ? 0.25 : -0.2), true)) }
+        { const posterTx = (txt, col) => { const c = document.createElement('canvas'); c.width = 56; c.height = 80; const x5 = c.getContext('2d'); x5.fillStyle = '#f6f1e2'; x5.fillRect(0, 0, 56, 80); x5.strokeStyle = '#c9bfa4'; x5.lineWidth = 3; x5.strokeRect(1, 1, 54, 78); x5.fillStyle = col; x5.font = 'bold 17px serif'; x5.textAlign = 'center'; txt.split('').forEach((ch, i) => x5.fillText(ch, 28, 24 + i * 18)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t } // 手書き風の縦書き貼り紙＝引き戸の左右の白壁を埋める
+          const [p1x, p1z] = f(-3.62, D / 2 + 0.08); grp.add(mk(new THREE.PlaneGeometry(0.5, 0.72), new THREE.MeshBasicMaterial({ map: posterTx('アイス', '#c03a2e') }), p1x, gB + slope + 1.55, p1z, ry))
+          const [p2x, p2z] = f(3.62, D / 2 + 0.08); grp.add(mk(new THREE.PlaneGeometry(0.5, 0.72), new THREE.MeshBasicMaterial({ map: posterTx('ラムネ', '#2a6ab0') }), p2x, gB + slope + 1.55, p2z, ry)) }
+        { const [nx5, nz5] = f(5.0, D / 2 + 1.4), ny5 = heightAtYato(nx5, nz5) // のぼり「ラムネ」＝店の東角（インライン自作＝makeNoboriはビルド時点でTDZの恐れ）
+          grp.add(mk(new THREE.CylinderGeometry(0.03, 0.035, 2.8, 6), toon(0xcfc7b6), nx5, ny5 + 1.4, nz5, 0, true))
+          const nbTex = (() => { const c = document.createElement('canvas'); c.width = 40; c.height = 128; const x5 = c.getContext('2d'); x5.fillStyle = '#eaf4ff'; x5.fillRect(0, 0, 40, 128); x5.fillStyle = '#2a6ab0'; x5.font = 'bold 24px sans-serif'; x5.textAlign = 'center'; 'ラムネ'.split('').forEach((ch, i) => x5.fillText(ch, 20, 34 + i * 32)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t })()
+          const nfl = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 1.7), new THREE.MeshToonMaterial({ map: nbTex, gradientMap: GRAD, side: THREE.DoubleSide }))
+          nfl.position.set(nx5 + side[0] * 0.3, ny5 + 1.85, nz5 + side[1] * 0.3); nfl.rotation.y = ry - Math.PI / 2; nfl.castShadow = true; grp.add(nfl) } // ry-π/2＝表を店の正面（南西の道から来る人）へ。+π/2は鏡文字だった（実写確認2026-07-16）
         // 裏口＝−side面(WNW)の脇戸（入口=南西向きの左手側・道側）。人が通れる縦長の戸を、建物の一番下(地面)のすぐ上から立ち上げる（ユーザー指摘：窓のように高すぎ・小さすぎたのを修正＝斜面嵩上げbdY基準をやめ地面基準に・下の腰板を薄い敷居に・2026-07-05）
         { const bdRy = ry - Math.PI / 2, bl = -1.2, DH = 2.25 // DH＝戸の高さ（キャラが通れる縦長）
           const [odx, odz] = f(-W / 2 - 0.04, bl); const bdY = heightAtYato(odx, odz) + 0.02 // 戸の下端＝建物の一番下(地面)のすぐ上
