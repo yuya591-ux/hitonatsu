@@ -3749,6 +3749,21 @@ function buildShishigaya() {
           o.position.y += heightAtYato(cx + ox * cyd + oz * syd, cz - ox * syd + oz * cyd) - heightAtYato(ax, az) } // 回転後の地面へ再接地＝浮き/沈み解消（裏山の木が宙に浮く不具合）
         o.position.x = ax - cx; o.position.z = az - cz }
       grp.position.set(cx, 0, cz); grp.rotation.y = YROT; const _lm2 = scene.getObjectByName('landmarks2'); if (_lm2) _lm2.add(grp) }
+    // ── 寺の夏の設え（3か寺共有）＝山門わきの「ことばの掲示板」（法語板・オリジナル文）＋境内の蓮鉢（水面と葉と花）（施設作り込みサイクル2026-07-16）──
+    const templeSummer = (kbx, kbz, kotoba, hasuList) => {
+      { const ky = heightAtYato(kbx, kbz) // ことばの掲示板
+        for (const s of [-0.62, 0.62]) grp.add(mk(new THREE.BoxGeometry(0.09, 1.7, 0.09), toon(0x6a5236), kbx + s, ky + 0.85, kbz, 0, true))
+        grp.add(mk(new THREE.BoxGeometry(1.7, 0.08, 0.5), toon(0x5a4a33), kbx, ky + 1.78, kbz, 0, true)) // 小屋根
+        const c = document.createElement('canvas'); c.width = 128; c.height = 80; const x6 = c.getContext('2d'); x6.fillStyle = '#f4efe2'; x6.fillRect(0, 0, 128, 80); x6.strokeStyle = '#8a7a5a'; x6.lineWidth = 3; x6.strokeRect(1, 1, 126, 78); x6.fillStyle = '#3f3a32'; x6.font = 'bold 14px serif'; x6.textAlign = 'center'; kotoba.split('　').forEach((r, i) => x6.fillText(r, 64, 26 + i * 20))
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+        grp.add(mk(new THREE.BoxGeometry(1.24, 0.78, 0.06), toon(0xe8e2d2), kbx, ky + 1.28, kbz, 0, true)) // 板
+        grp.add(mk(new THREE.PlaneGeometry(1.2, 0.74), new THREE.MeshBasicMaterial({ map: t }), kbx, ky + 1.28, kbz + 0.05, 0)) } // ことば（南向き＝参道から読める）
+      for (const [hx, hz] of hasuList) { const hy = heightAtYato(hx, hz) // 蓮鉢。★描画地形は約7m格子で解析高さより盛れる＝低い鉢は埋まって黒い水たまりに見える（実写2026-07-16）→背を高く・明るい色に
+        grp.add(mk(new THREE.CylinderGeometry(0.36, 0.28, 0.56, 10), toon(0x6a5648), hx, hy + 0.3, hz, 0, true))
+        const wtr = mk(new THREE.CircleGeometry(0.32, 12), new THREE.MeshToonMaterial({ color: 0x4a6f74, gradientMap: GRAD, transparent: true, opacity: 0.92 }), hx, hy + 0.56, hz); wtr.rotation.x = -Math.PI / 2; grp.add(wtr)
+        for (const [lx2, lz2, lr] of [[-0.12, 0.06, 0.13], [0.1, -0.08, 0.11], [0.02, 0.13, 0.09]]) { const lf = mk(new THREE.CircleGeometry(lr, 9), toon(0x4f8a4a), hx + lx2, hy + 0.575, hz + lz2); lf.rotation.x = -Math.PI / 2; grp.add(lf) }
+        grp.add(mk(new THREE.SphereGeometry(0.055, 7, 6), toon(0xe08aa8), hx - 0.08, hy + 0.7, hz - 0.04, 0, true)) // 蓮の花
+        grp.add(mk(new THREE.CylinderGeometry(0.012, 0.014, 0.14, 4), toon(0x4f8a4a), hx - 0.08, hy + 0.63, hz - 0.04)) } }
     // 光明寺＝獅子ヶ谷の天台宗寺院(1356開創・本尊薬師如来)。山門(表門1841)→参道(石灯籠)→本堂(瓦の入母屋大堂)＋庫裡＋鐘楼＋地蔵＋築地塀。南(+z)向き（ユーザー要望2026-06-23・Web調査）
     const buildKomyoji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
       const wall = toonMap(0xd9d0c2, plasterTex), woodD = toon(0x6a4f38), woodR = toon(0x7a3b2a), tile = toon(0x59616a), stone = toon(0xa8a59a), stoneL = toon(0xc8c4b8), gold = toon(0xb89a4a), plaster = toon(0xe7e1d3) // wall=本堂身舎の側面/背面も土壁テクスチャ（N3・2026-06-29）
@@ -3784,6 +3799,7 @@ function buildShishigaya() {
       jizo(cx - 8, cz + 9); jizo(cx - 7.2, cz + 9); jizo(cx - 6.4, cz + 9) // 三体の地蔵
       // 築地塀（寺の敷地境界・瓦の笠木つき・南＝山門側を開ける）
       { for (const [side, fx, fz, fw, ang] of [['n', cx, cz - 15, 26, 0], ['w', cx - 13, cz + 1, 32, Math.PI / 2], ['e', cx + 13, cz + 1, 32, Math.PI / 2]]) { const wy = heightAtYato(fx, fz); grp.add(mk(new THREE.BoxGeometry(fw, 1.8, 0.4), plaster, fx, wy + 0.9, fz, ang, true)); grp.add(mk(new THREE.BoxGeometry(fw + 0.3, 0.25, 0.7), tile, fx, wy + 1.9, fz, ang, true)) } } // 塀本体＋瓦の笠木
+      templeSummer(cx + 5.8, cz + 14, 'あついひは　こころを　しずかに', [[cx - 2.3, cz + 9], [cx + 2.3, cz + 9]]) // 夏の設え（掲示板＝山門の東わき・蓮鉢＝参道の両わき）
       signOn(cx, cz + 16, 8, gy, 3.5, name, '#5a3a3a') }
     // 真如山成就院本覺寺＝天台宗(1683開基・獅子ヶ谷村名主 横溝五郎兵衛が開基→横溝屋敷と縁)。本堂庫裡は1988再建、観音堂(2018新意匠・神奈川建築コンクール優秀賞)と「本覺寺の森観音霊園」が特徴。本尊=金剛界大日如来。光明寺と同じ天台宗だが六角の観音堂と宝篋印塔で作り分け。南(+z)向き（Web調査2026-06-23）
     const buildHongakuji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
@@ -3829,6 +3845,7 @@ function buildShishigaya() {
       jizo(cx + 7, cz + 9); jizo(cx + 7.8, cz + 9) // 観音霊園の石仏
       // 築地塀（瓦の笠木つき・南＝山門側を開ける）
       { for (const [side, fx, fz, fw, ang] of [['n', cx, cz - 15, 26, 0], ['w', cx - 13, cz + 1, 32, Math.PI / 2], ['e', cx + 13, cz + 1, 32, Math.PI / 2]]) { const wy = heightAtYato(fx, fz); grp.add(mk(new THREE.BoxGeometry(fw, 1.8, 0.4), plaster, fx, wy + 0.9, fz, ang, true)); grp.add(mk(new THREE.BoxGeometry(fw + 0.3, 0.25, 0.7), tile, fx, wy + 1.9, fz, ang, true)) } }
+      templeSummer(cx + 5.8, cz + 14, 'いのちは　みな　ひかるなつ', [[cx - 2.3, cz + 9], [cx + 2.3, cz + 9]]) // 夏の設え
       signOn(cx, cz + 16, 8, gy, 3.5, name, '#3a4a5a') }
     // 妙光寺＝日蓮宗(北寺尾)。日蓮宗の寺は門前/参道に必ず「南無妙法蓮華経」を刻んだ題目塔(髭題目)があり一目で日蓮宗とわかる＝これを主役に。山門＋題目塔＋本堂(瓦入母屋・朱の扉に題目額)＋庫裡＋鐘楼＋日蓮聖人像＋築地塀。南(+z)向き（Web調査2026-06-23）
     const buildMyokoji = (cx, cz, name) => { const gy = gmin4(cx, cz, 24, 24)
@@ -3873,6 +3890,7 @@ function buildShishigaya() {
       { const jx = cx - 4, jz = cz + 9, jy = heightAtYato(jx, jz); grp.add(mk(new THREE.BoxGeometry(0.8, 1.0, 0.8), stoneL, jx, jy + 0.5, jz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.2, 0.26, 1.5, 6), toon(0x4a4640), jx, jy + 1.75, jz, 0, true)); grp.add(mk(new THREE.SphereGeometry(0.22, 8, 6), toon(0x4a4640), jx, jy + 2.6, jz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.03, 0.03, 1.9, 5), gold, jx + 0.28, jy + 2.0, jz, 0, true)) } // 像＋錫杖
       // 築地塀（瓦の笠木つき・南＝山門側を開ける）
       { for (const [side, fx, fz, fw, ang] of [['n', cx, cz - 15, 26, 0], ['w', cx - 13, cz + 1, 32, Math.PI / 2], ['e', cx + 13, cz + 1, 32, Math.PI / 2]]) { const wy = heightAtYato(fx, fz); grp.add(mk(new THREE.BoxGeometry(fw, 1.8, 0.4), plaster, fx, wy + 0.9, fz, ang, true)); grp.add(mk(new THREE.BoxGeometry(fw + 0.3, 0.25, 0.7), tile, fx, wy + 1.9, fz, ang, true)) } }
+      templeSummer(cx - 5.8, cz + 14, 'なつぞらに　ありがとうを　ひとつ', [[cx - 2.3, cz + 8], [cx + 2.3, cz + 8]]) // 夏の設え（題目塔(cx+4,cz+11)を避け掲示板は西わき）
       signOn(cx, cz + 16, 8, gy, 3.5, name, '#6a2a2a') }
     // 渋沢稲荷神社＝獅子ヶ谷の小さな稲荷。稲荷の定番＝朱の連鳥居→お狐2体(赤前掛け)→朱塗りの社(流造・千木鰹木)＋幟＋朱の玉垣。南(+z)向き（小社のためWeb資料は無く稲荷の様式に忠実に・2026-06-23）
     const buildInari = (cx, cz, name) => { const gy = heightAtYato(cx, cz)
