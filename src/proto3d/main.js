@@ -3595,6 +3595,25 @@ function buildShishigaya() {
         for (const sx of [-6.3, 6.3]) grp.add(mk(new THREE.CylinderGeometry(0.1, 0.12, 2.3, 6), post, cx + sx, my + 1.75, ez + 1.35, 0, true)) // 縁先の柱（軒の出を受ける）
         grp.add(mk(new THREE.CylinderGeometry(0.48, 0.6, 0.3, 10), toon(0x8f887c), cx - 3.2, my + 0.3, ez + 1.5, 0, true)) // 沓脱ぎ石（縁側から降りる石）
         grp.add(mk(new THREE.BoxGeometry(0.45, 2.3, 1.7), woodD, cx - 6.95, my + 1.85, ez + 0.05, 0, true)) // 雨戸の戸袋（左端）
+        // ── 作り込み(Step3)：縁側の夏の設え＝すだれ・風鈴・座布団・麦茶・昼寝の猫・蚊遣り豚（前庭の暮らし・2026-07-16）──
+        { const sudTex = (() => { const c = document.createElement('canvas'); c.width = 8; c.height = 80; const x6 = c.getContext('2d'); x6.fillStyle = '#c9b079'; x6.fillRect(0, 0, 8, 80); x6.strokeStyle = '#9a7f4c'; x6.lineWidth = 1; for (let i = 2; i < 80; i += 3) { x6.beginPath(); x6.moveTo(0, i); x6.lineTo(8, i); x6.stroke() } return new THREE.CanvasTexture(c) })()
+          const sudMat = new THREE.MeshToonMaterial({ color: 0xffffff, map: sudTex, gradientMap: GRAD, side: THREE.DoubleSide })
+          const takePole = mk(new THREE.CylinderGeometry(0.035, 0.035, 12.8, 6), toon(0x9a8a58), cx, my + 3.05, ez + 1.3); takePole.rotation.z = Math.PI / 2; grp.add(takePole) // 縁先の柱に渡した竹竿（すだれ・風鈴の吊り元）
+          for (const sx of [-4.5, -1.9]) grp.add(mk(new THREE.PlaneGeometry(2.2, 2.0), sudMat, cx + sx, my + 2.0, ez + 1.28)) // 竿から下がるすだれ2枚（障子の日よけ）
+          grp.add(mk(new THREE.SphereGeometry(0.09, 8, 7, 0, Math.PI * 2, 0, 1.9), new THREE.MeshToonMaterial({ color: 0xbfd8e0, gradientMap: GRAD, transparent: true, opacity: 0.85 }), cx + 3.6, my + 2.9, ez + 1.3)) // 風鈴のガラス鉢
+          grp.add(mk(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 4), toon(0xe8e2cf), cx + 3.6, my + 2.8, ez + 1.3)) // 舌の糸
+          grp.add(mk(new THREE.PlaneGeometry(0.07, 0.18), new THREE.MeshToonMaterial({ color: 0xeef4f8, gradientMap: GRAD, side: THREE.DoubleSide }), cx + 3.6, my + 2.64, ez + 1.3)) // 短冊
+          for (const [sx, col] of [[-1.3, 0x8a4a3a], [0.7, 0x4a5a7a]]) grp.add(mk(new THREE.BoxGeometry(0.5, 0.07, 0.5), toon(col), cx + sx, my + 0.84, ez + 0.72, 0, true)) // 座布団2枚
+          grp.add(mk(new THREE.BoxGeometry(0.36, 0.03, 0.24), toon(0x6a4a2a), cx - 0.3, my + 0.82, ez + 0.72, 0, true)) // 麦茶の盆
+          for (const dx of [-0.08, 0.08]) grp.add(mk(new THREE.CylinderGeometry(0.04, 0.035, 0.08, 8), toon(0xd8d2c2), cx - 0.3 + dx, my + 0.87, ez + 0.72)) // 湯のみ2つ
+          // 昼寝の猫（丸くなって眠る茶トラ＝胴はトーラスで「丸くなった」形・塊の球にしない）
+          { const nekoY = my + 0.8, nx = cx + 2.3, nz = ez + 0.7
+            const body = mk(new THREE.TorusGeometry(0.13, 0.08, 8, 14), toon(0xb98a4e), nx, nekoY + 0.08, nz, 0, true); body.rotation.x = Math.PI / 2; grp.add(body)
+            grp.add(mk(new THREE.SphereGeometry(0.085, 8, 7), toon(0xb98a4e), nx + 0.12, nekoY + 0.1, nz + 0.05, 0, true)) // 頭（胴に埋めて眠る）
+            for (const de of [-0.05, 0.05]) grp.add(mk(new THREE.ConeGeometry(0.024, 0.05, 4), toon(0xa07540), nx + 0.14 + de, nekoY + 0.18, nz + 0.05)) // 耳
+            const tail = mk(new THREE.TorusGeometry(0.1, 0.022, 6, 10, Math.PI * 1.2), toon(0xa07540), nx - 0.1, nekoY + 0.035, nz - 0.06, 0, true); tail.rotation.x = Math.PI / 2; grp.add(tail) } // 体に巻きつけた尻尾
+          const buta = mk(new THREE.SphereGeometry(0.11, 10, 8), toon(0xc9a06a), cx - 3.7, my + 0.4, ez + 1.75, 0, true); buta.scale.set(1.25, 0.9, 1); grp.add(buta) // 蚊遣り豚の胴（沓脱ぎ石のそば）
+          const butaHana = mk(new THREE.CylinderGeometry(0.035, 0.045, 0.08, 8), toon(0xb8905a), cx - 3.55, my + 0.4, ez + 1.75); butaHana.rotation.z = Math.PI / 2; grp.add(butaHana) } // 蚊遣り豚の鼻面
         addBoxY(cx, mzc, 7, 5.2, 0, 0.4) } // 当たり
       // ③ 文庫蔵（白漆喰の土蔵＋なまこ壁の腰＋瓦）西(cx-13,cz+2)
       { const kx = cx - 13, kz = cz + 2, ky = heightAtYato(kx, kz); grp.add(mk(new THREE.BoxGeometry(5.0, 4.4, 6.0), kura, kx, ky + 2.2, kz, 0, true))
@@ -3615,6 +3634,29 @@ function buildShishigaya() {
         if (bg.length) { const bamboo = new THREE.Mesh(mergeGeometries(bg), toon(0x9fae6c)); bg.forEach((g) => g.dispose()); bamboo.castShadow = true; grp.add(bamboo); const leaves = new THREE.Mesh(mergeGeometries(lg), new THREE.MeshToonMaterial({ color: 0x6f9a4a, gradientMap: GRAD, side: THREE.DoubleSide })); lg.forEach((g) => g.dispose()); leaves.castShadow = false; grp.add(leaves) } }
       // 井戸（石組み＋屋根＋滑車）
       { const wx = cx + 7, wz = cz + 4, wy = heightAtYato(wx, wz); grp.add(mk(new THREE.CylinderGeometry(0.6, 0.62, 1.0, 8), toon(0x8a8f88), wx, wy + 0.5, wz, 0, true)); for (const px of [-0.52, 0.52]) grp.add(mk(new THREE.BoxGeometry(0.1, 1.5, 0.1), woodD, wx + px, wy + 1.25, wz, 0, true)); grp.add(mk(new THREE.BoxGeometry(1.5, 0.1, 0.9), tile, wx, wy + 2.0, wz, 0, true)); grp.add(mk(new THREE.CylinderGeometry(0.07, 0.07, 0.9, 6), woodD, wx, wy + 1.75, wz, Math.PI / 2, 0)) }
+      // ── 作り込み(Step3)：前庭の夏の暮らし＝物干しの洗濯物・梅干しの土用干し・井戸端の桶・農具・薪（実物=農村生活館の「暮らしの気配」を2000年ごろの生きた屋敷として・2026-07-16）──
+      { const hy = heightAtYato(cx + 7, cz + 8.5) // 物干し（木の支柱2本＋竹竿＋洗濯物3枚）＝前庭の東側（門への道筋と井戸を避ける）
+        for (const px of [5.6, 8.6]) grp.add(mk(new THREE.CylinderGeometry(0.05, 0.06, 2.0, 6), woodD, cx + px, hy + 1.0, cz + 8.5, 0, true))
+        const sao = mk(new THREE.CylinderGeometry(0.035, 0.035, 3.4, 6), toon(0x9a8a58), cx + 7.1, hy + 1.86, cz + 8.5); sao.rotation.z = Math.PI / 2; grp.add(sao)
+        for (const [dx, col] of [[-0.95, 0xe8e4da], [0, 0x9db4c8], [0.95, 0xd8cdb2]]) grp.add(mk(new THREE.PlaneGeometry(0.62, 0.75), new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, side: THREE.DoubleSide }), cx + 7.1 + dx, hy + 1.46, cz + 8.5)) } // 竿に掛けた洗濯物
+      { const bx = cx + 8.2, bz = cz + 2.6, by = heightAtYato(bx, bz) // 梅干しの土用干し（縁台に竹ざる2枚＝7月の設え）。井戸端＝にわとりの圏外(8.3m)・縁側の床(x±6.5,z+2.85)と井戸(7,4,r0.62)もクリア（めり込み実写2連発の教訓2026-07-16）
+        grp.add(mk(new THREE.BoxGeometry(1.6, 0.09, 0.62), toon(0x8a6f4a), bx, by + 0.36, bz, 0, true)) // 縁台の天板
+        for (const [dx, dz2] of [[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.2], [0.6, 0.2]]) grp.add(mk(new THREE.BoxGeometry(0.07, 0.34, 0.07), toon(0x7a6242), bx + dx, by + 0.17, bz + dz2)) // 脚4本
+        const umeG = [] // 梅の実はmerged 1メッシュ（位置は焼き込み＝原点付近スキップの流儀で回転に追従）
+        for (const zx of [-0.42, 0.42]) { grp.add(mk(new THREE.CylinderGeometry(0.3, 0.26, 0.05, 12), toon(0xc9b079), bx + zx, by + 0.435, bz, 0, true)) // 竹ざる
+          for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, r = i === 0 ? 0 : 0.16, s = new THREE.SphereGeometry(0.036, 7, 6); s.translate(bx + zx + Math.cos(a) * r, by + 0.475, bz + Math.sin(a) * r); umeG.push(s) } }
+        const ume = new THREE.Mesh(mergeGeometries(umeG), toon(0xb43a2e)); umeG.forEach((g) => g.dispose()); ume.castShadow = true; grp.add(ume) } // 干した梅
+      { const bx = cx + 6.1, bz = cz + 5.0, by = heightAtYato(bx, bz) // 井戸端の木桶（水入り）
+        grp.add(mk(new THREE.CylinderGeometry(0.17, 0.14, 0.24, 10), toon(0x8a6a44), bx, by + 0.12, bz, 0, true))
+        const mizu = mk(new THREE.CircleGeometry(0.15, 10), new THREE.MeshToonMaterial({ color: 0x6a8f96, gradientMap: GRAD }), bx, by + 0.21, bz); mizu.rotation.x = -Math.PI / 2; grp.add(mizu) }
+      { const ax2 = cx - 7.2, az2 = cz + 10.95, ay = heightAtYato(ax2, az2) // 蚕小屋の壁に立てかけた農具（鍬と竹ぼうき）
+        const kuwa = mk(new THREE.CylinderGeometry(0.022, 0.028, 1.5, 5), toon(0x9a7a4e), ax2, ay + 0.72, az2 + 0.14); kuwa.rotation.x = 0.2; grp.add(kuwa)
+        grp.add(mk(new THREE.BoxGeometry(0.15, 0.2, 0.03), toon(0x5a5f66), ax2, ay + 0.1, az2 + 0.3)) // 鍬の刃
+        const hoki = mk(new THREE.CylinderGeometry(0.02, 0.02, 1.5, 5), toon(0xa8905e), ax2 + 0.7, ay + 0.8, az2 + 0.14); hoki.rotation.x = 0.2; grp.add(hoki)
+        grp.add(mk(new THREE.ConeGeometry(0.14, 0.42, 7), toon(0xc0a562), ax2 + 0.7, ay + 0.22, az2 + 0.28)) } // 竹ぼうきの穂先
+      { const wx2 = cx - 8.0, wz2 = cz - 2.0, wy2 = heightAtYato(wx2, wz2), mg = [] // 主屋の西壁ぎわの薪の積み上げ（merged 1メッシュ）
+        for (let row = 0; row < 3; row++) for (let i = 0; i < 4 - row; i++) { const c = new THREE.CylinderGeometry(0.06, 0.06, 1.3, 6); c.rotateX(Math.PI / 2); c.translate(wx2 + (i - (3 - row) / 2) * 0.13, wy2 + 0.07 + row * 0.105, wz2); mg.push(c) }
+        const maki = new THREE.Mesh(mergeGeometries(mg), toon(0x7a5f42)); mg.forEach((g) => g.dispose()); maki.castShadow = true; grp.add(maki) }
       // 舗装路(幅3以上)だけを避ける判定＝谷戸の細い畦道は田/池の縁に走ってよい（畦道よけの旧onYatoRoadCoreだと谷戸で全部消えた）
       const onPaved = (x, z) => SG.roads.some((rd) => { if (rd.w < 3) return false; const p = rd.p; for (let k = 0; k < p.length - 1; k++) { const a = p[k], b = p[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1; let t = ((x - a[0]) * dx + (z - a[1]) * dz) / L2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(x - (a[0] + dx * t), z - (a[1] + dz * t)) < rd.w / 2 + 0.6) return true } return false })
       // 門前の水田（谷戸田＝南の開けた所。あぜ＋青田。小ぶりにして門前の舗装路を避ける・畦道は縁に許す）
