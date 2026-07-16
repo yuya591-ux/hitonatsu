@@ -799,6 +799,16 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 //   iPhoneやスマホで普通に開いた時は付かない＝発熱の約束（DPR1.30・30fps）は一切変えない。安全側の既定。
 let __HQ = false
 try { __HQ = new URLSearchParams(location.search).get('hq') === '1' } catch (e) {}
+if (__HQ) { // ★リモートコントロールのTouchscreenモード対策（実機FB2026-07-16）。iPhone単体（hq無し）は一切触らない
+  // ①左スティック＋右ボタンの2本指同時タッチをEdgeがピンチズームと解釈し、ページごと拡大＝画面比率が壊れる。
+  //   原因＝button/.hudの touch-action:manipulation はピンチを許可する値。iPhone Safariはviewportのuser-scalable=noが別途ピンチを封じるが、デスクトップEdgeはviewport指定を無視する＝配信でだけ発症
+  //   → 操作部品はピンチ源から外す(none)＋ページ全体はパンのみ許可（モーダル内のスクロールは各要素のtouch-action:autoが生きる）
+  // ②タッチのたびにマウスカーソルが移動して見える → ゲーム内では常に非表示（触って遊ぶ画面にカーソルは要らない）
+  const st = document.createElement('style')
+  st.textContent = 'html,body{touch-action:pan-x pan-y}\nbutton,.hud{touch-action:none}\n*{cursor:none!important}'
+  document.head.appendChild(st)
+  window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault() }, { passive: false }) // タッチパッド式ピンチ（Ctrl+ホイール相当）のページ拡大も禁止
+}
 // ★配信の起動スクリプトは --force-device-scale-factor でブラウザの拡大率を上げ、iPhone実機と同じ大きさ・同じ配置のUIにする（2026-07-16）。
 //   その時は「1CSSピクセル＝パネルの実ピクセル」なので、そのままの値で描くのが最も鮮明（引き伸ばしのにじみが出ない）。
 //   拡大率の指定が無い普通のパソコン（ピクセル比1）では2.0＝スーパーサンプリング＝大きく描いて縮める＝輪郭がなめらかになる。
