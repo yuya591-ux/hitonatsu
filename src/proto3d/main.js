@@ -3173,6 +3173,30 @@ function buildShishigaya() {
       for (const s of [-1, 1]) for (const o of [5.5, 8.0]) { const [nx, nz] = f(s * o, D / 2 + 2.0), ny = heightAtYato(nx, nz); grp.add(mk(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), toon(0xcfcabd), nx, ny + 1.6, nz, 0, true)); grp.add(mk(new THREE.PlaneGeometry(0.5, 2.2), new THREE.MeshToonMaterial({ color: s > 0 ? 0xd8542e : 0x2e8b57, gradientMap: GRAD, side: THREE.DoubleSide }), nx + side[0] * 0.3, ny + 1.9, nz + side[1] * 0.3, ry)) } // のぼり4本
       const cart = (lx, lz) => { const [wx, wz] = f(lx, lz), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.BoxGeometry(0.5, 0.55, 0.72), new THREE.MeshToonMaterial({ color: 0xbfc4c8, gradientMap: GRAD, transparent: true, opacity: 0.7 }), wx, wy + 0.45, wz, ry, true)) } // ショッピングカート
       cart(-8, 11); cart(-7.4, 11); cart(-6.8, 11)
+      // ── 2000年ごろのスーパーの店頭を作り込み（施設作り込みサイクル2026-07-16）＝特売ワゴン・買い物かごの山・自販機・停めたママチャリ ──
+      { const tokuTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 40; const x6 = c.getContext('2d'); x6.fillStyle = '#fff8e8'; x6.fillRect(0, 0, 64, 40); x6.fillStyle = '#c9372a'; x6.font = 'bold 15px sans-serif'; x6.textAlign = 'center'; x6.fillText('とくばい', 32, 26); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t })()
+        for (const s of [-1, 1]) { const [wx, wz] = f(s * 3.6, D / 2 + 1.5), wy = heightAtYato(wx, wz) // 特売ワゴン2台（ガラス前・入口の両わき）
+          grp.add(mk(new THREE.BoxGeometry(1.5, 0.5, 0.9), toon(0xd8d2c2), wx, wy + 0.55, wz, ry, true)) // ワゴンの箱
+          for (const [dx2, dz2] of [[-0.45, -0.5], [0.45, -0.5], [-0.45, 0.5], [0.45, 0.5]]) grp.add(mk(new THREE.BoxGeometry(0.06, 0.34, 0.06), toon(0x9aa0a6), wx + side[0] * dx2 + fwd[0] * dz2 * 0.3, wy + 0.17, wz + side[1] * dx2 + fwd[1] * dz2 * 0.3, ry)) // 脚
+          const gc = [0xd85a4a, 0xe0c04a, 0x4a78c0, 0x6abf6a, 0xe07ab0, 0xf0ede0] // 中の品（カラフルな箱の山）
+          for (let i = 0; i < 6; i++) grp.add(mk(new THREE.BoxGeometry(0.3, 0.22, 0.3), toon(gc[i]), wx + side[0] * ((i % 3) - 1) * 0.42 + fwd[0] * ((i / 3 | 0) - 0.5) * 0.36, wy + 0.9, wz + side[1] * ((i % 3) - 1) * 0.42 + fwd[1] * ((i / 3 | 0) - 0.5) * 0.36, ry + (i * 0.4 % 0.5) - 0.25, true))
+          grp.add(mk(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 5), toon(0x9aa0a6), wx, wy + 1.25, wz)) // 札の支柱
+          grp.add(mk(new THREE.PlaneGeometry(0.72, 0.45), new THREE.MeshBasicMaterial({ map: tokuTex, side: THREE.DoubleSide }), wx, wy + 1.75, wz, ry)) } // 手書きの「とくばい」札
+        { const [kx, kz] = f(-2.7, D / 2 + 0.75), ky = heightAtYato(kx, kz) // 入口わきの買い物かごの山2つ（青と赤）
+          for (const [dx3, col] of [[-0.3, 0x4a78c0], [0.3, 0xc9584a]]) for (let i = 0; i < 3; i++) grp.add(mk(new THREE.BoxGeometry(0.44 - i * 0.02, 0.16, 0.32 - i * 0.02), new THREE.MeshToonMaterial({ color: col, gradientMap: GRAD, transparent: true, opacity: 0.85 }), kx + side[0] * dx3, ky + 0.1 + i * 0.13, kz + side[1] * dx3, ry, true)) }
+        { const [vx, vz] = f(8.6, D / 2 + 0.7); vending(vx, vz, ry, 0xd8542e) } // 入口から離れた壁ぎわの自販機
+        for (const [blx, bry2, col] of [[6.2, 1.75, 0x8a3a3a], [7.1, 2.05, 0x3a5a7a]]) { const [bkx, bkz] = f(blx, D / 2 + 2.6), bky = heightAtYato(bkx, bkz) // 買い物客のママチャリ2台（スタンドで傾けて駐輪）
+          const bg2 = new THREE.Group(), fr = toon(col), bk3 = toon(0x2d2d2f), sil = toon(0x9aa0a6)
+          for (const px8 of [-0.42, 0.42]) { const w2 = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.026, 6, 14), bk3); w2.position.set(px8, 0.3, 0); bg2.add(w2)
+            const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.05, 6), sil); hub.rotation.x = Math.PI / 2; hub.position.set(px8, 0.3, 0); bg2.add(hub) }
+          const tube = (x1, y1, x2, y2, r8) => { const L2 = Math.hypot(x2 - x1, y2 - y1); const t2 = new THREE.Mesh(new THREE.CylinderGeometry(r8, r8, L2, 5), fr)
+            t2.position.set((x1 + x2) / 2, (y1 + y2) / 2, 0); t2.rotation.z = -Math.atan2(x2 - x1, y2 - y1); bg2.add(t2) }
+          tube(-0.42, 0.3, -0.34, 0.84, 0.02); tube(-0.36, 0.78, 0.38, 0.86, 0.02); tube(0.42, 0.3, 0.38, 0.9, 0.02); tube(-0.42, 0.3, 0.05, 0.52, 0.018); tube(0.05, 0.52, 0.42, 0.3, 0.018)
+          { const hb = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.34, 5), sil); hb.rotation.x = Math.PI / 2; hb.position.set(0.38, 0.94, 0); bg2.add(hb) } // ハンドル
+          { const sd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.12), bk3); sd.position.set(-0.34, 0.9, 0); bg2.add(sd) } // サドル
+          { const bs = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.24), toon(0x9aa0a6)); bs.position.set(0.52, 0.78, 0); bg2.add(bs) } // 前かご
+          bg2.position.set(bkx, bky, bkz); bg2.rotation.y = ry + bry2; bg2.rotation.z = 0.09 // スタンドの傾き
+          bg2.traverse((o) => { if (o.isMesh) o.castShadow = true }); grp.add(bg2) } }
       addBox(cx, cz, W / 2, D / 2, ry, 0.3) }
     // ───── やまゆりホーム（特別養護老人ホーム・昭和58年(1983)開園＝二ツ池を見下ろす丘。3階建てRCの介護施設＋車寄せ＋玄関＋入口前の広場。広場では夏に祭りが開かれる＝別会場。実在施設のオリジナルhomage・ロゴ不使用）─────
     const buildYamayuri = (cx, cz, name) => {
