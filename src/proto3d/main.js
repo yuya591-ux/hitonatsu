@@ -3354,10 +3354,27 @@ function buildShishigaya() {
       noren(cx + fwd[0] * (D / 2 + 0.55), cz + fwd[1] * (D / 2 + 0.55), 2.8, ry, kind === 'rice' ? 'こめ' : kind === 'eat' ? 'お食事' : kind === 'liquor' ? 'さけ' : kind === 'green' ? 'やおや' : kind === 'flower' ? 'はな' : kind === 'tobacco' ? 'たばこ' : 'だがし', kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#6a4a1a' : kind === 'liquor' ? '#355a8a' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#3a5a8a' : '#b5462f', slope + H1 - 0.55) // 暖簾
       grp.add(mk(new THREE.PlaneGeometry(Math.min(W * 0.9, 6), 1.2), new THREE.MeshBasicMaterial({ map: signTex(name, kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#5a4a2a' : kind === 'liquor' ? '#1b3c6e' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#2f5a8a' : '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (D / 2 + 0.2), gB + slope + H1 + H2 - 0.9, cz + fwd[1] * (D / 2 + 0.2), ry)) // 2階正面の看板
       if (kind === 'rice') { const bagM = toon(0xd8cdae); for (const [lx, lz, ly] of [[-2.3, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.0, 1], [-1.4, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.65, 0]]) { const [wx, wz] = f(lx, lz); grp.add(mk(new THREE.BoxGeometry(0.7, 0.5, 0.5), bagM, wx, heightAtYato(wx, wz) + 0.25 + ly * 0.5, wz, ry, true)) } // 店先に積んだ米袋
-        const [vx, vz] = f(2.7, D / 2 + 0.9); vending(vx, vz, ry, 0x2e6db0) }
+        const [vx, vz] = f(2.7, D / 2 + 0.9); vending(vx, vz, ry, 0x2e6db0)
+        // ホーロー看板2枚（架空ブランド＝著作権安全）＝昭和から残る町の米屋の側壁（商店街の作り込み2026-07-16）
+        { const horo = (txt, bg2, fg2) => { const c = document.createElement('canvas'); c.width = 56; c.height = 24 + txt.length * 16; const x6 = c.getContext('2d'); x6.fillStyle = bg2; x6.fillRect(0, 0, c.width, c.height); x6.strokeStyle = '#f4f0e2'; x6.lineWidth = 4; x6.strokeRect(2, 2, c.width - 4, c.height - 4); x6.fillStyle = fg2; x6.font = 'bold 15px sans-serif'; x6.textAlign = 'center'; txt.split('').forEach((ch, i) => x6.fillText(ch, 28, 20 + i * 16)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t } // 高さは文字数に追従（固定84pxは「かとりせんこう」が5文字で切れた・2026-07-16）
+          const sRy2 = ry + Math.PI / 2, sv2 = [Math.sin(sRy2), Math.cos(sRy2)]
+          for (const [lz6, txt, bg2, fg2] of [[1.6, 'サイダー', '#2a6ab0', '#f6f2e4'], [0.4, 'かとりせんこう', '#2e7b4a', '#f6f2e4']]) {
+            const [px6, pz6] = f(W / 2 + 0.04, lz6), py6 = heightAtYato(px6, pz6) // ★高さは現地の地面基準＝gB+slope基準は斜面の店で2階の高さに浮く（実写2026-07-16）
+            grp.add(mk(new THREE.PlaneGeometry(0.46, 0.12 + txt.length * 0.135), new THREE.MeshBasicMaterial({ map: horo(txt, bg2, fg2) }), px6 + sv2[0] * 0.01, py6 + 1.55, pz6 + sv2[1] * 0.01, sRy2)) } }
+        // 赤電話（木の台の上）＝店先の公衆電話＝昭和〜平成初期の米屋・雑貨屋の定番（2026-07-16）
+        { const [px7, pz7] = f(1.6, D / 2 + 0.75), py7 = heightAtYato(px7, pz7)
+          grp.add(mk(new THREE.BoxGeometry(0.4, 0.78, 0.4), toon(0x8a7050), px7, py7 + 0.39, pz7, ry, true)) // 木の台
+          grp.add(mk(new THREE.BoxGeometry(0.34, 0.22, 0.26), toon(0xc23028), px7, py7 + 0.89, pz7, ry, true)) // 赤電話の胴
+          { const hs = new THREE.CylinderGeometry(0.045, 0.045, 0.3, 6); hs.rotateZ(Math.PI / 2); grp.add(mk(hs, toon(0x8a1f1a), px7, py7 + 1.04, pz7, ry, true)) } // 受話器（胴の上に横倒し）
+          { const dl = new THREE.CylinderGeometry(0.07, 0.07, 0.02, 10); dl.rotateX(Math.PI / 2); grp.add(mk(dl, toon(0xe8e4da), px7 + fwd[0] * 0.14, py7 + 0.89, pz7 + fwd[1] * 0.14, ry)) } } } // ダイヤル（前面の白い円盤）
       else if (kind === 'eat') { for (const s of [-1, 1]) { const [lx, lz] = f(s * 2.4, D / 2 + 0.55); akachochin(lx, eaveY - 0.4, lz) } // 軒下の赤提灯
         const [bx, bz] = f(3.0, D / 2 + 1.3); bench(bx, bz, ry); const [vx, vz] = f(-3.3, D / 2 + 0.9); vending(vx, vz, ry, 0xe08a1e)
-        const [scx, scz] = f(-1.4, D / 2 + 1.0); grp.add(mk(new THREE.BoxGeometry(2.2, 1.3, 0.6), new THREE.MeshToonMaterial({ color: 0xcfe0e2, gradientMap: GRAD, transparent: true, opacity: 0.55 }), scx, heightAtYato(scx, scz) + 1.0, scz, ry, true)) } // 食品サンプルのショーケース
+        const [scx, scz] = f(-1.4, D / 2 + 1.0); grp.add(mk(new THREE.BoxGeometry(2.2, 1.3, 0.6), new THREE.MeshToonMaterial({ color: 0xcfe0e2, gradientMap: GRAD, transparent: true, opacity: 0.55 }), scx, heightAtYato(scx, scz) + 1.0, scz, ry, true)) // 食品サンプルのショーケース
+        // A型の立て看板「ひやし中華 はじめました」＝食堂の夏の合図（商店街の作り込み2026-07-16）
+        { const [ax2, az2] = f(1.5, D / 2 + 1.15), ay2 = heightAtYato(ax2, az2)
+          const menuTx = (() => { const c = document.createElement('canvas'); c.width = 80; c.height = 96; const x7 = c.getContext('2d'); x7.fillStyle = '#f6f2e6'; x7.fillRect(0, 0, 80, 96); x7.strokeStyle = '#b34a3a'; x7.lineWidth = 4; x7.strokeRect(2, 2, 76, 92); x7.fillStyle = '#b3392a'; x7.font = 'bold 15px serif'; x7.textAlign = 'center'; x7.fillText('ひやし中華', 40, 30); x7.fillStyle = '#2a4a7a'; x7.font = '13px serif'; x7.fillText('はじめました', 40, 56); x7.fillText('六五〇円', 40, 80); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t })()
+          const mm = new THREE.MeshBasicMaterial({ map: menuTx })
+          for (const s7 of [1, -1]) { const pg7 = new THREE.PlaneGeometry(0.62, 0.78); pg7.rotateX(s7 * -0.2); grp.add(mk(pg7, mm, ax2 - fwd[0] * s7 * 0.14, ay2 + 0.42, az2 - fwd[1] * s7 * 0.14, s7 === 1 ? ry : ry + Math.PI, true)) } } } // Λ字に2面（前後どちらから来ても読める）
       else if (kind === 'liquor') { const crate = (lx, lz, ly, col) => { const [wx, wz] = f(lx, lz); grp.add(mk(new THREE.BoxGeometry(0.95, 0.34, 0.62), toon(col), wx, heightAtYato(wx, wz) + 0.17 + ly * 0.34, wz, ry, true)) } // 酒屋＝店先に積んだ酒/ビールのケース＋自販機＋縁台
         for (const [lx, lz, ly, c] of [[-2.6, D / 2 + 1.0, 0, 0xb58a3a], [-2.6, D / 2 + 1.0, 1, 0x9a3a2e], [-2.6, D / 2 + 1.0, 2, 0x355a8a], [-1.5, D / 2 + 1.0, 0, 0x9a3a2e], [-1.5, D / 2 + 1.0, 1, 0xb58a3a]]) crate(lx, lz, ly, c)
         const [vx, vz] = f(2.8, D / 2 + 0.9); vending(vx, vz, ry, 0xc0392b); const [bx, bz] = f(3.6, D / 2 + 1.3); bench(bx, bz, ry) }
@@ -3368,7 +3385,26 @@ function buildShishigaya() {
       else if (kind === 'green') { const board = (lx) => { const [wx, wz] = f(lx, D / 2 + 1.3), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.BoxGeometry(1.0, 0.5, 1.5), toon(0x8a6a44), wx, wy + 0.5, wz, ry, true)) } // 八百屋＝斜めの台にカラフルな野菜/果物の箱
         const veg = [0xd84a3a, 0xe0992e, 0x4a8a3a, 0xc8b832, 0xd06a8a, 0x9a4a8a]; let ci = 0
         for (const lx of [-2.9, -1.9, -0.9, 0.1, 1.1]) { board(lx); const [wx, wz] = f(lx, D / 2 + 1.3), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.BoxGeometry(0.86, 0.3, 1.3), toon(0x9a7a4a), wx, wy + 0.92, wz, ry, true)); for (let r = -1; r <= 1; r++) grp.add(mk(new THREE.SphereGeometry(0.16, 7, 5), toon(veg[(ci + r + 6) % veg.length]), wx + r * 0.26 * Math.cos(ry), wy + 1.12, wz - r * 0.26 * Math.sin(ry), ry, true)); ci++ }
-        const [vx, vz] = f(3.4, D / 2 + 0.9); vending(vx, vz, ry, 0xe08a1e) }
+        const [vx, vz] = f(3.4, D / 2 + 0.9); vending(vx, vz, ry, 0xe08a1e)
+        // 店先のすいかの木箱＝夏の八百屋の顔（商店街の作り込み2026-07-16）。1玉は縞つき（すいか割りと同じトーラス縞）
+        { const [sx8, sz8] = f(2.3, D / 2 + 1.25), sy8 = heightAtYato(sx8, sz8)
+          grp.add(mk(new THREE.BoxGeometry(1.0, 0.36, 0.75), toon(0x9a7a4a), sx8, sy8 + 0.18, sz8, ry, true)) // 木箱
+          const mel = [[-0.22, 0.42, 0x2f6b34], [0.24, 0.42, 0x2a6130], [0.0, 0.6, 0x33703a]] // すいか3玉（上に1玉）
+          for (const [ox8, oy8, mc] of mel) { const [mx8, mz8] = f(2.3 + ox8, D / 2 + 1.25); grp.add(mk(new THREE.SphereGeometry(0.21, 10, 8), toon(mc), mx8, sy8 + oy8, mz8, 0, true)) }
+          for (let k7 = 0; k7 < 4; k7++) { const st7 = new THREE.TorusGeometry(0.213, 0.014, 5, 14, Math.PI); st7.rotateZ(0.2); const [mx8, mz8] = f(2.3, D / 2 + 1.25); const stm = new THREE.Mesh(st7, toon(0x1d4524)); stm.position.set(mx8, sy8 + 0.6, mz8); stm.rotation.y = k7 / 4 * Math.PI; grp.add(stm) } } // 縞（上の1玉）
+        // 停めてあるママチャリ＝買い物の気配（商店街の作り込み2026-07-16）。スタンドで少し傾く
+        { const [bkx, bkz] = f(-3.7, D / 2 + 1.8), bky = heightAtYato(bkx, bkz), bg2 = new THREE.Group()
+          const fr = toon(0x8a3a34), bk3 = toon(0x2a2a28), sil = toon(0xb8bcc0)
+          for (const px8 of [-0.42, 0.42]) { const w2 = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.026, 6, 14), bk3); w2.position.set(px8, 0.3, 0); bg2.add(w2)
+            const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.05, 6), sil); hub.rotation.x = Math.PI / 2; hub.position.set(px8, 0.3, 0); bg2.add(hub) }
+          const tube = (x1, y1, x2, y2, r8) => { const L2 = Math.hypot(x2 - x1, y2 - y1); const t2 = new THREE.Mesh(new THREE.CylinderGeometry(r8, r8, L2, 5), fr)
+            t2.position.set((x1 + x2) / 2, (y1 + y2) / 2, 0); t2.rotation.z = -Math.atan2(x2 - x1, y2 - y1); bg2.add(t2) }
+          tube(-0.42, 0.3, -0.34, 0.84, 0.02); tube(-0.36, 0.78, 0.38, 0.86, 0.02); tube(0.42, 0.3, 0.38, 0.9, 0.02); tube(-0.42, 0.3, 0.05, 0.52, 0.018); tube(0.05, 0.52, 0.42, 0.3, 0.018) // シートポスト/トップ/ヘッド/下フレームU字
+          { const hb = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.34, 5), sil); hb.rotation.x = Math.PI / 2; hb.position.set(0.38, 0.94, 0); bg2.add(hb) } // ハンドル
+          { const sd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.12), bk3); sd.position.set(-0.34, 0.9, 0); bg2.add(sd) } // サドル
+          { const bs = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.24), toon(0x9aa0a6)); bs.position.set(0.52, 0.78, 0); bg2.add(bs) } // 前かご
+          bg2.position.set(bkx, bky, bkz); bg2.rotation.y = ry + 0.4; bg2.rotation.z = 0.09 // スタンドの傾き
+          bg2.traverse((o) => { if (o.isMesh) o.castShadow = true }); grp.add(bg2) } }
       else if (kind === 'flower') { const fc = [0xe04a6a, 0xe0c030, 0xe07a2e, 0xd060a0, 0xf0f0f0, 0xc04ad0] // 花屋＝店先のバケツに色とりどりの花
         let fi = 0; for (const lx of [-2.8, -2.0, -1.2, -0.4, 0.4, 1.2]) { const [wx, wz] = f(lx, D / 2 + 1.0), wy = heightAtYato(wx, wz); grp.add(mk(new THREE.CylinderGeometry(0.22, 0.18, 0.5, 8), toon(0x5a7a8a), wx, wy + 0.25, wz, ry, true)); for (let b = 0; b < 6; b++) grp.add(mk(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshToonMaterial({ color: fc[(fi + b) % fc.length], gradientMap: GRAD, emissive: 0x1a0a12 }), wx + ((b % 3) - 1) * 0.12 * Math.cos(ry), wy + 0.62 + (b > 2 ? 0.12 : 0), wz - ((b % 3) - 1) * 0.12 * Math.sin(ry), ry, true)); fi++ }
         const [bx, bz] = f(3.0, D / 2 + 1.3); bench(bx, bz, ry) }
