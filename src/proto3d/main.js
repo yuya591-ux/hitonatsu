@@ -8382,6 +8382,49 @@ for (const [x, z] of yatoTreePos.slice(0, 6)) { const gx = x + 2.2, gz = z + 2.2
   makeBug(TX + 0.82, TY + 1.35, TZ + 0.30, 'スズメバチ', { noCatch: true }); makeBug(TX + 0.78, TY + 0.95, TZ - 0.40, 'スズメバチ', { noCatch: true }) // 危険の気配（飾り）
   window.__treasureTree = [TX, TZ, +TY.toFixed(1)]
 }
+// ── H5：秘密基地（子どもの手作りの隠れ家）＝板とトタンの掘っ立て小屋＋すだれの戸＋みかん箱の机/椅子＋虫かご・ラムネ・「きち」の札。茂みの奥にそっと（発見の喜び・2026-07-18）──
+const kichiTex = (() => { const c = document.createElement('canvas'); c.width = 72; c.height = 44; const x = c.getContext('2d'); x.fillStyle = '#e7d9ba'; x.fillRect(0, 0, 72, 44); x.strokeStyle = '#b9a67e'; x.lineWidth = 2; x.strokeRect(2, 2, 68, 40); x.fillStyle = '#3a2a16'; x.font = 'bold 26px "Klee One","Yu Gothic",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('きち', 36, 24); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t })()
+function makeSecretBase(x, z, rot) {
+  const g = new THREE.Group()
+  const wood = toonMap(0x8a6a44, woodTex), woodD = toonMap(0x6a4e30, woodTex), tin = toon(0x8f8b7e), tinR = toon(0x9a7a52)
+  const box = (w, h, d, mat, px, py, pz, ry = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(px, py, pz); if (ry) m.rotation.y = ry; g.add(m); return m }
+  // 骨組み：4本の柱（後ろ高・前低の掘っ立て）
+  for (const [px, pz, ph] of [[-0.95, -0.85, 1.5], [0.95, -0.85, 1.5], [-0.95, 0.75, 1.15], [0.95, 0.75, 1.15]]) box(0.09, ph, 0.09, woodD, px, ph / 2, pz)
+  // 後ろの板壁＋横板の段
+  box(2.0, 1.3, 0.07, wood, 0, 0.72, -0.88)
+  for (const by of [0.35, 0.72, 1.08]) box(2.02, 0.05, 0.09, woodD, 0, by, -0.86) // 板の継ぎ目の桟
+  // 左の側壁（板・すきま）
+  box(0.07, 1.15, 1.5, wood, -0.95, 0.62, -0.05)
+  // トタンの片流れ屋根（後ろ高→前低に傾ける・2枚）
+  for (const rx of [-0.52, 0.52]) { const r = box(1.15, 0.05, 1.95, rx < 0 ? tin : tinR, rx, 1.42, -0.05); r.rotation.x = 0.2 } // 波トタン風（色ちがい2枚で継ぎ目感）
+  box(2.15, 0.06, 0.14, woodD, 0, 1.5, -0.86) // 棟木（後ろの桁）
+  // よしずの戸（前の入口を右3割だけ覆う＝中を覗ける）
+  { const sd = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 1.15), new THREE.MeshToonMaterial({ color: 0xffffff, map: yoshizuTex, gradientMap: GRAD, side: THREE.DoubleSide })); sd.position.set(0.6, 0.66, 0.74); sd.layers.set(1); g.add(sd) } // 葦簀（よしず）の戸＝モジュール階のyoshizuTexを流用
+  // ござ（床の敷物）
+  box(1.6, 0.04, 1.3, toon(0xcdb782), 0, 0.02, 0.0)
+  // みかん箱2つ（机と椅子）＋中身
+  box(0.46, 0.34, 0.34, wood, 0.35, 0.19, -0.1); box(0.4, 0.05, 0.28, woodD, 0.35, 0.37, -0.1) // 机の箱＋天板（奥）
+  box(0.38, 0.28, 0.3, wood, -0.34, 0.16, 0.34) // 椅子の箱（入口の開いた左側＝見える）
+  // 虫かご（緑のプラかご・椅子箱の上＝入口から見える）
+  box(0.2, 0.24, 0.16, toon(0x3f8a3f), -0.32, 0.42, 0.34); box(0.16, 0.04, 0.12, toon(0x2a5a2a), -0.32, 0.56, 0.34) // かご＋ふた
+  // ラムネの瓶（椅子箱のわき・淡い青緑）
+  { const rm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.2, 8), new THREE.MeshToonMaterial({ color: 0x8fd0cf, gradientMap: GRAD, transparent: true, opacity: 0.85 })); rm.position.set(-0.05, 0.14, 0.5); g.add(rm) }
+  // まんが（ござに置いた薄い本・表紙は暖色）
+  box(0.26, 0.03, 0.34, toon(0xcf6a4a), 0.02, 0.055, 0.2, 0.4)
+  // 「きち」の札（前の柱に掛ける）
+  { const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.3), new THREE.MeshBasicMaterial({ map: kichiTex, side: THREE.DoubleSide, transparent: true })); sg.position.set(0.95, 1.02, 0.78); sg.rotation.y = -0.35; sg.layers.set(1); g.add(sg) }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true })
+  const gy = heightAtYato(x, z); g.position.set(x, gy, z); g.rotation.y = rot || 0
+  mergedOutline(g, 0.03); addContactShadow(g, 1.9)
+  addBox(x, z, 1.1, 1.0, rot || 0) // 小屋に当たり判定
+  scene.add(g)
+  // 囲みの茂み（隠れ家らしく3方を低い茂みで囲む）
+  const bushMat = toon(0x5d8a3a)
+  for (const [bx, bz, br] of [[-1.75, -0.9, 0.72], [1.75, -0.7, 0.68], [0.2, -1.85, 0.8], [-1.6, 1.0, 0.6]]) { const cs = Math.cos(rot || 0), sn = Math.sin(rot || 0), wx = x + bx * cs - bz * sn, wz = z + bx * sn + bz * cs
+    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(br, 1), bushMat); b.scale.set(1, 0.75, 1); b.position.set(wx, heightAtYato(wx, wz) + br * 0.5, wz); b.castShadow = true; addOutline(b, 0.03); addContactShadow(b, br); scene.add(b) }
+  window.__secretBase = [Math.round(x), Math.round(z), +gy.toFixed(1)]
+}
+makeSecretBase(3080, -190, -0.9) // 谷の東斜面・入口は谷（西）向き
 
 // ── うろつく猫（茶トラ）。家のまわりを気ままに歩き、近づくと なでられる ──
 // 猫らしさの要＝①すらりと細い胴(犬と差別化) ②大きな三角の立ち耳 ③平たい顔＋小さな鼻面 ④大きなアーモンドの目＋縦長ひとみ ⑤ヒゲ ⑥上に立てた長い尾の先がくるり（ユーザー「全く猫っぽく見えない・大幅刷新を」2026-06-28）
