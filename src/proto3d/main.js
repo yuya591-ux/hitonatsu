@@ -2688,11 +2688,23 @@ function buildShishigaya() {
     x.strokeStyle = 'rgba(150,142,124,0.26)'; x.lineWidth = 1; for (let y = 8; y < 128; y += 11) { x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(128, y + 0.5); x.stroke() } // 下見板（横の段）
     const wx0 = 36, wx1 = 92, wy0 = 30, wy1 = 80
     const gg = x.createLinearGradient(0, wy0, 0, wy1); gg.addColorStop(0, '#aab6c0'); gg.addColorStop(1, '#838f99'); x.fillStyle = gg; x.fillRect(wx0, wy0, wx1 - wx0, wy1 - wy0) // 窓ガラス（空の映り込み）
+    // カーテン（ガラス越しにうっすら）＝白いレースの薄い層＋縦ひだ＋左に寄せた色カーテン。昭和〜平成の家の窓の“暮らしの気配”（E4・2026-07-18）
+    x.fillStyle = 'rgba(246,243,234,0.30)'; x.fillRect(wx0 + 2, wy0 + 2, wx1 - wx0 - 4, wy1 - wy0 - 4) // レースの薄い白い層（透けたネットカーテン）
+    x.strokeStyle = 'rgba(255,255,255,0.16)'; x.lineWidth = 1; for (let cxp = wx0 + 6; cxp < wx1 - 3; cxp += 5) { x.beginPath(); x.moveTo(cxp, wy0 + 3); x.lineTo(cxp, wy1 - 3); x.stroke() } // レースの縦ひだ
+    { const cw = (wx1 - wx0) * 0.34, gc = x.createLinearGradient(wx0, 0, wx0 + cw, 0); gc.addColorStop(0, 'rgba(208,192,158,0.60)'); gc.addColorStop(1, 'rgba(208,192,158,0.08)'); x.fillStyle = gc; x.fillRect(wx0 + 2, wy0 + 2, cw, wy1 - wy0 - 4) // 左に束ねた色カーテン
+      x.strokeStyle = 'rgba(118,94,52,0.22)'; x.lineWidth = 1; for (let cxq = wx0 + 5; cxq < wx0 + cw; cxq += 4) { x.beginPath(); x.moveTo(cxq, wy0 + 3); x.lineTo(cxq, wy1 - 3); x.stroke() } } // カーテンのひだ
     x.strokeStyle = '#f0ece1'; x.lineWidth = 4; x.strokeRect(wx0, wy0, wx1 - wx0, wy1 - wy0) // 窓枠（明＝アルミサッシ）
     x.strokeStyle = '#c9c4b7'; x.lineWidth = 2; x.beginPath(); x.moveTo(64, wy0); x.lineTo(64, wy1); x.moveTo(wx0, 55); x.lineTo(wx1, 55); x.stroke() // 十字桟（引き違い窓）
     x.fillStyle = '#d8d2c4'; x.fillRect(wx0 - 3, wy1, wx1 - wx0 + 6, 4) // 窓台（水切り）
     x.fillStyle = 'rgba(120,112,96,0.16)'; x.fillRect(0, 0, 3, 128); x.fillRect(125, 0, 3, 128) // 区画の継ぎめ（柱／角）
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t })()
+  // すだれ（簾）のテクスチャ＝細い竹ひごの横じま＋結び糸＋巻き上げ棒。夏の窓辺に軒下から下げる（E4・2026-07-18）
+  const sudareTex = (() => { const c = document.createElement('canvas'); c.width = 48; c.height = 96; const x = c.getContext('2d')
+    x.fillStyle = '#8a6f3c'; x.fillRect(0, 0, 48, 6) // 上の巻き上げ棒（濃い竹）
+    for (let y = 7; y < 94; y += 3) { const v = ((y * 37) % 100) / 100; x.fillStyle = v < 0.32 ? '#c2a866' : v < 0.64 ? '#d9c286' : '#ccb475'; x.fillRect(0, y, 48, 2.1); x.fillStyle = 'rgba(88,70,38,0.26)'; x.fillRect(0, y + 2.0, 48, 0.9) } // 竹ひごの横じま＋あいだの影
+    x.strokeStyle = 'rgba(70,54,30,0.5)'; x.lineWidth = 1.2; for (const vx of [9, 24, 39]) { x.beginPath(); x.moveTo(vx, 6); x.lineTo(vx, 94); x.stroke() } // 結び糸（縦）
+    x.fillStyle = '#7a6236'; x.fillRect(0, 93, 48, 3) // 下端の重り
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t })()
   const pushTri = (col, p0, p1, p2) => { rfv.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]); rfuv.push(p0[0] / 2.4, p0[2] / 2.4, p1[0] / 2.4, p1[2] / 2.4, p2[0] / 2.4, p2[2] / 2.4); for (let q = 0; q < 3; q++) rfc.push(col[0], col[1], col[2]); rfidx.push(oRef.o, oRef.o + 1, oRef.o + 2); oRef.o += 3 } // UVは真上からの平面投影＝瓦目が世界グリッドに揃う
   let sunIdx = -1, sunD = 1e9; SG.buildings.forEach((b, i) => { if (b[6] === 1) { const dd = Math.hypot(b[0] - 3008, b[1] + 8.5); if (dd < sunD) { sunD = dd; sunIdx = i } } }) // サンライズ北寺尾＝原点最寄りの集合住宅（z反転後なので+8.5）
   // サンライズ鶴見北寺尾I＝実輪郭(OSM Bing trace・雁行型21頂点)。7階RC85戸1995竣工。汎用の箱では出ない“特殊な構造”をこの形で再現
@@ -2754,6 +2766,7 @@ function buildShishigaya() {
   let nOnRoad = 0, nOnWater = 0, nOverlap = 0, nVillage = 0, nNudged = 0 // 道/水/他建物に重なる建物を消した数（不自然な配置の除去・ログで確認）＋田舎寄せで間引いた数＋道から押し出した数(2026-07-07)
   const villThin = villageLevel >= 2 ? 55 : villageLevel >= 1 ? 35 : 0 // 田舎寄せ：間引く割合(%)。0=間引かない(忠実)
   const glowWarm = [[], [], []], glowTV = [], _gm = new THREE.Matrix4() // 夜の窓あかり：暖色の窓(glowWarm・C7で点灯時刻別に3群)と、ブラウン管TVの青い明滅(glowTV)。1990年代の夕暮れ＝家々の窓にTVの灯り
+  const sudare = [] // すだれの短冊を貯めて最後に1メッシュ化＝通り沿いの家々の軒下の夏の簾（描画1回・E4・2026-07-18）
   const pushGlow = (wx, wy, wz, theta) => { const pg = new THREE.PlaneGeometry(1.0, 0.8); _gm.makeRotationY(theta); _gm.setPosition(wx, wy, wz); pg.applyMatrix4(_gm)
     if ((((Math.round(wx) * 7 + Math.round(wz) * 13) % 100 + 100) % 100) < 26) glowTV.push(pg) // 約26%の窓はTVの青い灯り
     else glowWarm[((Math.round(wx) * 5 + Math.round(wz) * 3) % 3 + 3) % 3].push(pg) } // 残りは暖色＝家ごとに3群へ分けて段階点灯（C7）
@@ -2859,6 +2872,23 @@ function buildShishigaya() {
         pushTri(wc, e0, e1, L(0, rg, -hd)); pushTri(wc, e2, e3, L(0, rg, hd)) // 妻壁の三角
         const k0 = L(-krw, kry, z0), k1 = L(-krw, kry, z1), k2 = L(krw, kry, z0), k3 = L(krw, kry, z1), kp0 = L(0, kry + kch, z0), kp1 = L(0, kry + kch, z1)
         pushTri(rcD, k0, k1, kp1); pushTri(rcD, k0, kp1, kp0); pushTri(rcD, kp0, kp1, k3); pushTri(rcD, kp0, k3, k2) } // 棟瓦
+      // すだれ（簾）＝約2割の切妻の家の軒下に、道を向く面へ掛ける。夏の窓辺（E4・2026-07-18）。sudareへ貯めて後で1メッシュ化＝描画1回
+      if ((seed % 100) < 22 && stories <= 2) {
+        const fa = faceRoad(cx, cz), rdx = Math.sin(fa), rdz = Math.cos(fa) // 最寄りの道の向き
+        const norms = [[si, -co], [co, si], [-si, co], [-co, -si]] // 各面の外向き法線（世界・face0=-z面…）
+        let bestK = 0, bestDot = -1e9; for (let fk = 0; fk < 4; fk++) { const dd = norms[fk][0] * rdx + norms[fk][1] * rdz; if (dd > bestDot) { bestDot = dd; bestK = fk } }
+        const nx = norms[bestK][0], nz = norms[bestK][1] // 道を向く面の外向き法線
+        const fmx0 = (baseXZ[bestK][0] + baseXZ[(bestK + 1) % 4][0]) / 2, fmz0 = (baseXZ[bestK][1] + baseXZ[(bestK + 1) % 4][1]) / 2, fw0 = L(fmx0, 0, fmz0) // 面の中央（世界）
+        let seesRoad = false; for (const rr of [2, 4, 7, 11, 15]) { if (onYatoRoadCore(fw0[0] + nx * rr, fw0[2] + nz * rr)) { seesRoad = true; break } } // 前方に道があるか（無ければ裏通り＝掛けない）
+        if (seesRoad) {
+          const faceLen = (bestK % 2 === 0) ? w : d
+          const ux = (baseXZ[(bestK + 1) % 4][0] - baseXZ[bestK][0]) / faceLen, uz = (baseXZ[(bestK + 1) % 4][1] - baseXZ[bestK][1]) / faceLen // 面に沿う単位（ローカル）
+          const sh = 1.55, top = Math.min(h - 0.15, 2.9), cy = top - sh / 2, theta = Math.atan2(nx, nz)
+          const nP = faceLen > 5.2 ? 2 : 1, pw = Math.min(1.35, faceLen * 0.42), offs = nP === 2 ? [-pw * 0.62, pw * 0.62] : [0]
+          for (const off of offs) { const px = fmx0 + ux * off, pz = fmz0 + uz * off, wp = L(px, cy, pz)
+            const pg = new THREE.PlaneGeometry(pw, sh); _gm.makeRotationY(theta); _gm.setPosition(wp[0] + nx * 0.07, wp[1], wp[2] + nz * 0.07); pg.applyMatrix4(_gm); sudare.push(pg) }
+        }
+      }
     }
   })
   // ───── サンライズ鶴見北寺尾I：実輪郭(雁行型)を7階RCで忠実再現。斜面の途中に建ち、NW端(谷=二ツ池/眺望側)の7階は部屋でなく開放テラス＋下から上がる階段室 ─────
@@ -2896,7 +2926,10 @@ function buildShishigaya() {
       townNightLights.push({ m: glowMesh, base: 0.92, ph: gi * 1.7, fa: 0.05, litOff: warmOff[gi] }) } }
   if (glowTV.length) { const gg = mergeGeometries(glowTV, false); glowTV.forEach((g) => g.dispose())
     tvGlowMesh = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0x82a6dc, fog: false, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); tvGlowMesh.name = 'yatoTVWindows'; tvGlowMesh.castShadow = false; scene.add(tvGlowMesh) } // ブラウン管TVの青い灯り＝ループで明滅
-  if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
+  // すだれ：集めた短冊を1メッシュにマージ＝通り沿いの家々の軒下に夏の簾が一斉に下がる（描画1回・E4・2026-07-18）
+  if (sudare.length) { const sgeo = mergeGeometries(sudare, false); sudare.forEach((g) => g.dispose())
+    const smesh = new THREE.Mesh(sgeo, new THREE.MeshToonMaterial({ color: 0xffffff, map: sudareTex, gradientMap: GRAD, side: THREE.DoubleSide })); smesh.name = 'yatoSudare'; smesh.castShadow = false; smesh.receiveShadow = false; scene.add(smesh) }
+  if (bv.length) { const bgeo = new THREE.BufferGeometry(); bgeo.setAttribute('position', new THREE.Float32BufferAttribute(bv, 3)); bgeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3)); bgeo.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2)); bgeo.setIndex(bidx); bgeo.computeVertexNormals(); const bm = new THREE.Mesh(bgeo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: houseTex, side: THREE.DoubleSide })); bm.name = 'yatoHouseWalls'; bm.castShadow = true; bm.receiveShadow = true; scene.add(bm) }
   if (av.length) { const ageo = new THREE.BufferGeometry(); ageo.setAttribute('position', new THREE.Float32BufferAttribute(av, 3)); ageo.setAttribute('color', new THREE.Float32BufferAttribute(ac, 3)); ageo.setAttribute('uv', new THREE.Float32BufferAttribute(auv, 2)); ageo.setIndex(aidx); ageo.computeVertexNormals(); const am = new THREE.Mesh(ageo, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: balconyTex, side: THREE.DoubleSide })); am.castShadow = true; am.receiveShadow = true; scene.add(am) }
   if (rfv.length) { const rg2 = new THREE.BufferGeometry(); rg2.setAttribute('position', new THREE.Float32BufferAttribute(rfv, 3)); rg2.setAttribute('color', new THREE.Float32BufferAttribute(rfc, 3)); rg2.setAttribute('uv', new THREE.Float32BufferAttribute(rfuv, 2)); rg2.setIndex(rfidx); rg2.computeVertexNormals(); const rm2 = new THREE.Mesh(rg2, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD, map: kawaraTex, normalMap: kawaraNormalTex, normalScale: new THREE.Vector2(0.35, 0.35), side: THREE.DoubleSide })); rm2.castShadow = true; rm2.receiveShadow = true; scene.add(rm2) } // A5：瓦の法線マップで屋根の段差が光の角度で浮く（トゥーン維持・控えめ）
   // 接地AO（A1）：町じゅうの建物フットプリント直下の陰を1メッシュに合成（放射状グラデのshadowMat＝丸影と同じ素材なので時刻で濃さが連動）。描画1回で全建物に足元の陰が乗る
