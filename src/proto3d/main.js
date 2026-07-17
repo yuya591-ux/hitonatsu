@@ -3445,6 +3445,23 @@ function buildShishigaya() {
         awnG.traverse((o) => { if (o.isMesh) o.castShadow = true }) }
       noren(cx + fwd[0] * (D / 2 + 0.55), cz + fwd[1] * (D / 2 + 0.55), 2.8, ry, kind === 'rice' ? 'こめ' : kind === 'eat' ? 'お食事' : kind === 'liquor' ? 'さけ' : kind === 'green' ? 'やおや' : kind === 'flower' ? 'はな' : kind === 'tobacco' ? 'たばこ' : 'だがし', kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#6a4a1a' : kind === 'liquor' ? '#355a8a' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#3a5a8a' : '#b5462f', gB + slope + H1 - 0.55) // 暖簾（店の床基準の絶対高さ）
       grp.add(mk(new THREE.PlaneGeometry(Math.min(W * 0.9, 6), 1.2), new THREE.MeshBasicMaterial({ map: signTex(name, kind === 'eat' ? '#2a3a6a' : kind === 'rice' ? '#5a4a2a' : kind === 'liquor' ? '#1b3c6e' : kind === 'green' ? '#2e6b3a' : kind === 'flower' ? '#2e7b5a' : kind === 'tobacco' ? '#2f5a8a' : '#b5462f', '#fff8e8'), side: THREE.DoubleSide }), cx + fwd[0] * (D / 2 + 0.2), gB + slope + H1 + H2 - 0.9, cz + fwd[1] * (D / 2 + 0.2), ry)) // 2階正面の看板
+      // ── 生活のかけら第2弾（柱F9・2026-07-17）＝朝の打ち水の濡れ跡（drapeデカール）＋木の手桶とひしゃく／花屋は巻いたホース ──
+      if (kind === 'green' || kind === 'rice' || kind === 'eat') { const wOff = kind === 'green' ? 3.8 : kind === 'rice' ? 0.45 : -1.2 // 業種ごとに空いた場所へ（八百屋は台の右わき・米店は入口前・食堂は入口左）＝店先の既存小物に隠れない
+        const [wx8, wz8] = f(wOff, D / 2 + 1.05) // ★店の壁ぎわの土間側＝道リボン(+0.45まで浮く)の上に敷くと沈む既知の罠を避ける
+        const cg8 = new THREE.CircleGeometry(0.95, 14); cg8.rotateX(-Math.PI / 2); cg8.translate(wx8, 0, wz8)
+        const p8 = cg8.attributes.position; for (let i8 = 0; i8 < p8.count; i8++) p8.setY(i8, heightAtYato(p8.getX(i8), p8.getZ(i8)) + 0.07)
+        grp.add(new THREE.Mesh(cg8, new THREE.MeshBasicMaterial({ color: 0x3a3630, transparent: true, opacity: 0.26, depthWrite: false }))) // 濡れ跡＝頂点を実地形+0.07へdrape
+        const [bx8, bz8] = f(wOff + 1.3, D / 2 + 0.9), by8 = heightAtYato(bx8, bz8)
+        grp.add(mk(new THREE.CylinderGeometry(0.16, 0.13, 0.24, 10), toon(0x9a7a52), bx8, by8 + 0.12, bz8, 0, true)) // 木の手桶
+        grp.add(mk(new THREE.CylinderGeometry(0.14, 0.14, 0.02, 10), toon(0x7d98a6), bx8, by8 + 0.22, bz8)) // 手桶の水面
+        { const hs8 = mk(new THREE.CylinderGeometry(0.014, 0.014, 0.5, 5), toon(0x8a6a44), bx8 + 0.21, by8 + 0.3, bz8 + 0.05, 0, true); hs8.rotation.z = 0.85; grp.add(hs8) // ひしゃくの柄（手桶に立てかけ）
+          grp.add(mk(new THREE.CylinderGeometry(0.05, 0.045, 0.07, 8), toon(0x9a7a52), bx8 + 0.4, by8 + 0.14, bz8 + 0.05, 0, true)) } } // ひしゃくの椀
+      if (kind === 'flower') { const [hx8, hz8] = f(2.6, D / 2 + 1.4), hy8 = heightAtYato(hx8, hz8)
+        for (const [oy8, r8] of [[0.05, 0.27], [0.14, 0.23]]) { const tg8 = new THREE.TorusGeometry(r8, 0.045, 7, 20); tg8.rotateX(Math.PI / 2); grp.add(mk(tg8, toon(0x3f7a52), hx8, hy8 + oy8, hz8, 0, true)) } // 巻いた緑のホース2段
+        const [dx8, dz8] = f(1.3, D / 2 + 0.8) // 濡れ跡は壁ぎわの土間側（道リボンの罠よけ）
+        const cg8 = new THREE.CircleGeometry(0.8, 12); cg8.rotateX(-Math.PI / 2); cg8.translate(dx8, 0, dz8)
+        const p8 = cg8.attributes.position; for (let i8 = 0; i8 < p8.count; i8++) p8.setY(i8, heightAtYato(p8.getX(i8), p8.getZ(i8)) + 0.07)
+        grp.add(new THREE.Mesh(cg8, new THREE.MeshBasicMaterial({ color: 0x3a3630, transparent: true, opacity: 0.24, depthWrite: false }))) } // 水まきの濡れ跡
       if (kind === 'rice') { const bagM = toon(0xd8cdae); for (const [lx, lz, ly] of [[-2.3, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.0, 1], [-1.4, D / 2 + 1.0, 0], [-2.3, D / 2 + 1.65, 0]]) { const [wx, wz] = f(lx, lz); grp.add(mk(new THREE.BoxGeometry(0.7, 0.5, 0.5), bagM, wx, heightAtYato(wx, wz) + 0.25 + ly * 0.5, wz, ry, true)) } // 店先に積んだ米袋
         const [vx, vz] = f(2.7, D / 2 + 0.9); vending(vx, vz, ry, 0x2e6db0)
         // ホーロー看板2枚（架空ブランド＝著作権安全）＝昭和から残る町の米屋の側壁（商店街の作り込み2026-07-16）
@@ -7980,6 +7997,8 @@ function makeBusStop(x, z, rot) {
   for (const sz of [0.06, -0.06]) { const tx = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.5), new THREE.MeshBasicMaterial({ map: textTex('バス', '#2a6a4a', '#f4f1e6', false), transparent: true })); tx.position.set(0, 2.55, sz); if (sz < 0) tx.rotation.y = Math.PI; g.add(tx) }
   const bench = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.5), toonMap(0x8a6a44, woodTex)); bench.position.set(1.5, 0.46, 0); g.add(bench)
   for (const bx of [0.75, 2.25]) for (const bz of [-0.18, 0.18]) { const lg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.46, 0.08), toon(0x6a5238)); lg.position.set(bx, 0.23, bz); g.add(lg) }
+  { const um = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.052, 0.88, 7), toon(0x7a3040)); um.position.set(0.22, 0.44, 0.24); um.rotation.z = 0.3; um.rotation.x = -0.25; g.add(um) // 置き傘＝標識ポールに立てかけた、えんじの閉じ傘（夕立の名残・柱F9 2026-07-17。紺はベンチと同化＝えんじで読める色に）
+    const uh = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.013, 6, 10, Math.PI), toon(0x5a2430)); uh.position.set(0.1, 0.9, 0.14); uh.rotation.z = 2.0; g.add(uh) } // 柄のフック
   const board = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.72, 0.05), toon(0xeee9d8)); board.position.set(-0.55, 1.55, 0); board.rotation.y = 0.2; g.add(board) // 時刻表（枠）
   const ttPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.62), new THREE.MeshBasicMaterial({ map: busTimeTex })); ttPlane.position.set(-0.55 + Math.sin(0.2) * 0.03, 1.55, Math.cos(0.2) * 0.03); ttPlane.rotation.y = 0.2; g.add(ttPlane) // 読める時刻表（見出し＋時刻の段）
   g.traverse((o) => { if (o.isMesh) o.castShadow = true })
