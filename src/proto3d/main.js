@@ -2577,6 +2577,7 @@ const PARKFENCE_GEO = (() => { const box = new THREE.BoxGeometry(1, 1, 1), TR = 
   for (const sx of [-1.45, 1.45]) P.push({ g: box, m: TR(sx, 0.37, 0, 0.08, 0.78, 0.08), c: pipe }) // 支柱2本
   return mergeParts(P) })()
 let yatoGrassShader = null // 獅子ヶ谷の夏草を風になびかせる用シェーダ（buildShishigaya内で代入・updateで時間更新）
+let yatoEnokoroShader = null // エノコログサ（猫じゃらし）の穂を風にしならせる用シェーダ（D5・buildShishigaya内で代入・updateで時間更新）
 let farBackdrop = null // 遠景バックドロップ（地平の山＋都市ランドマーク）。カメラのX/Zに毎フレーム追従＝飛んでも近づけない・地平に留まる（buildShishigaya内で生成・updateで追従）
 const cloudShadowU = { uCloudTime: { value: 0 }, uCloudAmt: { value: 0.0 }, uWet: { value: 0.0 } } // 流れる雲の影＋雨上がりの濡れ（地面シェーダへ注入・updateで更新）
 const roadWetMats = [] // 道路の路面マテリアル（雨上がりに暗く＋照り返す。{mat,base色}）
@@ -5577,7 +5578,7 @@ function buildShishigaya() {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), gcol2 = new THREE.Color()
     const cLo = new THREE.Color(0xbcd07a), cHi = new THREE.Color(0x86a64e) // みずみずしい夏草＝地面よりやや明るい黄緑〜緑。暗いと“ごみ”に見えるので明るめに
     const ACX = 3010, ACZ = -120, CORE = 320 // 歩く中心(サンライズ〜小学校〜二ツ池の谷)。ここを密に
-    let ng = 0, ga = 0; const flSeeds = [] // 夏の野の花を咲かせる株の位置＝草の検査（道/水/舗装/急斜面/裸地よけ）を通った所だけに寄り添わせる（2026-07-05 地被の点検）
+    let ng = 0, ga = 0; const flSeeds = [], enokoro = [] // 夏の野の花を咲かせる株の位置＋エノコログサを立てる位置＝草の検査（道/水/舗装/急斜面/裸地よけ）を通った所だけに寄り添わせる（2026-07-05 地被の点検・D5でエノコロ追加）
     while (ng < NG && ga < NG * 18) { ga++
       let x, z
       if (Math.random() < 0.72) { const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * CORE; x = ACX + Math.cos(a) * r; z = ACZ + Math.sin(a) * r } // 7割は中心の谷あいに密集
@@ -5592,7 +5593,9 @@ function buildShishigaya() {
       const s = 0.6 + Math.random() * 0.95, yh = Math.random() < 0.4 ? 1.2 + Math.random() * 0.8 : 0.7 + Math.random() * 0.5 // 約4割は丈のあるこんもり夏草
       q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, 0)); sc.set(s, s * yh, s); m4.compose(new THREE.Vector3(x, y + 0.15, z), q, sc); gI.setMatrixAt(ng, m4)
       const jit = 0.88 + Math.random() * 0.24; gcol2.copy(cLo).lerp(cHi, THREE.MathUtils.smoothstep(y, 6, 30)); gI.setColorAt(ng, gcol2.multiplyScalar(jit)); ng++
-      if (Math.random() < 0.04) flSeeds.push([x, z]) } // 株ごとに明暗をばらつかせて自然に／一部の株のそばに野の花の種をまく
+      if (Math.random() < 0.04) flSeeds.push([x, z])
+      if (Math.random() < 0.05) { const cn = 3 + Math.floor(Math.random() * 4); for (let e = 0; e < cn; e++) { const ea = Math.random() * 6.283, er = Math.random() * 0.55, ex = x + Math.cos(ea) * er, ez = z + Math.sin(ea) * er // エノコログサは群れで生える＝1か所に3〜6本のかたまり
+        if (!onYatoRoad(ex, ez) && !inWater(ex, ez)) enokoro.push([ex, heightAtYato(ex, ez), ez, Math.random() * 6.283, 0.85 + Math.random() * 0.45]) } } } // 株ごとに明暗をばらつかせて自然に／一部の株のそばに野の花＋エノコログサ（猫じゃらし）の群れ
     gI.count = ng; gI.castShadow = false; gI.instanceColor.needsUpdate = true; scene.add(gI)
     console.log('[shishigaya] grass', ng)
     // ── 夏の野の花：谷あいの草地にぽつぽつ色を散らす（白いヒメジョオン/シロツメ・淡い青の露草・控えめに黄のカタバミ/桃のねじばな）。春のタンポポ畑にはしない＝真夏の忠実さ。茎/花で各1ドロー ──
@@ -5614,7 +5617,32 @@ function buildShishigaya() {
       blooms.forEach(([bx, by, bz, col], i) => { bm.makeTranslation(bx, by + 0.23, bz); bloomI.setMatrixAt(i, bm); bloomI.setColorAt(i, bcol.set(col)) })
       bloomI.instanceMatrix.needsUpdate = true; bloomI.instanceColor.needsUpdate = true; bloomI.castShadow = false; scene.add(bloomI) // 花（instanceColorで色ちがい・1ドロー）
       console.log('[shishigaya] wildflowers', blooms.length)
-    } }
+    }
+    // ── エノコログサ（猫じゃらし）＝夏の路傍の主役。紡錘形の穂で草地に高さと変化を出す。草の検査を通った株の5%のわきに3〜6本の群れで立てる（穂が風にしなる・vertexColorで茎/穂を塗り分け1ドロー・D5） ──
+    if (enokoro.length) {
+      const paintV = (g, hex) => { const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b } g.setAttribute('color', new THREE.Float32BufferAttribute(a, 3)); return g }
+      const Hs = 0.34, stem = new THREE.CylinderGeometry(0.005, 0.008, Hs, 4); stem.translate(0, Hs / 2, 0); paintV(stem, 0x8fa254) // 短く細い茎（緑）＝穂を主役にして棒に見せない
+      const hUp = new THREE.ConeGeometry(0.026, 0.15, 6); hUp.translate(0, 0.075, 0) // 穂の上半（先すぼまり）
+      const hDn = new THREE.ConeGeometry(0.026, 0.07, 6); hDn.rotateX(Math.PI); hDn.translate(0, -0.035, 0) // 穂の下半（付け根すぼまり）＝合わせて紡錘形（中ふくらみ）＝猫じゃらしの穂
+      const head = mergeGeometries([hUp, hDn]); hUp.dispose(); hDn.dispose(); head.rotateX(0.55); head.translate(0, Hs + 0.02, 0.012); paintV(head, 0xbdb677) // ゆるく前へうなだれる（淡い黄緑〜枯れ色）
+      const enGeo = mergeGeometries([stem, head]); stem.dispose(); head.dispose()
+      const enMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRAD })
+      enMat.onBeforeCompile = (sh) => { sh.uniforms.uTime = { value: 0 }; sh.uniforms.uWind = { value: 0.5 }
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
+          .replace('#include <begin_vertex>', `#include <begin_vertex>
+          float ew = sin(uTime * 1.15 + (instanceMatrix[3].x + instanceMatrix[3].z) * 0.22);
+          float eh = max(position.y - 0.05, 0.0);
+          transformed.x += ew * (0.10 + uWind * 0.30) * eh;
+          transformed.z += ew * (0.04 + uWind * 0.11) * eh;`)
+        yatoEnokoroShader = sh }
+      const enI = new THREE.InstancedMesh(enGeo, enMat, enokoro.length)
+      const em4 = new THREE.Matrix4(), eq = new THREE.Quaternion(), es = new THREE.Vector3(), ee = new THREE.Euler(), etint = new THREE.Color()
+      enokoro.forEach(([x, y, z, a, s], i) => { ee.set(0, a, 0); eq.setFromEuler(ee); es.set(s, s, s); em4.compose(new THREE.Vector3(x, y + 0.04, z), eq, es); enI.setMatrixAt(i, em4)
+        const j = 0.9 + Math.random() * 0.2; etint.setRGB(j, j * 0.98, j * 0.86); enI.setColorAt(i, etint) }) // 株ごとに明暗＋わずかに温かい（枯れかけ）色ちがい
+      enI.count = enokoro.length; enI.name = 'yatoEnokoro'; enI.instanceMatrix.needsUpdate = true; if (enI.instanceColor) enI.instanceColor.needsUpdate = true; enI.castShadow = false; enI.layers.set(1); scene.add(enI) // layer1＝細い茎にインク輪郭が乗って黒い棒に見えるのを防ぐ（電線/網と同じ作法・[[pylons-2026-07-02]]）
+      console.log('[shishigaya] エノコログサ', enokoro.length)
+    }
+  }
   // ── 夏野菜の畑：田舎の家の脇の家庭菜園（トマト/なすの畝＋竹の支柱＋実、背にひまわり）。旧・野原にはあるがyatoには無かった（2026-07-05オブジェクト点検）。土/畝/葉/支柱/実/ひまわりで各1ドロー ──
   { const gardens = [], GACX = 3010, GACZ = -120 // 谷あい中心のまわりを走査
     const spaced = (x, z) => gardens.every((g) => Math.hypot(g[0] - x, g[1] - z) > 48) // 畑どうしは48m以上離す
@@ -14540,6 +14568,7 @@ function update(dt) {
   { const out = tday > 0.1 && tday < 0.6; if (out !== laundryOut) { laundryOut = out; for (const c of laundryCloths) c.visible = out } }
   if (grassShader) { grassShader.uniforms.uTime.value = tsec; grassShader.uniforms.uWind.value = wind } // 草が風になびく
   if (yatoGrassShader) { yatoGrassShader.uniforms.uTime.value = tsec; yatoGrassShader.uniforms.uWind.value = wind } // 獅子ヶ谷の夏草も風になびく
+  if (yatoEnokoroShader) { yatoEnokoroShader.uniforms.uTime.value = tsec; yatoEnokoroShader.uniforms.uWind.value = wind } // エノコログサの穂も風にしなる（D5）
   if (yatoTreeShader) { yatoTreeShader.uniforms.uTime.value = tsec; yatoTreeShader.uniforms.uWind.value = wind } // 樹冠も夏の風でそよぐ
   // A6：葉の透過光。太陽方向をビュー空間へ変換＋昼に強く（夜は消える）。逆光のとき葉裏が黄緑に光る
   foliageGlowU.uSunDirV.value.copy(sunDir).transformDirection(camera.matrixWorldInverse)
