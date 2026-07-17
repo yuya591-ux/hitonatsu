@@ -4182,6 +4182,7 @@ function buildShishigaya() {
       else if (type === 'biento') buildBiento(name) // ビエント横濱菊名（A棟は屋上に登れる・固定座標BIENTOで climbYAt と一致）
       else if (type === 'kinder') { buildKinder(x, z, name); (window.__kinderPos = window.__kinderPos || []).push([Math.round(x), Math.round(z), name]) } // 幼稚園/保育園＝カラフルな園舎＋砂の園庭＋遊具＋門。★実際に建った位置(道よけ後)を検証用に記録＝造成スタンプの基準は必ずこの実測値から（手計算の座標写しは鏡座標事故のもと）
       else if (type === 'koban') { buildShop(x, z, 6, 6, 2, 0xdce3ea, name, '#2f5a8a')
+        { const kgB = gmin4(x, z, 6, 6); grp.add(mk(new THREE.BoxGeometry(6.5, 2.0, 6.5), toon(0xb2ada0), x, kgB - 0.92, z, faceRoad(x, z))) } // コンクリの基礎スカート＝急斜面で描画地形が解析より沈み、建物の底が浮いて見えるのを塞ぐ（丘下からの実写2026-07-17）
         // 駐在所の記号＝夜に灯る赤灯・白い自転車・おしらせの掲示板（漏れ監査2026-07-17＝汎用の箱だけで一番薄かった）
         const kry = faceRoad(x, z), kf = [Math.sin(kry), Math.cos(kry)], ks = [Math.cos(kry), -Math.sin(kry)]
         { const px = x + kf[0] * 3.6 + ks[0] * 2.3, pz = z + kf[1] * 3.6 + ks[1] * 2.3, py = heightAtYato(px, pz) // 赤灯（入口わきのポール）
@@ -5201,7 +5202,35 @@ function buildShishigaya() {
     makePhoneBox(2958, -512, 0.6) // 二ツ池の道。※サンライズ正面(3023,24)の公衆電話は実際には無い＝ユーザー要望で撤去(2026-07-04)
     makeBoard(3013, 41, 0.1, rajioPoster); makeBoard(2968, -455, -0.4, toroPoster); makeBoard(3046, -55, 1.0, bonPoster) // 開始地点の道(ラジオ体操)・二ツ池(灯ろう流し)・核(盆踊り)
     makeVending(3010, -205, 0.3, 0xc23a2c); makeVending(2972, -360, -0.5, 0x2a7ab0) // 追加の自販機
-    makePostBox(3038, -178) } // 追加の丸ポスト
+    makePostBox(3038, -178) // 追加の丸ポスト
+    // ── 火の見やぐら（半鐘つき）＝昭和の村の消防の記号（柱F6・2026-07-17）。三石原っぱ（集会の広場）の入口わきに立つ定番 ──
+    { const [tx9, tz9] = nudgeOffRoad(2662, 371, 4, 4), g = new THREE.Group(), steel = toon(0x9a5040), UP9 = new THREE.Vector3(0, 1, 0)
+      const H9 = 7.0, top9 = 0.72, base9 = 1.4
+      for (const [sx9, sz9] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const v9 = new THREE.Vector3(sx9 * (top9 - base9), H9, sz9 * (top9 - base9)), L9 = v9.length()
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.085, L9, 6), steel)
+        leg.position.set(sx9 * (base9 + top9) / 2, H9 / 2, sz9 * (base9 + top9) / 2); leg.quaternion.setFromUnitVectors(UP9, v9.clone().normalize()); g.add(leg) }
+      for (const [ly9, lw9] of [[1.8, 1.22], [3.5, 1.05], [5.2, 0.88]]) for (const [ox9, oz9, ry9] of [[0, 1, 0], [0, -1, 0], [1, 0, Math.PI / 2], [-1, 0, Math.PI / 2]]) {
+        const br = new THREE.Mesh(new THREE.BoxGeometry(lw9 * 2 + 0.1, 0.07, 0.07), steel); br.position.set(ox9 * lw9, ly9, oz9 * lw9); br.rotation.y = ry9; g.add(br) } // 水平の貫3段
+      PM(g, new THREE.BoxGeometry(1.9, 0.09, 1.9), toon(0x6a4e34), 0, 6.62, 0) // 見張り台の床
+      for (const [ox9, oz9, ry9] of [[0, 0.92, 0], [0, -0.92, 0], [0.92, 0, Math.PI / 2], [-0.92, 0, Math.PI / 2]]) { const rl = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 0.06), steel); rl.position.set(ox9, 7.2, oz9); rl.rotation.y = ry9; g.add(rl) } // 手すり
+      for (const [sx9, sz9] of [[-0.92, -0.92], [0.92, -0.92], [0.92, 0.92], [-0.92, 0.92]]) PM(g, new THREE.BoxGeometry(0.06, 0.55, 0.06), steel, sx9, 6.94, sz9) // 手すりの柱
+      PM(g, new THREE.CylinderGeometry(0.05, 0.05, 1.5, 6), steel, 0, 7.45, 0) // 屋根の支柱
+      { const rg9 = new THREE.ConeGeometry(1.2, 0.85, 4); rg9.rotateY(Math.PI / 4); PM(g, rg9, toon(0x7a3a2c), 0, 8.35, 0) } // 四角錐の小屋根
+      PM(g, new THREE.CylinderGeometry(0.13, 0.2, 0.36, 8), toon(0x9a7a3a), 0, 7.55, 0.45) // 半鐘（ブロンズ）
+      PM(g, new THREE.CylinderGeometry(0.02, 0.02, 0.3, 4), toon(0x5a4632), 0, 7.86, 0.45) // 吊り金具
+      { for (const s9 of [-0.22, 0.22]) PM(g, new THREE.BoxGeometry(0.05, 6.4, 0.05), steel, s9, 3.35, -1.0) // はしご（2本の縦桟）
+        for (let i9 = 0; i9 < 8; i9++) PM(g, new THREE.CylinderGeometry(0.022, 0.022, 0.44, 5), toon(0x6a3a2e), 0, 0.6 + i9 * 0.82, -1.0).rotation.z = Math.PI / 2 }
+      placeProp(g, tx9, tz9, 0.15, 0.03, 1.6); addBox(tx9, tz9, 1.5, 1.5, 0.15, 0.3) }
+    // ── 消火栓の丸標識（赤い円板・白文字）＝道ばたの時代の記号（柱F6）。裏面は別平面＝鏡文字を出さない ──
+    const makeHydrantSign = (x0, z0) => { const [x, z] = nudgeOffRoad(x0, z0, 2, 2), g = new THREE.Group()
+      PM(g, new THREE.CylinderGeometry(0.03, 0.05, 2.5, 6), toon(0xc8c2b4), 0, 1.25, 0) // 白い柱
+      const hc = document.createElement('canvas'); hc.width = 64; hc.height = 64; const hx = hc.getContext('2d')
+      hx.fillStyle = '#c9352b'; hx.beginPath(); hx.arc(32, 32, 30, 0, 6.2832); hx.fill(); hx.strokeStyle = '#f2ede0'; hx.lineWidth = 3; hx.beginPath(); hx.arc(32, 32, 26, 0, 6.2832); hx.stroke()
+      hx.fillStyle = '#f6f2e6'; hx.font = 'bold 15px sans-serif'; hx.textAlign = 'center'; hx.fillText('消火栓', 32, 37)
+      const ht = new THREE.CanvasTexture(hc); ht.colorSpace = THREE.SRGBColorSpace
+      for (const s9 of [0.062, -0.062]) { const pl = new THREE.Mesh(new THREE.CircleGeometry(0.42, 18), new THREE.MeshBasicMaterial({ map: ht, transparent: true })); pl.position.set(0, 2.2, s9); if (s9 < 0) pl.rotation.y = Math.PI; g.add(pl) } // 円板は柱の半径(0.05)の外＝柱の貫通を出さない
+      placeProp(g, x, z, faceRoad(x, z), 0.02, 0.4); (window.__hydPos = window.__hydPos || []).push([Math.round(x), Math.round(z)]) } // ★道よけ後の実位置を検証用に記録
+    makeHydrantSign(3049, -58); makeHydrantSign(2961, -509); makeHydrantSign(2668, 367) } // 盆踊り掲示板のそば・公衆電話ボックスの角・火の見やぐらの脇（消防セット）＝道ばた/広場ぎわに立つ
   // 三ツ池の桜：上位2池のほとり＋いちばん広い公園の外周に桜並木（実在の名所）。※夏は満開の桜ではなく青々とした緑葉＝季節に忠実（色は2894行で夏緑に・2026-06-26）
   for (const pi of pondInfo.slice(0, 2)) { const ring = pi.r + 5, n = Math.max(16, Math.round(ring * 0.5)); for (let k = 0; k < n; k++) { const a = k / n * 6.283, x = pi.cx + Math.cos(a) * ring, z = pi.cz + Math.sin(a) * ring; if (!inWater(x, z) && heightAtYato(x, z) >= 1) tp.push([x, z, 1]) } }
   let bigPark = null, bpA = 0; for (const g of SG.greens) { if (g.kind !== 'park' || g.p.length < 3) continue; let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; for (const q of g.p) { if (q[0] < mnx) mnx = q[0]; if (q[0] > mxx) mxx = q[0]; if (q[1] < mnz) mnz = q[1]; if (q[1] > mxz) mxz = q[1] } const ar = (mxx - mnx) * (mxz - mnz); if (ar > bpA) { bpA = ar; bigPark = g } }
