@@ -3051,6 +3051,15 @@ function buildShishigaya() {
       sadd(new THREE.BoxGeometry(len, 3.0, 0.4), toon(0x565b62), 0, 1.5, 0.02) // シャッター本体
       for (let i = 0; i < 6; i++) sadd(new THREE.BoxGeometry(len - 0.2, 0.1, 0.46), toon(0x7a818a), 0, 0.5 + i * 0.5, 0.05) // 横桟
       sadd(new THREE.BoxGeometry(len + 1.5, 0.3, 4.5), toon(0x9a9a92), 0, 0.04, 3.0) // 車路の舗装スロープ（前に張り出す）
+      // ── 駐車場シャッターの西どなり＝1階のわが家（サンライズ109号室）への手動の鍵付きドア。実際の帰宅動線（シャッター脇のドア→立体駐車場→109号室）に合わせた見える入口＝ここで「ただいま」。目印にドア枠・ノブ・「109」札・玄関マット（ユーザー実体験2026-07-18）──
+      { const dl = -len / 2 - 1.55, plateTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#3a2c22'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#efe6d4'; g.font = 'bold 42px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('109', 64, 35); return new THREE.CanvasTexture(c) })()
+        sadd(new THREE.BoxGeometry(1.18, 2.42, 0.34), toon(0x584031), dl, 1.21, 0.0) // ドア枠（濃い木）
+        sadd(new THREE.BoxGeometry(0.98, 2.08, 0.14), toon(0x7c5836), dl, 1.06, 0.17) // 扉本体（茶の木・手動の鍵付きドア）
+        sadd(new THREE.BoxGeometry(0.62, 0.66, 0.02), toon(0x6a4a2e), dl, 1.52, 0.25) // 上の羽目板の陰
+        sadd(new THREE.SphereGeometry(0.055, 8, 8), toon(0xcdb87a), dl + 0.38, 1.0, 0.27) // 真鍮のノブ
+        const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map: plateTex, side: THREE.DoubleSide })); plate.position.set(dl, 2.08, 0.19); sgrp.add(plate) // 「109」の号室札
+        const dmat = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.05, 0.66), toon(0x463c33)); dmat.position.set(dl, 0.03, 1.05); dmat.receiveShadow = true; sgrp.add(dmat) // 玄関マット
+        addBox(3008.54, 7.47, 0.7, 0.4, Math.atan2(-(bz - az), bx - ax), 0.3) } // ドア・脇壁の当たり判定
       addBox(mx, mz, len / 2, 0.4, Math.atan2(-(bz - az), bx - ax), 0.3) } // シャッター壁の当たり判定
     // ───── (4) サンライズ前の路傍の生活感（旧バス停を撤去・2026-06-29）：実際にはバス停は無かったというユーザー指摘で、上屋/丸看板/時刻表/標識ポールを全撤去。
     //   座って眺められる所だけは残したいので、バス停の代わりに素朴な木のベンチを1脚だけ路肩に置く（YATO_SEATS の「木かげで すずむ／通りで すわる」がここを使う）。
@@ -14692,7 +14701,7 @@ function homeLeave() { // 自宅から表（サンライズのエントランス
   endPuni(); vel.set(0, 0, 0); moving = false; transitioning = true
   fadeEl.style.opacity = '1'
   setTimeout(() => {
-    const gx = 2999, gz = 16.5; boy.position.set(gx, heightAt(gx, gz), gz); facing = Math.atan2(2994.9 - gx, 25.1 - gz); boy.rotation.y = facing
+    const gx = 3008, gz = 12.5; boy.position.set(gx, heightAt(gx, gz), gz); facing = Math.atan2(3004 - gx, 30 - gz); boy.rotation.y = facing // 手動ドアの前（駐車場わき）へ出て、通り(開始地点)の方へ向き直る
     boy.userData._cy = null; boy.userData._cx = gx; boy.userData._cz = gz
     inHome = false; camCtl.yaw = facing + Math.PI; camManualTimer = 0
     camera.position.copy(boy.position).add(camOffset(tmp)); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
@@ -15970,8 +15979,9 @@ function update(dt) {
     const nearSwing = area === 'town' && Math.hypot(boy.position.x - SWING.x, boy.position.z - (SWING.z - 2.4)) < 2.8
     const nearSwingY = area === 'yato' && Math.hypot(boy.position.x - SWING_Y.x, boy.position.z - (SWING_Y.z - 2.4)) < 2.8 // P2：yatoの公園のブランコ
     const onSunRoof = area === 'yato' && !inHome && climbYAt(boy.position.x, boy.position.z, boy.position.y) != null // サンライズ屋上/外階段にいる（★自宅の中はclimbY≠nullでも屋上でないので除外）
-    const nearHomeDoor = area === 'yato' && !inHome && Math.hypot(boy.position.x - 3008, boy.position.z + 6) < 5 // サンライズ前（開始地点そば）で「ただいま」＝自宅へ。Phase 3で立体駐車場〜手動ドアの導線に差し替え
-    const nearSunDoor = area === 'yato' && !onSunRoof && Math.hypot(boy.position.x - 3002.5, boy.position.z - 10) < 6.5 // 風除室の中に入る／十分近づくと「屋上へのぼる」を出す。2026-07-02にお願いで判定点を旧(3012,25)＝入口から東にズレていた→実物の入口=風除室(戸口3002.3,10.4/中3003.5,8)へ移設
+    const dHomeDoor = Math.hypot(boy.position.x - 3007.7, boy.position.z - 9.9), dSunDoor = Math.hypot(boy.position.x - 3002.5, boy.position.z - 10) // サンライズ正面：自宅ドア(駐車場わきの手動ドアの前)と屋上の風除室。近い方を採用＝すぐ隣どうしでも迷わない
+    const nearHomeDoor = area === 'yato' && !inHome && dHomeDoor < 5.5 && dHomeDoor <= dSunDoor // 「ただいま」＝1階のわが家(109号室)へ。見える手動ドアの前。2026-07-18に旧・建物裏の見えない判定(3008,-6/8m低い斜面)から正面プラザへ移設。Phase 3で立体駐車場の導線を作り込む
+    const nearSunDoor = area === 'yato' && !onSunRoof && dSunDoor < 6.5 && dSunDoor < dHomeDoor // 風除室に近い時だけ「屋上へ のぼる」（自宅ドアの方が近ければ譲る）。実物の入口=風除室(戸口3002.3,10.4/中3003.5,8)
     const nearSlideTop = area === 'yato' && slideRide && Math.hypot(boy.position.x - slideRide.top[0], boy.position.z - slideRide.top[1]) < 5.5 // ローラーすべり台のてっぺん（塔の足元）
     activeYatoSeat = null // P2：yatoの座れる場所（バス停ベンチ/二ツ池の畔）に近いか＝最寄りを採用
     if (area === 'yato') { let bd = 3.0; for (const s of YATO_SEATS) { const d = Math.hypot(boy.position.x - s.x, boy.position.z - s.z); if (d < bd) { bd = d; activeYatoSeat = s } } }
@@ -16017,7 +16027,7 @@ function update(dt) {
     else if (!nearNpc && !dialogue && nearSlideTop) { actBtn.textContent = 'すべりだいで すべる'; actBtn.dataset.spot = 'slide'; actBtn.style.display = 'block' }
     else if (!nearNpc && !dialogue && onSunRoof && !fpv) { actBtn.textContent = 'おりる'; actBtn.dataset.spot = 'sundown'; actBtn.style.display = 'block' } // 主観視点(fpv)では「おりる」を出さない＝見わたし中にボタンが被るUIミスの解消（ユーザー要望2026-07-04）
     else if (!nearNpc && !dialogue && nearSunDoor) { actBtn.textContent = '屋上へ のぼる'; actBtn.dataset.spot = 'sunup'; actBtn.style.display = 'block' }
-    else if (!nearNpc && !dialogue && nearHomeDoor) { actBtn.textContent = 'ただいま', actBtn.dataset.spot = 'homein'; actBtn.style.display = 'block'; onceHint('home', 'サンライズは 裕也の おうち。「ただいま」で 109号室に 帰れるよ。') } // サンライズ前で「ただいま」＝自宅へ
+    else if (!nearNpc && !dialogue && nearHomeDoor) { actBtn.textContent = 'ただいま', actBtn.dataset.spot = 'homein'; actBtn.style.display = 'block'; onceHint('home', 'ここが 裕也の おうち。駐車場の わきの ドアから、「ただいま」で 109号室へ 帰れるよ。') } // 駐車場わきの手動ドアの前で「ただいま」＝自宅へ
     else actBtn.style.display = 'none'
     lieBtn.style.display = (dialogue || boy.userData._high) ? 'none' : 'block' // 屋上(高所)では「ねころぶ」を出さない（地面の高さに落ちるため）
     // 門に近づくと往来ボタン（今いるエリアの最寄りの門を選ぶ）
@@ -18757,7 +18767,7 @@ window.__proto3d = {
   get _resGate() { let hero = null; for (const r of vrmResidents) { if (!r.cfg.keepToon) continue; const dx = boy.position.x - r.toon.position.x, dz = boy.position.z - r.toon.position.z; const d2 = dx * dx + dz * dz; if (d2 <= 40 * 40 && (!hero || d2 < hero.d2)) hero = { d2, state: r.state } }
     return { grace: +vrmResGrace.toFixed(1), prepCd: +vrmResPrepCd.toFixed(2), title: titleView, resState: vrmResidentState, boySt: vrmBoyState, heroReady: spawnHeroineReady(), heroSt: hero ? hero.state : 'none', heroD: hero ? +Math.sqrt(hero.d2).toFixed(0) : -1, tStart: !(document.getElementById('t-start') || {}).disabled } }, // 検証用：住人準備の門の入力＋開始地点の主役級住人の準備状態/開始ボタン（タイトル中準備の切り分け・2026-07-10）
   sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(2999, heightAt(2999, 16.5), 16.5) } boy.userData._cy = null }, // 検証用：屋上/入口(風除室の表)に置く
-  _home(on) { area = 'yato'; onYato = true; if (on) { boy.position.set(HOME_O.x, HOME_FLOOR_Y, HOME_O.z + 0.4); facing = 0; boy.rotation.y = 0; boy.userData._cy = HOME_FLOOR_Y; boy.userData._cx = HOME_O.x; boy.userData._cz = HOME_O.z + 0.4; inHome = true; camCtl.yaw = Math.PI } else { boy.position.set(2999, heightAt(2999, 16.5), 16.5); boy.userData._cy = null; inHome = false } camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z); return { pos: [Math.round(boy.position.x), +boy.position.y.toFixed(1), Math.round(boy.position.z)], cy: boy.userData._cy, inHome } }, // 検証用：自宅の中/表に置く＋歩ける床の確認
+  _home(on) { area = 'yato'; onYato = true; if (on) { boy.position.set(HOME_O.x, HOME_FLOOR_Y, HOME_O.z + 0.4); facing = 0; boy.rotation.y = 0; boy.userData._cy = HOME_FLOOR_Y; boy.userData._cx = HOME_O.x; boy.userData._cz = HOME_O.z + 0.4; inHome = true; camCtl.yaw = Math.PI } else { boy.position.set(3008, heightAt(3008, 12.5), 12.5); boy.userData._cy = null; inHome = false } camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z); return { pos: [Math.round(boy.position.x), +boy.position.y.toFixed(1), Math.round(boy.position.z)], cy: boy.userData._cy, inHome } }, // 検証用：自宅の中/表に置く＋歩ける床の確認
   sunRoofY: { get top() { return SUN_ROOF.top } }, // 検証用：屋上top
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
   setFpv(v) { fpv = !!v }, get fpv() { return fpv }, // 検証用：主観視点ON/OFF
