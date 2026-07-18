@@ -15777,10 +15777,10 @@ function update(dt) {
     } else if (area === 'town') {
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, TOWN.x - 350, TOWN.x + 100) // 西をさらに拡張（南西へ動かした二つ池まで歩ける・2026-06-18）
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, TOWN.z - 345, TOWN.z + 230) // 南は獅子ヶ谷/北寺尾・北は裏山の谷を下った先まで歩ける（ユーザー要望・北へ拡張）
-    } else if (area === 'yato') { // 獅子ヶ谷の谷戸（本格トレース・新エリア）
+    } else if (area === 'yato' && !inHome) { // 獅子ヶ谷の谷戸（本格トレース・新エリア）。★自宅の中(画面外4300,2200)は谷戸の外なのでクランプ除外＝これが無いと玄関から奥へ進めない（家の歩行範囲はinHomeFootprint＋縁の滑り戻しが制御）
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, YATO.x - (SG.half - 20) - WEST_EXT, YATO.x + (SG.half - 20)) // 西は師岡(ビエント)まで歩けるようWEST_EXTぶん拡張
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, YATO.z - (SG.half - 20), YATO.z + (SG.half - 20))
-    } else { // 神社
+    } else if (area !== 'yato') { // 神社
       boy.position.x = THREE.MathUtils.clamp(boy.position.x, SHRINE.x - 38, SHRINE.x + 38)
       boy.position.z = THREE.MathUtils.clamp(boy.position.z, SHRINE.z - 30, SHRINE.z + 62)
     }
