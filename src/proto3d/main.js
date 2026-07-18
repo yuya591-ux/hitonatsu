@@ -8496,6 +8496,45 @@ function buildHome() {
     add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.08, 10), emis(0xe8e0d0, 0x000000))).position.set(OX + lx, HY + 2.42, OZ + lz)
     const cl = add(new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ color: 0xffe6b4, fog: false, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }))); cl.rotation.x = Math.PI / 2; cl.position.set(OX + lx, HY + 2.36, OZ + lz); cl.layers.set(1)
   }
+  // ── Phase 2：家具（2026-07-18の記憶どおり。低ポリ＋emissiveで室内でも読める）──
+  const fWood = emis(0x9a7a50, 0x2e2416), fWoodD = emis(0x6a4e30, 0x221a10), fFab = emis(0xdad0bc, 0x3c372e), fTV = emis(0x2b2d31, 0x0c0d0f), fBeige = emis(0xe2dac6, 0x3c382f), fLeather = emis(0x7c4c30, 0x241610), fSteel = emis(0x9a9ea2, 0x2e3033), fWhite = emis(0xefe9dd, 0x46413a)
+  const fScreen = new THREE.MeshBasicMaterial({ color: 0x3a4752, fog: false, toneMapped: false }) // ブラウン管の暗い画面（薄く光る）
+  const box = (w, h, d, mat, lx, ly, lz, ry) => { const m = add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)); m.position.set(OX + lx, HY + ly, OZ + lz); if (ry) m.rotation.y = ry; return m }
+  const crt = (lx, ly, lz, ry, sc = 1) => { box(0.66 * sc, 0.5 * sc, 0.52 * sc, fTV, lx, ly + 0.25 * sc, lz, ry); const s = add(new THREE.Mesh(new THREE.PlaneGeometry(0.5 * sc, 0.38 * sc), fScreen)); s.position.set(OX + lx + Math.sin(ry || 0) * 0.27 * sc, HY + ly + 0.27 * sc, OZ + lz + Math.cos(ry || 0) * 0.27 * sc); s.rotation.y = ry || 0; s.layers.set(1) } // ブラウン管TV（画面は指定向き）
+  // 洋室1（東・7.5帖）＝2段ベッド（裕也は下）＋兄の机＋TV
+  { const bx = 3.35, bz = 0.3
+    box(1.1, 0.14, 2.0, fFab, bx, 0.32, bz); box(1.1, 0.14, 2.0, fFab, bx, 1.28, bz) // 下段/上段マット
+    for (const dx of [-0.5, 0.5]) for (const dz of [-1.0, 1.0]) box(0.07, 1.72, 0.07, fWoodD, bx + dx, 0.86, bz + dz) // 4隅の支柱
+    box(1.16, 0.06, 0.06, fWoodD, bx, 1.58, bz - 1.02); box(1.16, 0.06, 0.06, fWoodD, bx, 1.58, bz + 1.02); box(1.16, 0.06, 0.06, fWoodD, bx, 0.64, bz + 1.02) // 上段の前後柵＋下段の縁
+    box(0.5, 0.1, 0.34, fWhite, bx - 0.24, 0.46, bz - 0.78); box(0.5, 0.1, 0.34, fWhite, bx - 0.24, 1.42, bz - 0.78) // 枕
+    box(1.0, 0.06, 1.2, emis(0x6a8ac0, 0x223045), bx, 0.44, bz + 0.3); box(1.0, 0.06, 1.2, emis(0xc06a6a, 0x3a2020), bx, 1.40, bz + 0.3) // 掛け布団（下=裕也の青／上=兄の赤）
+    for (const dz of [-0.9, -0.5, -0.1, 0.3]) box(0.34, 0.05, 0.06, fWoodD, bx - 0.55, 0.9 + (dz + 0.9) * 0.32, bz + dz) // はしご
+  }
+  box(1.15, 0.05, 0.56, fWood, 1.95, 0.72, 3.75); for (const dx of [-0.5, 0.5]) for (const dz of [-0.22, 0.22]) box(0.06, 0.72, 0.06, fWoodD, 1.95 + dx, 0.36, 3.75 + dz) // 兄の机
+  box(0.4, 0.04, 0.38, fWood, 1.95, 0.42, 3.25); box(0.4, 0.44, 0.04, fWood, 1.95, 0.64, 3.07) // 兄の椅子
+  crt(3.55, 0.5, 3.75, -Math.PI / 2, 0.9) // 洋室1のTV（西向き＝部屋の中へ）＋低い台
+  box(0.75, 0.45, 0.5, fWood, 3.6, 0.22, 3.75) // TV台
+  // 洋室2（西・5.2帖）＝書斎：机の上に古いブラウン管型PC（母がゲーム）＋椅子＋物置の箱
+  box(1.2, 0.05, 0.6, fWood, -3.3, 0.72, 0.6); for (const dx of [-0.52, 0.52]) for (const dz of [-0.24, 0.24]) box(0.06, 0.72, 0.06, fWoodD, -3.3 + dx, 0.36, 0.6 + dz) // 机
+  box(0.44, 0.42, 0.44, fBeige, -3.35, 0.98, 0.72); { const s = add(new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.26), fScreen)); s.position.set(OX - 3.35, HY + 1.0, OZ + 0.94); s.layers.set(1) } // 古PC（ベージュのブラウン管モニタ）＋画面
+  box(0.4, 0.03, 0.16, fBeige, -3.35, 0.76, 0.34) // キーボード
+  box(0.42, 0.04, 0.4, fWood, -3.3, 0.42, 1.1); box(0.42, 0.46, 0.04, fWood, -3.3, 0.65, 1.28) // 椅子
+  box(0.6, 0.5, 0.5, fWoodD, -3.5, 0.25, 2.3) // 物置の段ボール/箱
+  // LDK（東南・13帖）＝大きめテーブル＋ソファ席（母父の定位置）＋窓際の角のTV＋絨毯＋茶レザーソファ
+  box(2.4, 0.05, 0.5, fFab, 2.3, 6.0, 6.15) // 対面キッチンのカウンター天板（LDK側＝白レンガの腰）
+  box(2.4, 1.0, 0.12, fWhite, 2.3, 0.5, 6.35); box(2.2, 0.9, 0.6, fBeige, 2.3, 0.45, 5.8) // 白レンガ調の腰壁＋キッチン本体
+  { const hood = box(1.0, 0.3, 0.5, fSteel, 2.3, 2.05, 5.5); } box(0.5, 0.04, 0.4, fSteel, 1.9, 0.92, 5.7) // レンジフード＋コンロ天面
+  box(1.7, 0.72, 0.95, fWood, 1.6, 0.72, 7.5); for (const dx of [-0.75, 0.75]) for (const dz of [-0.4, 0.4]) box(0.07, 0.72, 0.07, fWoodD, 1.6 + dx, 0.36, 7.5 + dz) // 大きめのダイニングテーブル
+  box(1.7, 0.35, 0.5, fFab, 1.6, 0.3, 8.15); box(1.7, 0.5, 0.14, fFab, 1.6, 0.6, 8.4) // ソファ席（母父の定位置＝テーブルの片側）
+  for (const dx of [-0.5, 0.5]) { box(0.42, 0.04, 0.4, fWood, 1.6 + dx, 0.44, 6.85); box(0.42, 0.44, 0.04, fWood, 1.6 + dx, 0.66, 6.67) } // 向かい側の椅子2脚
+  crt(3.55, 0.55, 9.4, -Math.PI * 0.7, 1.15) // 窓際の角のTV（部屋の中＝北西向き・大きめ）
+  box(0.9, 0.5, 0.55, fWood, 3.5, 0.24, 9.4) // TV台
+  box(1.9, 0.03, 1.4, emis(0xcf7a5a, 0x3a2418), 2.3, 0.02, 8.7) // 絨毯（TVの前・食後ごろ寝）
+  box(1.7, 0.42, 0.85, fLeather, 1.7, 0.32, 8.9); box(1.7, 0.55, 0.2, fLeather, 1.7, 0.62, 9.28); for (const dx of [-0.85, 0.85]) box(0.2, 0.5, 0.85, fLeather, 1.7 + dx, 0.42, 8.9) // 茶レザーソファ（TVの向かい）
+  // 洋室3（西南・畳6.5帖）＝小さいTV＋たたんだ布団（昼）
+  crt(-3.55, 0.35, 9.4, Math.PI / 2, 0.7) // 小さいTV（東向き＝部屋の中）
+  box(0.55, 0.35, 0.4, fWood, -3.5, 0.16, 9.4) // 小TVの台
+  box(1.0, 0.4, 0.75, emis(0xdcd6c6, 0x3a362d), -3.3, 0.22, 6.9) // たたんだ布団の山
   window.__home = [OX, OZ, HY]
 }
 buildHome()
