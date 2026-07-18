@@ -13987,7 +13987,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (mode !== 'walk') { sitTap = { x: e.clientX, y: e.clientY, moved: false }; return }
   // 左半分＝移動スティック／右半分＝視点ドラッグ（移動スティックが無ければ左でも視点に回す）
   if (e.clientX < innerWidth * 0.46 && !puni.active) startPuni(e.pointerId, e.clientX, e.clientY)
-  else { lookIds.add(e.pointerId); if (lookIds.size === 2) pinchInit() }
+  else { lookIds.add(e.pointerId); if (!__HQ && lookIds.size === 2) pinchInit() } // ★配信(__HQ)では2本指ズームを起こさない＝移動+視点の2本指を、座標マッピングのズレで「ピンチ扱い」にして食わない（実機FB2026-07-18）。iPhone単体はズーム維持
 })
 canvas.addEventListener('pointermove', (e) => {
   if (!pointers.has(e.pointerId)) return
@@ -14017,7 +14017,7 @@ canvas.addEventListener('pointermove', (e) => {
     knobEl.style.left = `calc(50% + ${dx}px)`; knobEl.style.top = `calc(50% + ${dy}px)`
     puni.vx = dx / STICK_R; puni.vy = dy / STICK_R
   } else if (lookIds.has(e.pointerId)) {
-    if (lookIds.size >= 2) { // 2本指ピンチ＝ズーム（飛行中は画角ズーム）
+    if (!__HQ && lookIds.size >= 2) { // 2本指ピンチ＝ズーム（飛行中は画角ズーム）。★配信(__HQ)では無効＝2本指でも視点操作のまま（ズームに化けない）
       const a = [...lookIds].map((id) => pointers.get(id)).filter(Boolean)
       if (a.length === 2) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y)
         if (pinchD > 0 && d > 0) { if (flying) fly.fov = THREE.MathUtils.clamp(fly.fov * (pinchD / d), 24, 88); else if (fpv) fpvFov = THREE.MathUtils.clamp(fpvFov * (d / pinchD), 11, 95); else if (mode === 'sit' || mode === 'lie') { camera.fov = THREE.MathUtils.clamp(camera.fov * (pinchD / d), 22, 92); camera.updateProjectionMatrix() } else camDistTarget = THREE.MathUtils.clamp(camDistTarget * (pinchD / d), camCtl.minDist, camCtl.maxDist) } // 主観視点/座寝も画角でズーム（範囲を大幅拡大・座寝は広げる指=ズームイン）
