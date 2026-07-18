@@ -13357,9 +13357,12 @@ function startDialogue() {
   let lines
   if (arc) { lines = arc }
   else {
-    const pool = info.byPhase[phaseOf(tday)] || info.byPhase.noon
-    let pick = pool[Math.floor(Math.random() * pool.length)]
-    if (pool.length > 1) { let guard = 0; while (pick === who.userData._lastLine && guard++ < 6) pick = pool[Math.floor(Math.random() * pool.length)] } // 直前と同じ一言は避ける
+    const ph = phaseOf(tday)
+    const pool = info.byPhase[ph] || info.byPhase.noon
+    // ★時間帯ごとに“会話の続き”＝話しかけるたびプールを順送り（ランダムでなく順番に）＝もう一度話すと続きが聞ける。時間帯が変わる/日が変わると最初へ戻る（ユーザー要望2026-07-18）
+    let pt = who.userData._phaseTalk
+    if (!pt || pt.ph !== ph || pt.d !== day) pt = who.userData._phaseTalk = { ph, d: day, step: 0 }
+    const pick = pool[pt.step % pool.length]; pt.step++
     who.userData._lastLine = pick
     // P2：通算日数で深まる世間話＋初対面vs再訪。その日はじめて話す時だけ、関係の段階(初対面/打ちとけ/別れ)に応じた一言を添えてから世間話へ＝“覚えていてくれる”温かさ
     const st = arcStage()
