@@ -18172,6 +18172,10 @@ if (!hadSavedSettings) { try {
 } catch (e) {} }
 try { matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (e) => { settings.motion = e.matches; saveSettings(); applyMotion() }) } catch (e) {} // OS設定の変更にも追従
 const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
+// ★iPhone等のタッチ端末での単体プレイ（配信でない）では「ひかりの しあげを 半分に」を“一度だけ”自動ON＝見た目ほぼそのまま・すこし涼しく（発熱対策・2026-07-18）。
+//   posthalfAutoマーカーで二度と自動化しない＝以後は手動操作を尊重（OFFにしたら以後OFFのまま）。PC/配信(?hq=1)は対象外＝フル品質のまま。VRM設定には一切触れない。
+try { const _touchPlay = (matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0) && !__HQ
+  if (_touchPlay && !settings.posthalfAuto) { settings.posthalf = true; settings.posthalfAuto = true; saveSettings() } } catch (e) {}
 function applySound() {
   if (setSoundBtn) { setSoundBtn.textContent = settings.sound ? 'ON' : 'OFF'; setSoundBtn.classList.toggle('on', settings.sound) }
   try { const ctx = listener.context; if (settings.sound) { if (audioStarted) ctx.resume() } else ctx.suspend() } catch (e) {}
