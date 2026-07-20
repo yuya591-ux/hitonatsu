@@ -630,6 +630,14 @@ function bientoStairY(x, z, curY) { const S = BIENTO_STAIR, dx = S.tx - S.bx, dz
 const HOME_O = { x: 4300, z: 2200 }, HOME_FLOOR_Y = 120 // 画面外の空き座標＋独立した床の高さ（地形/屋上と重ならない値）
 const HOME_S = 1.35 // 自宅の一様拡大率＝小1の子が三人称カメラで歩き回りやすい広さへ（家全体を中心基準で歪みなく拡大・2026-07-20実機FB「少し狭い」）。歩行範囲・玄関の入室位置もこの率で連動
 function inHomeFootprint(x, z) { return x > HOME_O.x - 4.4 * HOME_S && x < HOME_O.x + 4.4 * HOME_S && z > HOME_O.z - 1.6 * HOME_S && z < HOME_O.z + 12.2 * HOME_S } // 玄関〜バルコニーまでの外周（歩ける範囲）＝拡大率ぶん広げる
+const homeWallCol = [] // ★自宅の間仕切り壁の当たり判定＝world座標で1.35倍スケール済みのAABB。buildHomeのwall()が積む。室内(inHome)でだけ使う＝屋外の当たり判定(colliders/cgrid)とは別系統（室内はclimbY≠nullで屋外判定をスキップするため専用が要る）
+function pushOutOfHome(px, pz) { // 室内の壁で仕切る＝軸そろえ矩形から“めり込んだら一番近い面の外”へ（回転なし・壁は約25枚なので全走査で十分軽い）
+  let hit = false
+  for (const c of homeWallCol) { const dx = px - c.x, dz = pz - c.z
+    if (Math.abs(dx) < c.hw && Math.abs(dz) < c.hd) { const penX = c.hw - Math.abs(dx), penZ = c.hd - Math.abs(dz)
+      if (penX < penZ) px = c.x + c.hw * (Math.sign(dx) || 1); else pz = c.z + c.hd * (Math.sign(dz) || 1); hit = true } }
+  return { x: px, z: pz, hit }
+}
 function sunriseYatoClimbY(x, z, curY) { // 平らな陸屋上＋外階段（サンライズ＋ビエント。輪郭/帯の外はnull＝縁で落下防止）
   if (curY != null && Math.abs(curY - HOME_FLOOR_Y) < 4 && inHomeFootprint(x, z)) return HOME_FLOOR_Y // ★自宅の中にいる時だけ床の高さを返す（curYで在宅を判定＝通常の地上移動には一切影響しない）
   const st = sunStairY(x, z, curY); if (st != null) return st
@@ -8480,22 +8488,24 @@ function buildHome() {
   add(new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.12, 11.6), matCeil)).position.set(OX, HY + wallH, OZ + 5.5)
   // 壁＝軸そろえの線分[xa,za,xb,zb]。当たり判定つき。ドア/廊下は隙間で開口
   const wall = (xa, za, xb, zb, h = wallH, mat = matWall) => { const cx = (xa + xb) / 2, cz = (za + zb) / 2, ew = Math.abs(xb - xa) >= Math.abs(zb - za), len = Math.hypot(xb - xa, zb - za), w = ew ? len : 0.12, d = ew ? 0.12 : len
-    add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)).position.set(OX + cx, HY + h / 2, OZ + cz); addBox(OX + cx, OZ + cz, w / 2, d / 2, 0, 0.12) }
+    add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)).position.set(OX + cx, HY + h / 2, OZ + cz); addBox(OX + cx, OZ + cz, w / 2, d / 2, 0, 0.12)
+    homeWallCol.push({ x: OX + cx * HOME_S, z: OZ + cz * HOME_S, hw: (w / 2) * HOME_S + 0.15, hd: (d / 2) * HOME_S + 0.15 }) } // ★室内用の壁AABB＝1.35倍スケール済みworld座標＋主人公の体半径ぶん(0.15)の余白。戸口(開口0.9m→スケール後1.2m)は両脇を0.15広げても約0.9m空くので通れる
   // 外周（室内＋バルコニーを囲う）
   wall(-4, -1, 4, -1)          // 北（玄関の裏）
   wall(4, -1, 4, 11.6)         // 東
   wall(-4, -1, -4, 11.6)       // 西
   wall(-4, 11.6, 4, 11.6)      // 南端（バルコニーの奥＝生垣の手前）
-  // 玄関まわり（玄関 X-1.3..1.3）：両脇の壁＋上がり口
-  wall(-1.3, -1, -1.3, 0.2); wall(-1.3, 0.9, -1.3, 1.2) // 玄関/洋室2の境（0.2..0.9は洋室2への入口開口）
-  wall(1.3, -1, 1.3, 0.2); wall(1.3, 0.9, 1.3, 1.2)     // 玄関/洋室1の境（開口）
+  // 玄関まわり（玄関 X-1.3..1.3）：両脇は壁（洋室へは廊下から入る）。南の上がり口(Z1.2)は開けて廊下へ
+  wall(-1.3, -1, -1.3, 1.2) // 玄関/洋室2の境＝壁（玄関直結の開口はやめ、右手＝西の壁ぎわに下駄箱を置く）
+  wall(1.3, -1, 1.3, 1.2)   // 玄関/洋室1の境＝壁（左右そろえる）
   // 廊下 東側の壁（X=1.3）：洋室1(〜4.4)／キッチン(4.4〜6.4)。洋室1の入口開口(3.0〜3.9)
   wall(1.3, 1.2, 1.3, 3.0); wall(1.3, 3.9, 1.3, 4.4); wall(1.3, 4.4, 1.3, 6.4)
-  // 廊下 西側の壁（X=-1.3）：洋室2/トイレ/洗面。洋室2入口(1.4〜2.3)・トイレ入口(3.2〜3.9)
-  wall(-1.3, 1.2, -1.3, 1.4); wall(-1.3, 2.3, -1.3, 3.2); wall(-1.3, 3.9, -1.3, 6.4)
+  // 廊下 西側の壁（X=-1.3）：洋室2入口(1.4〜2.3)／トイレ入口(3.1〜4.0に拡幅)／洗面所入口(5.0〜5.9＝A案で廊下側に新設)
+  wall(-1.3, 1.2, -1.3, 1.4); wall(-1.3, 2.3, -1.3, 3.1); wall(-1.3, 4.0, -1.3, 5.0); wall(-1.3, 5.9, -1.3, 6.4)
   // 部屋の仕切り
   wall(-4, 2.8, -2.3, 2.8); wall(-2.3, 2.8, -2.3, 4.4) // 洋室2/トイレ／トイレ/洗面の間
   wall(-4, 4.4, -1.3, 4.4)                              // トイレ/洗面 と 洗面/浴室（簡略）
+  wall(-4, 6.4, -1.3, 6.4)                              // 洗面・浴室 と 畳の部屋の境＝壁（今まで無く、畳の部屋から洗面所へ素通りできていた・2026-07-21修正）
   wall(1.3, 4.4, 4, 4.4)                                // 洋室1/キッチンの境
   // リビングの手前の扉（Z=6.4・廊下→LDK）：中央に開口(−0.5〜0.9)＝扉。両脇は壁
   wall(-1.3, 6.4, -0.5, 6.4); wall(0.9, 6.4, 1.3, 6.4)
@@ -8503,9 +8513,13 @@ function buildHome() {
   // 洋室3(畳)とLDKの間＝茶色の引き戸（X=-0.5・Z6.4..10）。昼は開＝中央を開口に、両端に引き戸
   wall(-0.5, 6.4, -0.5, 6.9); wall(-0.5, 9.3, -0.5, 10)
   for (const sz of [7.0, 8.9]) { const sd = add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.95, 1.2), emis(0x7a5a3c, 0x241a10))); sd.position.set(OX - 0.5, HY + 0.98, OZ + sz) } // 茶の引き戸2枚（開けてある）
-  // 玄関：靴棚（入って右手＝東）＋のれん（上がり口）
-  add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.0, 1.6), emis(0xb8a582, 0x342d22))).position.set(OX + 1.05, HY + 0.5, OZ + 0.1) // 靴入れの棚（右手）
-  { const noren = add(new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.9), new THREE.MeshToonMaterial({ color: 0xffffff, map: yoshizuTex, gradientMap: GRAD, side: THREE.DoubleSide, emissive: 0x3a352a }))); noren.position.set(OX, HY + 2.0, OZ + 1.2); noren.layers.set(1) } // のれん（上がり口・葦簀テクスチャ流用）
+  { const wd = add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.9, 0.86), emis(0x9a8a72, 0x2e281f))); wd.position.set(OX - 1.3, HY + 0.95, OZ + 5.42) } // 洗面所の引き戸（廊下側・A案で新設）
+  // 玄関：靴棚（入って右手＝西＝-X。SPEC「入って右手に靴入れ」）＋上がり框＋のれん（布）
+  add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.0, 1.6), emis(0xb8a582, 0x342d22))).position.set(OX - 1.05, HY + 0.5, OZ + 0.1) // 靴入れの棚（右手＝西の壁ぎわ・2026-07-21に東から修正）
+  add(new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.14, 0.12), emis(0x8a6a44, 0x2a2014))).position.set(OX, HY + 0.04, OZ + 1.2) // 上がり框（三和土と床の段差の縁＝くつを脱いで上がる木の縁）
+  { const norenM = new THREE.MeshToonMaterial({ color: 0x3f587a, gradientMap: GRAD, side: THREE.DoubleSide, emissive: 0x18202e }) // 藍色の“布ののれん”（上がり口の仕切り・葦簀テクスチャをやめて布に・2026-07-21）
+    add(new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.08, 0.06), emis(0x6a4e30, 0x221a10))).position.set(OX, HY + 2.32, OZ + 1.2) // のれん棒
+    for (const px of [-0.83, 0, 0.83]) { const pn = add(new THREE.Mesh(new THREE.PlaneGeometry(0.76, 0.86), norenM)); pn.position.set(OX + px, HY + 1.87, OZ + 1.2); pn.layers.set(1) } } // 3枚の布＝間に切れ目（くぐって入る）
   // 掃き出し窓＝LDK/洋室3の南(Z=10)。ガラスの枠だけ置き、床は繋げて歩いて出られる
   { const gm = new THREE.MeshToonMaterial({ color: 0xbfe0e8, gradientMap: GRAD, transparent: true, opacity: 0.28, side: THREE.DoubleSide, emissive: 0x203038 })
     for (const gx of [-2.2, 2.2]) { const g = add(new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.0), gm)); g.position.set(OX + gx, HY + 1.0, OZ + 10); g.layers.set(1) } } // 掃き出し窓（左右・中央は開けて出入り）
@@ -8552,14 +8566,23 @@ function buildHome() {
   box(1.7, 0.72, 0.95, fWood, 1.6, 0.72, 7.5); for (const dx of [-0.75, 0.75]) for (const dz of [-0.4, 0.4]) box(0.07, 0.72, 0.07, fWoodD, 1.6 + dx, 0.36, 7.5 + dz) // 大きめのダイニングテーブル
   box(1.7, 0.35, 0.5, fFab, 1.6, 0.3, 8.15); box(1.7, 0.5, 0.14, fFab, 1.6, 0.6, 8.4) // ソファ席（母父の定位置＝テーブルの片側）
   for (const dx of [-0.5, 0.5]) { box(0.42, 0.04, 0.4, fWood, 1.6 + dx, 0.44, 6.85); box(0.42, 0.44, 0.04, fWood, 1.6 + dx, 0.66, 6.67) } // 向かい側の椅子2脚
-  crt(3.55, 0.55, 9.4, -Math.PI * 0.7, 1.15) // 窓際の角のTV（部屋の中＝北西向き・大きめ）
+  crt(3.55, 0.55, 9.4, -Math.PI * 0.55, 1.15) // 窓際の角のTV（部屋の中＝ソファの方＝西を向く・大きめ）
   box(0.9, 0.5, 0.55, fWood, 3.5, 0.24, 9.4) // TV台
-  box(1.9, 0.03, 1.4, emis(0xcf7a5a, 0x3a2418), 2.3, 0.02, 8.7) // 絨毯（TVの前・食後ごろ寝）
-  box(1.7, 0.42, 0.85, fLeather, 1.7, 0.32, 8.9); box(1.7, 0.55, 0.2, fLeather, 1.7, 0.62, 9.28); for (const dx of [-0.85, 0.85]) box(0.2, 0.5, 0.85, fLeather, 1.7 + dx, 0.42, 8.9) // 茶レザーソファ（TVの向かい）
+  box(1.7, 0.03, 1.7, emis(0xcf7a5a, 0x3a2418), 2.55, 0.02, 9.1) // 絨毯（ソファとTVの間・食後ごろ寝）
+  // 茶レザーソファ（窓際の角のTVを見る向き＝東を向く。「テレビを見ながら寝落ち」の向き・2026-07-21に北向きから修正）
+  box(0.85, 0.42, 1.5, fLeather, 1.35, 0.32, 9.1)          // 座面（奥ゆき0.85をX・幅1.5をZ）
+  box(0.2, 0.55, 1.5, fLeather, 0.98, 0.6, 9.1)            // 背もたれ（西側＝背中は西の壁の方）
+  for (const dz of [-0.75, 0.75]) box(0.85, 0.5, 0.2, fLeather, 1.35, 0.42, 9.1 + dz) // 肘掛け（南北）
   // 洋室3（西南・畳6.5帖）＝小さいTV＋たたんだ布団（昼）
   crt(-3.55, 0.35, 9.4, Math.PI / 2, 0.7) // 小さいTV（東向き＝部屋の中）
   box(0.55, 0.35, 0.4, fWood, -3.5, 0.16, 9.4) // 小TVの台
   box(1.0, 0.4, 0.75, emis(0xdcd6c6, 0x3a362d), -3.3, 0.22, 6.9) // たたんだ布団の山
+  // ── 水回りの器具（トイレ [-4,2.8〜-2.3,4.4]／洗面・浴室 [-4,4.4〜-1.3,6.4]。SPECのヒアリングどおり洋式・洗面台・浴槽。2026-07-21に床だけの空部屋を解消）──
+  const fPorc = emis(0xf2efe8, 0x484540), fWater = emis(0xbfe0e8, 0x203038) // 白い陶器＋薄い水色（湯・鏡）
+  box(0.44, 0.42, 0.56, fPorc, -3.2, 0.21, 3.72); box(0.5, 0.5, 0.2, fPorc, -3.2, 0.25, 3.35); box(0.46, 0.06, 0.5, fPorc, -3.2, 0.44, 3.76) // トイレ＝便器＋タンク（北壁ぎわ）＋フタ
+  box(0.3, 0.5, 0.24, emis(0xd8d2c6, 0x403c34), -3.62, 0.25, 4.15) // 小さな手洗い（トイレのすみ）
+  box(0.9, 0.5, 0.44, fPorc, -3.5, 0.25, 4.7); box(0.42, 0.08, 0.3, fWater, -3.5, 0.55, 4.7); box(0.56, 0.66, 0.05, fWater, -3.92, 1.32, 4.7) // 洗面台の本体＋洗面ボウル＋鏡（西壁に貼る）
+  box(1.42, 0.5, 0.78, fPorc, -2.3, 0.26, 5.92); box(1.24, 0.28, 0.62, fWater, -2.3, 0.42, 5.92) // 浴槽＝外側＋湯（洗面所の奥・南寄り）
   // ★家全体を中心(OX,HY,OZ)基準で一様拡大＝部屋も家具も同率で大きくなり、床(HY=歩行面)の高さは不変。歪み・家具と壁の隙間が出ない（グループごとscale）。当たり判定は室内でスキップ＝未拡大でも無害
   grp.scale.setScalar(HOME_S); grp.position.set(OX * (1 - HOME_S), HY * (1 - HOME_S), OZ * (1 - HOME_S))
   window.__home = [OX, OZ, HY]
@@ -15849,6 +15872,7 @@ function update(dt) {
     // 当たり判定は“地上にいる時だけ”（屋上/階段に乗っている間はスキップ＝建物コライダーで屋上から押し出されない）
     // 壁に当たったら「めり込む向きの速度」だけ消して壁に沿って滑る＝速度を丸ごと殺さない（建物の脇を歩くだけで激減してしまう不具合の修正）
     if (!autoWalk && climbY == null) { const r = pushOutOfColliders(boy.position.x, boy.position.z); if (r.hit) { const pdx = r.x - boy.position.x, pdz = r.z - boy.position.z, pl = Math.hypot(pdx, pdz); boy.position.x = r.x; boy.position.z = r.z; if (pl > 1e-5) { const nx = pdx / pl, nz = pdz / pl, vn = vel.x * nx + vel.z * nz; if (vn < 0) { vel.x -= vn * nx; vel.z -= vn * nz } } } }
+    else if (!autoWalk && inHome) { const r = pushOutOfHome(boy.position.x, boy.position.z); if (r.hit) { const pdx = r.x - boy.position.x, pdz = r.z - boy.position.z, pl = Math.hypot(pdx, pdz); boy.position.x = r.x; boy.position.z = r.z; if (pl > 1e-5) { const nx = pdx / pl, nz = pdz / pl, vn = vel.x * nx + vel.z * nz; if (vn < 0) { vel.x -= vn * nx; vel.z -= vn * nz } } } } // ★自宅の中は間仕切り壁で仕切る（屋内はclimbY≠nullで屋外判定をスキップするため専用のpushOutOfHome）。壁ぞいは滑って進める
     boy.position.y = climbY != null ? climbY : heightAt(boy.position.x, boy.position.z)
     }
     if (speedNow > 0.05) facing = Math.atan2(vel.x, vel.z)
@@ -19009,6 +19033,8 @@ window.__proto3d = {
   _cullCounts() { return { yato: yatoStatics.length, old: oldStatics.length, culled: __culledArea, yShown: yatoStatics.filter((o) => o.visible).length, oShown: oldStatics.filter((o) => o.visible).length } }, // 検証用：J1エリアカリングの仕分けと現在の表示状況
   _chunkInfo() { return { total: yatoChunks.length, chunk: CHUNK, shownByDistance: yatoChunks.filter((c) => c.mesh.visible).length, fogFar: scene.fog ? +scene.fog.far.toFixed(0) : null } }, // 検証用：チャンク総数・現在距離で表示中の数・fog far
   _errors() { return { frameErr: __frameErrN, log: __errLog.slice() } }, // 検証用：J3 ループ/グローバルで拾ったエラー（0なら健全）
+  _collideHome(x, z) { return pushOutOfHome(x, z) }, // 検証用：室内の間仕切り壁の当たり判定（点を壁の外へ押し出す・hit=めり込んでいたか）
+  _homeWallN() { return homeWallCol.length }, // 検証用：室内の壁AABBの枚数（>0なら生成済み）
   _expo() { return +gradePass.uniforms.exposure.value.toFixed(4) }, // 検証用：A3 自動露出順応の現在の露出（定常≒1.0）
   _laundry() { return yatoLaundrySpots.slice() }, // 検証用：E1 洗濯物（物干し）の位置一覧
   _laundryVis() { let v = 0; for (const c of laundryCloths) if (c.visible) v++; return { total: laundryCloths.length, visible: v, out: laundryOut } }, // 検証用：干してある布の可視枚数（夕方に取り込むか）
