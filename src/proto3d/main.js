@@ -613,7 +613,8 @@ function bientoStairY(x, z, curY) { const S = BIENTO_STAIR, dx = S.tx - S.bx, dz
 }
 // ── サンライズ109号室（裕也さんの自宅・1階）＝画面外(遠く)に実体で建て、玄関の「ただいま」で移動して歩ける（SUNRISE_HOME_SPEC.md）。屋上と同じ非地形フロアの作法（_cy=HOME_FLOOR_Y／climbYで床の高さを返す）──
 const HOME_O = { x: 4300, z: 2200 }, HOME_FLOOR_Y = 120 // 画面外の空き座標＋独立した床の高さ（地形/屋上と重ならない値）
-function inHomeFootprint(x, z) { return x > HOME_O.x - 4.4 && x < HOME_O.x + 4.4 && z > HOME_O.z - 1.6 && z < HOME_O.z + 12.2 } // 玄関〜バルコニーまでの外周（歩ける範囲）
+const HOME_S = 1.35 // 自宅の一様拡大率＝小1の子が三人称カメラで歩き回りやすい広さへ（家全体を中心基準で歪みなく拡大・2026-07-20実機FB「少し狭い」）。歩行範囲・玄関の入室位置もこの率で連動
+function inHomeFootprint(x, z) { return x > HOME_O.x - 4.4 * HOME_S && x < HOME_O.x + 4.4 * HOME_S && z > HOME_O.z - 1.6 * HOME_S && z < HOME_O.z + 12.2 * HOME_S } // 玄関〜バルコニーまでの外周（歩ける範囲）＝拡大率ぶん広げる
 function sunriseYatoClimbY(x, z, curY) { // 平らな陸屋上＋外階段（サンライズ＋ビエント。輪郭/帯の外はnull＝縁で落下防止）
   if (curY != null && Math.abs(curY - HOME_FLOOR_Y) < 4 && inHomeFootprint(x, z)) return HOME_FLOOR_Y // ★自宅の中にいる時だけ床の高さを返す（curYで在宅を判定＝通常の地上移動には一切影響しない）
   const st = sunStairY(x, z, curY); if (st != null) return st
@@ -2970,7 +2971,7 @@ function buildShishigaya() {
     shop.add(mk(new THREE.BoxGeometry(11.8, 0.6, 8.8), toon(0x65696e), 0, 6.3, 0, true)) // 陸屋根
     shop.add(mk(new THREE.PlaneGeometry(9.2, 2.8), new THREE.MeshToonMaterial({ color: 0x88aebf, gradientMap: GRAD, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), -0.6, 1.9, 4.02)) // 1階の店先ガラス
     shop.add(mk(new THREE.BoxGeometry(1.4, 2.4, 0.25), toon(0x6a5440), 3.6, 1.2, 4.02)) // 入口ドア
-    const signTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#b5462f'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#fff8e8'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('ゲーム  ビスコ', 128, 36); return new THREE.CanvasTexture(c) })()
+    const signTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#b5462f'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#fff8e8'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('ゲーム  ビスコ？', 128, 36); return new THREE.CanvasTexture(c) })()
     shop.add(mk(new THREE.PlaneGeometry(9.4, 2.0), new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide }), 0, 4.7, 4.05)) // 看板「ゲーム ビスコ」
     // ───── (3) サンライズの歩行者エントランス（南面）＝実物の“立派なエントランス”。道→ちょっとした上り坂→ポーチ(柱＋庇＋自動ドア)。出て左手(東)の敷地内路地で隣の獅子ヶ谷第三公園へ抜けられる（ユーザー実体験＋Web調査「公園が隣接」2026-06-22）─────
     // ポーチ＝建物南面(3001,3)-(3009,7)の向きに合わせて角度をつける（ユーザー座標2026-06-22）。グループを回転＝床/柱/庇/ドアがまとめて南面に正対
@@ -6283,7 +6284,7 @@ function makeJizo(x, z, rot) {
   // 坂の道中からビスコ／しんみせの店先へ入る短い枝道（店が道から孤立していたのを接続＝歩いて寄れる）
   makeRoadRibbon(T.x - 78, T.z - 5, T.x - 86.5, T.z - 5, 4, false, true) // → ビスコ（踊り場の西脇）
   makeRoadRibbon(T.x - 78, T.z + 36, T.x - 88.5, T.z + 36, 4, false, true) // → しんみせ（坂下の西脇）
-  makeSignpost(T.x - 74, T.z - 7, -Math.PI / 2, 'ビスコ →') // 坂沿いの道しるべ
+  makeSignpost(T.x - 74, T.z - 7, -Math.PI / 2, 'ビスコ？ →') // 坂沿いの道しるべ
   makeSignpost(T.x - 74, T.z + 34, -Math.PI / 2, 'しんみせ →')
   // ── 商店街の本通り（店の列と家の列の「空き地」を舗装路にして街路を定義する）──
   // 西=商店街(T.x-12,東向き)／東=住宅(T.x+12,西向き)が向かい合う中央を南北に貫く。坂下(T.x-4,z+8)と東枝(パチンコ)へ繋ぐ。
@@ -8544,6 +8545,8 @@ function buildHome() {
   crt(-3.55, 0.35, 9.4, Math.PI / 2, 0.7) // 小さいTV（東向き＝部屋の中）
   box(0.55, 0.35, 0.4, fWood, -3.5, 0.16, 9.4) // 小TVの台
   box(1.0, 0.4, 0.75, emis(0xdcd6c6, 0x3a362d), -3.3, 0.22, 6.9) // たたんだ布団の山
+  // ★家全体を中心(OX,HY,OZ)基準で一様拡大＝部屋も家具も同率で大きくなり、床(HY=歩行面)の高さは不変。歪み・家具と壁の隙間が出ない（グループごとscale）。当たり判定は室内でスキップ＝未拡大でも無害
+  grp.scale.setScalar(HOME_S); grp.position.set(OX * (1 - HOME_S), HY * (1 - HOME_S), OZ * (1 - HOME_S))
   window.__home = [OX, OZ, HY]
 }
 buildHome()
@@ -14687,7 +14690,7 @@ function homeEnter() {
   endPuni(); vel.set(0, 0, 0); moving = false; transitioning = true
   fadeEl.style.opacity = '1'
   setTimeout(() => {
-    const tx = HOME_O.x, tz = HOME_O.z + 0.4 // 玄関の中央、少し上がった所
+    const tx = HOME_O.x, tz = HOME_O.z + 0.4 * HOME_S // 玄関の中央、少し上がった所（拡大率ぶん奥へ）
     boy.position.set(tx, HOME_FLOOR_Y, tz); facing = 0; boy.rotation.y = 0 // 南(+Z＝家の奥)を向く
     boy.userData._cy = HOME_FLOOR_Y; boy.userData._cx = tx; boy.userData._cz = tz
     inHome = true; camCtl.yaw = Math.PI; camManualTimer = 0; todayFlags.wentHome = true
@@ -18767,7 +18770,7 @@ window.__proto3d = {
   get _resGate() { let hero = null; for (const r of vrmResidents) { if (!r.cfg.keepToon) continue; const dx = boy.position.x - r.toon.position.x, dz = boy.position.z - r.toon.position.z; const d2 = dx * dx + dz * dz; if (d2 <= 40 * 40 && (!hero || d2 < hero.d2)) hero = { d2, state: r.state } }
     return { grace: +vrmResGrace.toFixed(1), prepCd: +vrmResPrepCd.toFixed(2), title: titleView, resState: vrmResidentState, boySt: vrmBoyState, heroReady: spawnHeroineReady(), heroSt: hero ? hero.state : 'none', heroD: hero ? +Math.sqrt(hero.d2).toFixed(0) : -1, tStart: !(document.getElementById('t-start') || {}).disabled } }, // 検証用：住人準備の門の入力＋開始地点の主役級住人の準備状態/開始ボタン（タイトル中準備の切り分け・2026-07-10）
   sunRoof(on) { area = 'yato'; if (on) { boy.position.set(3010, SUN_ROOF.top, 6) } else { boy.position.set(2999, heightAt(2999, 16.5), 16.5) } boy.userData._cy = null }, // 検証用：屋上/入口(風除室の表)に置く
-  _home(on) { area = 'yato'; onYato = true; if (on) { boy.position.set(HOME_O.x, HOME_FLOOR_Y, HOME_O.z + 0.4); facing = 0; boy.rotation.y = 0; boy.userData._cy = HOME_FLOOR_Y; boy.userData._cx = HOME_O.x; boy.userData._cz = HOME_O.z + 0.4; inHome = true; camCtl.yaw = Math.PI } else { boy.position.set(3008, heightAt(3008, 12.5), 12.5); boy.userData._cy = null; inHome = false } camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z); return { pos: [Math.round(boy.position.x), +boy.position.y.toFixed(1), Math.round(boy.position.z)], cy: boy.userData._cy, inHome } }, // 検証用：自宅の中/表に置く＋歩ける床の確認
+  _home(on) { area = 'yato'; onYato = true; if (on) { boy.position.set(HOME_O.x, HOME_FLOOR_Y, HOME_O.z + 0.4 * HOME_S); facing = 0; boy.rotation.y = 0; boy.userData._cy = HOME_FLOOR_Y; boy.userData._cx = HOME_O.x; boy.userData._cz = HOME_O.z + 0.4 * HOME_S; inHome = true; camCtl.yaw = Math.PI } else { boy.position.set(3008, heightAt(3008, 12.5), 12.5); boy.userData._cy = null; inHome = false } camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z); return { pos: [Math.round(boy.position.x), +boy.position.y.toFixed(1), Math.round(boy.position.z)], cy: boy.userData._cy, inHome } }, // 検証用：自宅の中/表に置く＋歩ける床の確認
   sunRoofY: { get top() { return SUN_ROOF.top } }, // 検証用：屋上top
   sunClimbY(x, z, curY) { return climbYAt(x, z, curY != null ? curY : SUN_ROOF.top) }, // 検証用：その地点の歩行面の高さ（curY省略時は屋上高で問い合わせ＝階段の面が出る）
   setFpv(v) { fpv = !!v }, get fpv() { return fpv }, // 検証用：主観視点ON/OFF
@@ -19240,7 +19243,7 @@ window.__proto3d = {
   const LM = [
     // ── 西エリア（尾根の坂・マンション・学校・二つ池） ──
     { x: MANSION.x, z: MANSION.z, t: 'マンション', k: 'bld', dy: -11 },        // makeMansion(898,-50)
-    { x: T.x - 92, z: T.z - 5, t: 'ビスコ', k: 'shop', dy: -11 },               // makeGameShop(908,-5)＝ゲーム屋
+    { x: T.x - 92, z: T.z - 5, t: 'ビスコ？', k: 'shop', dy: -11 },               // makeGameShop(908,-5)＝ゲーム屋
     { x: T.x - 92, z: T.z + 36, t: 'しんみせ', k: 'shop', dy: 13 },             // makeDagashi(908,36)＝駄菓子屋
     { x: T.x - 104, z: T.z - 97, t: 'こうえん', k: 'park', dy: 13 },            // makePark(896,-97)＝マンション南隣に少し間をあけて(2026-06-19)
     { x: T.x - 190, z: T.z - 37, t: '小学校', k: 'bld', dy: -11 },              // makeSchool(810,-37)＝南西へ移設
