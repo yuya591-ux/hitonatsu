@@ -57,6 +57,21 @@ function __updVrmDlUI() {
     __vrmDlState === 'offline' ? `${__vrmDlHave}/${n}（電波が無いと保存できません）` :
     __vrmDlState === 'unsupported' ? 'この端末では未対応' : 'かくにん中…'
 }
+// ★安全モード（2026-07-20 実機FB：iPhone15無印が起動直後に強制再起動を繰り返す）。再起動の主因はフィルレート(熱)でなく「起動時の常駐メモリ＋VRMのシェーダー一斉コンパイル」＝軽量モードでは下がらない部分。安全モードはVRMを全て切り、最軽量で「まず起動できる」ことを最優先にする。
+//   発動＝?safe=1（手動）／または前回「安定起動(18秒)」に到達できず落ちた＝再起動ループを検知して自動で。18秒生き延びたらカウンタを戻す＝再起動していない証拠。
+let __SAFE = false
+try { // ?safe=1 で手動ON（以後も継続）／?safe=0 で解除／既に継続フラグがあればON
+  const _q = new URLSearchParams(location.search).get('safe')
+  if (_q === '1') { __SAFE = true; try { localStorage.setItem('hn3d_safe', '1') } catch (e) {} }
+  else if (_q === '0') { try { localStorage.removeItem('hn3d_safe'); localStorage.setItem('hn3d_bootn', '0') } catch (e) {} }
+  else if (localStorage.getItem('hn3d_safe') === '1') __SAFE = true
+} catch (e) {}
+try { // 自動検知：前回の起動が18秒もたずに落ちた＝連続失敗→安全モードを継続ON（?safe=0 で解除するまで）。振動（通常⇄安全）を防ぐため一度検知したら継続
+  const _bk = 'hn3d_bootn', _bn = (parseInt(localStorage.getItem(_bk) || '0', 10) || 0) + 1
+  localStorage.setItem(_bk, String(_bn))
+  if (_bn >= 2) { __SAFE = true; try { localStorage.setItem('hn3d_safe', '1') } catch (e) {} }
+  setTimeout(() => { try { localStorage.setItem(_bk, '0') } catch (e) {} }, 18000) // 18秒生き延びたら起動成功＝カウンタを戻す（再起動していない証拠）
+} catch (e) {}
 async function warmVrmCache() {
   if (__vrmDlRunning) return; __vrmDlRunning = true
   try {
@@ -80,7 +95,7 @@ async function warmVrmCache() {
   finally { __vrmDlRunning = false }
 }
 // 起動が落ち着いてから静かに走らせる（初回描画・主人公VRMの読込と競合させない）。オンラインに戻った時も再挑戦。
-try { addEventListener('load', () => setTimeout(warmVrmCache, 4500)); addEventListener('online', () => setTimeout(warmVrmCache, 800)) } catch (e) {}
+if (!__SAFE) try { addEventListener('load', () => setTimeout(warmVrmCache, 4500)); addEventListener('online', () => setTimeout(warmVrmCache, 800)) } catch (e) {} // 安全モードはVRMを使わないのでキャッシュ準備もしない
 
 // ── 地面の高さ（解析式）。地面メッシュもキャラの足元もこの式で揃える。──
 const POND = { x: 26, z: 18, r: 11 } // 池の位置・半径
@@ -17022,7 +17037,7 @@ async function startVrmPilot() {
   } catch (e) { console.warn('VRMパイロット読込失敗', e); vrmPilotState = 3 }
 }
 function vrmPilotTick(dt) {
-  if (vrmPilotState === 0 && onYato) { const dx = boy.position.x - VRM_PILOT_POS[0], dz = boy.position.z - VRM_PILOT_POS[1]; if (dx * dx + dz * dz < 160 * 160) startVrmPilot() }
+  if (!__SAFE && vrmPilotState === 0 && onYato) { const dx = boy.position.x - VRM_PILOT_POS[0], dz = boy.position.z - VRM_PILOT_POS[1]; if (dx * dx + dz * dz < 160 * 160) startVrmPilot() }
   for (const v of vrmPilots) {
     // 距離カリング（iPhoneの激重/クラッシュ対策2026-07-07）＝45mより遠い体はシーンから外して描画もボーン計算も完全停止
     //（スキンメッシュはfrustumCulled=falseなので、外さないと画面外でも全身を描き続けてしまう）
@@ -17218,7 +17233,7 @@ async function startVrmBoy() {
   } catch (e) { console.warn('VRM主人公の読込失敗（従来の姿で続行）', e); vrmBoyState = 3 }
 }
 function vrmBoyTick(dt) { // update(dt)の直後（＝その日のすべてのポーズ書き込みの後）に呼ぶ
-  if (vrmBoyState === 0 && settings.vrmboy) startVrmBoy()
+  if (!__SAFE && vrmBoyState === 0 && settings.vrmboy) startVrmBoy()
   if (!vrmBoy || !vrmBoy.root.visible) return
   if (window.__vbFreeze) { vrmBoy.vrm.update(dt); return } // 検証用：骨の写しを止めて手動ポーズを保持（符号の実測に使う）
   const u = boy.userData, b = vrmBoy.bones, M = VBMAP, G = vrmBoy.geo
@@ -17514,7 +17529,7 @@ function disposeResidentVrm(r) { // とても離れた(>150m)/むかしの姿の
   for (const m of r.toonMeshes) m.visible = showToon
 }
 function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの関節がその日ぶん書き込まれた後）
-  if (vrmResidentState === 0 && settings.vrmboy) { const dx = boy.position.x - RESIDENT_TRIGGER[0], dz = boy.position.z - RESIDENT_TRIGGER[1]; if (dx * dx + dz * dz < 460 * 460) startVrmResident() } // ★onYato条件を外し半径を460mへ＝出発地点(商店街まで約300m)/坂の途中でスロットを用意し、準備(コンパイル)を静かな早い段階へ前倒しできるようにする
+  if (!__SAFE && vrmResidentState === 0 && settings.vrmboy) { const dx = boy.position.x - RESIDENT_TRIGGER[0], dz = boy.position.z - RESIDENT_TRIGGER[1]; if (dx * dx + dz * dz < 460 * 460) startVrmResident() } // ★onYato条件を外し半径を460mへ＝出発地点(商店街まで約300m)/坂の途中でスロットを用意し、準備(コンパイル)を静かな早い段階へ前倒しできるようにする
   if (vrmResPrepCd > 0) vrmResPrepCd -= dt
   if (settings.vrmboy && (!titleView || vrmBoyState >= 2)) vrmResGrace += dt // 起動からの経過。読み込みの山（主人公VRM＋世界のセットアップ）が過ぎるまで住人の準備を始めない＝出発地点そばの住人が最繁忙でコンパイルして落ちるのを防ぐ。★タイトル中も主人公VRM適用後（=山は過ぎた）ならカウント＝タイトルで待つ静かな時間を開始地点の住人準備に使う（2026-07-10「開始直後は近くの子がトゥーンのまま」対策）
   if (!vrmResidents.length) return
@@ -18354,6 +18369,8 @@ const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.st
 //   posthalfAutoマーカーで二度と自動化しない＝以後は手動操作を尊重（OFFにしたら以後OFFのまま）。PC/配信(?hq=1)は対象外＝フル品質のまま。VRM設定には一切触れない。
 try { const _touchPlay = (matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0) && !__HQ
   if (_touchPlay && !settings.posthalfAuto) { settings.posthalf = true; settings.posthalfAuto = true; saveSettings() } } catch (e) {}
+// ★安全モード：保存済み設定を読み込んだ後に上書き＝VRMを全て切り（主人公も住人も）、最軽量（DPR1.0/24fps/輪郭なし/半解像度）で立ち上げる。人はシンプルな絵のまま。設定は保存しない（安全モードは一時的な起動＝次回通常に戻れる）
+if (__SAFE) { settings.light = true; settings.med = false; settings.vrmboy = false; settings.ink = false; settings.posthalf = true }
 function applySound() {
   if (setSoundBtn) { setSoundBtn.textContent = settings.sound ? 'ON' : 'OFF'; setSoundBtn.classList.toggle('on', settings.sound) }
   try { const ctx = listener.context; if (settings.sound) { if (audioStarted) ctx.resume() } else ctx.suspend() } catch (e) {}
@@ -18570,6 +18587,7 @@ applyVrmBoyBtn()
 { const b = document.getElementById('set-vrmdl'); if (b) b.addEventListener('click', () => { if (__vrmDlState === 'done') { showToast('キャラのデータは ぜんぶ 保存ずみだよ') } else { showToast('キャラのデータを 本体に 保存しています…'); warmVrmCache() } }) }
 try { __updVrmDlUI(); setTimeout(warmVrmCache, 1200) } catch (e) {} // 設定を開いた時に現状（何個保存済みか）を即表示＋確認
 applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); applyBigText(); applyGeo()
+if (__SAFE) { try { setTimeout(() => showToast('かるい「安全モード」で 起動中（人は シンプルな絵・いちばん軽い設定）。ふつうに もどすには アドレスの おわりに ?safe=0 を付けて ひらいてね'), 1400) } catch (e) {} } // 安全モードの通知＝起動失敗の連続 or ?safe=1 で発動
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
 {
