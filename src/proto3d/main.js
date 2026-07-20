@@ -59,7 +59,7 @@ function __updVrmDlUI() {
 }
 // ★安全モード（2026-07-20 実機FB：iPhone15無印が起動直後に強制再起動を繰り返す）。再起動の主因はフィルレート(熱)でなく「起動時の常駐メモリ＋VRMのシェーダー一斉コンパイル」＝軽量モードでは下がらない部分。安全モードはVRMを全て切り、最軽量で「まず起動できる」ことを最優先にする。
 //   発動＝?safe=1（手動）／または前回「安定起動(18秒)」に到達できず落ちた＝再起動ループを検知して自動で。18秒生き延びたらカウンタを戻す＝再起動していない証拠。
-let __SAFE = false
+let __SAFE = false, __safeForced = null // __safeForced＝安全モードが強制した設定項目の“本来の値”を退避（保存時に書き戻す＝解除後に元の好みへ戻る・設定の汚染を防ぐ）
 try { // ?safe=1 で手動ON（以後も継続）／?safe=0 で解除／既に継続フラグがあればON
   const _q = new URLSearchParams(location.search).get('safe')
   if (_q === '1') { __SAFE = true; try { localStorage.setItem('hn3d_safe', '1') } catch (e) {} }
@@ -70,7 +70,7 @@ try { // 自動検知：前回の起動が18秒もたずに落ちた＝連続失
   const _bk = 'hn3d_bootn', _bn = (parseInt(localStorage.getItem(_bk) || '0', 10) || 0) + 1
   localStorage.setItem(_bk, String(_bn))
   if (_bn >= 2) { __SAFE = true; try { localStorage.setItem('hn3d_safe', '1') } catch (e) {} }
-  setTimeout(() => { try { localStorage.setItem(_bk, '0') } catch (e) {} }, 18000) // 18秒生き延びたら起動成功＝カウンタを戻す（再起動していない証拠）
+  setTimeout(() => { try { localStorage.setItem(_bk, '0') } catch (e) {} }, 12000) // 12秒生き延びたら起動成功＝カウンタを戻す（再起動していない証拠）。VRMの一斉コンパイル(危険窓)は9秒以内なのでその先で判定。短めにして「素早くアプリを2回閉じただけ」の誤発動窓も縮める
 } catch (e) {}
 async function warmVrmCache() {
   if (__vrmDlRunning) return; __vrmDlRunning = true
@@ -18364,13 +18364,13 @@ if (!hadSavedSettings) { try {
   if (matchMedia('(prefers-contrast: more)').matches) settings.bigText = true
 } catch (e) {} }
 try { matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (e) => { settings.motion = e.matches; saveSettings(); applyMotion() }) } catch (e) {} // OS設定の変更にも追従
-const saveSettings = () => { try { localStorage.setItem('hn3d_settings', JSON.stringify(settings)) } catch (e) {} }
+const saveSettings = () => { try { const toSave = __safeForced ? Object.assign({}, settings, __safeForced) : settings; localStorage.setItem('hn3d_settings', JSON.stringify(toSave)) } catch (e) {} } // 安全モード中は強制値でなく“本来の値”を保存＝解除後に元の絵・VRMへ戻る（設定の汚染防止）
 // ★iPhone等のタッチ端末での単体プレイ（配信でない）では「ひかりの しあげを 半分に」を“一度だけ”自動ON＝見た目ほぼそのまま・すこし涼しく（発熱対策・2026-07-18）。
 //   posthalfAutoマーカーで二度と自動化しない＝以後は手動操作を尊重（OFFにしたら以後OFFのまま）。PC/配信(?hq=1)は対象外＝フル品質のまま。VRM設定には一切触れない。
 try { const _touchPlay = (matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0) && !__HQ
   if (_touchPlay && !settings.posthalfAuto) { settings.posthalf = true; settings.posthalfAuto = true; saveSettings() } } catch (e) {}
-// ★安全モード：保存済み設定を読み込んだ後に上書き＝VRMを全て切り（主人公も住人も）、最軽量（DPR1.0/24fps/輪郭なし/半解像度）で立ち上げる。人はシンプルな絵のまま。設定は保存しない（安全モードは一時的な起動＝次回通常に戻れる）
-if (__SAFE) { settings.light = true; settings.med = false; settings.vrmboy = false; settings.ink = false; settings.posthalf = true }
+// ★安全モード：保存済み設定を読み込んだ後に上書き＝VRMを全て切り（主人公も住人も）、最軽量（DPR1.0/24fps/輪郭なし/半解像度）で立ち上げる。人はシンプルな絵のまま。強制した項目の本来の値は__safeForcedへ退避＝解除後に元へ戻る（saveSettingsが書き戻す）
+if (__SAFE) { __safeForced = { light: settings.light, med: settings.med, vrmboy: settings.vrmboy, ink: settings.ink, posthalf: settings.posthalf }; settings.light = true; settings.med = false; settings.vrmboy = false; settings.ink = false; settings.posthalf = true }
 function applySound() {
   if (setSoundBtn) { setSoundBtn.textContent = settings.sound ? 'ON' : 'OFF'; setSoundBtn.classList.toggle('on', settings.sound) }
   try { const ctx = listener.context; if (settings.sound) { if (audioStarted) ctx.resume() } else ctx.suspend() } catch (e) {}
@@ -18545,6 +18545,10 @@ if (setPosthalfBtn) setPosthalfBtn.addEventListener('click', () => { settings.po
 __postHalfOn = !!settings.posthalf; applyPosthalf(); if (__postHalfOn) { try { resize() } catch (e) {} } // 保存値を起動時に反映
 const setMedBtn = document.getElementById('set-med')
 if (setMedBtn) setMedBtn.addEventListener('click', () => { settings.med = !settings.med; if (settings.med) settings.light = false; saveSettings(); applyLight(); showToast(settings.med ? '中くらいモード ON（輪郭線は残して 解像度と人数をおさえ 24fpsで軽く）' : '中くらいモード OFF（いつもの絵に もどしたよ）') }) // 中くらい＝軽量ほど絵は寂しくならない中間（輪郭線＋DOFは残す／解像度1.0・24fps・VRM同時6）。applyLightがmedも見て解像度とボタンをまとめて反映
+// ★安全モードのアプリ内スイッチ（ホーム画面のアイコンから起動したときは アドレスに ?safe=1 を付けられない＝ここで切替）。ONで最軽量＋VRM全停止で立ち上げ直す・OFFでいつもの絵に戻す。切替は読み直し（安全モードは起動時に効くため）＝URLの ?safe= 経路を再利用（アドレス欄にも状態が出る）
+const setSafeBtn = document.getElementById('set-safe')
+if (setSafeBtn) { setSafeBtn.textContent = __SAFE ? 'ON' : 'OFF'; setSafeBtn.classList.toggle('on', __SAFE)
+  setSafeBtn.addEventListener('click', () => { location.href = location.pathname + (__SAFE ? '?safe=0' : '?safe=1') }) }
 const setFpvBtn = document.getElementById('set-fpv')
 if (setFpvBtn) setFpvBtn.addEventListener('click', () => { toggleFpv(); if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。toggleFpvが全ボタン同期＋水平視線
 // はじまりの場所＝いま立っている所を開始地点として保存（つぎに始めるときここから／トップ画面もここを映す）。標準にもどすボタンつき。ユーザー要望2026-06-24
@@ -18587,7 +18591,7 @@ applyVrmBoyBtn()
 { const b = document.getElementById('set-vrmdl'); if (b) b.addEventListener('click', () => { if (__vrmDlState === 'done') { showToast('キャラのデータは ぜんぶ 保存ずみだよ') } else { showToast('キャラのデータを 本体に 保存しています…'); warmVrmCache() } }) }
 try { __updVrmDlUI(); setTimeout(warmVrmCache, 1200) } catch (e) {} // 設定を開いた時に現状（何個保存済みか）を即表示＋確認
 applyMotion(); applySound(); applyBgm(); applySens(); applyInk(); applyLight(); applyBigText(); applyGeo()
-if (__SAFE) { try { setTimeout(() => showToast('かるい「安全モード」で 起動中（人は シンプルな絵・いちばん軽い設定）。ふつうに もどすには アドレスの おわりに ?safe=0 を付けて ひらいてね'), 1400) } catch (e) {} } // 安全モードの通知＝起動失敗の連続 or ?safe=1 で発動
+if (__SAFE) { try { setTimeout(() => showToast('かるい「安全モード」で 起動中（人は シンプルな絵・いちばん軽い設定）。ふつうに もどすには「せってい」→🔋→安全モードを OFFに してね'), 1400) } catch (e) {} } // 安全モードの通知＝起動失敗の連続 or ?safe=1 で発動。もどし方はアプリ内スイッチを案内（ホーム画面起動でも操作できる）
 
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。設定の「飛んでみる」から。完成時に外せる）──
 {
