@@ -41,6 +41,15 @@
       .ctx-up2 { transform: translateX(-50%) translateY(-116px) !important; }
       .ctx-up3 { transform: translateX(-50%) translateY(-174px) !important; }
       .ctx-up4 { transform: translateX(-50%) translateY(-232px) !important; }
+      /* まどりボタン＝自宅の中でだけ左上に出す。押すと天井が消えて真上から間取りを見られる（ユーザー要望2026-07-20＝自分でいつでも確認・スクショできる） */
+      #plan { left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + env(safe-area-inset-top)); padding: 0.42em 1.0em;
+        font-size: clamp(12px,2.2vw,15px); font-weight: 600; font-family: inherit; color: #5a4632; cursor: pointer;
+        background: rgba(255,236,191,0.82); border: 1.5px solid rgba(255,250,235,0.7); border-radius: 999px;
+        -webkit-backdrop-filter: blur(6px) saturate(1.2); backdrop-filter: blur(6px) saturate(1.2);
+        text-shadow: 0 1px 1px rgba(255,252,244,0.6); box-shadow: 0 4px 14px rgba(150,110,40,0.24); display: none; z-index: 8; }
+      #plan:active { background: rgba(252,224,168,0.92); transform: scale(0.95); }
+      /* まどりビュー中は他の操作UIを隠して間取りだけに集中（とじるボタン=#planは残す） */
+      body.homeplan #dock, body.homeplan #jump, body.homeplan #zin, body.homeplan #zout, body.homeplan #act, body.homeplan #npc, body.homeplan #lie, body.homeplan #hint, body.homeplan #senko-btn { display: none !important; }
       #badge { right: calc(3% + env(safe-area-inset-right)); top: calc(3.5% + env(safe-area-inset-top)); padding: 0.3em 0.8em; font-size: clamp(11px,2vw,14px);
         color: #fdf7ec; background: rgba(74,64,50,0.55); border-radius: 999px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
       /* ジャンプ＝右下の専用ボタン（親指が届く位置）。ズーム＝右側に＋／－ */
@@ -457,6 +466,7 @@
     <button id="zin" class="hud zbtn">＋</button>
     <button id="zout" class="hud zbtn">－</button>
     <button id="act" class="hud">すわる</button>
+    <button id="plan" class="hud">まどり</button>
     <div id="dock" class="hud"><button id="lie"><b>🌿</b><i>ねころぶ</i></button><button id="bike" aria-label="じてんしゃ"><b>🚲</b><i>のる</i></button><button id="float" aria-label="ふわり とぶ"><b>🎈</b><i>とぶ</i></button><button id="fpvbtn" aria-label="主観視点（一人称で見わたす）"><b>🔭</b><i>しゅかん</i></button></div>
     <button id="fl-up" class="hud">▲<br>うく</button>
     <button id="fl-down" class="hud">▼<br>おりる</button>
