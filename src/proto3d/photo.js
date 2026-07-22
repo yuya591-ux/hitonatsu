@@ -298,6 +298,18 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption, reque
     latestPhoto() { return photos.length ? photos[photos.length - 1].url : null },
     list() { return photos.map((p) => ({ url: p.url, day: p.day, caption: p.caption })) }, // I1改：おもいで帳「しゃしん」タブがサムネイルを直に並べるため一覧を公開（古い順）
     viewPhoto(i) { if (i >= 0 && i < photos.length) openView(i) }, // タブのサムネから拡大ビューを開く
+    exportAll() { return { photos: photos.map((p) => ({ url: p.url, day: p.day, caption: p.caption, t: p.t })) } }, // 思い出のひきつぎ：全写真を書き出す（2026-07-22）
+    async importAll(arr) { // 取り込み＝既存に無い写真だけ足す（url一致で重複排除＝二重取り込みでも増えない・既存を消さない）
+      if (!Array.isArray(arr)) return 0
+      const have = new Set(photos.map((p) => p.url)); let added = 0
+      for (const p of arr) { if (!p || !p.url || have.has(p.url)) continue
+        const rec = { url: p.url, day: p.day || 0, caption: p.caption || '', t: p.t || Date.now() }
+        photos.push(rec); have.add(p.url); added++
+        if (idbOk) { try { rec.id = await idbAdd(rec) } catch (e) { idbOk = false } } }
+      photos.sort((a, b) => (a.t || 0) - (b.t || 0))
+      while (photos.length > cfg.maxPhotos) { const old = photos.shift(); if (old && old.id != null && idbOk) idbDel(old.id) }
+      return added
+    },
     _process(over) { const keys = over ? Object.keys(over) : [], bak = {}; for (const k of keys) bak[k] = cfg[k]; if (over) Object.assign(cfg, over); const url = processRetro(renderer.domElement); for (const k of keys) cfg[k] = bak[k]; return url }, // 検証用：今の画面を指定設定で現像（旧/新のA/B比較）
   }
 }

@@ -18538,8 +18538,49 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     for (const [grp, isFish] of [['むし', false], ['さかな', true]]) for (const cc of CREATURES[grp]) { const ff = (isFish ? fish.first : caught.first)[cc.k]; if (ff) firsts.push({ n: cc.k, day: ff.day, tw: ff.tw, place: ff.place }) }
     firsts.sort((a, b) => (a.day - b.day) || 0)
     if (firsts.length) { html += '<div class="mb-zk-cat">はじめて であった</div><div class="ns-firsts">'; for (const ff of firsts) html += `<div class="ns-first"><span class="ns-first-d">${ff.day}<small>にち</small></span><span class="ns-first-n">${ff.n}</span><span class="ns-first-p">${ff.tw}${ff.place ? '・' + ff.place : ''}</span></div>`; html += '</div>' }
+    // 思い出のひきつぎ（写真・えにっきのバックアップ/復元）＝Safariのキャッシュ削除で消える記録を守る（2026-07-22）
+    html += '<div class="mb-zk-cat">思い出の ひきつぎ</div>'
+    html += '<div style="font-size:12px;color:#7a6a48;line-height:1.75;margin:0.2em 0 0.7em;font-family:\'KleeOne\',serif;">写真と えにっきを ファイルに 保存できます。べつの スマホ・パソコンに うつすときや、もしもの ときの ひかえに。</div>'
+    html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:0.4em;"><button id="ns-export" style="flex:1;min-width:130px;padding:0.66em 0.8em;font-size:13px;font-family:inherit;color:#fff;background:#8a9a63;border:none;border-radius:999px;cursor:pointer;box-shadow:0 2px 7px rgba(120,90,50,0.28);">📤 書き出して のこす</button>'
+    html += '<button id="ns-import" style="flex:1;min-width:130px;padding:0.66em 0.8em;font-size:13px;font-family:inherit;color:#5a4526;background:#e4d3a8;border:none;border-radius:999px;cursor:pointer;box-shadow:0 2px 7px rgba(120,90,50,0.2);">📥 ファイルから もどす</button></div>'
     bodyEl.innerHTML = html
+    const exb = bodyEl.querySelector('#ns-export'); if (exb) exb.addEventListener('click', exportOmoide)
+    const imb = bodyEl.querySelector('#ns-import'); if (imb) imb.addEventListener('click', importOmoide)
   }
+  // ── 思い出のひきつぎ：書き出し（写真＋えにっき＋進行を1つのファイルへ）と取り込み（既存を壊さない安全マージ）──
+  const HK_KEYS = ['hn3d_diarylog', 'hn3d_summer', 'hn3d_day', 'hn3d_state', 'hn3d_taiso', 'hn3d_asagao', 'hn3d_asagao_day', 'hn3d_omamori'] // 思い出・進行のキー（設定/端末固有は含めない）
+  async function gatherOmoide() { const data = { app: 'hitonatsu', kind: 'omoide', ver: 1, at: new Date().toISOString(), ls: {}, photos: [] }
+    for (const k of HK_KEYS) { try { const v = localStorage.getItem(k); if (v != null) data.ls[k] = v } catch (e) {} }
+    try { const ex = await photoMode.exportAll(); data.photos = (ex && ex.photos) || [] } catch (e) {}
+    return data }
+  async function applyOmoide(data) { // 取り込みの適用（既存を壊さない安全マージ）＝検証用フックからも使う。復元した写真枚数を返す
+    if (!data || data.app !== 'hitonatsu' || data.kind !== 'omoide') return -1
+    if (data.ls) for (const k in data.ls) { try {
+      if (k === 'hn3d_diarylog') { let cur = {}; try { cur = JSON.parse(localStorage.getItem(k) || '{}') || {} } catch (e) {} let imp = {}; try { imp = JSON.parse(data.ls[k]) || {} } catch (e) {} for (const dd in imp) if (cur[dd] == null) cur[dd] = imp[dd]; localStorage.setItem(k, JSON.stringify(cur)) } // えにっきは「今ある日は残し・無い日を補う」マージ
+      else if (localStorage.getItem(k) == null) localStorage.setItem(k, data.ls[k]) // 進行キーは今が空のときだけ復元（既存の進行を壊さない）
+    } catch (e) {} }
+    let added = 0; try { added = await photoMode.importAll(data.photos || []) } catch (e) {} // 写真は重複排除マージ（消さない）
+    return added }
+  async function exportOmoide() {
+    try { const data = await gatherOmoide()
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a')
+      const d = new Date(), stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+      a.href = url; a.download = `hitonatsu-omoide-${stamp}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000)
+      try { showToast('夏の思い出を 書き出しました（ファイルを 大切に 保存してね）') } catch (e) {}
+    } catch (e) { try { showToast('書き出しに 失敗しました') } catch (e2) {} }
+  }
+  function importOmoide() {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json'
+    inp.addEventListener('change', async () => { const f = inp.files && inp.files[0]; if (!f) return
+      try { const data = JSON.parse(await f.text()); const added = await applyOmoide(data)
+        if (added < 0) { try { showToast('これは ひと夏の 思い出ファイルでは ないみたい') } catch (e) {} return }
+        try { showToast(`思い出を もどしました（写真 ${added}まい）。画面を ひらきなおします`) } catch (e) {}
+        setTimeout(() => location.reload(), 1900)
+      } catch (e) { try { showToast('ファイルを 読めませんでした') } catch (e2) {} }
+    })
+    inp.click()
+  }
+  window.__omoide = { gather: gatherOmoide, apply: applyOmoide, _pm: photoMode } // 検証用：ファイルI/Oなしでラウンドトリップを確認
   function render() { cur === 'diary' ? renderDiary() : cur === 'photo' ? renderPhoto() : cur === 'zukan' ? renderZukan() : cur === 'taiso' ? renderTaisoCard() : renderNatsu() }
   function open() { modal.classList.add('on'); diaryView = null; let lt = null; try { lt = localStorage.getItem('hn3d_mbtab') } catch (e) {} if (lt && tabs.some((t) => t.dataset.t === lt)) { cur = lt; tabs.forEach((x) => x.classList.toggle('on', x.dataset.t === lt)) } const hs = modal.querySelector('#mb-head small'); if (hs) hs.textContent = `なつやすみ ${day}にちめ ・ ${timeWord(tday)}`; render() } // しおり＝最後に見たタブで開く
   function close() { modal.classList.remove('on') }
