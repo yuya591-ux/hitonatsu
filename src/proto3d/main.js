@@ -2182,11 +2182,17 @@ makeTorii(GATE_SHRINE_F.x, GATE_SHRINE_F.z, 0) // 野原に立つ鳥居（神社
 // エリアをつなぐ門（複数エリア対応）。area=今いる所, to=行き先, t*=到着位置/向き
 const GATE_YATO_T = new THREE.Vector3(830, 0, 46)            // 町側の出入口（→獅子ヶ谷の谷戸へ）。二つ池↔しんみせの道沿い（絶対座標）
 const GATE_YATO = new THREE.Vector3(2890, 0, -360)   // ★2026-07-11 谷戸側の出入口（→町へもどる）＝旧(3000,38)はマンション前に鳥居が立ち「そんな物は無い」不自然（ユーザー撤去要望）→神明社の鎮守の森の縁（社殿/玉垣から南西70m以上離す）の丘へ移設。森の中に佇む「別の街への門」（鳥居＝ゲート機能はそのまま／placePropで自動接地・makeGate/GATESが全てこのVector3を参照＝1点変更で鳥居メッシュ＋テレポート先＋門判定が一緒に動く）
-const GATES = [
+// ★神社（旧・重複）はどの端末でも作らないので門も出さない（2026-07-25）。実測で一度も画面に出ていない＝谷戸の神明社と役目も重なる。
+//   最初の町＋裏山は「スマホ単体の時だけ」作らない（パソコン／リモートコントロールでは今までどおり）。
+//   ★はらっぱ（縁側の家＝作者の原風景）は必ず残す。町を通らないと行けなくなるので、スマホの時は
+//   谷戸の門を「はらっぱ」へ直につなぎ替える＝行けなくなる場所を作らない。
+const __DROP_TOWN = __PHONE || __level >= 2
+const GATES = __DROP_TOWN ? [
+  { area: 'yato', x: GATE_YATO.x, z: GATE_YATO.z, label: 'はらっぱへ →', to: 'field', tx: GATE_FIELD.x, tz: GATE_FIELD.z - 2.2, tf: Math.PI },
+  { area: 'field', x: GATE_FIELD.x, z: GATE_FIELD.z, label: '谷戸へもどる →', to: 'yato', tx: GATE_YATO.x, tz: GATE_YATO.z + 2.5, tf: 0 },
+] : [
   { area: 'field', x: GATE_FIELD.x, z: GATE_FIELD.z, label: '町へ →', to: 'town', tx: GATE_TOWN.x, tz: GATE_TOWN.z + 2.2, tf: 0 },
   { area: 'town', x: GATE_TOWN.x, z: GATE_TOWN.z, label: 'はらっぱへ →', to: 'field', tx: GATE_FIELD.x, tz: GATE_FIELD.z - 2.2, tf: Math.PI },
-  { area: 'field', x: GATE_SHRINE_F.x, z: GATE_SHRINE_F.z, label: '神社へ →', to: 'shrine', tx: GATE_SHRINE.x, tz: GATE_SHRINE.z + 2.2, tf: 0 },
-  { area: 'shrine', x: GATE_SHRINE.x, z: GATE_SHRINE.z, label: 'はらっぱへ →', to: 'field', tx: GATE_SHRINE_F.x, tz: GATE_SHRINE_F.z - 2.2, tf: Math.PI },
   { area: 'town', x: GATE_YATO_T.x, z: GATE_YATO_T.z, label: '獅子ヶ谷の谷戸へ →', to: 'yato', tx: GATE_YATO.x, tz: GATE_YATO.z + 2.5, tf: 0 },        // 町→谷戸
   { area: 'yato', x: GATE_YATO.x, z: GATE_YATO.z, label: '町へもどる →', to: 'town', tx: GATE_YATO_T.x, tz: GATE_YATO_T.z - 2.5, tf: Math.PI },          // 谷戸→町
 ]
@@ -2291,7 +2297,7 @@ function makeSignpost(x, z, rot, text) {
   auditProps.push({ x, z, kind: 'sign' })
 }
 // 野原側：門の手前に立て、野原から来る人（-z向き）に見えるよう板を-zへ向ける
-makeSignpost(GATE_FIELD.x + 3.0, GATE_FIELD.z - 2.2, Math.PI, 'このさき 町（まち）')
+makeSignpost(GATE_FIELD.x + 3.0, GATE_FIELD.z - 2.2, Math.PI, __DROP_TOWN ? 'このさき 谷戸（やと）' : 'このさき 町（まち）') // ★スマホ単体では最初の町を作らないので、門の行き先に合わせて道標も書き換える（2026-07-25）
 // 町側：門の手前に立て、町から来る人（+z向き）に見えるよう板を+zへ向ける
 makeSignpost(GATE_TOWN.x - 3.0, GATE_TOWN.z + 2.2, 0, 'このさき はらっぱ')
 // 商店街の一軒（昭和の店構え：店先・縞テント・看板・袖看板・品物）
@@ -9168,6 +9174,39 @@ const yatoStatics = [], oldStatics = []
     if (!isFinite(cx)) continue
     if (cx > 1000) yatoStatics.push(o); else oldStatics.push(o)
   }
+})()
+// ── ★使われていない古いエリアを手放す（2026-07-25・常駐メモリの削減。ユーザーの決定にもとづく）──
+//   神社（旧・重複）＝どの端末でも作らない。上の仕分けで x>1000＝谷戸側に入るため、神社に行くと地面ごと丸ごと
+//     非表示になり、谷戸に居る時は1000m以上先＝霧の外。実測でも実写でも一度も画面に出ていない。谷戸の神明社と役目も重なる。
+//   最初の町＋裏山＝スマホ単体の時だけ。パソコン／リモートコントロールでは今までどおり歩ける（可逆）。
+//   ★はらっぱ（縁側の家）＝絶対に残す。作者の原風景。
+//   かたちのデータは、残る物が同じかたちを使っていないことを確かめてから手放す（共有していたら触らない）。
+let __droppedGeo = 0, __droppedGrp = 0
+;(() => {
+  const b2 = new THREE.Box3(), gone = []
+  // ★「まるごと範囲に収まっている物」だけを手放す（中心で判定すると、はらっぱから町までを覆う共有の大地面まで
+  //   巻き込み、はらっぱが真っ暗になった＝実写で発見して修正・2026-07-25）
+  const pick = (list, lo, hi) => { const keep = []
+    for (const o of list) { b2.makeEmpty(); b2.setFromObject(o)
+      if (b2.isEmpty()) { keep.push(o); continue }
+      if (b2.min.x > lo && b2.max.x < hi) gone.push(o); else keep.push(o) }
+    list.length = 0; for (const o of keep) list.push(o) }
+  pick(yatoStatics, 1500, 2500)                      // 神社（x≈1945〜2055）＝常に
+  if (__DROP_TOWN) pick(oldStatics, 400, 1500)       // 最初の町＋裏山（x≈650〜1100）＝スマホ単体のみ
+  if (!gone.length) return
+  try { const bb = new THREE.Box3(); const all = new THREE.Box3(); for (const o of gone) { bb.makeEmpty(); bb.setFromObject(o); if (!bb.isEmpty()) all.union(bb) }
+    window.__dropBox = all.isEmpty() ? null : { x: [Math.round(all.min.x), Math.round(all.max.x)], z: [Math.round(all.min.z), Math.round(all.max.z)] } } catch (e) {} // 検証用：手放した範囲（巻き込み事故の早期発見）
+  for (const o of gone) { scene.remove(o); __droppedGrp++ }
+  const stillUsed = new Set() // 残っている物が使っているかたち（共有していたら手放さない）
+  scene.traverse((m) => { if (m.geometry) stillUsed.add(m.geometry.uuid) })
+  for (const o of gone) o.traverse((m) => { const g = m.geometry; if (!g || stillUsed.has(g.uuid)) return
+    // ★粒子(Points)・線・スキンは毎フレーム頂点を書き換える処理が「シーンから外した後も」動き続けるので、
+    //   かたちのデータは手放さない（外して描かないだけ）。手放したら毎フレーム落ちた＝実写で発見して修正・2026-07-25
+    if (m.isPoints || m.isLine || m.isSkinnedMesh) return
+    try { g.dispose() } catch (e) {}
+    for (const k in g.attributes) { const a = g.attributes[k]; if (a) a.array = null }
+    if (g.index) g.index.array = null
+    __droppedGeo++ })
 })()
 let __culledArea = null
 function cullAreas(force) { // 谷戸にいる時は旧プロトを、旧プロトにいる時は谷戸を隠す（area変化時だけ実行）
@@ -19394,7 +19433,7 @@ window.__proto3d = {
   get renderer() { return renderer }, _glInfo() { return { tex: renderer.info.memory.textures, geo: renderer.info.memory.geometries, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, glLost: __glLost } }, // 検証用：GPUリソース量（住人VRM追加のcontext lost診断・今後のperf検証）
   _thermo(mult) { if (mult) { __texBase = Math.max(1, Math.round(renderer.info.memory.textures / mult)); __playT0 = performance.now() - 30000 } return { base: __texBase, now: renderer.info.memory.textures, keepCap: __keepCap, vrmHalted: __vrmHalted } }, // 検証用：体温計を人工的に高くして、守りの手が正しく順に出るか確かめる
   _memStat() { return { compSavedMB: __compSavedMB, freedMB: +(__relBytes / 1048576).toFixed(1), freedAttrs: __relAttrs, marks: window.__bootMarks || [],
-    resizeN: __resizeN, level: __level, levelAuto: __levelAuto, askLighter: __askLighter, crashN: __crashN, prevCrash: __prevCrash, sec: __playSec, phone: __PHONE, lowArt: __LOWART, title: titleView } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
+    droppedGrp: __droppedGrp, droppedGeo: __droppedGeo, dropTown: __DROP_TOWN, resizeN: __resizeN, level: __level, levelAuto: __levelAuto, askLighter: __askLighter, crashN: __crashN, prevCrash: __prevCrash, sec: __playSec, phone: __PHONE, lowArt: __LOWART, title: titleView } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
   __ks: __KS, // 計測用：キルスイッチ実体を公開＝ランタイムでprepass/prehalf/minpostを切替（Phase1のコスト計測用。URLパラメータと同じ効果）
   __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
   __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
@@ -19612,6 +19651,7 @@ window.__proto3d = {
     camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
     if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z)
   },
+  _gates: GATES, // 検証用：いま生きている門の一覧（エリアを作らない設定で行き止まりが出ていないかの確認）
   get area() { return area },
   _pose(x, z, rot, a) { if (a) { area = a; onYato = a === 'yato' } boy.position.set(x, heightAt(x, z), z); facing = (rot != null ? rot : facing); boy.rotation.y = facing; boy.userData._cy = null; camera.position.copy(boy.position).add(camOffset(new THREE.Vector3())); if (camera.userData._look) camera.userData._look.set(boy.position.x, boy.position.y + 1.4, boy.position.z) }, // 検証用：好きな位置・向きにカメラを置く（景色の確認・3視点QA用）
   _hidePlayer(on) { __hidePlayer = !!on; if (__hidePlayer) boy.visible = false; return __hidePlayer }, // 検証用：主人公を隠す（住人の隔離撮影で_pose三人称の手前重なりを排除）
