@@ -1188,7 +1188,83 @@ function pickPal(t) {
   if (t < 0.71) return { from: PAL.noon, to: PAL.dusk, u: (t - 0.5) / 0.21 } // 夕焼けのピークをt0.71(時計18:25)へ前倒し（旧0.78=19:15は遅すぎ・ユーザー要望2026-07-04）
   return { from: PAL.dusk, to: PAL.night, u: Math.min(1, (t - 0.71) / 0.11) } // 夜へはt0.82(20:00)で到達＝19:30にはしっかり暗い（旧は1.0=23時まで明るかった）
 }
+// ── 操作ボタンの色を時刻でうつろわせる（2026-07-25・ユーザー指摘「夜になると操作ボタンまわりが微妙」）──
+// 夜に昼の装いのままだと、暗い画面でボタンだけが白く光って一番目立ち、しかも濃い文字が沈んで読めない
+// （実測：よふけの画面で ボタンは まわりの景色より +93 明るかった）。
+// 昼＝白い和紙に濃い文字／夜＝行灯（あんどん）の陰のような藍の面に灯りいろの文字、へ連続的に移す。
+// 正本の「昼の姿」は proto3d.html の :root。ここは「夜の姿」と、その混ぜ具合だけを持つ。
+const NIGHT_T0 = 0.71, NIGHT_T1 = 0.82 // 夜への移り（日没＝実際の夏の横浜に合わせた区間。nightFactorと共有）
+const UI_TINT = [ // 面・ふち・落ち影＝なめらかに混ぜてよいもの。[変数名, 昼の値, 夜の値]
+  ['--ui-bg', [244, 250, 236, 0.5], [32, 38, 58, 0.54]],
+  ['--ui-bg-on', [228, 244, 214, 0.7], [64, 78, 114, 0.82]],
+  ['--ui-bg2', [253, 248, 239, 0.46], [32, 38, 58, 0.5]],
+  ['--ui-bg3', [252, 247, 238, 0.44], [32, 38, 58, 0.48]],
+  ['--ui-bg3-on', [240, 232, 218, 0.7], [64, 78, 114, 0.82]],
+  ['--ui-bg-flat', [244, 250, 236, 0.9], [30, 36, 55, 0.9]],
+  ['--ui-bg2-flat', [253, 248, 239, 0.9], [30, 36, 55, 0.88]],
+  ['--ui-bg3-flat', [252, 247, 238, 0.86], [30, 36, 55, 0.86]],
+  ['--ui-edge', [255, 255, 255, 0.62], [186, 202, 236, 0.3]],
+  ['--ui-edge2', [255, 255, 255, 0.6], [186, 202, 236, 0.28]],
+  ['--ui-edge3', [255, 255, 255, 0.58], [186, 202, 236, 0.28]],
+  ['--ui-amber', [255, 236, 191, 0.8], [122, 86, 46, 0.76]],
+  ['--ui-amber-on', [252, 224, 168, 0.92], [158, 114, 62, 0.92]],
+  ['--ui-amber-edge', [255, 250, 235, 0.7], [228, 190, 130, 0.38]],
+  ['--ui-amber-flat', [255, 236, 191, 0.95], [120, 84, 44, 0.94]],
+  ['--ui-panel', [255, 250, 240, 0.94], [38, 44, 64, 0.9]],
+  ['--ui-hint', [255, 251, 243, 0.9], [34, 40, 58, 0.86]],
+  ['--ui-pale', [244, 250, 236, 0.96], [40, 48, 72, 0.92]],
+  ['--ui-pale-near', [236, 248, 224, 0.98], [52, 64, 92, 0.95]],
+  ['--ui-pale-edge', [150, 180, 120, 0.7], [148, 178, 138, 0.5]],
+  ['--ui-green', [232, 246, 228, 0.95], [36, 54, 44, 0.9]],
+  ['--ui-stick', [255, 255, 255, 0.14], [196, 212, 244, 0.09]],
+  ['--ui-stick-edge', [255, 255, 255, 0.4], [196, 212, 244, 0.24]],
+  ['--ui-knob', [255, 255, 255, 0.55], [198, 210, 240, 0.33]],
+]
+const UI_TINT_SH = [ // 落ち影＝昼はやわらかい緑茶いろ、夜は素直な黒
+  ['--ui-drop', '0 4px 14px', [60, 80, 50, 0.22], [0, 0, 0, 0.42]],
+  ['--ui-drop2', '0 3px 11px', [90, 75, 50, 0.18], [0, 0, 0, 0.38]],
+  ['--ui-drop3', '0 2px 8px', [120, 100, 70, 0.16], [0, 0, 0, 0.34]],
+  ['--ui-amber-drop', '0 5px 18px', [150, 110, 40, 0.28], [0, 0, 0, 0.44]],
+]
+// ★文字と、その輪郭になる影は「混ぜずに、真ん中で入れ替える」。
+//   混ぜてしまうと、面が中間の灰色になったところで文字も中間の灰色になり、
+//   すれ違う一瞬だけ文字が完全に読めなくなる（ゆうぐれの「つかまえる」で実際に起きた）。
+//   入れ替えなら、その前後どちらでも 濃い面に淡い文字／淡い面に濃い文字 で必ず読める。
+const UI_TINT_SNAP = [
+  ['--ui-fg', '#3b4a2e', '#ebf0e2'],
+  ['--ui-fg2', '#4a4032', '#eae3d3'],
+  ['--ui-fg3', '#5a5346', '#e2dccd'],
+  ['--ui-sub', '#6a5e4a', '#c1b7a3'],
+  ['--ui-amber-fg', '#5a4632', '#ffeecc'],
+  ['--ui-green-fg', '#2e5a2e', '#cde6c6'],
+  ['--ui-tsh', '0 1px 2px rgba(255,255,255,0.6)', '0 1px 2px rgba(8,12,24,0.75)'],
+  ['--ui-tsh2', '0 1px 2px rgba(255,255,255,0.5)', '0 1px 2px rgba(8,12,24,0.7)'],
+  ['--ui-tsh3', '0 1px 2px rgba(255,255,255,0.55)', '0 1px 2px rgba(8,12,24,0.72)'],
+  ['--ui-amber-tsh', '0 1px 1px rgba(255,252,244,0.6)', '0 1px 2px rgba(26,12,0,0.55)'],
+]
+const uiRgba = (a, b, n) => `rgba(${Math.round(a[0] + (b[0] - a[0]) * n)},${Math.round(a[1] + (b[1] - a[1]) * n)},${Math.round(a[2] + (b[2] - a[2]) * n)},${+(a[3] + (b[3] - a[3]) * n).toFixed(3)})`
+let uiTintN = -1, uiTintDark = null
+function applyUiNight(t) {
+  // 0(昼)〜1(夜)。smoothstepを二度かけて、面が中間の灰色でいる時間を短くする（両端の姿は変わらない）
+  const raw = THREE.MathUtils.smoothstep(t, NIGHT_T0, NIGHT_T1)
+  // 1/24きざみでしか塗り直さない＝毎フレームのスタイル再計算を避ける（CSS側が1.2秒かけて追いつくので段は見えない）
+  const n = Math.round(THREE.MathUtils.smoothstep(raw, 0, 1) * 24) / 24
+  const dark = raw >= 0.5
+  if (n === uiTintN && dark === uiTintDark) return
+  const s = document.documentElement.style
+  if (n !== uiTintN) {
+    uiTintN = n
+    for (const [name, day, night] of UI_TINT) s.setProperty(name, uiRgba(day, night, n))
+    for (const [name, off, day, night] of UI_TINT_SH) s.setProperty(name, `${off} ${uiRgba(day, night, n)}`)
+  }
+  if (dark !== uiTintDark) {
+    uiTintDark = dark
+    for (const [name, day, night] of UI_TINT_SNAP) s.setProperty(name, dark ? night : day)
+  }
+}
+
 function setTimeOfDay(t) {
+  applyUiNight(t)
   const { from, to, u } = pickPal(t)
   // 太陽の運行（朝=低い東 → 昼=高い → 夕=低い西）。夜は地平線下。
   const elev = Math.sin(Math.min(t, 0.9) / 0.9 * Math.PI) // 0..1..0
@@ -11462,7 +11538,7 @@ addChatPair(3360, -330, 1.0)  // ★2026-07-11 旧(3050,13)第三公園＝朝の
 }
 
 // ── 夜の演出：月・星・蛍（夜になるほど現れる）──
-const nightFactor = (t) => THREE.MathUtils.smoothstep(t, 0.71, 0.82) // 日没を実際の夏(横浜)に合わせ前倒し：夕焼けピーク18:25頃→19:30にはしっかり暗い→20:00完全な夜（旧0.72,0.99=23時まで明るく遅すぎた・ユーザー要望2026-07-04）
+const nightFactor = (t) => THREE.MathUtils.smoothstep(t, NIGHT_T0, NIGHT_T1) // 区間の正本は上方の NIGHT_T0/NIGHT_T1（操作ボタンの夜色と必ず同じ移ろいにする）。日没を実際の夏(横浜)に合わせ前倒し：夕焼けピーク18:25頃→19:30にはしっかり暗い→20:00完全な夜（旧0.72,0.99=23時まで明るく遅すぎた・ユーザー要望2026-07-04）
 const moonTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d') // 月の海(暗い斑)＋小クレーター＝のっぺりした白丸でなく“ほんものの月”に（夜のエモさ・2026-06-28）
   x.fillStyle = '#eef0fa'; x.fillRect(0, 0, 128, 128)
   for (const [mx, my, mr] of [[46, 52, 24], [80, 44, 17], [62, 84, 21], [92, 92, 13], [38, 84, 12]]) { const gr = x.createRadialGradient(mx, my, 0, mx, my, mr); gr.addColorStop(0, 'rgba(150,158,182,0.5)'); gr.addColorStop(1, 'rgba(150,158,182,0)'); x.fillStyle = gr; x.beginPath(); x.arc(mx, my, mr, 0, 6.283); x.fill() } // 海(マリア)
@@ -18797,8 +18873,13 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
 // H4：線香花火ボタン（夜だけ出る手持ち花火）
 ;(function buildSenkoBtn() {
   const style = document.createElement('style')
-  style.textContent = `#senko-btn{position:fixed;right:calc(4% + env(safe-area-inset-right));bottom:calc(22% + env(safe-area-inset-bottom));z-index:37;appearance:none;border:none;cursor:pointer;display:none;
+  // ★2026-07-25：この位置(右4%/下22%)は ズームの「−」に実測で 24x41px 重なっていた（夜の実写で発覚）。
+  //   右の列（ジャンプ→−→＋）の一番上へ積み替える＝縦/横それぞれの高さに合わせて置く。
+  //   z-index も 37→19 へ（📷📔と同じ。せってい等のモーダルより下に潜って、ふたの上から押せてしまうのを防ぐ）
+  style.textContent = `#senko-btn{position:fixed;right:calc(5% + 15px + env(safe-area-inset-right));bottom:calc(9% + 210px + env(safe-area-inset-bottom));z-index:19;appearance:none;border:none;cursor:pointer;display:none;
     width:50px;height:50px;border-radius:50%;font-size:23px;background:rgba(58,48,78,0.74);box-shadow:0 3px 10px rgba(20,24,40,0.4);}
+    @media (orientation: landscape) and (max-height: 540px){#senko-btn{bottom:calc(224px + env(safe-area-inset-bottom));}}
+    @media (orientation: portrait){#senko-btn{bottom:calc(375px + env(safe-area-inset-bottom));}}
     body.titling #senko-btn,body.pm-on #senko-btn{display:none !important;}`
   document.head.appendChild(style)
   const b = document.createElement('button'); b.id = 'senko-btn'; b.textContent = '🎆'; b.title = '線香花火'; document.body.appendChild(b)
