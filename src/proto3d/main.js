@@ -66,6 +66,21 @@ try { // ?safe=1 で手動ON（以後も継続）／?safe=0 で解除／既に�
   else if (_q === '0') { try { localStorage.removeItem('hn3d_safe'); localStorage.setItem('hn3d_bootn', '0') } catch (e) {} }
   else if (localStorage.getItem('hn3d_safe') === '1') __SAFE = true
 } catch (e) {}
+// ── パンくず（2026-07-25・iPhone15の「何も出ずに突然おわる」を突き止めるため）──
+// iOSは1つのページが使いすぎると、警告も猶予も無くプロセスごと終わらせる。落ちた側は何も書き残せない。
+// そこで「1秒ごとに今の様子を上書きし、きれいに終わった時だけ ok=1 を書く」。次の起動で ok=0 が残っていれば＝見ている最中の急死。
+// ※旧 hn3d_bootn は「はじめる」が押せるようになるのと同じ8秒で0に戻る作りだった＝安全モードも避難画面も一度も発動しない死んだ仕掛けだった（2026-07-25に判明）。
+let __prevBc = null, __prevCrash = false, __crashN = 0
+try {
+  const _r = localStorage.getItem('hn3d_bc'); if (_r) { const _p = JSON.parse(_r); if (_p && typeof _p === 'object') __prevBc = _p }
+  __prevCrash = !!(__prevBc && __prevBc.ok === 0)
+  __crashN = parseInt(localStorage.getItem('hn3d_crashn') || '0', 10) || 0
+  if (__prevCrash) { __crashN++; localStorage.setItem('hn3d_crashn', String(__crashN)) }
+  localStorage.setItem('hn3d_bc', JSON.stringify({ ok: 0, sec: 0, boot: 1 })) // 今回ぶんの印を先に置く（建設中に落ちても「急死」として残る）
+} catch (e) {}
+const __evRing = [] // 直近の出来事8件（何をした直後に落ちたかを次の起動で読む）
+function logEv(s) { try { __evRing.push(((performance.now() / 1000) | 0) + 's ' + s); if (__evRing.length > 8) __evRing.shift() } catch (e) {} }
+let __resizeN = 0, __vrmPrepTotal = 0, __mapOpenN = 0 // 画面の作り直し回数／のべVRM準備体数／ばしょマップを開いた回数
 let __bootGuard = false // 起動失敗が続いた端末＝3Dを一切始めず案内画面だけ出す（再起動ループの完全遮断・2026-07-22）
 try { // 自動検知：前回の起動が「建設完了＋8秒」に届かず落ちた＝連続失敗→2回で安全モード、4回で起動ガード。
   //   カウンタの戻し＝①建設完了+8秒生存（モジュール末尾で予約）②きれいに閉じた/他アプリへ移った（pagehide/非表示）＝「画面を見ている最中の急死」だけを数える
@@ -12020,6 +12035,11 @@ camera.position.copy(boy.position).add(camOffset(new THREE.Vector3()))
 //   夕焼けの暖かい滲みが弱く暗くなった（夜は同一・夕のみ色差≈20の劣化を計測2026-07-05）。EffectComposerは既定のHalfFloatを維持。
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
+// ★仕上げ（ポストプロセス）の実解像度は、EffectComposer自身が持つピクセル比で決まる（rendererのsetPixelRatioは効かない）。
+//   2026-07-25まで一度も setPixelRatio を呼んでいなかった＝作った時の1.30で固定され、
+//   「中くらい」「かるい」モード（ピクセル比1.00）にしても仕上げの描画量がまったく減っていなかった（canvasだけ小さくなり、実質は大きく描いて縮める＝スーパーサンプリング）。
+//   ＝省電力の一番大きなつまみが空振りしていた。resize()で今のピクセル比を渡す（下）。値が変わった時だけ渡す＝無駄なバッファ作り直しを増やさない。
+let __composerDpr = -1
 
 // 木漏れ日（ゴッドレイ）：太陽の画面位置から、明るい所を放射状に伸ばす光条。
 // ※Bloomの“前”に置く＝既に滲んだ巨大ハイライトを再度引き伸ばして画面が白飛びする正帰還を防ぐ。
@@ -12267,8 +12287,11 @@ composer.addPass(fxaaPass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
-  renderer.setPixelRatio(dprNow()) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0・地上の主観視点は1.50）＋C4動的解像度の係数（重い時だけ下がる）
+  __resizeN++ // 数え板用：描画バッファの作り直し回数（回転や主観視点の出入りで増える。増えすぎは無駄な作り直し＝発熱の元）
+  const dpNow = dprNow()
+  renderer.setPixelRatio(dpNow) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0・地上の主観視点は1.50）＋C4動的解像度の係数（重い時だけ下がる）
   renderer.setSize(w, h)
+  if (__composerDpr !== dpNow) { __composerDpr = dpNow; composer.setPixelRatio(dpNow) } // ★仕上げの実解像度もピクセル比に追従（2026-07-25。上の宣言のコメント参照＝軽量モードのフィルが初めて下がる）
   composer.setSize(w, h)            // EffectComposer内部の読み書きRT（全ポストプロセス）を追従
   bloom.setSize(w / (__postHalfOn ? 4 : 2), h / (__postHalfOn ? 4 : 2)) // ブルームは半解像度を維持。★「ひかりの しあげを 半分に」ON時はさらに1/4＝にじみ玉は低周波なので見た目差ほぼ無し（2026-07-12）
   gradePass.uniforms.texel.value.set(1 / w, 1 / h) // 水彩のエッジ/にじみ用の1テクセル幅
@@ -16693,6 +16716,8 @@ const GPOSE = { hipF: -0.70, spineF: -0.55, chestF: -0.38, ucF: -0.24, neckF: -0
 // relaxed=fun系の目の笑い・aa=口ぽかん。exB系＝目ぱっちり+口を開けた「ぽけっとした」顔が採用（_ahotune.mjsで比較選定）
 const AHO_EXP = { happy: 0.10, amp: 0.08, relaxed: 0.55, aa: 0.28 }
 // ── VRMテクスチャ加工の共通ヘルパー（様式統一の要＝同じVRoid絵柄のまま役を作り分ける・2026-07-07） ──
+// VRM（MToon）が持つ絵の口（テクスチャの入り口）。縮小・先上げ・破棄で同じ並びを使う＝片方だけ直して食い違う事故を防ぐ
+const VRM_TEX_KEYS = ['map', 'shadeMultiplyTexture', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture']
 // マテリアルのmapをcanvasに写し、描き終えたらapply()で差し戻す
 function texCanvas(m) {
   const img = m.map.image
@@ -17667,6 +17692,7 @@ function startVrmResident() { // スロットだけ用意（実VRMは近づい�
 }
 async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リフェイス＋256縮小＋combineMorphs＋ディザ設定＋シェーダー事前コンパイル＋テクスチャ先上げ。表示はまだしない(visible=false/opacity=0)
   r.state = 'preparing'
+  __vrmPrepTotal++ // 数え板用：のべ何体ぶん用意したか（＝入れ替えの回数。ここが増えるのにGPUの枚数が減らなければ漏れ）
   try {
     const { GLTFLoader, VRMLoaderPlugin, VRMUtils } = await ensureResLibs(); const cfg = r.cfg
     const loader = new GLTFLoader(); loader.register((p) => new VRMLoaderPlugin(p))
@@ -17683,19 +17709,18 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     if (VRMUtils.combineMorphs) VRMUtils.combineMorphs(vrm) // 約50モーフを使う表情ぶんへ畳む＝隠れVRAM/RAM削減（モバイルmorph上限→context lost対策）。口パクaa/まばたきは保持
     VRMUtils.rotateVRM0(vrm)
     if (VRM_MERGE_MESHES) mergeVrmMeshes(vrm) // ★同マテリアルのスキンメッシュを統合＝1体約68→十数描画コール（「視界内ぜんぶVRM」計画①・2026-07-10）
-    const seenTex = new Set(), MAXW = 256, texList = [] // 住人=背景キャラ＝256（主人公1024の1/16面積）。全チャンネル保持のまま縮小（nullはrim/emissive factorを露出させ色化けするため禁止）
+    const seenTex = new Set(), MAXW = 256 // 住人=背景キャラ＝256（主人公1024の1/16面積）。全チャンネル保持のまま縮小（nullはrim/emissive factorを露出させ色化けするため禁止）
     vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
       for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
         if (/ \(Outline\)$/.test(m.name || '')) m.visible = false
         if (m.normalMap) { m.normalMap = null; m.needsUpdate = true }
-        for (const key of ['map', 'shadeMultiplyTexture', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture']) {
+        for (const key of VRM_TEX_KEYS) {
           const t = m[key]; if (!t || !t.image || seenTex.has(t)) continue; seenTex.add(t)
           const w = t.image.width || 0
           if (w > MAXW) { const cv = document.createElement('canvas'); const sc = MAXW / w
             cv.width = MAXW; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
-            if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true }
-          texList.push(t) } } })
+            if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true } } } })
     if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'yukata') yukataize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg); else if (cfg.girl) girlize(vrm, cfg) // 女の子＝黒髪+白ブラウス+赤スカート（cfgのgHair/gBlouse/gSkirtで背景の女児は作り分け・物語の女の子は既定値で不変）。yukata＝盆踊りの踊り手（2026-07-10）
     else if (cfg.boy) boyize(vrm, cfg.aho, !cfg.netCarry, cfg) // 男の子＝boyize（cfgのhat/capCol/shirtで主人公と作り分け）。netCarry（朝の虫取り網の子）だけ網を生成＝tickで肩担ぎに毎フレーム追従・2026-07-10
     else if (cfg.man) manize(vrm, cfg) // 大人の男（立ち話ペア/通行人＝白髪化しないgrandpaize・cfgのshirt/pants/hair/hatで作り分け）
@@ -17752,6 +17777,15 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     r.hipsRestY = r.bones.hips ? r.bones.hips.position.y : 0 // 正規化hipsの安静位置＝専用ポーズのhipDrop（本物のしゃがみ＝腰の実降下）の基準
     r.dwL = (L === 'left' ? 1 : -1); r.dwR = (R === 'left' ? 1 : -1)
     r.vrm = vrm
+    // ★先上げの対象は「役づくり(-ize)を終えて実際に生き残っているテクスチャ」だけをここで集め直す（2026-07-25・iPhone15クラッシュの主因を根治）。
+    //   直す前は縮小のときに集めた"加工前"の絵を上げていた＝ladyize等の texCanvas().apply() が m.map を新しいCanvasTextureへ差し替えるので、
+    //   集めた側は誰も参照しない「まいご」になり、それを renderer.initTexture でGPUへ上げ、破棄(deepDispose)はシーンしか歩かないので永久に残っていた
+    //   （実測：同じ2地点を往復するだけで1周+111枚・上限なし。tex は増え続けるのに texR＝生きている枚数は343で一定）。
+    //   ここで集め直せば、まいごは1枚もGPUへ上がらず、本来の狙い（表示時のアップロード山を消す）も初めて正しく効く。
+    const texList = [], seenUp = new Set()
+    vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+        for (const key of VRM_TEX_KEYS) { const t = m[key]; if (t && t.image && !seenUp.has(t)) { seenUp.add(t); texList.push(t) } } } })
     try { if (renderer.compileAsync) await renderer.compileAsync(vrm.scene, camera, scene) } catch (_) {} // シェーダー事前コンパイル＝初回描画のストール(山②)を遠くへ追い出す（iOSでKHR拡張が無くても発生タイミングが近接フレームから外れる）
     try { for (const t of texList) renderer.initTexture(t) } catch (_) {} // テクスチャ先上げ＝表示時のGPUアップロードスパイクを消す
     r.state = 'prepared'; r.failN = 0
@@ -19099,6 +19133,64 @@ function refreshPinList() { // 各ピン＝行。文字タップでコピー／�
     row.append(txt, del); pinListEl.append(row)
   })
 }
+// ══ 数え板とパンくず（2026-07-25・iPhone15の「何も出ずに突然おわる」を実機で追うための道具）══
+// いちばん見るべき数字＝「まいご」＝GPUに載せた絵の枚数のうち、もう誰も使っていないぶん。
+//   歩くほど増えるなら返し忘れがある＝いつか上限（iOSは1ページ約2GB）に届いて、警告なしにページごと終了させられる。
+// あわせて1秒ごとに今の様子を localStorage へ書き残す。きれいに終わった時だけ ok=1 を書くので、
+//   次の起動で ok=0 が残っていれば「見ている最中に急死した」と確実に分かる（落ちた側は何も書けないため、この形しかない）。
+const memhudEl = document.getElementById('memhud')
+let __hudOn = false, __texBase = 0, __liveBase = 0, __bcSec = 0
+const __OTHER_TEX_KEYS = ['normalMap', 'alphaMap', 'aoMap', 'bumpMap', 'lightMap', 'specularMap', 'gradientMap', 'displacementMap', 'envMap', 'metalnessMap', 'roughnessMap']
+function countLiveTex() { // シーンから届く（＝今つかっている）絵の枚数。★MToonのmap等はクラスのアクセサでfor...inに出てこないので名前で拾う
+  const seen = new Set()
+  scene.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []
+    for (const m of ms) { for (const k of VRM_TEX_KEYS) { const t = m[k]; if (t && t.isTexture) seen.add(t) }
+      for (const k of __OTHER_TEX_KEYS) { const t = m[k]; if (t && t.isTexture) seen.add(t) } } })
+  if (scene.background && scene.background.isTexture) seen.add(scene.background)
+  return seen.size
+}
+const __mmss = (s) => Math.floor(s / 60) + '分' + String(Math.floor(s % 60)).padStart(2, '0') + '秒'
+let __bcClean = false // 「きれいに終わった」印を書いた後＝画面に戻るまでパンくずを上書きしない（凍結中に1秒タイマーが動いて印を消すのを防ぐ）
+function tickCrumb() { // 1秒ごと
+  if (__bcClean) return
+  __bcSec++
+  const mem = renderer.info.memory
+  const live = __hudOn ? countLiveTex() : 0
+  // 基準は「遊び始めた瞬間」で取る（タイトル中はまだ絵を上げ終えていないので基準にならない）
+  if (!__texBase && !titleView && mem.textures > 0) { __texBase = mem.textures; __liveBase = live || countLiveTex() }
+  // ── パンくずを書き残す（位置と時刻も入れる＝落ちても続きから戻れるように・約400バイト）──
+  try {
+    localStorage.setItem('hn3d_bc', JSON.stringify({ ok: 0, sec: __bcSec,
+      x: +boy.position.x.toFixed(1), y: +boy.position.y.toFixed(1), z: +boy.position.z.toFixed(1), r: +facing.toFixed(3),
+      area, day, tday: +tday.toFixed(4), tex: mem.textures, geo: mem.geometries, prep: __vrmPrepTotal, map: __mapOpenN, rs: __resizeN, ev: __evRing.slice(-4) }))
+  } catch (e) {}
+  // ★前回が急死でも、画面には何も出さない（ユーザーの決定2026-07-25＝「黙って続きから戻る」）。
+  //   落ちたことの記録は下の数え板（開発用）にだけ畳む。遊ぶ人を不安にさせない。
+  if (!__hudOn || !memhudEl) return
+  const lost = (mem.textures - live) - (__texBase - __liveBase) // まいご＝はじめの差からどれだけ開いたか
+  const warm = __texBase ? (mem.textures / __texBase) : 1 // 体温＝はじめの何倍まで増えたか
+  memhudEl.innerHTML =
+    `GPUの絵 <b>${mem.textures}</b>枚 (はじめ ${__texBase} ／ <${warm >= 2.2 ? 'i' : 'b'}>${warm.toFixed(2)}倍</${warm >= 2.2 ? 'i' : 'b'}>)\n` +
+    `つかっている ${live}枚\n` +
+    `まいごの増え <${lost > 40 ? 'i' : 'b'}>${lost >= 0 ? '+' : ''}${lost}</${lost > 40 ? 'i' : 'b'}>枚 ← 歩くほど増えたら 返し忘れ\n` +
+    `かたち ${mem.geometries}  絵の型 ${renderer.info.programs ? renderer.info.programs.length : '-'}\n` +
+    `住人 ${vrmResLiveCount}人ひょうじ ／ のべ ${__vrmPrepTotal}体ようい\n` +
+    `つくり直し ${__resizeN}  ばしょマップ ${__mapOpenN}回  ${__glLost ? '⚠画面がとまった' : ''}\n` +
+    `${__mmss(__bcSec)}あそび中${__crashN ? ` ／ とまった回数 ${__crashN}` : ''}\n` +
+    `${__prevCrash && __prevBc ? `前回は ${__mmss(__prevBc.sec || 0)}で とまった\n` : ''}` +
+    `できごと: ${__evRing.slice(-3).join(' / ') || '—'}`
+}
+setInterval(tickCrumb, 1000)
+function markCleanExit() { __bcClean = true; try { const raw = localStorage.getItem('hn3d_bc'); if (!raw) return; const p = JSON.parse(raw); p.ok = 1; localStorage.setItem('hn3d_bc', JSON.stringify(p)) } catch (e) {} }
+addEventListener('pagehide', markCleanExit) // きれいに終わった／他アプリへ移った＝急死ではない
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') markCleanExit(); else __bcClean = false }) // 戻ってきたら また「見ている最中」として書き続ける（次のtickが ok:0 で上書きする）
+const setMemhudBtn = document.getElementById('set-memhud')
+if (setMemhudBtn) setMemhudBtn.addEventListener('click', () => { __hudOn = !__hudOn
+  setMemhudBtn.textContent = __hudOn ? 'ON' : 'OFF'; setMemhudBtn.classList.toggle('on', __hudOn)
+  if (memhudEl) memhudEl.classList.toggle('on', __hudOn)
+  try { localStorage.setItem('hn3d_memhud', __hudOn ? '1' : '0') } catch (e) {}
+  if (__hudOn) tickCrumb() })
+try { if (localStorage.getItem('hn3d_memhud') === '1' && setMemhudBtn) setMemhudBtn.click() } catch (e) {} // 前回ONにしていたら続ける（実機で歩きながら見るため）
 function updatePinReadout() { // 毎フレーム：中央十字の下の座標を表示（飛行＝flyCamから／浮遊dev-on＝メインループから）
   if ((!flying && !floatMode) || !pinReadEl) return
   camera.updateMatrixWorld(true)
@@ -19755,6 +19847,16 @@ window.__proto3d = {
       baseCanvas.width = RW; baseCanvas.height = RH
       baseCanvas.getContext('2d').drawImage(glr.domElement, 0, 0)
     } catch (e) { baseCanvas = null } // 失敗時は無地下地にフォールバック
+    // ★写し取ったら第2の描画装置はその場で返す（2026-07-25・iPhone15クラッシュ対策）。
+    //   WebGLは描画装置どうしでGPUの資源を共有しない＝ここで世界のかたちと絵がまるごと二重にGPUへ載る（実測+71.3MB）。
+    //   以前は返していなかったので、ばしょマップを一度でも開くと、閉じても1バイトも戻らないまま最後まで居座っていた。
+    disposeMapRenderer()
+  }
+  function disposeMapRenderer() { // 使い終わった第2の描画装置を完全に返す（forceContextLossまでやらないとブラウザ側のコンテキストが残る）
+    if (!glr) return
+    try { glr.dispose() } catch (e) {}
+    try { glr.forceContextLoss() } catch (e) {}
+    glr = null
   }
 
   function drawMap() {
@@ -19800,7 +19902,7 @@ window.__proto3d = {
   }
 
   let timer = 0
-  function openMap() { const s = document.getElementById('settings'); if (s) s.classList.remove('on'); sizeCanvas(); renderBase(); mapEl.classList.add('on'); refreshOut(); drawMap(); if (!timer) timer = setInterval(drawMap, 220) }
+  function openMap() { const s = document.getElementById('settings'); if (s) s.classList.remove('on'); __mapOpenN++; logEv('ばしょマップ'); sizeCanvas(); renderBase(); mapEl.classList.add('on'); refreshOut(); drawMap(); if (!timer) timer = setInterval(drawMap, 220) }
   function closeMap() { mapEl.classList.remove('on'); if (timer) { clearInterval(timer); timer = 0 } }
   window.__placeMap = { open: openMap, close: closeMap, get text() { return genText() }, tapWorld(x, z) { points.push({ x, z }); drawMap(); refreshOut() }, exportPNG() { drawMap(); return mapCv.toDataURL('image/png') } } // 検証用
 

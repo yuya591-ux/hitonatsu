@@ -181,6 +181,15 @@
         border: 1px solid rgba(120,96,58,0.4); border-radius: 7px; box-shadow: 0 4px 14px rgba(60,44,24,0.26); opacity: 0; pointer-events: none;
         transition: opacity 0.4s ease, transform 0.4s ease; }
       #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      /* ── 数え板（開発用・2026-07-25）：iPhoneで落ちる原因を実機で見つけるための小さな数字表示。
+            せってい→🛠→「かずを 画面に 出す」でON。触れないように pointer-events:none。既定は非表示 ── */
+      #memhud { position: fixed; left: calc(3% + env(safe-area-inset-left)); bottom: calc(3% + env(safe-area-inset-bottom));
+        z-index: 39; display: none; pointer-events: none; white-space: pre; padding: 0.5em 0.7em; border-radius: 8px;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; line-height: 1.45;
+        color: #e8f2e0; background: rgba(24,30,26,0.62); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+      #memhud.on { display: block; }
+      #memhud b { color: #ffd86b; font-weight: 700; }
+      #memhud i { color: #ff9b8a; font-style: normal; font-weight: 700; }
       /* 「ねる」は左上の⚙の下へ（横画面で左手の親指の下＝誤爆を避ける・ユーザー要望）。押すと確認の絵日記が出る */
       #sleep { left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + 54px + env(safe-area-inset-top)); appearance: none; border: none; cursor: pointer;
         padding: 0.6em 1.05em; font-size: clamp(12px,2.3vw,16px); font-family: inherit; color: #fdf7ec;
@@ -489,6 +498,8 @@
     <button id="catch" class="hud">つかまえる</button>
     <button id="fish" class="hud">つる</button>
     <div id="toast" class="hud"></div>
+    <!-- 数え板（開発用）：メモリの様子を歩きながら見る。せってい→🛠→「かずを 画面に 出す」 -->
+    <div id="memhud"></div>
     <button id="sleep" class="hud">🌙 ねる</button>
     <div id="diary">
       <div class="diary-page">
@@ -598,6 +609,7 @@
           <button class="set-g-h" type="button">🛠 開発・実験用<i class="set-chev">▾</i></button>
           <div class="set-g-body"><div class="set-g-inner">
             <div class="set-row"><span>🗺 ばしょマップ（場所をつたえる）</span><button class="set-toggle" id="set-map">ひらく</button></div>
+            <div class="set-row"><span>🔢 かずを 画面に 出す（メモリの様子・落ちる原因さがし）</span><button class="set-toggle" id="set-memhud">OFF</button></div>
             <div class="set-row"><span>🏢 ビエント横濱菊名へ（確認用）</span><button class="set-toggle" id="set-biento" style="background:#c8956a">いく</button></div>
             <div class="set-row"><span>✈ 飛んでみる（開発用）</span><button class="set-toggle" id="set-fly">とぶ</button></div>
           </div></div>
