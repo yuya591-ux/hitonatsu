@@ -81,7 +81,7 @@ try {
 } catch (e) {}
 const __evRing = [] // 直近の出来事8件（何をした直後に落ちたかを次の起動で読む）
 function logEv(s) { try { __evRing.push(((performance.now() / 1000) | 0) + 's ' + s); if (__evRing.length > 8) __evRing.shift() } catch (e) {} }
-let __resizeN = 0, __vrmPrepTotal = 0, __mapOpenN = 0 // 画面の作り直し回数／のべVRM準備体数／ばしょマップを開いた回数
+let __resizeN = 0, __vrmPrepTotal = 0, __mapOpenN = 0, __resizeSig = '' // 画面の作り直し回数／のべVRM準備体数／ばしょマップを開いた回数
 let __keepCap = Infinity // 住人VRMの保有上限を実行中に絞るための天井（体温計＝下の見張りが使う。ふだんは無制限＝設定どおり）
 let __bootGuard = false // 起動失敗が続いた端末＝3Dを一切始めず案内画面だけ出す（再起動ループの完全遮断・2026-07-22）
 // ── かるさの段（2026-07-25）：つまみを増やさず、1本の「段」で軽さをまとめる ──
@@ -1430,15 +1430,19 @@ const waterMat = new THREE.ShaderMaterial({
       // 浅い角度で見た水面は、1画素が広い距離を跨いでさざ波の細部がパースで潰れ＝縞/モアレになる。視線の角度(graze)と距離(prox)でゆらぎを減衰し、浅い角度・遠くは穏やかな鏡面に（縞模様の根治・2026-06-26）
       float graze = smoothstep(0.12, 0.45, vDir.y); // 浅い角度ほど0＝穏やかな鏡面、上から覗き込むほどさざ波が見える（パースで潰れる細部のモアレを抑える）
       float prox = (1.0 - smoothstep(14.0, 70.0, distance(vW, cameraPosition))) * graze;
-      // さざ波のきらめき＝ノイズ(fbm)ベース＝周期が無く、浅い角度でパースに潰れても規則的な縞模様にならない（ユーザー指摘の水面の縞を根治・2026-06-26）
-      float n1 = fbm(vW.xz * 0.5 + vec2(uTime * 0.10, -uTime * 0.07));
-      col += vec3(0.055, 0.085, 0.09) * smoothstep(0.55, 0.9, n1) * prox; // さざ波の明るい房
-      // 空の映り込み（ゆらぐ反射）＝低周波ノイズ
-      float band = fbm(vW.xz * 0.26 + vec2(uTime * 0.06, uTime * 0.045));
-      col = mix(col, sky, 0.14 * prox * smoothstep(0.42, 0.82, band));
-      // 太陽のきらめき（散らばる点滅）＝ノイズ＝縞にならない
-      float sp = vn(vW.xz * 2.6 + vec2(uTime * 0.5, -uTime * 0.4));
-      col += glint * 0.30 * smoothstep(0.85, 0.99, sp) * prox;
+      // ★prox が 0 の画素（70mより遠い／浅い角度）では、この下の3つは掛け算で必ず 0 になる＝計算しても絵は1ドットも変わらない。
+      //   なのに1画素あたり sin を20回まわしていた（2026-07-25）。遠い水面・寝かせた視線ほど画面を広く占めるので、ここが素直に効く。出力は完全に同一。
+      if (prox > 0.001) {
+        // さざ波のきらめき＝ノイズ(fbm)ベース＝周期が無く、浅い角度でパースに潰れても規則的な縞模様にならない（ユーザー指摘の水面の縞を根治・2026-06-26）
+        float n1 = fbm(vW.xz * 0.5 + vec2(uTime * 0.10, -uTime * 0.07));
+        col += vec3(0.055, 0.085, 0.09) * smoothstep(0.55, 0.9, n1) * prox; // さざ波の明るい房
+        // 空の映り込み（ゆらぐ反射）＝低周波ノイズ
+        float band = fbm(vW.xz * 0.26 + vec2(uTime * 0.06, uTime * 0.045));
+        col = mix(col, sky, 0.14 * prox * smoothstep(0.42, 0.82, band));
+        // 太陽のきらめき（散らばる点滅）＝ノイズ＝縞にならない
+        float sp = vn(vW.xz * 2.6 + vec2(uTime * 0.5, -uTime * 0.4));
+        col += glint * 0.30 * smoothstep(0.85, 0.99, sp) * prox;
+      }
       // 岸ぎわの泡（白い縁取り）＝円形池のみ（dが効く）。多角形池はdが無効＝泡を出さない（全面の縞の元）
       float foam = noUV ? 0.0 : smoothstep(0.86, 0.99, d) * (0.6 + 0.4 * sin(vW.x * 3.0 + vW.z * 3.0 + uTime * 2.0));
       col = mix(col, vec3(0.96, 0.99, 1.0), foam * 0.5);
@@ -12281,8 +12285,14 @@ const postPass = new ShaderPass({
     uDofOn: { value: 1 }, dofStrength: { value: 0.7 }, maxCoc: { value: 1.2 }, focusBias: { value: 15.0 }, // DOF：strength=効き・maxCoc=最大ボケ径・focusBias=ピント面の許容
     uInkOn: { value: CEL.inkEdges ? 1 : 0 }, inkStrength: { value: CEL.inkStrength }, thickness: { value: CEL.inkThickness }, fadeNear: { value: CEL.inkFadeNear }, fadeFar: { value: CEL.inkFadeFar }, inkColor: { value: new THREE.Color(CEL.inkTint) }, // インク：焦げ茶・遠景でフェード
   },
-  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 dofTexel, inkTexel; uniform float near, far;
+  // ★ピント面までの距離(vFz)は画面中央やや下の1点を読むだけ＝全画素で同じ値なのに、毎画素で深度を1回よけいに読んでいた（2026-07-25）。
+  //   画面いっぱいの四角は頂点が4つしかないので、頂点側で1回読んで渡す＝深度の読み取りが画素ぶんまるごと消える。出力は完全に同一。
+  vertexShader: `varying vec2 vUv; varying float vFz; uniform sampler2D tDepth; uniform float near, far;
+    void main(){ vUv=uv;
+      float z = texture2D(tDepth, vec2(0.5, 0.45)).x;
+      vFz = clamp((2.0*near*far)/(far+near-(2.0*z-1.0)*(far-near)), near + 2.0, 110.0);
+      gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
+  fragmentShader: `varying vec2 vUv; varying float vFz; uniform sampler2D tDiffuse, tNormal, tDepth; uniform vec2 dofTexel, inkTexel; uniform float near, far;
     uniform float uDofOn, dofStrength, maxCoc, focusBias; uniform float uInkOn, inkStrength, thickness, fadeNear, fadeFar; uniform vec3 inkColor;
     float eyeZlin(float z){ return (2.0*near*far)/(far+near-(2.0*z-1.0)*(far-near)); } // 生NDC深度→線形の視線距離
     float eyeZ(vec2 uv){ return eyeZlin(texture2D(tDepth, uv).x); }
@@ -12292,7 +12302,7 @@ const postPass = new ShaderPass({
       vec3 col = texture2D(tDiffuse, vUv).rgb;
       // ── 被写界深度：ピント面(画面中央やや下=主人公)から離れた遠景/最近景だけをやわらかくぼかす（グレード済みの色をぼかす＝2パス版と同一）
       if (uDofOn > 0.5) {
-        float fz = clamp(eyeZ(vec2(0.5, 0.45)), near + 2.0, 110.0); // 遠すぎ(空)で全面ボケしないよう頭打ち
+        float fz = vFz; // ピント面までの距離＝頂点側で1回だけ読んだ値（遠すぎ(空)で全面ボケしないよう頭打ち済み）
         float dz = eyeZ(vUv);
         float coc = clamp(abs(dz - fz) / (fz + focusBias) * dofStrength, 0.0, 1.0) * maxCoc;
         if (coc > 0.35) { // ピント面の近くはそのまま＝トゥーンのくっきりを保つ
@@ -12327,8 +12337,15 @@ composer.addPass(fxaaPass)
 
 function resize() {
   const w = innerWidth, h = innerHeight
-  __resizeN++ // 数え板用：描画バッファの作り直し回数（回転や主観視点の出入りで増える。増えすぎは無駄な作り直し＝発熱の元）
   const dpNow = dprNow()
+  // ★同じ大きさ・同じ細かさなら、何も作り直さない（2026-07-25）。
+  //   画面回転や主観視点の出入りのたびに resize() が5回（直後＋次のフレーム＋160/420/720ms後）呼ばれ、
+  //   そのたび仕上げ用のバッファを全部（ブルームの11枚を含む）作り直していた＝1回の回転で110回の作り直し。
+  //   大きさが落ち着いた後の4回は完全な空回りなので、ここで断つ。絵はまったく同じ。
+  const sig = w + 'x' + h + '@' + dpNow + '/' + (__postHalfOn ? 1 : 0) + '/' + PREPASS_SCALE
+  if (sig === __resizeSig) return
+  __resizeSig = sig
+  __resizeN++ // 数え板用：実際に作り直した回数（増えすぎは無駄な作り直し＝発熱の元）
   renderer.setPixelRatio(dpNow) // 回転/ズーム後もDPRを再適用（発熱対策の上限つき・軽量モードは1.0・地上の主観視点は1.50）＋C4動的解像度の係数（重い時だけ下がる）
   renderer.setSize(w, h)
   if (__composerDpr !== dpNow) { __composerDpr = dpNow; composer.setPixelRatio(dpNow) } // ★仕上げの実解像度もピクセル比に追従（2026-07-25。上の宣言のコメント参照＝軽量モードのフィルが初めて下がる）
@@ -15467,6 +15484,10 @@ function update(dt) {
   const winLit = THREE.MathUtils.smoothstep(tday, 0.60, 0.82)
   // C7：段階点灯。litOff を持つ窓は点灯時刻を少し遅らせ、夕暮れに家々の灯りが一斉でなく“少しずつ”ともる（家路の温かさ）
   for (const L of townNightLights) { const fa = L.fa ?? 0.1, off = L.litOff || 0, wl = off ? THREE.MathUtils.smoothstep(tday, 0.60 + off, 0.82 + off) : winLit
+    // ★消えている灯りは描くのをやめる（2026-07-25）。今までは透明度0を書くだけで描画自体は続けており、
+    //   昼のあいだ121〜155個の「見えない半透明」を毎フレーム重ね描きしていた（iPhoneのGPUがいちばん苦手な形）。絵はまったく同じ。
+    if (wl <= 0.002) { if (!L._off) { L._off = L.m.visible ? 1 : 2; L.m.visible = false } continue } // _off=1:こちらで消した(戻す) / 2:元から消えていた(触らない)
+    if (L._off) { if (L._off === 1) L.m.visible = true; L._off = 0 }
     // flame=お祭りの紙提灯＝ろうそく/裸電球らしい有機的なゆらぎ（多周波の重ね＝56〜100%でちらちら息づく）。それ以外は従来の控えめな一定ゆらぎ
     const fl = L.flame ? (0.8 + 0.2 * (0.55 * Math.sin(tsec * 2.6 + L.ph) + 0.27 * Math.sin(tsec * 6.3 + L.ph * 1.7) + 0.18 * Math.sin(tsec * 11.1 + L.ph * 0.6))) : (1 - fa + fa * Math.sin(tsec * 2.2 + L.ph))
     L.m.material.opacity = wl * L.base * fl } // fa=点滅の振れ幅（既定0.1）。校舎の窓はfa小＝ほぼ一定でギラつかせない
@@ -19355,7 +19376,7 @@ window.__proto3d = {
   get renderer() { return renderer }, _glInfo() { return { tex: renderer.info.memory.textures, geo: renderer.info.memory.geometries, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, glLost: __glLost } }, // 検証用：GPUリソース量（住人VRM追加のcontext lost診断・今後のperf検証）
   _thermo(mult) { if (mult) { __texBase = Math.max(1, Math.round(renderer.info.memory.textures / mult)); __playT0 = performance.now() - 30000 } return { base: __texBase, now: renderer.info.memory.textures, keepCap: __keepCap, vrmHalted: __vrmHalted } }, // 検証用：体温計を人工的に高くして、守りの手が正しく順に出るか確かめる
   _memStat() { return { compSavedMB: __compSavedMB, freedMB: +(__relBytes / 1048576).toFixed(1), freedAttrs: __relAttrs, marks: window.__bootMarks || [],
-    level: __level, levelAuto: __levelAuto, askLighter: __askLighter, crashN: __crashN, prevCrash: __prevCrash, sec: __playSec, phone: __PHONE, lowArt: __LOWART, title: titleView } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
+    resizeN: __resizeN, level: __level, levelAuto: __levelAuto, askLighter: __askLighter, crashN: __crashN, prevCrash: __prevCrash, sec: __playSec, phone: __PHONE, lowArt: __LOWART, title: titleView } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
   __ks: __KS, // 計測用：キルスイッチ実体を公開＝ランタイムでprepass/prehalf/minpostを切替（Phase1のコスト計測用。URLパラメータと同じ効果）
   __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
   __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
