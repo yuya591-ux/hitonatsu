@@ -54,7 +54,7 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption, reque
   // ── スタイル（注入。既存CSSは触らない）──
   const style = document.createElement('style')
   style.textContent = `
-    #pm-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 104px + env(safe-area-inset-top));z-index:38;appearance:none;border:none;cursor:pointer;
+    #pm-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 104px + env(safe-area-inset-top));z-index:19;appearance:none;border:none;cursor:pointer;
       width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(120,92,58,0.72);
       box-shadow:0 3px 10px rgba(20,24,40,0.3);}
     /* 写真ボタンは「とれる」と気づけるよう、ほかのボタンより少し あたたかい茶＋初回だけ数回そっとパルス（やりすぎない） */
@@ -75,9 +75,9 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption, reque
       font-family:monospace;text-shadow:0 1px 3px rgba(0,0,0,0.5);}
     #pm-rec::before{content:'●';margin-right:6px;animation:pmblink 1.4s infinite;}
     @keyframes pmblink{0%,100%{opacity:1}50%{opacity:0.2}}
-    #pm-tools{position:absolute;right:7%;top:5.5%;display:flex;gap:8px;pointer-events:auto;}
+    #pm-tools{position:absolute;right:calc(7% + env(safe-area-inset-right));top:calc(5.5% + env(safe-area-inset-top));display:flex;gap:8px;pointer-events:auto;}
     .pm-tool{appearance:none;border:1px solid rgba(255,255,255,0.55);cursor:pointer;border-radius:999px;
-      padding:0.28em 0.85em;font-size:12px;font-family:monospace;letter-spacing:0.04em;color:#fff;
+      min-height:44px;padding:0.28em 0.95em;font-size:12px;font-family:monospace;letter-spacing:0.04em;color:#fff;
       background:rgba(30,34,50,0.55);}
     #pm-bar{position:fixed;left:0;right:0;bottom:0;z-index:39;display:none;align-items:center;justify-content:center;
       gap:7vw;padding:3.5% 0 5%;}
@@ -117,7 +117,7 @@ export function initPhotoMode({ renderer, getDay, playShutter, getCaption, reque
       box-shadow:0 12px 34px rgba(0,0,0,0.5),0 2px 10px rgba(70,46,26,0.45);transform:rotate(-0.7deg);}
     /* 写真の下にそっと一行＝アルバムを“絵の束”から“思い出”へ（いつ・どこで撮ったか） */
     #pm-view-cap{position:fixed;bottom:13vh;left:0;right:0;text-align:center;color:#fdf3e0;font-size:15px;letter-spacing:0.06em;text-shadow:0 1px 4px rgba(0,0,0,0.7);font-family:inherit;pointer-events:none;}
-    #pm-view-bar{position:fixed;bottom:5vh;left:0;right:0;display:flex;justify-content:center;gap:6vw;}
+    #pm-view-bar{position:fixed;bottom:calc(5vh + env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:center;gap:6vw;}
     #pm-view-bar button{appearance:none;border:none;cursor:pointer;padding:0.5em 1.6em;font-size:16px;font-family:inherit;
       color:#3b3024;background:rgba(255,250,240,0.92);border-radius:999px;}
   `

@@ -42,7 +42,7 @@
       .ctx-up3 { transform: translateX(-50%) translateY(-174px) !important; }
       .ctx-up4 { transform: translateX(-50%) translateY(-232px) !important; }
       /* まどりボタン＝自宅の中でだけ左上に出す。押すと天井が消えて真上から間取りを見られる（ユーザー要望2026-07-20＝自分でいつでも確認・スクショできる） */
-      #plan { left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + env(safe-area-inset-top)); padding: 0.42em 1.0em;
+      #plan { left: calc(3% + env(safe-area-inset-left)); top: calc(3.5% + 208px + env(safe-area-inset-top)); padding: 0.42em 1.0em;
         font-size: clamp(12px,2.2vw,15px); font-weight: 600; font-family: inherit; color: #5a4632; cursor: pointer;
         background: rgba(255,236,191,0.82); border: 1.5px solid rgba(255,250,235,0.7); border-radius: 999px;
         -webkit-backdrop-filter: blur(6px) saturate(1.2); backdrop-filter: blur(6px) saturate(1.2);
@@ -247,7 +247,7 @@
         z-index: 25; transition: opacity 0.9s ease; }
       #title.hidden { opacity: 0; pointer-events: none; }
       /* 起動中（じゅんびちゅう）は不透明のたそがれ色で覆う＝重いシーン構築でメインスレッドが止まる間、透けて見える“空/引き伸ばしのキャンバス＋固まったUI”を隠し「横持ちでUIが崩れる」を防ぐ。準備完了(loading除去)で半透明に戻り本編の絵があらわれる（ユーザー2026-07-07） */
-      #title.loading { background: linear-gradient(165deg, #4a5470, #2b3550 55%, #3a4c60); }
+      #title.loading { background: linear-gradient(165deg, #6e6f8e, #8a6a6a 42%, #c98f63 78%, #e3b07a); }
       .title-inner { text-align: center; }
       .t-sub { margin: 0 0 0.4em; font-size: clamp(12px,2.6vw,18px); letter-spacing: 0.26em; text-indent: 0.26em;
         color: #fdf6e8; text-shadow: 0 1px 6px rgba(40,40,50,0.6); }
@@ -259,6 +259,13 @@
       /* B⑩：読み込み中は「じゅんびちゅう…」を淡く・押せない見た目に（準備が終わると「はじめる」へ） */
       #t-start:disabled { cursor: default; opacity: 0.5; color: #6a6051; box-shadow: 0 2px 8px rgba(120,100,70,0.2); }
       .t-hint { margin-top: 1.5em; font-size: clamp(11px,2.4vw,15px); color: #e8dcc6; }
+      /* じゅんびの進み具合＝毎回いちばん長く見る画。細い線がそっと伸びるだけ（数字は出さない） */
+      #t-prog { width: min(58vw, 260px); height: 3px; margin: 0.9em auto 0; border-radius: 999px;
+        background: rgba(255,250,240,0.22); overflow: hidden; transition: opacity 0.5s ease; }
+      #t-prog i { display: block; width: 0%; height: 100%; border-radius: 999px;
+        background: linear-gradient(90deg, rgba(255,236,200,0.75), rgba(255,250,240,0.95)); transition: width 0.5s cubic-bezier(0.16,1,0.3,1); }
+      #title:not(.loading) #t-prog { opacity: 0; }
+      @media (prefers-reduced-motion: reduce) { #t-prog, #t-prog i, #t-resume { transition: none; } }
       /* 「つづきから」＝前にきれいに終えた続きへ戻る（前回の場所・時刻から）。出るのは戻れる時だけ */
       #t-resume { appearance: none; border: 1px solid rgba(255,250,240,0.55); cursor: pointer; display: none; margin-top: 0.9em;
         padding: 0.45em 1.6em; font-size: clamp(13px,2.4vw,17px); font-family: inherit; color: #fdf6e8;
@@ -274,18 +281,23 @@
       body.titling #float, body.titling #fl-up, body.titling #fl-down,
       body.titling #npc, body.titling #catch, body.titling #fish, body.titling #go { display: none !important; }
       /* 設定カードの右上の×（縦が短い横持ちでもスクロール不要で必ず閉じられる） */
-      #set-x { position: absolute; top: 8px; right: 10px; appearance: none; border: none; cursor: pointer; width: 34px; height: 34px;
+      #set-x { position: absolute; top: 8px; right: 10px; appearance: none; border: none; cursor: pointer; width: 44px; height: 44px;
         border-radius: 50%; font-size: 22px; line-height: 1; color: #6a5c46; background: rgba(150,140,118,0.22); }
       #set-x:active { background: rgba(150,140,118,0.4); }
       .set-card { position: relative; }
       #settings { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 28; }
       #settings.on { display: flex; }
-      .set-card { width: min(86vw, 420px); max-height: 90dvh; display: flex; flex-direction: column; overflow: hidden; padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
+      .set-card { box-sizing: border-box; width: min(86vw, 420px); max-height: 88dvh; display: flex; flex-direction: column; overflow: hidden; padding: 1.4em 1.6em 1.3em; background: #fbf6ea; border-radius: 16px;
         box-shadow: 0 12px 40px rgba(0,0,0,0.4); text-align: center; }
       .set-card h2 { margin: 0 0 0.8em; font-size: clamp(19px,4.2vw,26px); color: #4a4032; letter-spacing: 0.1em; }
       /* ── たんす式せってい（A案・2026-07-12）：中身だけスクロール＋引き出しの開閉 ── */
-      .set-body { overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
+      .set-body { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
+      /* 「あそびかたを みる」＝引き出しを全部あけると画面の外に出て届かなかったので、スクロールする側の一番上へ（2026-07-25） */
+      #set-guide { display: block; width: 100%; min-height: 44px; margin: 0 0 0.5em; appearance: none; cursor: pointer;
+        border: 1px solid rgba(150,130,90,0.3); border-radius: 12px; padding: 0.55em 0.85em;
+        font: inherit; font-size: clamp(14px,3vw,17px); color: #4a4032; background: rgba(255,246,224,0.9); letter-spacing: 0.04em; }
+      #set-guide:active { background: rgba(246,232,198,0.95); }
       #settings.on .set-card { animation: setPop 200ms cubic-bezier(0.16, 1, 0.3, 1); }
       @keyframes setPop { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
       .set-group { margin: 0.42em 0; border: 1px solid rgba(150,130,90,0.22); border-radius: 12px; background: rgba(255,252,244,0.65); overflow: hidden; }
@@ -322,10 +334,11 @@
       .set-toggle { appearance: none; border: none; cursor: pointer; min-width: 84px; padding: 0.4em 1em; border-radius: 999px;
         font-size: clamp(13px,2.6vw,16px); font-family: inherit; color: #fff; background: #9aa0ae; transition: background 0.2s; }
       .set-toggle.on { background: #7aa86a; }
-      #set-close { margin-top: 1.2em; appearance: none; border: none; cursor: pointer; padding: 0.55em 2.2em;
-        font-size: clamp(15px,3vw,20px); font-family: inherit; color: #fdf7ec; background: #6a7088; border-radius: 999px; }
-      #set-guide { margin-top: 0.7em; appearance: none; border: none; cursor: pointer; padding: 0.45em 1.8em; display: block; margin-left: auto; margin-right: auto;
-        font-size: clamp(13px,2.6vw,17px); font-family: inherit; color: #5a4a36; background: rgba(150,170,120,0.22); border-radius: 999px; }
+      /* 「とじる」はスクロールする側の最後にあり、下までスクロールしないと出てこなかった（2026-07-25）。
+         下に貼り付けて、いつでも見えている状態にする（×は右上に別途あるが、大きく押せる とじる が常にある方が親切） */
+      #set-close { position: sticky; bottom: 0; display: block; width: calc(100% + 3.2em); margin: 1.4em -1.6em 0; appearance: none; border: none; cursor: pointer;
+        padding: 0.62em 0; border-radius: 0; font-size: clamp(15px,3vw,20px); font-family: inherit; color: #fdf7ec; background: #6a7088;
+        box-shadow: 0 -10px 14px rgba(251,246,234,0.95); }
       /* はじめてのあそびかた（初回だけ・やさしく） */
       #guide { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
         background: rgba(24,28,42,0.62); backdrop-filter: blur(3px); z-index: 27; }
@@ -450,7 +463,6 @@
         .set-toggle { padding: 0.32em 0.9em; }
         .guide-row { margin: 0.32em 0; }
         #set-close, #guide-ok { margin-top: 0.65em; padding-top: 0.5em; padding-bottom: 0.5em; }
-        #set-guide { margin-top: 0.4em; }
         .diary-page { padding: 0.9em 1.3em 1.1em; }
       }
       /* ── 横持ちのとき下端の操作ボタンを画面端ぎりぎりから少し上げ、親指で押しやすく（9%だと縦が短い横画面で下に寄りすぎる）── */
@@ -564,6 +576,7 @@
           </svg>
           <div id="set-clock-label">—</div>
         </div>
+        <button id="set-guide">あそびかたを みる</button>
         <!-- たんす式（A案・2026-07-12）：6つの引き出しに整理。開くのは常に1つ＝メニューが短いまま。既存idは全部そのまま＝ハンドラ不変 -->
         <div class="set-group">
           <button class="set-g-h" type="button">🔊 おと<i class="set-chev">▾</i></button>
@@ -588,6 +601,7 @@
             <div class="set-row"><span>軽量モード（カクつく時・線とボケを省いて軽く）</span><button class="set-toggle" id="set-light">OFF</button></div>
             <div class="set-row"><span>ひかりの しあげを 半分に（見た目ほぼそのまま・あついとき）</span><button class="set-toggle" id="set-posthalf">OFF</button></div>
             <div class="set-row"><span>安全モード（起動できない・すぐ再起動する時。人をシンプルにして いちばん軽く）</span><button class="set-toggle" id="set-safe">OFF</button></div>
+            <div class="set-row"><span>ひらき直す（画面がおかしくなった時・いまの場所から戻ります）</span><button class="set-toggle" id="set-reload">ひらき直す</button></div>
           </div></div>
         </div>
         <div class="set-group">
@@ -620,7 +634,6 @@
           </div></div>
         </div>
         <button id="set-close">とじる</button>
-        <button id="set-guide">あそびかたを みる</button>
         </div><!-- /.set-body -->
       </div>
     </div>
@@ -668,6 +681,7 @@
         <p class="t-sub">― 2000年の夏、あの町へ ―</p>
         <h1 class="t-main">ひと夏のまち</h1>
         <button id="t-start" disabled aria-busy="true">じゅんびちゅう…</button>
+        <div id="t-prog"><i></i></div>
         <button id="t-resume" type="button">つづきから</button>
         <p class="t-hint">指でスライドして歩く ／ 横画面・音を出してお楽しみください</p>
       </div>

@@ -140,6 +140,9 @@ async function __breath(label) {
   try { window.__bootMarks.push([label, Math.round(performance.now() - __bootT0)]) } catch (e) {}
   __breathN++
   try { const b = document.getElementById('t-start'); if (b && b.disabled) b.textContent = 'じゅんびちゅう' + '…'.repeat(1 + (__breathN % 3)) } catch (e) {}
+  // ★進み具合をそっと見せる（2026-07-25）。待ちの正体はダウンロードでなく まちの建設なので、節目の数から出す。
+  //   終わりが近いほどゆっくり伸びる形＝「あと少し」を嘘なく伝える（100%に届くのは実際に押せるようになった時だけ）。
+  try { const p = document.querySelector('#t-prog i'); if (p) p.style.width = (100 * (1 - Math.exp(-__breathN / 6.5))).toFixed(1) + '%' } catch (e) {}
   await new Promise((r) => setTimeout(r, 0))
 }
 async function warmVrmCache() {
@@ -13927,8 +13930,12 @@ function renderDiaryView() {
 const badgeEl = document.getElementById('badge')
 // I5：素朴な時刻表示＝時計の数字でなく、やさしい言葉で「いま夏のどのへんか」を伝える（システム用語を出さない）
 function timeWord(t) { return t < 0.1 ? 'よあけ' : t < 0.22 ? 'あさ' : t < 0.4 ? 'ひるまえ' : t < 0.5 ? 'おひる' : t < 0.6 ? 'ひるさがり' : t < 0.72 ? 'ゆうがた' : t < 0.82 ? 'ゆうぐれ' : t < 0.92 ? 'よる' : 'よふけ' }
-let lastBadgeWord = ''
-function refreshBadge() { if (badgeEl) { lastBadgeWord = timeWord(tday); badgeEl.textContent = `なつやすみ ${day}にちめ ・ ${lastBadgeWord}` } } // 日数＋やさしい時刻の言葉。時刻が移るたびに更新（ループから）
+let lastBadgeWord = '', lastBadgePlace = ''
+function refreshBadge() { if (badgeEl) { lastBadgeWord = timeWord(tday) // 日数＋やさしい時刻の言葉。時刻が移るたびに更新（ループから）
+  // ★いま居る所を一語だけ添える（2026-07-25）＝地図は出さない。歩いていて「ここどこだっけ」が消える程度の、そっとした手がかり
+  let p = ''; try { p = nearPlace() } catch (e) {}
+  lastBadgePlace = p
+  badgeEl.textContent = `なつやすみ ${day}にちめ ・ ${lastBadgeWord}` + (p ? ` ・ ${p}` : '') } }
 refreshBadge()
 // I1改：各日の絵日記を保存して過去日をめくって読み返せる（4役評価の最優先＝7日を積む本作の情緒の背骨・2026-07-04）
 let diaryLog = {}; try { diaryLog = JSON.parse(localStorage.getItem('hn3d_diarylog') || '{}') || {} } catch (e) {}
@@ -15091,7 +15098,8 @@ function update(dt) {
     const sitFlow = mode === 'sit' ? 5 : 1 // B1：座っている間は時間が速く流れる＝夕焼けが少しずつ色を変えていくのを眺められる（間を味わう）
     tday = Math.min(0.97, tday + dt * sitFlow / (fwSlow ? 1000 : 630)) // 一日の速さ＝発熱対策で約15%速く(740→630・ユーザー要望2026-07-04)。各時間帯を長く味わえる“夢のような時間の流れ”（ユーザー「時間もう少しゆっくり」2026-06-24）
     setTimeOfDay(tday)
-    { const tw = timeWord(tday); if (tw !== lastBadgeWord) { if (tw === 'ゆうがた' && lastBadgeWord === 'ひるさがり' && mode === 'walk') onceHint('dusk-turn', '…日が、かたむいてきた。'); refreshBadge() } } // I5：時刻の言葉が移ったらバッジを更新／P1：昼下がり→夕方の変わり目に一度だけそっと気づく＝移ろいに立ち会う
+    { const tw = timeWord(tday); if (tw !== lastBadgeWord) { if (tw === 'ゆうがた' && lastBadgeWord === 'ひるさがり' && mode === 'walk') onceHint('dusk-turn', '…日が、かたむいてきた。'); refreshBadge() } // I5：時刻の言葉が移ったらバッジを更新／P1：昼下がり→夕方の変わり目に一度だけそっと気づく＝移ろいに立ち会う
+      else { let np = ''; try { np = nearPlace() } catch (e) {} if (np !== lastBadgePlace) refreshBadge() } } // ★居る所が変わった時もバッジを描き直す（2026-07-25・一語だけ添える手がかり）
     if (weather > 0.5) { todayFlags.sawRain = true; if (!seenSummer.rain) { seenSummer.rain = day; todayFlags.firstRain = true; saveSummer() } } // P2：その日に夕立／P3：その夏はじめての夕立を覚えておく
     // P3：その夏はじめて見た情景（夕やけ・入道雲）を記録＝夜の絵日記に「初めて」の一行を刻む（夏ごとにリセット）
     if (!diaryOpen && !seenSummer.sunset && tday > 0.58 && tday < 0.72) { seenSummer.sunset = day; todayFlags.firstSunset = true; saveSummer() }
@@ -18312,6 +18320,7 @@ function spawnHeroineReady() {
 function markTitleReady() {
   const b = document.getElementById('t-start')
   if (b) { b.disabled = false; b.removeAttribute('aria-busy'); b.textContent = 'はじめる' }
+  try { const p = document.querySelector('#t-prog i'); if (p) p.style.width = '100%' } catch (e) {} // 進みの線を最後まで伸ばしてから消える
   const t = document.getElementById('title'); if (t) t.classList.remove('loading') // 不透明のローディング覆いを外す＝本編の絵(夏の夕暮れ)があらわれる
 }
 setTimeout(() => { if (!titleReady) { titleReady = true; markTitleReady() } }, 8000) // 保険：8秒で必ず押せるように
@@ -18454,7 +18463,7 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
   const kleeUrl = ((import.meta.env && import.meta.env.BASE_URL) || '/') + 'fonts/klee-one-400.woff2' // 同梱の教科書体フォント(Klee One・SIL OFL)＝おもいで帳だけに使う。外部CDN不要で"自分がいなくても動く"。unicode-rangeでかな/漢字のみ担当し英数字はゴシックへ委譲
   style.textContent = `
     @font-face{font-family:"KleeOne";src:url("${kleeUrl}") format("woff2");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+3000-303F,U+3040-30FF,U+31F0-31FF,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FF00-FFEF;}
-    #mb-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 156px + env(safe-area-inset-top));z-index:38;appearance:none;border:none;cursor:pointer;
+    #mb-btn{position:fixed;left:calc(3% + env(safe-area-inset-left));top:calc(3.5% + 156px + env(safe-area-inset-top));z-index:19;appearance:none;border:none;cursor:pointer;
       width:44px;height:44px;border-radius:50%;font-size:21px;background:rgba(74,64,50,0.7);box-shadow:0 3px 10px rgba(20,24,40,0.3);}
     body.titling #mb-btn,body.pm-on #mb-btn{display:none !important;}
     #mb-modal{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(18,20,30,0.8);backdrop-filter:blur(2px);padding:3vh 3vw;}
@@ -18467,10 +18476,10 @@ const CREATURE_NO = {}; { let _i = 0; for (const grp of ['むし', 'さかな'])
     #mb-head{position:relative;padding:0.8em 1em 0.66em 1.5em;background:linear-gradient(#cbaa70,#bd9a5a);color:#3a2c15;font-weight:700;letter-spacing:0.14em;font-size:15px;text-shadow:0 1px 0 rgba(255,246,222,0.4);box-shadow:0 2px 7px rgba(80,60,30,0.25);}
     #mb-head small{display:block;font-weight:400;font-size:10.5px;letter-spacing:0.1em;color:#5a4526;opacity:0.9;margin-top:1px;}
     #mb-tabs{display:flex;gap:4px;padding:6px 8px 0 1.5em;}
-    .mb-tab{flex:1;appearance:none;border:none;cursor:pointer;padding:0.58em 0 0.5em;font-size:14px;font-family:inherit;color:#8a7550;background:rgba(219,203,166,0.7);border-radius:8px 8px 0 0;letter-spacing:0.05em;box-shadow:inset 0 -3px 6px rgba(120,90,50,0.08);}
+    .mb-tab{flex:1;appearance:none;border:none;cursor:pointer;min-height:44px;padding:0.58em 0 0.5em;font-size:14px;font-family:inherit;color:#8a7550;background:rgba(219,203,166,0.7);border-radius:8px 8px 0 0;letter-spacing:0.05em;box-shadow:inset 0 -3px 6px rgba(120,90,50,0.08);}
     .mb-tab.on{color:#3b3024;font-weight:700;background:#fdf8ec;box-shadow:0 -2px 6px rgba(120,90,50,0.1);}
     #mb-body{padding:1.15em 1.35em 1.6em;overflow:auto;color:#3b3024;background:#fdf8ec;flex:1;-webkit-overflow-scrolling:touch;}
-    #mb-close{position:absolute;right:9px;top:8px;z-index:9;appearance:none;border:none;cursor:pointer;width:40px;height:40px;border-radius:50%;font-size:19px;background:rgba(85,62,36,0.3);color:#fbf2df;}
+    #mb-close{position:absolute;right:9px;top:8px;z-index:9;appearance:none;border:none;cursor:pointer;width:44px;height:44px;border-radius:50%;font-size:19px;background:rgba(85,62,36,0.3);color:#fbf2df;}
     #mb-body h4{margin:0 0 0.7em;font-weight:700;letter-spacing:0.08em;color:#4a3a24;}
     #mb-body .line{margin:0.34em 0;line-height:1.75;font-size:15px;}
     #mb-pic img{width:100%;max-width:340px;display:block;margin:1.2em auto 0;border:6px solid #fff;border-radius:2px;box-shadow:0 5px 14px rgba(0,0,0,0.3);transform:rotate(-1.2deg);}
@@ -19041,6 +19050,15 @@ if (setMedBtn) setMedBtn.addEventListener('click', () => { settings.med = !setti
 const setSafeBtn = document.getElementById('set-safe')
 if (setSafeBtn) { setSafeBtn.textContent = __SAFE ? 'ON' : 'OFF'; setSafeBtn.classList.toggle('on', __SAFE)
   setSafeBtn.addEventListener('click', () => { location.href = location.pathname + (__SAFE ? '?safe=0' : '?safe=1') }) }
+// ★ホーム画面のアイコンから開くと（standalone）アドレス欄が無い＝読み直す手立てがまったく無かった（2026-07-25）。
+//   押す前に必ず「今どこに居たか」を書き残してから開き直す＝戻ってきた時は同じ場所・同じ時刻から続く。
+const setReloadBtn = document.getElementById('set-reload')
+if (setReloadBtn) setReloadBtn.addEventListener('click', () => {
+  try { saveState() } catch (e) {}
+  try { tickCrumb() } catch (e) {} // ok=0 のまま書き残す＝開き直した後は黙って続きから
+  try { showToast('ひらき直すね。すぐ もどるよ。') } catch (e) {}
+  setTimeout(() => { try { location.reload() } catch (e) {} }, 500)
+})
 const setFpvBtn = document.getElementById('set-fpv')
 if (setFpvBtn) setFpvBtn.addEventListener('click', () => { toggleFpv(); if (fpv && settingsEl) settingsEl.classList.remove('on') }) // 主観視点トグル（ONですぐ見わたせるよう設定を閉じる）。toggleFpvが全ボタン同期＋水平視線
 // はじまりの場所＝いま立っている所を開始地点として保存（つぎに始めるときここから／トップ画面もここを映す）。標準にもどすボタンつき。ユーザー要望2026-06-24
