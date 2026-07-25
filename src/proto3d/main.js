@@ -18054,6 +18054,44 @@ async function compressStaticGeometry() {
 }
 await compressStaticGeometry()
 
+// ── CPU側の頂点データの解放（2026-07-25・常駐メモリの最大の一塊＝実測191.8MB）──
+// 動かない景色の頂点データは、GPUへ送ってしまえばCPU側にもう1部を持っている必要がない。
+// three.js の「送り終えたら呼ばれる合図（onUpload）」で1本ずつ手放す＝一度にどっと解放しないので山（ピーク）を作らない。
+// ★これができるようになったのは、ばしょマップが2つ目の描画装置をやめたから。
+//   あちらは同じ世界をもう一度アップロードするためにCPU側の元データを必要としており、これが過去に
+//   「CPU配列を解放したらばしょマップが壊れた＝禁じ手」となった事故の正体だった（2026-07-25に判明）。
+// 対象外＝粒子(Points)・線・スキン（毎フレーム頂点を書き換える）と、表情モーフを持つもの。
+// 唯一の実行時レイ（釣り人の「頭上に木があるか」）は、解放より先に済ませておく。
+// ★引き換え：画面が一度とまる（WebGLコンテキスト喪失）と、送り直す元データが無いので開き直しが必須になる。
+//   その代わり第4段の自動保存で「黙って続きから」戻れるようにしてある。?nofree=1 で解放を止められる（切り分け用）。
+let __relAttrs = 0, __relBytes = 0
+function releaseStaticGeometryArrays() {
+  try { if (new URLSearchParams(location.search).get('nofree') === '1') return } catch (e) {}
+  try { initFishers() } catch (e) {} // 頭上の木を見るレイは頂点データを読む＝先に済ませる
+  const seen = new Set()
+  const freeThis = function () { if (this.array) { __relBytes += this.array.byteLength; this.array = null; __relAttrs++ } }
+  const MINV = 256 // ★小さいかたちは手放さない＝節約はごくわずかなのに、人や小物はレイ（当たり判定・顔ゲート）で頂点を読むことがある。
+  //   大きいのは地面・建物の統合メッシュ・樹冠・道＝ここに常駐メモリのほとんどが集まっている
+  const walk = (o) => {
+    if (o.userData && (o.userData.head || o.userData.noFree)) return // 人（村人）の下は丸ごと触らない＝顔ゲートのレイが頂点を読む。かたち自体も小さい
+    if (o.isMesh && !o.isSkinnedMesh && !o.isPoints && !o.isLine) {
+      const g = o.geometry
+      if (g && !seen.has(g.uuid)) { seen.add(g.uuid)
+        const p = g.attributes && g.attributes.position
+        if (p && p.count >= MINV && !(g.morphAttributes && (g.morphAttributes.position || g.morphAttributes.normal))) {
+          if (!g.boundingBox) g.computeBoundingBox() // ★手放す前に必ず算出（あとから計算しようとしても頂点が無い＝遠くの物のカリングが壊れる）
+          if (!g.boundingSphere) g.computeBoundingSphere()
+          for (const k in g.attributes) { const a = g.attributes[k]; if (a && a.onUpload && !a.isInterleavedBufferAttribute) a.onUpload(freeThis) }
+          if (g.index && g.index.onUpload) g.index.onUpload(freeThis)
+        }
+      }
+    }
+    for (const c of o.children) walk(c)
+  }
+  walk(scene)
+}
+releaseStaticGeometryArrays()
+
 // ── 初回描画の“GPU一撃”をならす（同対策）：シェーダーの準備（従来は最初の1フレームに155本超のコンパイルが集中＝
 //    iOSのGPUドライバに最も厳しい瞬間）を、絵を出す前に少しずつ済ませる。テクスチャは先読みしない＝
 //    従来どおり「見えた時に読む」（全部先読みすると、その回のプレイで見ない分まで常駐しメモリ削減に逆行・予算320も割る）──
@@ -19214,7 +19252,7 @@ window.__proto3d = {
   VBMAP, get vrmBoy() { return vrmBoy }, get vrmBoyState() { return vrmBoyState }, // 検証用：VRM主人公の写し符号/取り付け寸法のライブ調整
   get vrmResidentState() { return vrmResidentState }, get vrmResidents() { return vrmResidents }, get vrmResLiveCount() { return vrmResLiveCount }, _loadResidents() { if (vrmResidentState === 0) startVrmResident(); for (const r of vrmResidents) if (r.state === 'idle') prepareResidentVrm(r) }, _forceShowResidents() { for (const r of vrmResidents) { if (r.state !== 'prepared' || !r.vrm) continue; r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false } }, // 検証用：住人VRMを上限無視で全員準備＋強制表示（撮影用）
   get renderer() { return renderer }, _glInfo() { return { tex: renderer.info.memory.textures, geo: renderer.info.memory.geometries, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, glLost: __glLost } }, // 検証用：GPUリソース量（住人VRM追加のcontext lost診断・今後のperf検証）
-  _memStat() { return { compSavedMB: __compSavedMB, marks: window.__bootMarks || [] } }, // 検証用：起動圧縮の削減量＋建設の節目タイム（iPhone15即再起動対策2026-07-22）
+  _memStat() { return { compSavedMB: __compSavedMB, freedMB: +(__relBytes / 1048576).toFixed(1), freedAttrs: __relAttrs, marks: window.__bootMarks || [] } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
   __ks: __KS, // 計測用：キルスイッチ実体を公開＝ランタイムでprepass/prehalf/minpostを切替（Phase1のコスト計測用。URLパラメータと同じ効果）
   __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
   __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
@@ -19708,7 +19746,7 @@ window.__proto3d = {
   // 歩ける町の範囲（walkのクランプと一致）。+z=北(裏山)を上、+x=東を右に描く＝ふつうの地図向き
   const X0 = T.x - 350, X1 = T.x + 100, Z0 = T.z - 345, Z1 = T.z + 230 // 西を拡張(750→650)＝南西へ動かした二つ池まで地図に入れる
   let cssW = 320, cssH = 480, dpr = 1
-  let baseCanvas = null, glr = null, orthoCam = null // 実写オルソの下地（別レンダラ。メインの描画/カメラには一切触れない）
+  let baseCanvas = null, orthoCam = null, __mapBakeFailed = false // 実写オルソの下地（メインの描画装置で一度だけ焼く。描画ループ/カメラの状態は元に戻す）
 
   // 目印（すべて“実際に物を置いたmake呼び出しの座標”から。座標はコメントの make* と一致＝シーンと厳密に合う）。
   // k=見た目の種類。dy指定があればラベルの上下を個別に決めて密集地の重なりを避ける（無指定は i%2 で自動振り分け）。
@@ -19829,34 +19867,39 @@ window.__proto3d = {
   // 名前を出す主要な目印（実写の上に乗せる。anchor()は全LMを使い、描画はこの主要どころだけ＝混雑回避）
   const LBL = new Set(['マンション', 'しんみせ', '商店街', 'スーパー', 'パチンコ', '銭湯', '団地(東)', '小学校', 'グラウンド', 'ふたつ池', 'こうえん', '裏山', '西の丘', '北寺尾の家なみ', '高校'])
 
-  // 実写の真上ビューを“別レンダラ＋オルソカメラ”で一度だけ描いて下地にする（メインの描画ループ/カメラには一切触れない）
+  // 実写の真上ビューを“メインの描画装置”で一度だけ焼いて下地にする（2026-07-25の作り直し）。
+  // ★以前は「2つ目のWebGL描画装置」を作って世界をもう一度描いていた。WebGLは描画装置どうしでGPUの資源を
+  //   まったく共有しないので、開いた瞬間に世界のかたちと絵がまるごと二重にGPUへ載り（実測+71.3MB）、
+  //   その装置を一度も返していなかったため、閉じても1バイトも戻らないまま最後まで居座っていた（iPhone15クラッシュの一因）。
+  //   また「CPU側の頂点データを解放するとばしょマップが壊れる」という過去の事故も、正体はこれ（2つ目の装置が
+  //   もう一度アップロードするためにCPU側の元データを必要としていた）。メインの装置で焼けば、その扉も開く。
+  // 焼くのは一度だけ（世界のかたちは変わらない）。画面の大きさが変わっても、焼いた絵を伸縮して使う＝焼き直さない。
+  const BAKE_W = 900, BAKE_H = Math.round(900 * ((Z1 - Z0) / (X1 - X0))) // 下地の焼き付け寸法（表示は最大440px幅なので約2倍＝縮小時になめらか＝アンチエイリアス代わり）
   function renderBase() {
+    if (baseCanvas || __mapBakeFailed) return // 既に焼いてある（または焼けなかった）＝そのまま使う
     try {
-      const RW = Math.max(2, Math.round(cssW * dpr)), RH = Math.max(2, Math.round(cssH * dpr))
-      if (!glr) { glr = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); glr.setPixelRatio(1) }
-      glr.setSize(RW, RH, false); glr.setClearColor(0xa8c4d6, 1)
+      const RW = BAKE_W, RH = BAKE_H
       const halfW = (X1 - X0) / 2, halfH = (Z1 - Z0) / 2, cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2
       if (!orthoCam) orthoCam = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 6000)
       orthoCam.up.set(0, 0, 1); orthoCam.position.set(cx, 2000, cz); orthoCam.lookAt(cx, 0, cz); orthoCam.updateProjectionMatrix() // up=(0,0,1)で北上・東左（実写と同じ向き）
       const sFog = scene.fog, sAuto = dayAuto, sT = tday // 昼・霧なしで撮って即もどす（オーバーレイで隠れて見えない）
       dayAuto = false; tday = 0.5; setTimeOfDay(0.5) // 先に昼へ（setTimeOfDayは scene.fog.color を触るので fog は生かしたまま）
       scene.fog = null // それから霧だけ外す＝俯瞰が霧で真っ白に消えるのを防ぐ
-      glr.render(scene, orthoCam)
+      const rt = new THREE.WebGLRenderTarget(RW, RH) // 使い捨ての焼き付け先（読み終わったらすぐ返す）
+      const prevRT = renderer.getRenderTarget()
+      const prevClear = renderer.getClearColor(new THREE.Color()), prevAlpha = renderer.getClearAlpha()
+      renderer.setRenderTarget(rt); renderer.setClearColor(0xa8c4d6, 1); renderer.clear()
+      renderer.render(scene, orthoCam)
+      const buf = new Uint8Array(RW * RH * 4)
+      renderer.readRenderTargetPixels(rt, 0, 0, RW, RH, buf)
+      renderer.setRenderTarget(prevRT); renderer.setClearColor(prevClear, prevAlpha)
+      rt.dispose()
       scene.fog = sFog; dayAuto = sAuto; tday = sT; setTimeOfDay(sT) // 霧を戻してから時刻も元へ
-      if (!baseCanvas) baseCanvas = document.createElement('canvas')
-      baseCanvas.width = RW; baseCanvas.height = RH
-      baseCanvas.getContext('2d').drawImage(glr.domElement, 0, 0)
-    } catch (e) { baseCanvas = null } // 失敗時は無地下地にフォールバック
-    // ★写し取ったら第2の描画装置はその場で返す（2026-07-25・iPhone15クラッシュ対策）。
-    //   WebGLは描画装置どうしでGPUの資源を共有しない＝ここで世界のかたちと絵がまるごと二重にGPUへ載る（実測+71.3MB）。
-    //   以前は返していなかったので、ばしょマップを一度でも開くと、閉じても1バイトも戻らないまま最後まで居座っていた。
-    disposeMapRenderer()
-  }
-  function disposeMapRenderer() { // 使い終わった第2の描画装置を完全に返す（forceContextLossまでやらないとブラウザ側のコンテキストが残る）
-    if (!glr) return
-    try { glr.dispose() } catch (e) {}
-    try { glr.forceContextLoss() } catch (e) {}
-    glr = null
+      baseCanvas = document.createElement('canvas'); baseCanvas.width = RW; baseCanvas.height = RH
+      const b2 = baseCanvas.getContext('2d'), img = b2.createImageData(RW, RH)
+      for (let y = 0; y < RH; y++) { const src = (RH - 1 - y) * RW * 4; img.data.set(buf.subarray(src, src + RW * 4), y * RW * 4) } // ★GPUから読むと左下が原点＝上下がさかさま。1行ずつ入れ替えて戻す
+      b2.putImageData(img, 0, 0)
+    } catch (e) { baseCanvas = null; __mapBakeFailed = true } // 失敗時は無地下地にフォールバック（毎回やり直して重くしない）
   }
 
   function drawMap() {
@@ -19963,6 +20006,6 @@ window.__proto3d = {
   }
   if (shareBtn) shareBtn.addEventListener('click', shareMap)
 
-  window.addEventListener('resize', () => { if (mapEl.classList.contains('on')) { sizeCanvas(); renderBase(); drawMap() } })
+  window.addEventListener('resize', () => { if (mapEl.classList.contains('on')) { sizeCanvas(); drawMap() } }) // ★下地は焼き直さない（一度焼いた絵を伸縮するだけ＝画面回転のたびに世界を描き直さない）
 })()
 
