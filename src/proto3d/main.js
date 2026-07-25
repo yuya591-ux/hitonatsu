@@ -63,7 +63,8 @@ let __SAFE = false, __safeForced = null // __safeForced＝安全モードが強�
 try { // ?safe=1 で手動ON（以後も継続）／?safe=0 で解除／既に継続フラグがあればON
   const _q = new URLSearchParams(location.search).get('safe')
   if (_q === '1') { __SAFE = true; try { localStorage.setItem('hn3d_safe', '1') } catch (e) {} }
-  else if (_q === '0') { try { localStorage.removeItem('hn3d_safe'); localStorage.setItem('hn3d_bootn', '0') } catch (e) {} }
+  else if (_q === '0') { try { localStorage.removeItem('hn3d_safe'); localStorage.setItem('hn3d_bootn', '0') // ★?safe=0＝「ぜんぶもどす」＝段もとまった回数もパンくずも白紙に（2026-07-25）
+    localStorage.setItem('hn3d_level', '0'); localStorage.setItem('hn3d_levelauto', '0'); localStorage.setItem('hn3d_crashn', '0'); localStorage.removeItem('hn3d_bc') } catch (e) {} }
   else if (localStorage.getItem('hn3d_safe') === '1') __SAFE = true
 } catch (e) {}
 // ── パンくず（2026-07-25・iPhone15の「何も出ずに突然おわる」を突き止めるため）──
@@ -81,16 +82,38 @@ try {
 const __evRing = [] // 直近の出来事8件（何をした直後に落ちたかを次の起動で読む）
 function logEv(s) { try { __evRing.push(((performance.now() / 1000) | 0) + 's ' + s); if (__evRing.length > 8) __evRing.shift() } catch (e) {} }
 let __resizeN = 0, __vrmPrepTotal = 0, __mapOpenN = 0 // 画面の作り直し回数／のべVRM準備体数／ばしょマップを開いた回数
+let __keepCap = Infinity // 住人VRMの保有上限を実行中に絞るための天井（体温計＝下の見張りが使う。ふだんは無制限＝設定どおり）
 let __bootGuard = false // 起動失敗が続いた端末＝3Dを一切始めず案内画面だけ出す（再起動ループの完全遮断・2026-07-22）
-try { // 自動検知：前回の起動が「建設完了＋8秒」に届かず落ちた＝連続失敗→2回で安全モード、4回で起動ガード。
-  //   カウンタの戻し＝①建設完了+8秒生存（モジュール末尾で予約）②きれいに閉じた/他アプリへ移った（pagehide/非表示）＝「画面を見ている最中の急死」だけを数える
-  const _bk = 'hn3d_bootn', _bn = (parseInt(localStorage.getItem(_bk) || '0', 10) || 0) + 1
-  localStorage.setItem(_bk, String(_bn))
-  if (_bn >= 2) { __SAFE = true; try { localStorage.setItem('hn3d_safe', '1') } catch (e) {} }
-  if (_bn >= 4) { if (localStorage.getItem('hn3d_guardtry') === '1') localStorage.removeItem('hn3d_guardtry'); else __bootGuard = true } // guardtry＝案内画面から「もういちど」を押した1回ぶんだけ通す
-  addEventListener('pagehide', () => { try { localStorage.setItem(_bk, '0') } catch (e) {} })
-  document.addEventListener('visibilitychange', () => { try { if (document.visibilityState === 'hidden') localStorage.setItem(_bk, '0') } catch (e) {} })
+// ── かるさの段（2026-07-25）：つまみを増やさず、1本の「段」で軽さをまとめる ──
+//   0＝いつもの絵 ／ 1＝ほぼ気づかない（住人の保有数・主人公の絵・影の細かさ・主観の解像度上げを控える）
+//   2＝旧プロトの「最初の町＋裏山」を作らない ／ 3＝安全モード（人を全部シンプルに） ／ 4＝避難画面
+//   ★守る線＝谷戸の街並みの密度・時間と光・音・人が「いる」こと・おもいで帳。ここには一切手を付けない。
+// 段が上がるのは「見ている最中に突然おわった（急死）」が続いたときだけ。1回目は黙って+1、2回目は一言たずねる（ユーザーの決定2026-07-25）。
+let __level = 0, __levelAuto = false, __askLighter = false
+try {
+  const _q = new URLSearchParams(location.search).get('lowmem')
+  const _saved = parseInt(localStorage.getItem('hn3d_level') || '0', 10) || 0
+  __level = (_q != null && isFinite(+_q)) ? Math.max(0, Math.min(4, +_q)) : _saved
+  if (_q != null) { localStorage.setItem('hn3d_level', String(__level)); localStorage.setItem('hn3d_levelauto', '0') }
+  __levelAuto = localStorage.getItem('hn3d_levelauto') === '1'
+  if (__SAFE && __level < 3) __level = 3 // 旧「安全モード」は段3の別名＝既存のスイッチ・URLをそのまま生かす
+  // ★正しい急死の検知（旧 hn3d_bootn は「はじめる」が押せるのと同じ8秒で0に戻る作りで一度も発動しなかった＝置き換え）
+  if (__prevCrash) {
+    if (__crashN === 1 && __level < 1) { __level = 1; __levelAuto = true }
+    else if (__crashN === 2 && __level < 2) { __askLighter = true } // 2回目＝勝手に変えず、遊び始めてから一言たずねる
+    else if (__crashN === 3 && __level < 3) { __level = 3; __levelAuto = true }
+    else if (__crashN >= 4) { if (localStorage.getItem('hn3d_guardtry') === '1') localStorage.removeItem('hn3d_guardtry'); else { __level = 4; __levelAuto = true } } // guardtry＝案内画面から「もういちど」を押した1回ぶんだけ通す
+    if (__levelAuto) { localStorage.setItem('hn3d_level', String(__level)); localStorage.setItem('hn3d_levelauto', '1') }
+  }
+  if (__level >= 3) __SAFE = true
+  if (__level >= 4) __bootGuard = true
 } catch (e) {}
+// ★「スマホ単体か」の判別（2026-07-25・ユーザーの方針＝見た目が少し変わる節約はiPhone単体の時だけ。リモートコントロールとパソコンは今までどおり）。
+//   指でさわれて画面の短い方が500px以下＝手のひらの端末。タブレットもパソコンも当てはまらない。
+let __PHONE = false, __HQ0 = false
+try { __HQ0 = new URLSearchParams(location.search).get('hq') === '1' } catch (e) {} // ＝リモートコントロール（母艦で描いてiPhoneへ配信）。下の __HQ と同じ判定を早い段階で使うための先読み
+try { __PHONE = !__HQ0 && (('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0) && Math.min(screen.width || 9999, screen.height || 9999) <= 500 } catch (e) {}
+const __LOWART = __PHONE || __level >= 1 // 影の細かさ・主人公の絵の細かさ・住人の保有数を控える（絵の作りは変えない＝密度も光も音も人もそのまま）
 if (__bootGuard) { // 3Dを始める前に止める＝これ以上この端末を苦しめない。文言は素朴に・直し方も添える
   try {
     const t = document.getElementById('title'); if (t) t.style.display = 'none'
@@ -912,7 +935,7 @@ let pixelRatioCap = __HQ ? HQ_DPR : 1.30 // ピクセル比の上限（発熱対
 let __adaptScale = 1, __adaptCd = 0, __adaptEnabled = false // C4（動的解像度・2026-07-11）：発熱/高負荷でフレームが落ちる時だけ描画解像度を段階的に下げ(×1→0.86→0.72)、余裕が戻ったら戻す。調査上は画素数削減が発熱に効くが──★実機FB(2026-07-11)で既定OFFに変更＝(1)解像度変更のたびresize()がGPUバッファ(コンポーザ/ブルーム/法線+深度RT)を再確保→自転車走行中にFPSがしきい値(約23fps)を上下するたびヒッチ＝「定期的に画面が一瞬チラつき暗転」の主因、(2)0.72倍まで落ちて画質低下(ユーザー「以前より画質が悪い」)。発熱は"チラつかない"手段で担う＝手動モード(中くらい/軽量＝解像度1.0)＋負荷持続時の軽量モード提案トースト。__adaptScale=1で固定→解像度は pixelRatioCap で安定→走行中のresizeゼロ＝チラつき無し・画質フル。※_adapt()デバッグフックとモード切替の解像度追従は引き続き機能（再有効化は__adaptEnabled=trueで可能・非破壊）
 let __postHalfOn = false // ★半解像度ポスト（設定「ひかりの しあげを 半分に」・2026-07-12）＝settings.posthalfのミラー（resize()がsettings定義前に走ってもTDZで死なないための実体）。光の筋を半分の下塗りで計算＋ブルームの下塗りを1/2→1/4へ
 let __fpvDprOn = false // ★主観視点の鮮鋭化（2026-07-12実機FB「特に主観でガビガビ」）＝地上の主観視点中だけDPR上限を1.30→1.50に上げる。状態が変わった時だけresize（毎フレームのRT再確保はしない＝チラつき無し。切替の1回は視点カットに隠れる）
-const effDprCap = () => (__fpvDprOn && pixelRatioCap === 1.30) ? 1.50 : pixelRatioCap // 1.30ちょうど（標準モード）の時のみブースト＝軽量/中くらい(1.0)の約束と計測フック(__perfDPR)の手動値には効かせない。空中(浮遊/飛行)は発熱優先で据え置き
+const effDprCap = () => (__fpvDprOn && !__LOWART && pixelRatioCap === 1.30) ? 1.50 : pixelRatioCap // ★かるさの段1以上／スマホ単体では主観の解像度上げをしない＝出入りのたびのバッファ作り直しも消える（2026-07-25） // 1.30ちょうど（標準モード）の時のみブースト＝軽量/中くらい(1.0)の約束と計測フック(__perfDPR)の手動値には効かせない。空中(浮遊/飛行)は発熱優先で据え置き
 // 実際に使うピクセル比。3箇所に同じ式が散っていたので1つにまとめた（片方だけ直して食い違う事故を防ぐ・2026-07-15）。
 // 通常は端末のピクセル比が天井＝それ以上描いても意味が無い。配信の高画質だけは天井を外す＝スーパーサンプリング。
 const dprNow = () => { const want = effDprCap() * __adaptScale; return __HQ ? want : Math.min(window.devicePixelRatio || 1, want) }
@@ -926,7 +949,12 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap // やわらかい影のふち�
 // WebGLコンテキストロスト対策（Engineer指摘2026-06-27）：モバイルでタブ復帰/GPUメモリ逼迫時にcontextが失われると、ハンドラ無しだとcanvasが永久に黒くなる（リロードするまで復帰不能）。
 // preventDefaultでブラウザに復帰を促し、復帰時（または短い猶予後）にreloadで全GPUリソースを作り直す＝確実にもどす。10行で黒画面永久死を回避。
 let __glLost = false
+// ★2026-07-25：CPU側の頂点データを手放す（送り終えたら1本ずつ解放）ようにしたので、画面がとまったら送り直す元データが無い＝開き直しが唯一の道。
+//   その代わり、開き直す前に必ず「今どこに居たか・何を見つけたか」を書き残す＝開き直した後は黙って続きから戻る（ユーザーの決定）。
 canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); if (__glLost) return; __glLost = true
+  try { logEv('画面がとまった') } catch (e2) {}
+  try { if (typeof saveState === 'function') saveState() } catch (e2) {} // 進行（見たこと・むし・さかな）
+  try { if (typeof tickCrumb === 'function') tickCrumb() } catch (e2) {}  // 場所・時刻（パンくず）＝続きから戻る材料
   try { showToast('画面が とまっちゃった…すぐ もどすね。') } catch (e2) {}
   setTimeout(() => { try { location.reload() } catch (e2) {} }, 1400) }, false) // 復帰イベントが来なくても開き直して必ずもどす
 canvas.addEventListener('webglcontextrestored', () => { try { location.reload() } catch (e) {} }) // 復帰したら確実に再構築
@@ -1080,7 +1108,7 @@ function injectLeafGlow(sh) { // 樹冠の材質のonBeforeCompileの最後に�
 const sun = new THREE.DirectionalLight(0xfff2d8, 2.1)
 sun.position.copy(sunDir.clone().multiplyScalar(120))
 sun.castShadow = true
-sun.shadow.mapSize.set(2048, 2048) // 固定カメラで広域を覆うので解像度を上げて補う（再描画は稀なのでコスト可）
+sun.shadow.mapSize.set(__LOWART ? 1024 : 2048, __LOWART ? 1024 : 2048) // 固定カメラで広域を覆うので解像度を上げて補う（再描画は稀なのでコスト可）。★スマホ単体／かるさの段1以上は1024＝影の紙(16MB)を4MBへ（影のふちがわずかに柔らかくなるだけ・2026-07-25）
 sun.shadow.camera.near = 10
 sun.shadow.camera.far = 360
 const sc = sun.shadow.camera
@@ -9155,6 +9183,18 @@ boy.rotation.order = 'YXZ' // ★向き(y)を最外＝前傾(x)は常に「進�
 const DEFAULT_SPAWN = { x: 3004, z: 30, rot: Math.PI / 4, area: 'yato' }
 let spawnPt = { ...DEFAULT_SPAWN }, spawnCustom = false // 設定「はじまりの場所」で保存した開始地点（無ければ既定）。ユーザー要望2026-06-24＝開始地点を自由に設定
 try { const s = JSON.parse(localStorage.getItem('hn3d_spawn') || 'null'); if (s && isFinite(s.x) && isFinite(s.z)) { spawnPt = { x: s.x, z: s.z, rot: isFinite(s.rot) ? s.rot : DEFAULT_SPAWN.rot, area: s.area || 'yato' }; spawnCustom = true } } catch (e) {}
+// ★「黙って続きから」（2026-07-25・ユーザーの決定）＝前回が急死なら、そのときの場所・向き・エリアで始める。何も知らせず、そっと元の続きへ。
+//   高さは保存値でなく地面から取り直す（地形は取り直した方が確実）。地面から3m以上離れていた＝屋上や家の中なので復帰しない（宙に落ちる事故を避ける）。
+let __resumeBc = null, __resumeStart = null // __resumeBc＝急死からの黙った復帰／__resumeStart＝「はじめる」を押した時に時刻まで戻す元（タイトルの「つづきから」もここに入れる）
+try {
+  if (__prevCrash && __prevBc && isFinite(__prevBc.x) && isFinite(__prevBc.z) && __prevBc.sec > 15) {
+    const gy = heightAt(__prevBc.x, __prevBc.z)
+    if (isFinite(gy) && Math.abs((__prevBc.y != null ? __prevBc.y : gy) - gy) < 3) {
+      __resumeBc = __prevBc; __resumeStart = __prevBc
+      spawnPt = { x: __prevBc.x, z: __prevBc.z, rot: isFinite(__prevBc.r) ? __prevBc.r : DEFAULT_SPAWN.rot, area: __prevBc.area || 'yato' }
+    }
+  }
+} catch (e) {}
 boy.position.set(spawnPt.x, heightAt(spawnPt.x, spawnPt.z), spawnPt.z); boy.rotation.y = spawnPt.rot
 outlineObj(boy, 0.03)
 // 顔（輪郭線の後に付ける＝フチ無しのきれいな顔）。少年は+z方向を向く。
@@ -13801,6 +13841,7 @@ const TOTAL_DAYS = 7 // ひと夏の日数。最終日に「夏の終わり」�
 const festDay = () => ((day - 1) % 3) + 1 // 祭り会場の開催日(1..3)＝ひと夏のあいだ会場をめぐってお祭りが続く
 const arcStage = () => day === 1 ? 1 : day >= TOTAL_DAYS ? 3 : 2 // 女の子との関係：初対面(1)→打ちとけ(2..)→夏の終わりの別れ(最終日)
 let day = 1
+if (__resumeBc && __resumeBc.day >= 1 && __resumeBc.day <= TOTAL_DAYS) day = __resumeBc.day // ★続きから＝日にちも戻す（この下の保存の読み込みが「同じ日なら見たことを引き継ぐ」ので、先に合わせておく）
 let gotOmamori = false // 夏の終わりに女の子から おまもりを もらった（日をまたいで残る＝関係の証）
 try { gotOmamori = localStorage.getItem('hn3d_omamori') === '1' } catch (e) {}
 const dayEvents = { radio: false, dinner: false, fest: false } // 昭和の日課（1日1回）。fest＝その日のおまつりのお囃子に気づくひとこと（D3）
@@ -17442,16 +17483,16 @@ async function startVrmBoy() {
     if (VRMUtils.combineMorphs) VRMUtils.combineMorphs(vrm) // 使う表情ぶんだけにモーフを畳む＝VRoidの約50ブレンドシェイプのデータテクスチャVRAM/RAMを削減（モバイルのmorph上限→context lostの対策）。口パクaa/まばたきblink/relaxedは保持
     VRMUtils.rotateVRM0(vrm)
     if (VRM_MERGE_MESHES) mergeVrmMeshes(vrm) // ★主人公も同マテリアル統合＝常時表示の描画コールを大幅削減（計画①・2026-07-10）
-    const seenTex = new Set() // パイロットと同じ軽量化（MToon輪郭の二重描き停止・法線マップ除去・>1024縮小）
+    const seenTex = new Set(), BMAX = __LOWART ? 512 : 1024 // パイロットと同じ軽量化（MToon輪郭の二重描き停止・法線マップ除去・縮小）。★スマホ単体／かるさの段1以上は512＝主人公の絵を7.1MB→1.8MBへ（画面の主人公は小さく写るので違いはほぼ分からない・2026-07-25）
     vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
       for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
         if (/ \(Outline\)$/.test(m.name || '')) m.visible = false
         if (m.normalMap) { m.normalMap = null; m.needsUpdate = true }
-        for (const key of ['map', 'shadeMultiplyTexture', 'emissiveMap', 'rimMultiplyTexture', 'matcapTexture']) {
+        for (const key of VRM_TEX_KEYS) {
           const t = m[key]; if (!t || !t.image || seenTex.has(t)) continue; seenTex.add(t)
           const w = t.image.width || 0
-          if (w > 1024) { const cv = document.createElement('canvas'); const sc = 1024 / w
-            cv.width = 1024; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
+          if (w > BMAX) { const cv = document.createElement('canvas'); const sc = BMAX / w
+            cv.width = BMAX; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
             if (t.image.close) t.image.close()
             t.image = cv; t.needsUpdate = true } } } })
@@ -17615,7 +17656,7 @@ const RESIDENT_TOON_FALLBACK = false
 // ★準備(parse＋コンパイル)は PREP2=420m圏で前倒し（商店街まで約300mの出発地点/坂の途中＝忙しい到着間際でなく静かな早い段階でMToonシェーダーをコンパイル）。破棄は DROP2=500m（ヒステリシスでしきい際のバタつき防止）。表示は SHOW2=58m のまま
 // ★表示SHOW=105m/隠しHIDE=120m：範囲外はトゥーンでなく"消す"方針にしたので、遠くからでもVRMで見える距離まで広げる（近づくと現れる的な空きを防ぐ）。表示は準備済み(=compile/texUp完了)のVRMを可視化するだけ＝描画のみで軽く、クラッシュ源の準備(PREP=420m)/破棄(DROP=500m)は不変＝安全。
 // ★KEEP=8＝準備済みVRMの保有上限（LRU）：破棄がdrop2(500m)だけだと商店街の中心で20体超が同時preparedになりRAM100MB級＝保有に上限を付け、超えたら「表示していない最遠」を返す（監査2026-07-10）
-const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = __HQ ? 32 : 8, VRM_RES_KEEP = __HQ ? 40 : 20, VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9), _vrmSwapCamL = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す）／_vrmSwapCamL=前フレームのカメラ位置（カットの検知＝タイトル明け/テレポートの瞬間は切替が絶対に見えない） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★リモートコントロール(?hq=1)だけCAP32/KEEP40（2026-07-16）＝母艦は描画余力が大きく「視界の全員VRM」（昼の実測は最大10候補・祭り会場は約12＝_swingcheck）。★iPhone単体（hq無し）は8/20のまま＝ユーザー方針2026-07-16「スマホ起動は発熱最優先・画質はリモコンで遊ぶ」（一時16に上げたが発熱リスクで即日差し戻し）。枠の順位バグ修正（資格者だけで数える）は8でも効く＝近い8人が正しく枠を取る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
+const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = __HQ ? 32 : 8, VRM_RES_KEEP = __HQ ? 40 : (__level >= 1 ? 8 : 20), VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9), _vrmSwapCamL = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す）／_vrmSwapCamL=前フレームのカメラ位置（カットの検知＝タイトル明け/テレポートの瞬間は切替が絶対に見えない） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★リモートコントロール(?hq=1)だけCAP32/KEEP40（2026-07-16）＝母艦は描画余力が大きく「視界の全員VRM」（昼の実測は最大10候補・祭り会場は約12＝_swingcheck）。★iPhone単体（hq無し）は8/20のまま＝ユーザー方針2026-07-16「スマホ起動は発熱最優先・画質はリモコンで遊ぶ」（一時16に上げたが発熱リスクで即日差し戻し）。枠の順位バグ修正（資格者だけで数える）は8でも効く＝近い8人が正しく枠を取る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
 async function ensureResLibs() {
   if (vrmResLibs) return vrmResLibs
   const [{ GLTFLoader }, vm] = await Promise.all([import('three/examples/jsm/loaders/GLTFLoader.js'), import('@pixiv/three-vrm')])
@@ -17827,9 +17868,9 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   }
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   // ★保有上限KEEP=8（LRU・監査2026-07-10）：上限到達時は「候補が保有最遠より距離比0.8以上近い」場合だけ最遠を返して入れ替え＝しきい際の往復（0.9秒ごとのparse往復＝発熱源）を距離マージンで断つ
-  if (!off && prepped > VRM_RES_KEEP && farKeep) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepped-- } // 上限超過は毎フレーム「表示していない最遠」から1体ずつ静かに返す（開発フック/往来の蓄積もここで絞られる）
+  if (!off && prepped > Math.min(VRM_RES_KEEP, __keepCap) && farKeep) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepped-- } // 上限超過は毎フレーム「表示していない最遠」から1体ずつ静かに返す（開発フック/往来の蓄積もここで絞られる）
   else if (!off && nearIdle && !preparing && !(floatMode && playerSpeed > 12) && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10。★浮遊の「高速巡航中(>12m/s＝ふつう16/はやい26)」だけ準備を休止＝420mの準備半径が町を掃く「捨てて作り直す」チャーン（発熱源・実機FB2026-07-12）はそのまま断ちつつ、減速/ホバー/着地降下では即再開＝到着前に周辺を前倒し準備。※前版の「空中は全部休止」は移動が浮遊中心の実プレイで「着地後10〜30秒 町じゅうトゥーン」の窓を作る実機退行（2026-07-12夕FB「みんなトゥーンに戻った」の真因）／開発✈飛行は主人公が動かず掃かないのでゲート不要
-    if (prepped < VRM_RES_KEEP) prepareResidentVrm(nearIdle)
+    if (prepped < Math.min(VRM_RES_KEEP, __keepCap)) prepareResidentVrm(nearIdle)
     else if (farKeep && nearIdleD2 < farKeep.cd2 * 0.64) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepareResidentVrm(nearIdle) } // cd2比0.64＝距離比0.8。追い出した体は10秒再準備しない
   }
   // ② 表示集合＝準備済みのうち近い順に最大CAP体でSHOW距離内。CAP=3＝住人3人全員→入替が起きない。
@@ -18726,7 +18767,8 @@ window.addEventListener('keydown', (e) => { if (e.key !== 'Enter') return
 if (startBtn) startBtn.addEventListener('click', () => {
   if (!titleView) return // 二度押しを弾く（Enterはボタンにフォーカスがあると素のclickも起こすため・2026-07-15）
   startAudio(); titleView = false; document.body.classList.remove('titling'); if (titleEl) titleEl.classList.add('hidden') // 始める＝はがきカメラを解除して通常の追従へ＋HUDを出す
-  tday = 0.18; dayAuto = true; setTimeOfDay(0.18) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
+  const t0 = (__resumeStart && isFinite(__resumeStart.tday)) ? Math.min(0.97, Math.max(0.02, __resumeStart.tday)) : 0.18 // ★続きから＝その時刻から。ふつうは朝(0.18)から
+  tday = t0; dayAuto = true; setTimeOfDay(t0) // タイトルの夕暮れ→ゲームは朝から始める（一日を朝から味わう）
   // ★開始カメラの導入（実機報告2026-07-10「はじめるを押すと間の家が画面を覆って寄る＝チカチカして嫌」）。
   //   旧＝はがき構図(南の上空)から通常追従へlerpで“フライスルー”→途中のマンション前の家が画面を覆う。
   //   新＝主人公の背後へ一旦カット(camSnap)＋主人公に寄った画から通常距離へゆっくり引く＝家を突き抜けず、夏の朝がふわっと開ける導入に。fovもタイトルの50°→45°へ即合わせ残りのズームを消す
@@ -18739,6 +18781,26 @@ if (startBtn) startBtn.addEventListener('click', () => {
   if (willShowGuide) { guideEl.classList.add('on'); seenGuide = true } // ガイドを出す回はガイドを閉じてから散歩の一言（guideOkで発火）
   else setTimeout(showWanderOnce, 3800) // ガイドを出さない回は開始から少し置いて散歩の一言
 })
+// ── タイトルの「つづきから」（2026-07-25）＝きれいに終えた前回の続き（場所・向き・時刻・日にち）へ戻る。
+//    ★急死のあとは、このボタンを出さずに黙って続きから始まる（ユーザーの決定「黙って続きから戻る」）＝押す手間も、落ちた記憶も残さない。
+const resumeBtn = document.getElementById('t-resume')
+;(function setupResume() {
+  if (!resumeBtn || __resumeBc) return // 既に黙って復帰済み＝ボタンは要らない
+  const p = __prevBc
+  if (!p || p.ok !== 1 || !(p.sec > 60) || !isFinite(p.x) || !isFinite(p.z)) return // 1分未満の中断は「続き」と呼ぶほどでもない
+  let gy = NaN; try { gy = heightAt(p.x, p.z) } catch (e) {}
+  if (!isFinite(gy) || Math.abs((p.y != null ? p.y : gy) - gy) >= 3) return // 屋上/家の中からは戻さない（宙に落ちる事故を避ける）
+  resumeBtn.classList.add('on')
+  resumeBtn.addEventListener('click', () => {
+    if (!titleView) return
+    __resumeStart = p
+    area = p.area || 'yato'; onYato = area === 'yato'
+    boy.position.set(p.x, gy, p.z); boy.userData._cy = null
+    facing = isFinite(p.r) ? p.r : facing; boy.rotation.y = facing
+    if (p.day >= 1 && p.day <= TOTAL_DAYS) day = p.day
+    startBtn.click() // あとは いつもの「はじめる」に任せる（カメラのカット camSnap もそこで入る）
+  })
+})()
 
 // ── せってい（おと・モーション軽減）。localStorage に永続化 ──
 const settingsEl = document.getElementById('settings')
@@ -19177,7 +19239,23 @@ function refreshPinList() { // 各ピン＝行。文字タップでコピー／�
 // あわせて1秒ごとに今の様子を localStorage へ書き残す。きれいに終わった時だけ ok=1 を書くので、
 //   次の起動で ok=0 が残っていれば「見ている最中に急死した」と確実に分かる（落ちた側は何も書けないため、この形しかない）。
 const memhudEl = document.getElementById('memhud')
-let __hudOn = false, __texBase = 0, __liveBase = 0, __bcSec = 0
+let __hudOn = false, __texBase = 0, __liveBase = 0, __bcSec = 0, __playSec = 0, __playT0 = 0, __progSig = '', __vrmHalted = false, __thermoReload = false
+// 2回つづけて突然おわった時に一度だけ出す小さな相談（絵日記と同じクリーム色の紙片。勝手に見た目を変えない＝ユーザーの決定2026-07-25）
+function askLighter() {
+  if (document.getElementById('ask-lighter')) return
+  const d = document.createElement('div'); d.id = 'ask-lighter'
+  d.style.cssText = 'position:fixed;left:50%;top:11%;transform:translateX(-50%);z-index:60;max-width:min(92vw,26em);padding:0.8em 1.1em;border-radius:8px;'
+    + 'font-family:inherit;font-size:clamp(13px,2.6vw,17px);line-height:1.7;color:#3b3024;background:rgba(251,244,228,0.97);'
+    + 'border:1px solid rgba(120,96,58,0.4);box-shadow:0 4px 14px rgba(60,44,24,0.26);text-align:center;'
+  const bs = 'appearance:none;border:none;cursor:pointer;border-radius:999px;padding:0.4em 1.2em;margin:0.5em 0.3em 0;font-family:inherit;font-size:0.95em;color:#fff;'
+  d.innerHTML = '<div>さっきから とちゅうで とまっちゃうみたい。<br>すこし かるくしても いい？<br><span style="font-size:0.85em;opacity:0.75">（まちの にぎやかさは そのままです）</span></div>'
+    + `<button id="ask-yes" style="${bs}background:#5b8c5a">うん、かるくして</button><button id="ask-no" style="${bs}background:#9aa0ae">このままで いい</button>`
+  document.body.appendChild(d)
+  const close = () => { d.style.opacity = '0'; d.style.transition = 'opacity 0.35s'; setTimeout(() => d.remove(), 400) }
+  d.querySelector('#ask-yes').addEventListener('click', () => { try { localStorage.setItem('hn3d_level', '2'); localStorage.setItem('hn3d_levelauto', '1') } catch (e) {}
+    close(); try { showToast('つぎに ひらいた時から すこし かるくするね。') } catch (e) {} })
+  d.querySelector('#ask-no').addEventListener('click', () => { try { localStorage.setItem('hn3d_levelauto', '0') } catch (e) {} close() })
+}
 const __OTHER_TEX_KEYS = ['normalMap', 'alphaMap', 'aoMap', 'bumpMap', 'lightMap', 'specularMap', 'gradientMap', 'displacementMap', 'envMap', 'metalnessMap', 'roughnessMap']
 function countLiveTex() { // シーンから届く（＝今つかっている）絵の枚数。★MToonのmap等はクラスのアクセサでfor...inに出てこないので名前で拾う
   const seen = new Set()
@@ -19192,17 +19270,40 @@ let __bcClean = false // 「きれいに終わった」印を書いた後＝画�
 function tickCrumb() { // 1秒ごと
   if (__bcClean) return
   __bcSec++
+  if (!titleView) { if (!__playT0) __playT0 = performance.now(); __playSec = Math.round((performance.now() - __playT0) / 1000) } // __playSec＝実際に遊んだ秒数（タイトルで待っている間は数えない）。時計から取る＝端末が重くて1秒タイマーが遅れても正しい
   const mem = renderer.info.memory
   const live = __hudOn ? countLiveTex() : 0
   // 基準は「遊び始めた瞬間」で取る（タイトル中はまだ絵を上げ終えていないので基準にならない）
   if (!__texBase && !titleView && mem.textures > 0) { __texBase = mem.textures; __liveBase = live || countLiveTex() }
   // ── パンくずを書き残す（位置と時刻も入れる＝落ちても続きから戻れるように・約400バイト）──
   try {
-    localStorage.setItem('hn3d_bc', JSON.stringify({ ok: 0, sec: __bcSec,
+    localStorage.setItem('hn3d_bc', JSON.stringify({ ok: 0, sec: __playSec,
       x: +boy.position.x.toFixed(1), y: +boy.position.y.toFixed(1), z: +boy.position.z.toFixed(1), r: +facing.toFixed(3),
       area, day, tday: +tday.toFixed(4), tex: mem.textures, geo: mem.geometries, prep: __vrmPrepTotal, map: __mapOpenN, rs: __resizeN, ev: __evRing.slice(-4) }))
   } catch (e) {}
-  // ★前回が急死でも、画面には何も出さない（ユーザーの決定2026-07-25＝「黙って続きから戻る」）。
+  // ── 進行（見たこと・むし・さかな）が変わった時だけ保存する（2026-07-25）。
+  //    今までは「新しい日」「他アプリへ移った」「閉じた」の3つでしか保存しておらず、突然おわると その日の発見が丸ごと消えていた。
+  if (!titleView) { let f = 0; for (const k in todayFlags) if (todayFlags[k]) f++
+    const sig = day + '/' + f + '/' + caught.count + '/' + fish.count
+    if (sig !== __progSig) { __progSig = sig; try { saveState() } catch (e) {} } }
+  // ── 8分ぶじに遊べたら「つづけて とまった回数」を白紙に。勝手に上げた段は1つ下げて、また元の絵へ近づける ──
+  if (__playSec >= 480 && __playSec < 486) { try { localStorage.setItem('hn3d_crashn', '0'); __crashN = 0
+    if (__levelAuto && __level > 0) { localStorage.setItem('hn3d_level', String(__level - 1)); if (__level - 1 === 0) localStorage.setItem('hn3d_levelauto', '0') } } catch (e) {} } // 効くのは次に開いた時（遊んでいる最中に絵が変わらないように）
+  // ── 2回つづけて突然おわった時だけ、一言たずねてから軽くする（ユーザーの決定2026-07-25「勝手に見た目を変えない」）──
+  if (__askLighter && !titleView && __playSec >= 4) { __askLighter = false; askLighter() }
+  // ══ 体温計（第5段・2026-07-25）══
+  // 遊び始めた時のGPUの絵の枚数を平熱として、増えすぎたら手前で自分を守る。
+  // ★この10行があれば、今回の「1体ようい するたび +24枚、捨てても減らない」漏れは、作った日のうちに気づけた。
+  //   ふだんは何も起きない（漏れが無ければ1.3倍あたりで頭打ちする）。将来また同じ穴を開けても、ここで止まる。
+  if (__texBase && !titleView && __playSec > 20) {
+    const warm = mem.textures / __texBase
+    if (warm >= 2.2 && __keepCap > 6) { __keepCap = 6; logEv('体温2.2倍→人を控える') } // まず住人の保有数を絞る（見た目はほぼ変わらない）
+    if (warm >= 3.0 && settings.vrmboy && !__vrmHalted) { __vrmHalted = true; settings.vrmboy = false; logEv('体温3.0倍→人をシンプルに') } // 次に人をシンプルな姿へ（保存はしない＝次に開けば元どおり）
+    if (warm >= 3.5 && !__thermoReload) { __thermoReload = true; logEv('体温3.5倍→段を上げて開き直す')
+      try { saveState(); localStorage.setItem('hn3d_level', String(Math.min(4, __level + 1))); localStorage.setItem('hn3d_levelauto', '1') } catch (e) {}
+      setTimeout(() => { try { location.reload() } catch (e) {} }, 900) } // 落ちる前にこちらから畳む＝「続きから」で同じ場所へ戻れる
+  }
+  // ★前回が急死でも、それ以外は画面に何も出さない（ユーザーの決定＝「黙って続きから戻る」）。
   //   落ちたことの記録は下の数え板（開発用）にだけ畳む。遊ぶ人を不安にさせない。
   if (!__hudOn || !memhudEl) return
   const lost = (mem.textures - live) - (__texBase - __liveBase) // まいご＝はじめの差からどれだけ開いたか
@@ -19214,7 +19315,7 @@ function tickCrumb() { // 1秒ごと
     `かたち ${mem.geometries}  絵の型 ${renderer.info.programs ? renderer.info.programs.length : '-'}\n` +
     `住人 ${vrmResLiveCount}人ひょうじ ／ のべ ${__vrmPrepTotal}体ようい\n` +
     `つくり直し ${__resizeN}  ばしょマップ ${__mapOpenN}回  ${__glLost ? '⚠画面がとまった' : ''}\n` +
-    `${__mmss(__bcSec)}あそび中${__crashN ? ` ／ とまった回数 ${__crashN}` : ''}\n` +
+    `${__mmss(__playSec)}あそび中 ／ かるさの段 ${__level}${__levelAuto ? '(自動)' : ''}${__crashN ? ` ／ とまった回数 ${__crashN}` : ''}\n` +
     `${__prevCrash && __prevBc ? `前回は ${__mmss(__prevBc.sec || 0)}で とまった\n` : ''}` +
     `できごと: ${__evRing.slice(-3).join(' / ') || '—'}`
 }
@@ -19252,7 +19353,9 @@ window.__proto3d = {
   VBMAP, get vrmBoy() { return vrmBoy }, get vrmBoyState() { return vrmBoyState }, // 検証用：VRM主人公の写し符号/取り付け寸法のライブ調整
   get vrmResidentState() { return vrmResidentState }, get vrmResidents() { return vrmResidents }, get vrmResLiveCount() { return vrmResLiveCount }, _loadResidents() { if (vrmResidentState === 0) startVrmResident(); for (const r of vrmResidents) if (r.state === 'idle') prepareResidentVrm(r) }, _forceShowResidents() { for (const r of vrmResidents) { if (r.state !== 'prepared' || !r.vrm) continue; r.shown = true; r.vrm.scene.visible = true; for (const m of r.toonMeshes) m.visible = false } }, // 検証用：住人VRMを上限無視で全員準備＋強制表示（撮影用）
   get renderer() { return renderer }, _glInfo() { return { tex: renderer.info.memory.textures, geo: renderer.info.memory.geometries, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, glLost: __glLost } }, // 検証用：GPUリソース量（住人VRM追加のcontext lost診断・今後のperf検証）
-  _memStat() { return { compSavedMB: __compSavedMB, freedMB: +(__relBytes / 1048576).toFixed(1), freedAttrs: __relAttrs, marks: window.__bootMarks || [] } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
+  _thermo(mult) { if (mult) { __texBase = Math.max(1, Math.round(renderer.info.memory.textures / mult)); __playT0 = performance.now() - 30000 } return { base: __texBase, now: renderer.info.memory.textures, keepCap: __keepCap, vrmHalted: __vrmHalted } }, // 検証用：体温計を人工的に高くして、守りの手が正しく順に出るか確かめる
+  _memStat() { return { compSavedMB: __compSavedMB, freedMB: +(__relBytes / 1048576).toFixed(1), freedAttrs: __relAttrs, marks: window.__bootMarks || [],
+    level: __level, levelAuto: __levelAuto, askLighter: __askLighter, crashN: __crashN, prevCrash: __prevCrash, sec: __playSec, phone: __PHONE, lowArt: __LOWART, title: titleView } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
   __ks: __KS, // 計測用：キルスイッチ実体を公開＝ランタイムでprepass/prehalf/minpostを切替（Phase1のコスト計測用。URLパラメータと同じ効果）
   __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
   __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
@@ -19877,6 +19980,7 @@ window.__proto3d = {
   const BAKE_W = 900, BAKE_H = Math.round(900 * ((Z1 - Z0) / (X1 - X0))) // 下地の焼き付け寸法（表示は最大440px幅なので約2倍＝縮小時になめらか＝アンチエイリアス代わり）
   function renderBase() {
     if (baseCanvas || __mapBakeFailed) return // 既に焼いてある（または焼けなかった）＝そのまま使う
+    if (__level >= 2) { __mapBakeFailed = true; return } // ★かるさの段2以上＝下地を焼かない（無地の地図に目印だけ）。焼くときだけ世界ぜんぶを一度描くので、その一瞬の山を作らない
     try {
       const RW = BAKE_W, RH = BAKE_H
       const halfW = (X1 - X0) / 2, halfH = (Z1 - Z0) / 2, cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2
