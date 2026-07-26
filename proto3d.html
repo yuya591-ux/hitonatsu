@@ -403,13 +403,21 @@
       body.dev-on .set-dev { display: block; }
       .set-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin: 0.7em 0;
         font-size: clamp(15px,3vw,19px); color: #3b3024; }
+      /* ★flexの中の文字は min-width:auto のせいで縮まず、行が箱より横に広がる（実測32pxはみ出し）＝
+         はみ出した分だけ横に流れて「斜めスクロール」の元になる。min-width:0 と折り返しで内側に収める。
+         （共通規約 ui-polish-conventions §4＝過去にiOSで2回再発した実害。ここでも同じ穴だった） */
+      .set-row > span { min-width: 0; overflow-wrap: anywhere; }
+      .set-toggle, .set-row > button { flex: 0 0 auto; }
       .set-toggle { appearance: none; border: none; cursor: pointer; min-width: 84px; padding: 0.4em 1em; border-radius: 999px;
         font-size: clamp(13px,2.6vw,16px); font-family: inherit; color: #fff; background: #9aa0ae; transition: background 0.2s; }
       .set-toggle.on { background: #4e7a44; } /* 白い「ON」の字が読める濃さへ（#7aa86aは明暗比2.7で読みにくかった・2026-07-26） */
       /* 「とじる」はスクロールする側の最後にあり、下までスクロールしないと出てこなかった（2026-07-25）。
          下に貼り付けて、いつでも見えている状態にする（×は右上に別途あるが、大きく押せる とじる が常にある方が親切） */
-      #set-close { position: sticky; bottom: 0; display: block; width: calc(100% + 3.2em); margin: 1.4em -1.6em 0; appearance: none; border: none; cursor: pointer;
-        padding: 0.62em 0; border-radius: 0; font-size: clamp(15px,3vw,20px); font-family: inherit; color: #fdf7ec; background: #6a7088;
+      /* ★横幅を「箱＋3.2em」にして負の余白で端まで伸ばしていたが、そのぶん中身が箱より32px広くなり、
+         指が斜めに動いた時に横へ流れる元になっていた（2026-07-27の操作巡回で発覚）。
+         箱に収まる幅にする＝スクロールする中身が横にはみ出さない。見た目は角を丸めて自然に。 */
+      #set-close { position: sticky; bottom: 0; display: block; width: 100%; margin: 1.4em 0 0; appearance: none; border: none; cursor: pointer;
+        padding: 0.62em 0; border-radius: 12px; font-size: clamp(15px,3vw,20px); font-family: inherit; color: #fdf7ec; background: #6a7088;
         box-shadow: 0 -10px 14px rgba(251,246,234,0.95); }
       /* はじめてのあそびかた（初回だけ・やさしく） */
       #guide { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
