@@ -15385,6 +15385,12 @@ function update(dt) {
   else if (area === 'yato') { scene.fog.near = 108 - weather * 30 - mistF * 42; scene.fog.far = 470 - weather * 170 - mistF * 80 // 地上：霞の始まりは奥（中景はくっきり）＋遠景はやわらかく霞へ溶ける（コージーな空気遠近）。A1：朝夕は もや で手前まで霞む
     if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 80, 0, 1); scene.fog.near += altF * (__PHONE ? 190 : 250); scene.fog.far += altF * (__PHONE ? 380 : 720) } } // 高く昇るほど手前が澄んで遠くまで見渡せる＝夢で空から見た町（以前は逆に霞ませていたのを反転・ユーザー要望2026-06-26）。★スマホは伸びを約半分に＝空へ昇った時にまとめてGPUへ送られる量を約6割減らす（2026-07-26の実機クラッシュ対策。850mでも町・二ツ池は見渡せる）
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
+  // ★★スマホの見通しの上限（2026-07-27・実機の3連続クラッシュ）。
+  //   前版はここを floatMode の枝の中だけに書いていたが、**地面から6m浮くと onRoofHi が true になって
+  //   ひとつ上の枝（1200m）へ入る**ため、いちど も効いていなかった（＝私の見落とし）。
+  //   高い所の枝はぜんぶ通るこの1か所で抑える。780mでも町と二ツ池は見渡せる。
+  //   650mは「落ちないこと最優先」というユーザーの方針に合わせた値。眺めが物足りなければここだけ上げれば戻る。
+  if (__PHONE && scene.fog.far > 650) { scene.fog.far = 650; if (scene.fog.near > 260) scene.fog.near = 260 }
   // ★見通しが「一気に」伸びると、それまで一度も描かれていない地形・家・木がその1フレームでまとめてGPUへ送られる。
   //   実測＝430m→1200m で かたち+1249個・絵+38枚（降りても戻らない）。長く遊んだ後にこれが乗ると、あふれて落ちる。
   //   そこで伸びる方向だけ速さに上限をつける＝行き先は同じ（同じ所まで見える）が、送り出しが数秒に散る。縮む方は即座（減る方向は安全）。
@@ -17827,7 +17833,7 @@ const RESIDENT_TOON_FALLBACK = false
 // ★準備(parse＋コンパイル)は PREP2=420m圏で前倒し（商店街まで約300mの出発地点/坂の途中＝忙しい到着間際でなく静かな早い段階でMToonシェーダーをコンパイル）。破棄は DROP2=500m（ヒステリシスでしきい際のバタつき防止）。表示は SHOW2=58m のまま
 // ★表示SHOW=105m/隠しHIDE=120m：範囲外はトゥーンでなく"消す"方針にしたので、遠くからでもVRMで見える距離まで広げる（近づくと現れる的な空きを防ぐ）。表示は準備済み(=compile/texUp完了)のVRMを可視化するだけ＝描画のみで軽く、クラッシュ源の準備(PREP=420m)/破棄(DROP=500m)は不変＝安全。
 // ★KEEP=8＝準備済みVRMの保有上限（LRU）：破棄がdrop2(500m)だけだと商店街の中心で20体超が同時preparedになりRAM100MB級＝保有に上限を付け、超えたら「表示していない最遠」を返す（監査2026-07-10）
-const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = __HQ ? 32 : 8, VRM_RES_KEEP = __HQ ? 40 : ((__PHONE || __level >= 1) ? 8 : 20), VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9), _vrmSwapCamL = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す）／_vrmSwapCamL=前フレームのカメラ位置（カットの検知＝タイトル明け/テレポートの瞬間は切替が絶対に見えない） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★リモートコントロール(?hq=1)だけCAP32/KEEP40（2026-07-16）＝母艦は描画余力が大きく「視界の全員VRM」（昼の実測は最大10候補・祭り会場は約12＝_swingcheck）。★iPhone単体（hq無し）は8/20のまま＝ユーザー方針2026-07-16「スマホ起動は発熱最優先・画質はリモコンで遊ぶ」（一時16に上げたが発熱リスクで即日差し戻し）。枠の順位バグ修正（資格者だけで数える）は8でも効く＝近い8人が正しく枠を取る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
+const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = __HQ ? 32 : 8, VRM_RES_KEEP = __HQ ? 40 : (__PHONE ? 14 : (__level >= 1 ? 8 : 20)), VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9), _vrmSwapCamL = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す）／_vrmSwapCamL=前フレームのカメラ位置（カットの検知＝タイトル明け/テレポートの瞬間は切替が絶対に見えない） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★リモートコントロール(?hq=1)だけCAP32/KEEP40（2026-07-16）＝母艦は描画余力が大きく「視界の全員VRM」（昼の実測は最大10候補・祭り会場は約12＝_swingcheck）。★iPhone単体（hq無し）は8/20のまま＝ユーザー方針2026-07-16「スマホ起動は発熱最優先・画質はリモコンで遊ぶ」（一時16に上げたが発熱リスクで即日差し戻し）。枠の順位バグ修正（資格者だけで数える）は8でも効く＝近い8人が正しく枠を取る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
 async function ensureResLibs() {
   if (vrmResLibs) return vrmResLibs
   const [{ GLTFLoader }, vm] = await Promise.all([import('three/examples/jsm/loaders/GLTFLoader.js'), import('@pixiv/three-vrm')])
@@ -18044,8 +18050,13 @@ function vrmResidentTick(dt) { // update(dt)の直後に呼ぶ（トゥーンの
   }
   // ★主人公VRMが載り終えてから(vrmBoyState>=2)、1体ずつ・0.9秒あけて準備＝MToonコンパイルの山を主人公の後ろに置き、互いに離す（初回コールドの累積ピークを崩す＝到着間際の集中を避ける）
   // ★保有上限KEEP=8（LRU・監査2026-07-10）：上限到達時は「候補が保有最遠より距離比0.8以上近い」場合だけ最遠を返して入れ替え＝しきい際の往復（0.9秒ごとのparse往復＝発熱源）を距離マージンで断つ
+  // ★スマホで高く浮いている間は住人の用意を止める（2026-07-27・実機の発熱とクラッシュ）。
+  //   上空25mを超えると人は点にしか見えず、VRMかどうか判別できない。それでも420m圏の準備が町を掃き続け、
+  //   「捨てては作り直す」が延々回って発熱と音とぎれ（ザザ）を生む。降りて25mを切れば即座に再開するので、
+  //   「着地したら町じゅうトゥーンのまま」という2026-07-12の退行は起きない（あの時は空中を全部止めていた）。
+  const __hiAir = __PHONE && (floatMode || flying) && (boy.position.y - heightAt(boy.position.x, boy.position.z)) > 25
   if (!off && prepped > Math.min(VRM_RES_KEEP, __keepCap) && farKeep) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepped-- } // 上限超過は毎フレーム「表示していない最遠」から1体ずつ静かに返す（開発フック/往来の蓄積もここで絞られる）
-  else if (!off && nearIdle && !preparing && !(floatMode && playerSpeed > 12) && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10。★浮遊の「高速巡航中(>12m/s＝ふつう16/はやい26)」だけ準備を休止＝420mの準備半径が町を掃く「捨てて作り直す」チャーン（発熱源・実機FB2026-07-12）はそのまま断ちつつ、減速/ホバー/着地降下では即再開＝到着前に周辺を前倒し準備。※前版の「空中は全部休止」は移動が浮遊中心の実プレイで「着地後10〜30秒 町じゅうトゥーン」の窓を作る実機退行（2026-07-12夕FB「みんなトゥーンに戻った」の真因）／開発✈飛行は主人公が動かず掃かないのでゲート不要
+  else if (!off && nearIdle && !__hiAir && !preparing && !(floatMode && playerSpeed > 12) && vrmBoyState >= 2 && vrmResPrepCd <= 0 && vrmResGrace > (titleView ? 1.5 : VRM_RES_GRACE)) { // ★タイトル中は主人公適用の1.5秒後から準備開始（主人公VRMコンパイル後＝山は過ぎている・準備は1体ずつ直列＝安全。9秒はタイトル明け直後の最繁忙向けの余白）。開始は物語の女の子の準備完了で解放するので、8秒保険より前に確実に間に合わせるため2.5→1.5へ・2026-07-10。★浮遊の「高速巡航中(>12m/s＝ふつう16/はやい26)」だけ準備を休止＝420mの準備半径が町を掃く「捨てて作り直す」チャーン（発熱源・実機FB2026-07-12）はそのまま断ちつつ、減速/ホバー/着地降下では即再開＝到着前に周辺を前倒し準備。※前版の「空中は全部休止」は移動が浮遊中心の実プレイで「着地後10〜30秒 町じゅうトゥーン」の窓を作る実機退行（2026-07-12夕FB「みんなトゥーンに戻った」の真因）／開発✈飛行は主人公が動かず掃かないのでゲート不要
     if (prepped < Math.min(VRM_RES_KEEP, __keepCap)) prepareResidentVrm(nearIdle)
     else if (farKeep && nearIdleD2 < farKeep.cd2 * 0.64) { disposeResidentVrm(farKeep); farKeep.noPrepT = 10; prepareResidentVrm(nearIdle) } // cd2比0.64＝距離比0.8。追い出した体は10秒再準備しない
   }

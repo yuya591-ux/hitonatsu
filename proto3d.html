@@ -153,11 +153,15 @@
         background: rgba(74,64,50,0.42); box-shadow: none; opacity: 0.62; } /* 見た目は控えめのまま、指で押せる高さ(約37px)は確保 */
       body.sliding #act:active { opacity: 0.96; transform: scale(0.94); }
       /* ── ふわり浮遊（風船飛行）の操作UI：🎈トグル→浮遊中だけ出る。右下に2列×3段（高度▲▼／ズーム＋−／速さ・主観）＝右親指だけで全部届く・横画面でも崩れない。左にステータスメーター（2026-06-23再設計） ── */
+      /* ★空を飛んでいる時の右側のボタン（2026-07-27・ユーザー実機指摘）。
+         旧＝白い文字に rgba(74,98,156,0.55) の薄い青＝晴れた空を背に置くと明暗比 2.88＝読めない。
+         下地を濃くして 6.6 へ。あわせて 66x58 → 56x50 に縮める＝空を見渡すのが目的の場面で
+         画面の1/6を6個のボタンが占めていた（指で押せる44pxは十分に超えている）。 */
       #fl-up, #fl-down, #fl-zin, #fl-zout, #fl-speed, #fl-fpv {
-        appearance: none; cursor: pointer; width: 66px; height: 58px; box-sizing: border-box;
-        border-radius: 16px; font-size: clamp(13px,2.5vw,16px); line-height: 1.12; text-align: center; font-family: inherit; color: #fdf7ec;
-        border: 1.5px solid rgba(255,255,255,0.42); -webkit-backdrop-filter: blur(6px) saturate(1.2); backdrop-filter: blur(6px) saturate(1.2);
-        text-shadow: 0 1px 3px rgba(20,30,60,0.6); background: rgba(74,98,156,0.55); box-shadow: 0 3px 12px rgba(30,40,70,0.26); display: none; z-index: 7; }
+        appearance: none; cursor: pointer; width: 56px; height: 50px; box-sizing: border-box;
+        border-radius: 14px; font-size: clamp(12px,2.3vw,15px); line-height: 1.1; text-align: center; font-family: inherit; color: #fdf7ec;
+        border: 1.5px solid rgba(226,236,255,0.34); -webkit-backdrop-filter: blur(6px) saturate(1.2); backdrop-filter: blur(6px) saturate(1.2);
+        text-shadow: 0 1px 3px rgba(0,6,20,0.75); background: rgba(38,56,104,0.78); box-shadow: 0 3px 12px rgba(20,28,54,0.34); display: none; z-index: 7; }
       /* はやさのラベルは「小さな見出し＋値」の2段で、4文字(ゆっくり)でも収まるように（バグ修正・2026-06-29） */
       #fl-speed { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; }
       #fl-speed small { font-size: 10px; opacity: 0.82; line-height: 1; letter-spacing: 0.04em; }
@@ -188,7 +192,7 @@
       body.lowfx #jump { background: var(--ui-bg-flat); }
       body.lowfx .zbtn { background: var(--ui-bg3-flat); }
       body.lowfx #dock > button { background: var(--ui-bg2-flat); }
-      body.lowfx #fl-up, body.lowfx #fl-down, body.lowfx #fl-zin, body.lowfx #fl-zout, body.lowfx #fl-speed, body.lowfx #fl-fpv { background: rgba(74,98,156,0.92); }
+      body.lowfx #fl-up, body.lowfx #fl-down, body.lowfx #fl-zin, body.lowfx #fl-zout, body.lowfx #fl-speed, body.lowfx #fl-fpv { background: rgba(36,54,100,0.94); } /* 軽量モードも同じ濃さへ（2026-07-27） */
       body.lowfx .fly-b { background: rgba(46,52,80,0.9); }
       body.lowfx .flg { background: rgba(40,44,60,0.5); }
       /* ── しばらく操作しないと、画面のボタン類がそっと透明に消える（景色に没入できる・どのモード/視点でも・画面に触れると戻る・ユーザー要望2026-06-23）── */
@@ -354,7 +358,13 @@
         box-shadow: 0 12px 40px rgba(0,0,0,0.4); text-align: center; }
       .set-card h2 { margin: 0 0 0.8em; font-size: clamp(19px,4.2vw,26px); color: #4a4032; letter-spacing: 0.1em; }
       /* ── たんす式せってい（A案・2026-07-12）：中身だけスクロール＋引き出しの開閉 ── */
-      .set-body { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
+      /* ★指は「まっすぐ下」には動かない＝少しでも斜めに動くと横にも流れ、カードが画面の外へずれて
+         真ん中へ戻すのが手間だった（ユーザー指摘2回目・2026-07-27）。縦だけに動くよう固定する。
+         touch-action:pan-y＝ブラウザに「この指の動きは縦スクロールだけ」と伝える（横の慣性ごと止まる）。 */
+      .set-body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; touch-action: pan-y; overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch; min-height: 0; }
+      #settings { touch-action: pan-y; }
+      .set-card { touch-action: pan-y; }
       /* 「あそびかたを みる」＝引き出しを全部あけると画面の外に出て届かなかったので、スクロールする側の一番上へ（2026-07-25） */
       #set-guide { display: block; width: 100%; min-height: 44px; margin: 0 0 0.5em; appearance: none; cursor: pointer;
         border: 1px solid rgba(150,130,90,0.3); border-radius: 12px; padding: 0.55em 0.85em;
