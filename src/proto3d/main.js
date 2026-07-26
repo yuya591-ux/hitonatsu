@@ -1198,7 +1198,7 @@ const UI_TINT = [ // 面・ふち・落ち影＝なめらかに混ぜてよい�
   ['--ui-bg', [244, 250, 236, 0.5], [32, 38, 58, 0.54]],
   ['--ui-bg-on', [228, 244, 214, 0.7], [64, 78, 114, 0.82]],
   ['--ui-bg2', [253, 248, 239, 0.46], [32, 38, 58, 0.5]],
-  ['--ui-bg3', [252, 247, 238, 0.44], [32, 38, 58, 0.48]],
+  ['--ui-bg3', [252, 247, 238, 0.58], [32, 38, 58, 0.56]],
   ['--ui-bg3-on', [240, 232, 218, 0.7], [64, 78, 114, 0.82]],
   ['--ui-bg-flat', [244, 250, 236, 0.9], [30, 36, 55, 0.9]],
   ['--ui-bg2-flat', [253, 248, 239, 0.9], [30, 36, 55, 0.88]],
@@ -1216,6 +1216,9 @@ const UI_TINT = [ // 面・ふち・落ち影＝なめらかに混ぜてよい�
   ['--ui-pale-near', [236, 248, 224, 0.98], [52, 64, 92, 0.95]],
   ['--ui-pale-edge', [150, 180, 120, 0.7], [148, 178, 138, 0.5]],
   ['--ui-green', [232, 246, 228, 0.95], [36, 54, 44, 0.9]],
+  ['--ui-on-green', [74, 124, 62, 0.95], [46, 80, 42, 0.95]],
+  ['--ui-on-blue', [72, 106, 164, 0.95], [46, 70, 116, 0.95]],
+  ['--ui-on-edge', [255, 255, 255, 0.5], [190, 206, 236, 0.32]],
   ['--ui-stick', [255, 255, 255, 0.14], [196, 212, 244, 0.09]],
   ['--ui-stick-edge', [255, 255, 255, 0.4], [196, 212, 244, 0.24]],
   ['--ui-knob', [255, 255, 255, 0.55], [198, 210, 240, 0.33]],
@@ -1233,8 +1236,8 @@ const UI_TINT_SH = [ // 落ち影＝昼はやわらかい緑茶いろ、夜は�
 const UI_TINT_SNAP = [
   ['--ui-fg', '#3b4a2e', '#ebf0e2'],
   ['--ui-fg2', '#4a4032', '#eae3d3'],
-  ['--ui-fg3', '#5a5346', '#e2dccd'],
-  ['--ui-sub', '#6a5e4a', '#c1b7a3'],
+  ['--ui-fg3', '#443d31', '#e6e0d2'],
+  ['--ui-sub', '#5c503c', '#c8bfab'],
   ['--ui-amber-fg', '#5a4632', '#ffeecc'],
   ['--ui-green-fg', '#2e5a2e', '#cde6c6'],
   ['--ui-tsh', '0 1px 2px rgba(255,255,255,0.6)', '0 1px 2px rgba(8,12,24,0.75)'],
@@ -9314,6 +9317,12 @@ try {
     if (isFinite(gy) && Math.abs((__prevBc.y != null ? __prevBc.y : gy) - gy) < 3) {
       __resumeBc = __prevBc; __resumeStart = __prevBc
       spawnPt = { x: __prevBc.x, z: __prevBc.z, rot: isFinite(__prevBc.r) ? __prevBc.r : DEFAULT_SPAWN.rot, area: __prevBc.area || 'yato' }
+    } else if (isFinite(__prevBc.sx) && isFinite(__prevBc.sz) && isFinite(heightAt(__prevBc.sx, __prevBc.sz))) {
+      // ★空を飛んでいた／屋上／家の中で落ちた時（2026-07-26の実機で発覚）。
+      //   その場の高さでは戻せないので、「最後にふつうに地面へ立っていた場所」＝飛び立った所へ降ろす。
+      //   ここが無かったため、いちばん最初の場所へ戻ってしまい、遊んだ道のりが消えていた。
+      __resumeBc = __prevBc; __resumeStart = __prevBc
+      spawnPt = { x: __prevBc.sx, z: __prevBc.sz, rot: isFinite(__prevBc.sr) ? __prevBc.sr : DEFAULT_SPAWN.rot, area: __prevBc.sa || __prevBc.area || 'yato' }
     }
   }
 } catch (e) {}
@@ -14545,6 +14554,9 @@ function tapBtn(el, fn) { if (!el) return; let t = 0
 // ボタン/HUDを押したら必ず“操作した”とみなしてタイマーをリセット（キャプチャ段階で先に拾う）
 document.addEventListener('pointerdown', (e) => { if (e.target && e.target.closest && e.target.closest('button, .hud')) pokeUI() }, true)
 // ── 飛行モード（開発用・空を自由に飛んで景色を見る／写真。あとで外せる）──
+// 見通し（霞の届く距離）が伸びる速さの上限。m/秒。一気に伸ばすとGPUへの送り出しが1フレームに集中して落ちる
+const FOG_GROW_RATE = 130
+let __fogFarShown = null, __fogNearShown = null // 実際に画面へ出している見通し（目標へ、上の速さで追いつく）
 let flying = false, flyUp = 0, flyDown = 0
 let fpv = false // 主観視点（一人称）。設定でON＝頭の高さからyaw/pitch方向を見る。屋上の一望に（ユーザー要望2026-06-23）
 let fpvFov = 45 // 主観視点の画角（ピンチ/＋－で自由にズーム。小=ズームイン）
@@ -15367,8 +15379,19 @@ function update(dt) {
   else if (flying) { scene.fog.near = 400; scene.fog.far = 1250 } // 飛行：空から町全体を見渡す（遠い地平だけ霞む・世界の縁は霞に隠れる）
   else if (onRoofHi) { scene.fog.near = 380 - weather * 80; scene.fog.far = 1200 - weather * 320 } // 屋上：手前を澄ませて町/二ツ池/遠くの山まで広く見渡す＋縁は霞へ溶ける
   else if (area === 'yato') { scene.fog.near = 108 - weather * 30 - mistF * 42; scene.fog.far = 470 - weather * 170 - mistF * 80 // 地上：霞の始まりは奥（中景はくっきり）＋遠景はやわらかく霞へ溶ける（コージーな空気遠近）。A1：朝夕は もや で手前まで霞む
-    if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 80, 0, 1); scene.fog.near += altF * 250; scene.fog.far += altF * 720 } } // 高く昇るほど手前が澄んで遠くまで見渡せる＝夢で空から見た町（以前は逆に霞ませていたのを反転・ユーザー要望2026-06-26）
+    if (floatMode) { const altF = THREE.MathUtils.clamp((boy.position.y - heightAt(boy.position.x, boy.position.z)) / 80, 0, 1); scene.fog.near += altF * (__PHONE ? 190 : 250); scene.fog.far += altF * (__PHONE ? 380 : 720) } } // 高く昇るほど手前が澄んで遠くまで見渡せる＝夢で空から見た町（以前は逆に霞ませていたのを反転・ユーザー要望2026-06-26）。★スマホは伸びを約半分に＝空へ昇った時にまとめてGPUへ送られる量を約6割減らす（2026-07-26の実機クラッシュ対策。850mでも町・二ツ池は見渡せる）
   else { scene.fog.near = 36 - weather * 10; scene.fog.far = 165 - weather * 55 }
+  // ★見通しが「一気に」伸びると、それまで一度も描かれていない地形・家・木がその1フレームでまとめてGPUへ送られる。
+  //   実測＝430m→1200m で かたち+1249個・絵+38枚（降りても戻らない）。長く遊んだ後にこれが乗ると、あふれて落ちる。
+  //   そこで伸びる方向だけ速さに上限をつける＝行き先は同じ（同じ所まで見える）が、送り出しが数秒に散る。縮む方は即座（減る方向は安全）。
+  if (!(typeof window !== 'undefined' && window.__fogFar)) {
+    const tgF = scene.fog.far, tgN = scene.fog.near
+    if (__fogFarShown == null) { __fogFarShown = tgF; __fogNearShown = tgN }
+    const k = tgF > __fogFarShown ? Math.min(1, (FOG_GROW_RATE * dt) / Math.max(1, tgF - __fogFarShown)) : 1
+    __fogFarShown += (tgF - __fogFarShown) * k
+    __fogNearShown += (tgN - __fogNearShown) * k
+    scene.fog.far = __fogFarShown; scene.fog.near = __fogNearShown
+  }
   if (typeof window === 'undefined' || !window.__freezeCam) {
     // カメラ遠方面を「霞の到達＋わずかな余白」に詰める＝霧で完全に隠れる向こう側を描かない（地上far800→680でドローコール減・見た目は不変。far430と800の遠景が同一なのを実機相当で確認2026-06-26）
     // 床680の理由：①入道雲(cloudMatはfog無し・カメラ追従・dist最大540＋半径約80＝最遠端約620m)をクリップして消さない ②空ドーム(skyDome半径400でカメラ追従・line7662)を欠けさせない。旧式 max(620,ceil(far/200)*200+200) は地上で常に800を返し、霧で隠れる680〜800を無駄に描いていた
@@ -19426,6 +19449,7 @@ function countLiveTex() { // シーンから届く（＝今つかっている）
 }
 const __mmss = (s) => Math.floor(s / 60) + '分' + String(Math.floor(s % 60)).padStart(2, '0') + '秒'
 let __bcClean = false // 「きれいに終わった」印を書いた後＝画面に戻るまでパンくずを上書きしない（凍結中に1秒タイマーが動いて印を消すのを防ぐ）
+let __safeBc = null // 最後に「ふつうに地面に立っていた」場所（空/屋上/家の中で落ちた時の戻り先）
 function tickCrumb() { // 1秒ごと
   if (__bcClean) return
   __bcSec++
@@ -19434,10 +19458,22 @@ function tickCrumb() { // 1秒ごと
   const live = __hudOn ? countLiveTex() : 0
   // 基準は「遊び始めた瞬間」で取る（タイトル中はまだ絵を上げ終えていないので基準にならない）
   if (!__texBase && !titleView && mem.textures > 0) { __texBase = mem.textures; __liveBase = live || countLiveTex() }
+  // ★「最後に地面に立っていた場所」を控える（2026-07-26）。
+  //   空を飛んでいる/屋上/家の中で落ちると、その場の高さでは戻せない（宙や壁の中に出てしまう）。
+  //   そこで、ふつうに地面を歩いていた最後の一歩を別に覚えておき、復帰はそこへ降ろす。
+  //   ※これが無かったため、実機で「とぶ」の最中に落ちた時、いちばん最初の場所へ戻ってしまった。
+  if (!titleView) {
+    const gy0 = heightAt(boy.position.x, boy.position.z)
+    if (!floatMode && !flying && !inHome && !boy.userData._high && isFinite(gy0) && Math.abs(boy.position.y - gy0) < 2.5) {
+      __safeBc = { x: +boy.position.x.toFixed(1), z: +boy.position.z.toFixed(1), r: +facing.toFixed(3), a: area }
+    }
+  }
   // ── パンくずを書き残す（位置と時刻も入れる＝落ちても続きから戻れるように・約400バイト）──
   try {
     localStorage.setItem('hn3d_bc', JSON.stringify({ ok: 0, sec: __playSec,
       x: +boy.position.x.toFixed(1), y: +boy.position.y.toFixed(1), z: +boy.position.z.toFixed(1), r: +facing.toFixed(3),
+      sx: __safeBc ? __safeBc.x : null, sz: __safeBc ? __safeBc.z : null, sr: __safeBc ? __safeBc.r : null, sa: __safeBc ? __safeBc.a : null,
+      fly: (floatMode || flying) ? 1 : 0, home: inHome ? 1 : 0, // 落ちた時に何をしていたか（次の手当ての材料）
       area, day, tday: +tday.toFixed(4), tex: mem.textures, geo: mem.geometries, prep: __vrmPrepTotal, map: __mapOpenN, rs: __resizeN, ev: __evRing.slice(-4) }))
   } catch (e) {}
   // ── 進行（見たこと・むし・さかな）が変わった時だけ保存する（2026-07-25）。
@@ -19475,7 +19511,8 @@ function tickCrumb() { // 1秒ごと
     `住人 ${vrmResLiveCount}人ひょうじ ／ のべ ${__vrmPrepTotal}体ようい\n` +
     `つくり直し ${__resizeN}  ばしょマップ ${__mapOpenN}回  ${__glLost ? '⚠画面がとまった' : ''}\n` +
     `${__mmss(__playSec)}あそび中 ／ かるさの段 ${__level}${__levelAuto ? '(自動)' : ''}${__crashN ? ` ／ とまった回数 ${__crashN}` : ''}\n` +
-    `${__prevCrash && __prevBc ? `前回は ${__mmss(__prevBc.sec || 0)}で とまった\n` : ''}` +
+    // ★前回とまった時の様子を残す（2026-07-26）＝次に落ちた時、原因を推測でなく事実から追えるように
+    `${__prevCrash && __prevBc ? `前回は ${__mmss(__prevBc.sec || 0)}で とまった（${__prevBc.fly ? '空にいた' : __prevBc.home ? '家の中' : 'あるいていた'}・絵${__prevBc.tex || '?'}枚・かたち${__prevBc.geo || '?'}）\n` : ''}` +
     `できごと: ${__evRing.slice(-3).join(' / ') || '—'}`
 }
 setInterval(tickCrumb, 1000)

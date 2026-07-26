@@ -29,12 +29,12 @@
         --ui-bg: rgba(244,250,236,0.5);          /* ジャンプの下地 */
         --ui-bg-on: rgba(228,244,214,0.7);       /*   〃 押したとき */
         --ui-bg2: rgba(253,248,239,0.46);        /* ドック（ねころぶ/のる/とぶ/しゅかん）の下地 */
-        --ui-bg3: rgba(252,247,238,0.44);        /* ズーム＋−の下地 */
+        --ui-bg3: rgba(252,247,238,0.58);        /* ズーム＋−の下地（0.44は下の景色が透けて記号が消えた・2026-07-26） */
         --ui-bg3-on: rgba(240,232,218,0.7);      /*   〃 押したとき */
         --ui-fg: #3b4a2e;                        /* ジャンプの文字 */
         --ui-fg2: #4a4032;                       /* ドックの絵・はなす等の文字 */
-        --ui-fg3: #5a5346;                       /* ズーム＋−の記号 */
-        --ui-sub: #6a5e4a;                       /* ドックの小さな言葉 */
+        --ui-fg3: #443d31;                       /* ズーム＋−の記号（#5a5346は明るい草の上で沈んだ・2026-07-26） */
+        --ui-sub: #5c503c;                       /* ドックの小さな言葉（#6a5e4aから少し濃く） */
         --ui-edge: rgba(255,255,255,0.62);       /* ふち（ジャンプ） */
         --ui-edge2: rgba(255,255,255,0.6);       /*   〃 ドック */
         --ui-edge3: rgba(255,255,255,0.58);      /*   〃 ズーム */
@@ -60,6 +60,9 @@
         --ui-stick: rgba(255,255,255,0.14);      /* 指で動かす輪 */
         --ui-stick-edge: rgba(255,255,255,0.4);
         --ui-knob: rgba(255,255,255,0.55);       /* そのつまみ */
+        --ui-on-green: rgba(74,124,62,0.95);     /* 押して ON の緑（のる）＝白い文字が読める濃さ */
+        --ui-on-blue: rgba(72,106,164,0.95);     /*   〃 青（とぶ・しゅかん） */
+        --ui-on-edge: rgba(255,255,255,0.5);     /*   〃 ふち */
         /* 軽量モード＝すりガラスを切るぶん、下地を濃くして文字が沈まないようにした版 */
         --ui-bg-flat: rgba(244,250,236,0.9);
         --ui-bg2-flat: rgba(253,248,239,0.9);
@@ -133,10 +136,13 @@
       #dock > button i { font-size: clamp(10px,1.9vw,12px); font-style: normal; color: var(--ui-sub); letter-spacing: 0.02em; }
       #dock > button:active { transform: scale(0.93); }
       /* （撤回2026-06-27）以前は1日目だけ🚲のる/🎈とぶを隠していたが、「機能が消えた」とユーザー指摘＝機能削減はNG。常に表示する（body.day1での非表示を廃止） */
-      #bike.on i, #float.on i, #fpvbtn.on i { color: rgba(255,255,255,0.92); }
-      #bike.on { background: rgba(122,168,106,0.95); color: #fff; }
-      #float.on { background: rgba(120,150,200,0.95); color: #fff; }
-      #fpvbtn.on { background: rgba(120,150,200,0.95); color: #fff; }
+      /* ★押して ON にした時の色（2026-07-26・ユーザー実機指摘「文字が白くて見づらい」）。
+         旧＝薄い緑/青に真っ白の文字＝実測の明暗比が 2.2（押す前の 3.4 より悪化していた）。
+         白い文字を乗せるなら面を濃くする。あわせて夜は行灯いろへ沈める。 */
+      #bike.on i, #float.on i, #fpvbtn.on i { color: rgba(255,255,255,0.97); }
+      #bike.on, #float.on, #fpvbtn.on { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); border-color: var(--ui-on-edge); }
+      #bike.on { background: var(--ui-on-green); }
+      #float.on, #fpvbtn.on { background: var(--ui-on-blue); }
       body.flying #dock { display: none !important; }
       body.pm-on #dock { display: none !important; }
       /* 滑走中は関係ないボタンを隠す＝視点きりかえ(#act)だけ残し、重なりを解消（ユーザー指摘2026-06-26） */
@@ -163,7 +169,7 @@
       #fl-zout { right: calc(5% + 74px + env(safe-area-inset-right)); bottom: calc(9% + env(safe-area-inset-bottom)); font-size: 28px; }
       #fl-zin  { right: calc(5% + 74px + env(safe-area-inset-right)); bottom: calc(9% + 68px + env(safe-area-inset-bottom)); font-size: 28px; }
       #fl-speed{ right: calc(5% + 74px + env(safe-area-inset-right)); bottom: calc(9% + 136px + env(safe-area-inset-bottom)); font-size: clamp(11px,2.2vw,14px); }
-      #fl-fpv.on { background: rgba(120,150,200,0.99); box-shadow: 0 0 0 2px rgba(220,235,255,0.7), 0 3px 12px rgba(30,40,70,0.34); }
+      #fl-fpv.on { background: rgba(66,98,152,0.99); box-shadow: 0 0 0 2px rgba(220,235,255,0.7), 0 3px 12px rgba(30,40,70,0.34); } /* 同上＝白文字が読める濃さ */
       #fl-up:active, #fl-down:active, #fl-zin:active, #fl-zout:active, #fl-speed:active, #fl-fpv:active { transform: scale(0.93); background: rgba(116,140,196,0.99); }
       #fl-gauges { left: calc(3% + env(safe-area-inset-left)); top: 30%; display: none; gap: 9px; pointer-events: none; z-index: 7; }
       .flg { position: relative; width: 14px; height: 100px; border-radius: 8px; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.32);
@@ -389,7 +395,7 @@
         font-size: clamp(15px,3vw,19px); color: #3b3024; }
       .set-toggle { appearance: none; border: none; cursor: pointer; min-width: 84px; padding: 0.4em 1em; border-radius: 999px;
         font-size: clamp(13px,2.6vw,16px); font-family: inherit; color: #fff; background: #9aa0ae; transition: background 0.2s; }
-      .set-toggle.on { background: #7aa86a; }
+      .set-toggle.on { background: #4e7a44; } /* 白い「ON」の字が読める濃さへ（#7aa86aは明暗比2.7で読みにくかった・2026-07-26） */
       /* 「とじる」はスクロールする側の最後にあり、下までスクロールしないと出てこなかった（2026-07-25）。
          下に貼り付けて、いつでも見えている状態にする（×は右上に別途あるが、大きく押せる とじる が常にある方が親切） */
       #set-close { position: sticky; bottom: 0; display: block; width: calc(100% + 3.2em); margin: 1.4em -1.6em 0; appearance: none; border: none; cursor: pointer;
@@ -436,7 +442,7 @@
       .map-modes { display: flex; gap: 6px; margin-bottom: 4px; }
       .map-mode { flex: 1; appearance: none; border: none; cursor: pointer; padding: 0.5em 0; border-radius: 999px;
         font-size: 15px; font-family: inherit; color: #5a4a36; background: #e3dac6; transition: background 0.2s; }
-      .map-mode.on { background: #7aa86a; color: #fff; }
+      .map-mode.on { background: #4e7a44; color: #fff; } /* 同上＝白文字が読める濃さ */
       .map-modehelp { margin: 0.4em 0 0.9em; font-size: 12px; line-height: 1.5; color: #8a7a5e; }
       .map-btn { display: block; width: 100%; appearance: none; border: none; cursor: pointer; margin: 7px 0;
         padding: 0.62em 1em; border-radius: 12px; font-size: 16px; font-family: inherit; color: #4a4032;
