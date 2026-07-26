@@ -63,8 +63,12 @@ let __SAFE = false, __safeForced = null // __safeForced＝安全モードが強�
 try { // ?safe=1 で手動ON（以後も継続）／?safe=0 で解除／既に継続フラグがあればON
   const _q = new URLSearchParams(location.search).get('safe')
   if (_q === '1') { __SAFE = true; try { localStorage.setItem('hn3d_safe', '1') } catch (e) {} }
-  else if (_q === '0') { try { localStorage.removeItem('hn3d_safe'); localStorage.setItem('hn3d_bootn', '0') // ★?safe=0＝「ぜんぶもどす」＝段もとまった回数もパンくずも白紙に（2026-07-25）
-    localStorage.setItem('hn3d_level', '0'); localStorage.setItem('hn3d_levelauto', '0'); localStorage.setItem('hn3d_crashn', '0'); localStorage.removeItem('hn3d_bc') } catch (e) {} }
+  else if (_q === '0') { try { localStorage.removeItem('hn3d_safe'); localStorage.setItem('hn3d_bootn', '0')
+    // ★安全モードを切る時は「一段ずつ」降りる（2026-07-26の実機で判明）。
+    //   旧：いきなり段0＝いちばん重い状態へ跳ね返していた。実機ではその直後（女の子に話しかけた所）で落ちた。
+    //   新：段2から始めて、8分ぶじに遊べるたびに自動で1つずつ下がる＝元の絵へ静かに戻る。
+    //   ※スマホでは段2と段0の見た目の差はほとんど無い（旧プロトの町は元々作らないため）。
+    localStorage.setItem('hn3d_level', '2'); localStorage.setItem('hn3d_levelauto', '1'); localStorage.setItem('hn3d_crashn', '0'); localStorage.removeItem('hn3d_bc') } catch (e) {} }
   else if (localStorage.getItem('hn3d_safe') === '1') __SAFE = true
 } catch (e) {}
 // ── パンくず（2026-07-25・iPhone15の「何も出ずに突然おわる」を突き止めるため）──
@@ -17823,7 +17827,7 @@ const RESIDENT_TOON_FALLBACK = false
 // ★準備(parse＋コンパイル)は PREP2=420m圏で前倒し（商店街まで約300mの出発地点/坂の途中＝忙しい到着間際でなく静かな早い段階でMToonシェーダーをコンパイル）。破棄は DROP2=500m（ヒステリシスでしきい際のバタつき防止）。表示は SHOW2=58m のまま
 // ★表示SHOW=105m/隠しHIDE=120m：範囲外はトゥーンでなく"消す"方針にしたので、遠くからでもVRMで見える距離まで広げる（近づくと現れる的な空きを防ぐ）。表示は準備済み(=compile/texUp完了)のVRMを可視化するだけ＝描画のみで軽く、クラッシュ源の準備(PREP=420m)/破棄(DROP=500m)は不変＝安全。
 // ★KEEP=8＝準備済みVRMの保有上限（LRU）：破棄がdrop2(500m)だけだと商店街の中心で20体超が同時preparedになりRAM100MB級＝保有に上限を付け、超えたら「表示していない最遠」を返す（監査2026-07-10）
-const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = __HQ ? 32 : 8, VRM_RES_KEEP = __HQ ? 40 : (__level >= 1 ? 8 : 20), VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9), _vrmSwapCamL = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す）／_vrmSwapCamL=前フレームのカメラ位置（カットの検知＝タイトル明け/テレポートの瞬間は切替が絶対に見えない） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★リモートコントロール(?hq=1)だけCAP32/KEEP40（2026-07-16）＝母艦は描画余力が大きく「視界の全員VRM」（昼の実測は最大10候補・祭り会場は約12＝_swingcheck）。★iPhone単体（hq無し）は8/20のまま＝ユーザー方針2026-07-16「スマホ起動は発熱最優先・画質はリモコンで遊ぶ」（一時16に上げたが発熱リスクで即日差し戻し）。枠の順位バグ修正（資格者だけで数える）は8でも効く＝近い8人が正しく枠を取る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
+const VRM_RES_BUFCACHE = {}, VRM_RES_CAP = __HQ ? 32 : 8, VRM_RES_KEEP = __HQ ? 40 : ((__PHONE || __level >= 1) ? 8 : 20), VRM_RES_SHOW2 = 120 * 120, VRM_RES_HIDE2 = 132 * 132, VRM_RES_PREP2 = 420 * 420, VRM_RES_DROP2 = 500 * 500, VRM_RES_GRACE = 9, _vrmSwapF = new THREE.Vector3(), _vrmToolQ = new THREE.Quaternion(), _netHp = new THREE.Vector3(), _netSp = new THREE.Vector3(), _netDir = new THREE.Vector3(), _netUp = new THREE.Vector3(0, 1, 0), _vrmSwapLast = new THREE.Vector3(1e9, 0, 1e9), _vrmSwapCamL = new THREE.Vector3(1e9, 0, 1e9) // _vrmSwapLast=前フレームの主人公位置（速度算出＝走り/自転車中は切替を許す）／_vrmSwapCamL=前フレームのカメラ位置（カットの検知＝タイトル明け/テレポートの瞬間は切替が絶対に見えない） // ★CAP 3→8/KEEP 8→20/SHOW 105→120（計画②・2026-07-10）＝メッシュ統合（68→23）でCAP8が旧3体分の描画コールと同等になったため解放。軽量モード時はtick内でCAP4へ自動で絞る // ★リモートコントロール(?hq=1)だけCAP32/KEEP40（2026-07-16）＝母艦は描画余力が大きく「視界の全員VRM」（昼の実測は最大10候補・祭り会場は約12＝_swingcheck）。★iPhone単体（hq無し）は8/20のまま＝ユーザー方針2026-07-16「スマホ起動は発熱最優先・画質はリモコンで遊ぶ」（一時16に上げたが発熱リスクで即日差し戻し）。枠の順位バグ修正（資格者だけで数える）は8でも効く＝近い8人が正しく枠を取る // ★起動9秒は住人の準備(コンパイル)を始めない＝出発地点そばの住人のMToonコンパイルが読み込み直後の最繁忙に重なって初回落ちするのを防ぐ（2026-07-08実機で再現→対策）
 async function ensureResLibs() {
   if (vrmResLibs) return vrmResLibs
   const [{ GLTFLoader }, vm] = await Promise.all([import('three/examples/jsm/loaders/GLTFLoader.js'), import('@pixiv/three-vrm')])
@@ -17917,16 +17921,21 @@ async function prepareResidentVrm(r) { // 遠く(220m)で前倒し：parse＋リ
     if (VRMUtils.combineMorphs) VRMUtils.combineMorphs(vrm) // 約50モーフを使う表情ぶんへ畳む＝隠れVRAM/RAM削減（モバイルmorph上限→context lost対策）。口パクaa/まばたきは保持
     VRMUtils.rotateVRM0(vrm)
     if (VRM_MERGE_MESHES) mergeVrmMeshes(vrm) // ★同マテリアルのスキンメッシュを統合＝1体約68→十数描画コール（「視界内ぜんぶVRM」計画①・2026-07-10）
+    // ★スマホは「顔まわりだけ256、あとは128」（2026-07-26の実機クラッシュ対策）。
+    //   実測＝住人VRM1体の絵は10.34MB。iPhoneは用意ずみを8体まで持つので、そのままだと絵だけで83MB。
+    //   会話は顔に寄るので顔・目・眉・口は256のまま残し、髪・服・体だけ半分（面積1/4）に落とす＝約4割の量へ。
     const seenTex = new Set(), MAXW = 256 // 住人=背景キャラ＝256（主人公1024の1/16面積）。全チャンネル保持のまま縮小（nullはrim/emissive factorを露出させ色化けするため禁止）
+    const FACEISH = /Face|Eye|Brow|Lash|Mouth|SKIN/i // 寄って見る所＝大きさを落とさない
     vrm.scene.traverse((o) => { if (!o.isMesh || !o.material) return
       for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
         if (/ \(Outline\)$/.test(m.name || '')) m.visible = false
         if (m.normalMap) { m.normalMap = null; m.needsUpdate = true }
+        const lim = (__PHONE && !FACEISH.test(m.name || '')) ? 128 : MAXW
         for (const key of VRM_TEX_KEYS) {
           const t = m[key]; if (!t || !t.image || seenTex.has(t)) continue; seenTex.add(t)
           const w = t.image.width || 0
-          if (w > MAXW) { const cv = document.createElement('canvas'); const sc = MAXW / w
-            cv.width = MAXW; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
+          if (w > lim) { const cv = document.createElement('canvas'); const sc = lim / w
+            cv.width = lim; cv.height = Math.max(1, Math.round((t.image.height || w) * sc))
             cv.getContext('2d').drawImage(t.image, 0, 0, cv.width, cv.height)
             if (t.image.close) t.image.close(); t.image = cv; t.needsUpdate = true } } } })
     if (cfg.role === 'lady') ladyize(vrm, cfg); else if (cfg.role === 'yukata') yukataize(vrm, cfg); else if (cfg.role === 'grandpa') grandpaize(vrm, cfg); else if (cfg.role === 'grandma') grandmaize(vrm, cfg); else if (cfg.girl) girlize(vrm, cfg) // 女の子＝黒髪+白ブラウス+赤スカート（cfgのgHair/gBlouse/gSkirtで背景の女児は作り分け・物語の女の子は既定値で不変）。yukata＝盆踊りの踊り手（2026-07-10）
@@ -19551,7 +19560,8 @@ window.__proto3d = {
   get renderer() { return renderer }, _glInfo() { return { tex: renderer.info.memory.textures, geo: renderer.info.memory.geometries, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, glLost: __glLost } }, // 検証用：GPUリソース量（住人VRM追加のcontext lost診断・今後のperf検証）
   _thermo(mult) { if (mult) { __texBase = Math.max(1, Math.round(renderer.info.memory.textures / mult)); __playT0 = performance.now() - 30000 } return { base: __texBase, now: renderer.info.memory.textures, keepCap: __keepCap, vrmHalted: __vrmHalted } }, // 検証用：体温計を人工的に高くして、守りの手が正しく順に出るか確かめる
   _memStat() { return { compSavedMB: __compSavedMB, freedMB: +(__relBytes / 1048576).toFixed(1), freedAttrs: __relAttrs, marks: window.__bootMarks || [],
-    droppedGrp: __droppedGrp, droppedGeo: __droppedGeo, dropTown: __DROP_TOWN, resizeN: __resizeN, level: __level, levelAuto: __levelAuto, askLighter: __askLighter, crashN: __crashN, prevCrash: __prevCrash, sec: __playSec, phone: __PHONE, lowArt: __LOWART, title: titleView } }, // 検証用：起動圧縮の削減量＋CPU頂点データの解放量＋建設の節目タイム（iPhone15クラッシュ対策2026-07-22/25）
+    droppedGrp: __droppedGrp, droppedGeo: __droppedGeo, dropTown: __DROP_TOWN, resizeN: __resizeN, level: __level, levelAuto: __levelAuto, askLighter: __askLighter, crashN: __crashN, prevCrash: __prevCrash, sec: __playSec, phone: __PHONE, lowArt: __LOWART, title: titleView,
+    vrmCap: VRM_RES_CAP, vrmKeep: VRM_RES_KEEP } }, // 検証用：起動圧縮の削減量＋解放量＋節目タイム＋「同時に見せる数／持っておく数」（後者が2026-07-26の実機クラッシュの主因だった）
   __ks: __KS, // 計測用：キルスイッチ実体を公開＝ランタイムでprepass/prehalf/minpostを切替（Phase1のコスト計測用。URLパラメータと同じ効果）
   __perfStat() { const L = __hudLog, m = Math.min(24, L.length); let s = 0, mx = 0; for (let i = L.length - m; i < L.length; i++) { s += L[i][1]; if (L[i][1] > mx) mx = L[i][1] } const avg = m ? s / m : 0; return { frames: m, avgMs: +avg.toFixed(2), maxMs: +mx.toFixed(2), fps: +(1000 / (avg || 1)).toFixed(1), calls: __hudCalls, tris: __hudTris } }, // 計測用：直近24フレームの平均/最大フレーム時間＋fps換算＋draw/tri（?hud=1でHUD計測が動いている前提。fpsは30上限を外した「素の重さ」）
   __perfPass(o) { window.__perf = o || null }, // 計測用：各ポストパスの個別上書きをまとめてセット（{godray:false}等・nullで解除）
